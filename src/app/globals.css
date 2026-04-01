@@ -23,6 +23,8 @@
   --radius: 0.625rem;
   --accent-glow: rgba(0, 0, 0, 0.3);
   --grid: rgba(0, 0, 0, 0.08);
+  --faq-motion-duration: 0.55s;
+  --faq-motion-ease: cubic-bezier(0.33, 1, 0.68, 1);
 }
 
 /* Dark theme: strict monochrome */
@@ -115,6 +117,27 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Global interactive cursor: hand over the whole control; nested SVG/text inherit so hover matches. */
+a[href]:not([aria-disabled="true"]) {
+  cursor: pointer;
+}
+
+a[href] * {
+  cursor: inherit;
+}
+
+button:not(:disabled) {
+  cursor: pointer;
+}
+
+button:not(:disabled) * {
+  cursor: inherit;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
 .font-display {
   font-family: var(--font-syne), system-ui, sans-serif;
 }
@@ -168,4 +191,116 @@ body {
     margin;
   transition-duration: var(--motion-duration);
   transition-timing-function: var(--motion-ease);
+}
+
+/* FAQ accordions: smooth expand/collapse (avoids native <details> snap). */
+/* Lift on hover uses `transform` here so it shares one property with the transition. Tailwind v4's
+   `-translate-y-*` utilities set the separate `translate` property, which would otherwise snap. */
+.faq-details {
+  transition-property: transform, box-shadow, border-color, background-color;
+  transition-duration: var(--faq-motion-duration);
+  transition-timing-function: var(--faq-motion-ease);
+  transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
+}
+
+@media (min-width: 768px) {
+  .faq-details:hover {
+    transform: translate3d(0, -0.25rem, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .faq-details {
+    transition-duration: 0.01ms;
+  }
+
+  @media (min-width: 768px) {
+    .faq-details:hover {
+      transform: translate3d(0, 0, 0);
+    }
+  }
+}
+
+.faq-details-panel {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows var(--faq-motion-duration) var(--faq-motion-ease);
+}
+
+.faq-details[data-state="open"] > .faq-details-panel {
+  grid-template-rows: 1fr;
+}
+
+.faq-details-panel-inner {
+  min-height: 0;
+  overflow: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .faq-details-panel {
+    transition: none;
+  }
+}
+
+/* Primary waitlist CTA: same motion language as FAQ (transform-based lift + shadow). */
+.waitlist-cta {
+  transition-property: transform, box-shadow, filter;
+  transition-duration: var(--faq-motion-duration);
+  transition-timing-function: var(--faq-motion-ease);
+  transform: translate3d(0, 0, 0);
+  box-shadow: 0 8px 28px -10px rgba(0, 0, 0, 0.35);
+}
+
+/* Arrow nudge: use transform here (not Tailwind translate utilities) so transition runs—Tailwind may
+   set the `translate` longhand, which `transition: transform` does not animate. */
+.waitlist-cta-arrow {
+  transform: translate3d(0, 0, 0);
+  transition: transform var(--faq-motion-duration) var(--faq-motion-ease);
+}
+
+.dark .waitlist-cta {
+  box-shadow: 0 8px 32px -10px rgba(255, 255, 255, 0.12);
+}
+
+@media (min-width: 768px) and (hover: hover) and (pointer: fine) {
+  .waitlist-cta:hover:not(:disabled) {
+    transform: translate3d(0, -0.25rem, 0);
+    box-shadow: 0 14px 44px -12px rgba(0, 0, 0, 0.45);
+    filter: brightness(1.06);
+  }
+
+  .waitlist-cta:hover:not(:disabled) .waitlist-cta-arrow {
+    transform: translate3d(0.35rem, 0, 0);
+  }
+
+  .dark .waitlist-cta:hover:not(:disabled) {
+    box-shadow: 0 14px 48px -12px rgba(255, 255, 255, 0.18);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .waitlist-cta {
+    transition-duration: 0.01ms;
+  }
+
+  .waitlist-cta-arrow {
+    transition-duration: 0.01ms;
+  }
+
+  @media (min-width: 768px) and (hover: hover) and (pointer: fine) {
+    .waitlist-cta:hover:not(:disabled) {
+      transform: translate3d(0, 0, 0);
+      filter: none;
+      box-shadow: 0 8px 28px -10px rgba(0, 0, 0, 0.35);
+    }
+
+    .waitlist-cta:hover:not(:disabled) .waitlist-cta-arrow {
+      transform: translate3d(0, 0, 0);
+    }
+
+    .dark .waitlist-cta:hover:not(:disabled) {
+      box-shadow: 0 8px 32px -10px rgba(255, 255, 255, 0.12);
+    }
+  }
 }

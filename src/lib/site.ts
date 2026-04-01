@@ -1,5 +1,5 @@
 export const siteName = "Make a Company";
-export const siteTitle = "Make a Company — one human, infinite agents";
+export const siteTitle = "Your AI Company in Slack";
 export const siteDescription =
   "Waitlist: AI employees in Slack for solo founders and lean teams—first 100 get a free month at launch. $1 refundable deposit.";
 export const siteUrl =

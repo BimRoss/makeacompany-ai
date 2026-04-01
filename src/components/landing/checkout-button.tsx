@@ -105,7 +105,7 @@ export function CheckoutButton({ label, className }: CheckoutButtonProps) {
         disabled={loading || waitlistFull}
         aria-busy={loading}
         onClick={onClick}
-        className={`group inline-flex h-12 w-full items-center justify-center rounded-lg bg-primary px-5 text-base font-semibold text-primary-foreground motion-colors hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-70 sm:h-14 sm:w-auto sm:px-8 sm:text-lg ${className ?? ""}`}
+        className={`waitlist-cta group inline-flex h-12 w-full items-center justify-center rounded-lg bg-primary px-5 text-base font-semibold text-primary-foreground disabled:opacity-70 sm:h-14 sm:w-auto sm:px-8 sm:text-lg ${className ?? ""}`}
       >
         {loading ? (
           <>
@@ -117,7 +117,10 @@ export function CheckoutButton({ label, className }: CheckoutButtonProps) {
         ) : (
           <>
             {label}
-            <ArrowRight className="ml-2 h-4 w-4 motion-transform group-hover:translate-x-1 sm:h-5 sm:w-5" />
+            <ArrowRight
+              className="waitlist-cta-arrow ml-2 h-4 w-4 shrink-0 sm:h-5 sm:w-5"
+              aria-hidden
+            />
           </>
         )}
       </button>

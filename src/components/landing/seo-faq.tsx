@@ -1,3 +1,5 @@
+import { FaqAccordionItem } from "@/components/landing/faq-accordion-item";
+
 const faqItems = [
   {
     question: "What is makeacompany.ai?",
@@ -27,10 +29,7 @@ export function SeoFaqSection() {
       <h2 className="text-center text-3xl font-semibold tracking-tight sm:text-4xl">Frequently asked questions</h2>
       <div className="mt-10 space-y-4">
         {faqItems.map((item) => (
-          <details key={item.question} className="rounded-xl border border-border bg-card/60 p-5">
-            <summary className="cursor-pointer list-none text-lg font-medium">{item.question}</summary>
-            <p className="mt-3 text-muted-foreground">{item.answer}</p>
-          </details>
+          <FaqAccordionItem key={item.question} question={item.question} answer={item.answer} />
         ))}
       </div>
     </section>

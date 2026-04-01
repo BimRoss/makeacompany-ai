@@ -30,8 +30,8 @@ export function Header() {
       <div
         className={`group relative mx-auto flex w-full max-w-6xl items-center justify-between overflow-hidden rounded-3xl px-5 motion-all sm:px-8 ${
           isScrolled
-            ? "h-14 bg-white/62 shadow-[0_18px_52px_rgba(0,0,0,0.14),0_2px_8px_rgba(255,255,255,0.25)_inset] backdrop-blur-2xl dark:bg-black/58 dark:shadow-[0_22px_64px_rgba(0,0,0,0.55),0_2px_8px_rgba(255,255,255,0.08)_inset]"
-            : "h-16 bg-white/52 shadow-[0_14px_42px_rgba(0,0,0,0.1),0_2px_6px_rgba(255,255,255,0.22)_inset] backdrop-blur-xl dark:bg-black/50 dark:shadow-[0_16px_48px_rgba(0,0,0,0.48),0_2px_6px_rgba(255,255,255,0.08)_inset]"
+            ? "h-14 bg-white/62 shadow-[0_18px_52px_rgba(0,0,0,0.14),0_2px_8px_rgba(255,255,255,0.25)_inset] backdrop-blur-2xl dark:bg-black/58 dark:shadow-[0_0_0_1px_rgba(255,255,255,0.1),0_22px_64px_-12px_rgba(255,255,255,0.1),0_8px_28px_-8px_rgba(255,255,255,0.06),0_2px_10px_rgba(255,255,255,0.14)_inset]"
+            : "h-16 bg-white/52 shadow-[0_14px_42px_rgba(0,0,0,0.1),0_2px_6px_rgba(255,255,255,0.22)_inset] backdrop-blur-xl dark:bg-black/50 dark:shadow-[0_0_0_1px_rgba(255,255,255,0.09),0_18px_56px_-14px_rgba(255,255,255,0.08),0_6px_24px_-8px_rgba(255,255,255,0.05),0_2px_8px_rgba(255,255,255,0.12)_inset]"
         }`}
       >
         <div className="pointer-events-none absolute inset-0">
@@ -59,15 +59,21 @@ export function Header() {
         <button
           type="button"
           onClick={() => setTheme(isDark ? "light" : "dark")}
-          aria-label="Toggle theme"
-          className="relative inline-flex h-9 w-9 items-center justify-center rounded-lg bg-background/45 shadow-[0_6px_16px_rgba(0,0,0,0.12)] motion-colors hover:bg-accent hover:text-accent-foreground dark:shadow-[0_8px_18px_rgba(0,0,0,0.5)]"
+          aria-label={
+            mounted
+              ? isDark
+                ? "Switch to light mode"
+                : "Switch to dark mode"
+              : "Toggle color theme"
+          }
+          className="relative inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-full text-foreground/70 motion-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/25 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent active:scale-[0.97]"
         >
           {!mounted ? (
-            <span className="h-5 w-5" />
+            <span className="inline-block h-5 w-5" aria-hidden />
           ) : (
             <>
-              <Sun className="h-5 w-5 rotate-0 scale-100 motion-transform dark:-rotate-90 dark:scale-0" />
-              <Moon className="absolute h-5 w-5 rotate-90 scale-0 motion-transform dark:rotate-0 dark:scale-100" />
+              <Sun className="h-[1.125rem] w-[1.125rem] rotate-0 scale-100 motion-transform dark:-rotate-90 dark:scale-0" />
+              <Moon className="absolute h-[1.125rem] w-[1.125rem] rotate-90 scale-0 motion-transform dark:rotate-0 dark:scale-100" />
             </>
           )}
         </button>

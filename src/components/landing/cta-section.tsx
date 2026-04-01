@@ -40,7 +40,7 @@ export function CtaSection() {
               >
                 BimRoss
               </a>
-              —operators shipping AI systems in production, not slide decks.
+              .
             </p>
           </div>
         </div>

@@ -10,8 +10,8 @@ export function HeroSection() {
       </div>
 
       <div className="relative mx-auto max-w-4xl text-center">
-        <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-foreground bg-white px-3 py-1.5 text-xs text-black sm:mb-8 sm:px-4 sm:py-2 sm:text-sm">
-          <Sparkles className="h-3.5 w-3.5 text-black sm:h-4 sm:w-4" />
+        <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-foreground bg-background px-3 py-1.5 text-xs text-foreground sm:mb-8 sm:px-4 sm:py-2 sm:text-sm">
+          <Sparkles className="h-3.5 w-3.5 text-foreground sm:h-4 sm:w-4" />
           <span>First 100 users get a FREE month on launch</span>
         </div>
 
@@ -33,15 +33,15 @@ export function HeroSection() {
           <p className="sm:hidden">Create, define roles, and deploy to Slack instantly.</p>
           <div className="hidden items-center justify-center gap-2.5 sm:flex sm:flex-row sm:flex-wrap sm:gap-x-8 sm:gap-y-4">
             <div className="flex items-center gap-2">
-              <div className="h-2 w-2 rounded-full border border-foreground bg-background" />
+              <div className="h-2 w-2 shrink-0 rounded-full bg-foreground" aria-hidden />
               <span className="text-black dark:text-white">Chat to create your company</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="h-2 w-2 rounded-full border border-foreground bg-background" />
+              <div className="h-2 w-2 shrink-0 rounded-full bg-foreground" aria-hidden />
               <span className="text-black dark:text-white">Define roles & personalities</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="h-2 w-2 rounded-full border border-foreground bg-background" />
+              <div className="h-2 w-2 shrink-0 rounded-full bg-foreground" aria-hidden />
               <span className="text-black dark:text-white">Deploy to Slack instantly</span>
             </div>
           </div>
@@ -51,7 +51,7 @@ export function HeroSection() {
 
         <div className="mt-3 space-y-1.5 text-xs text-muted-foreground sm:mt-4 sm:text-sm">
           <p>$1 reservation—fully refundable anytime before launch.</p>
-          <p className="text-pretty text-muted-foreground/90">
+          <p className="hidden text-pretty text-muted-foreground/90 sm:block">
             It holds your spot in the first 100 and keeps the waitlist for people who actually show up.
           </p>
         </div>
