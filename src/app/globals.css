@@ -70,6 +70,26 @@
   border-color: var(--border);
 }
 
+html,
+body,
+.bg-background,
+.text-foreground,
+.border-border,
+.bg-card,
+.text-card-foreground,
+.bg-muted,
+.text-muted-foreground,
+.bg-secondary,
+.bg-primary,
+.text-primary-foreground,
+.bg-accent,
+.text-accent-foreground,
+.hero-grid {
+  transition-property: background-color, border-color, color, fill, stroke, box-shadow;
+  transition-duration: 1s;
+  transition-timing-function: ease-in-out;
+}
+
 html {
   background-color: var(--background);
 }

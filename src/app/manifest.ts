@@ -12,8 +12,8 @@ export default function manifest(): MetadataRoute.Manifest {
     theme_color: "#09090b",
     icons: [
       {
-        src: "/bimross-logo-small.png",
-        sizes: "512x512",
+        src: "/makeacompany-mark-c.png",
+        sizes: "226x274",
         type: "image/png",
       },
     ],

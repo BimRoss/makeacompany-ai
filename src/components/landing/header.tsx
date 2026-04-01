@@ -39,8 +39,8 @@ export function Header() {
         </div>
         <div className="flex items-center gap-3">
           <Image
-            src="/bimross-logo-small.png"
-            alt="BimRoss"
+            src="/makeacompany-mark-c.png"
+            alt="Make a Company logo mark"
             width={40}
             height={40}
             className="h-10 w-10 rounded-md object-contain"
