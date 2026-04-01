@@ -1,5 +1,7 @@
 # makeacompany.ai
 
+Source: [github.com/BimRoss/makeacompany-ai](https://github.com/BimRoss/makeacompany-ai)
+
 Marketing landing page and **$1 Stripe waitlist** for [makeacompany.ai](https://makeacompany.ai), with a Go API and Redis persistence. Stack mirrors BimRoss patterns (Thread Pilot–style billing hooks, Subnet Signal–style Redis backups in GitOps).
 
 ## Repo layout
