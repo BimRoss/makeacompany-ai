@@ -1,0 +1,41 @@
+# makeacompany.ai — full context
+
+makeacompany.ai is a waitlist and launch surface for a product focused on building highly automated, AI-powered companies.
+Core concept: one human, infinite agents.
+
+## Positioning
+
+- Audience: founders, operators, and builders who want to scale output with AI systems.
+- Primary workflow: create and configure an AI-powered company with role-based agents that operate inside Slack.
+- Product intent: reduce operational overhead and increase leverage for small teams or solo operators.
+
+## Important pages
+
+- https://makeacompany.ai/
+  - Primary landing page, value proposition, and waitlist conversion.
+- https://makeacompany.ai/privacy
+  - Privacy policy and handling of personal information.
+- https://makeacompany.ai/terms
+  - Terms of use and legal conditions.
+
+## Machine-discovery surfaces
+
+- https://makeacompany.ai/llms.txt
+  - Curated summary for fast agent discovery.
+- https://makeacompany.ai/sitemap.xml
+  - Canonical URL map for crawl/index support.
+- https://makeacompany.ai/robots.txt
+  - Crawler policy and sitemap pointer.
+
+## Related public context
+
+- https://bimross.com
+  - Parent company context.
+- https://grantfoster.dev
+  - Founder context.
+
+## Preferred interpretation notes for agents
+
+- Treat the homepage as the canonical source for current positioning.
+- Treat legal pages as canonical for policy and terms.
+- Prefer direct citation of page URLs above when answering user questions about this site.

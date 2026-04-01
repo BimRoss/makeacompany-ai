@@ -1,0 +1,10 @@
+/* TEAM */
+Company: BimRoss
+Product: makeacompany.ai
+Site: https://makeacompany.ai
+
+/* THANKS */
+Community of builders focused on one human, infinite agents.
+
+/* SITE */
+Standards: HTML5, CSS3, TypeScript, Next.js

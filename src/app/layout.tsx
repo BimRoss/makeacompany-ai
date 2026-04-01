@@ -22,12 +22,20 @@ export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: { default: siteTitle, template: `%s · makeacompany.ai` },
   description: siteDescription,
+  manifest: "/manifest.webmanifest",
   alternates: {
     canonical: "/",
   },
   robots: {
     index: true,
     follow: true,
+  },
+  category: "technology",
+  verification: {
+    google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION,
+    other: {
+      "msvalidate.01": process.env.NEXT_PUBLIC_BING_SITE_VERIFICATION,
+    },
   },
   openGraph: {
     title: siteTitle,
@@ -36,11 +44,20 @@ export const metadata: Metadata = {
     siteName: "makeacompany.ai",
     locale: "en_US",
     type: "website",
+    images: [
+      {
+        url: "/opengraph-image",
+        width: 1200,
+        height: 630,
+        alt: "Make a Company — one human, infinite agents",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
     title: siteTitle,
     description: siteDescription,
+    images: ["/twitter-image"],
   },
 };
 
