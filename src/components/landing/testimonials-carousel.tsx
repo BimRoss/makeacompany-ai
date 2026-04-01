@@ -1,0 +1,94 @@
+import { Star } from "lucide-react";
+
+const TESTIMONIALS = [
+  {
+    id: 1,
+    name: "Sarah Chen",
+    role: "Founder, TechFlow",
+    avatar: "SC",
+    content:
+      "We replaced 3 part-time VAs with makeacompany.ai. It's like having a team that never sleeps and actually follows instructions.",
+  },
+  {
+    id: 2,
+    name: "Marcus Johnson",
+    role: "CEO, DataScale",
+    avatar: "MJ",
+    content:
+      "Built our entire customer support team in an afternoon. The AI agents handle 80% of inquiries without any human intervention.",
+  },
+  {
+    id: 3,
+    name: "Emily Rodriguez",
+    role: "Head of Ops, Velocity",
+    avatar: "ER",
+    content:
+      "The ROI is insane. We're talking $50k/year in saved salaries for work that's actually getting done better.",
+  },
+  {
+    id: 4,
+    name: "David Park",
+    role: "Solo Founder",
+    avatar: "DP",
+    content:
+      "As a solo founder, this gave me a team. I finally have someone to delegate to. Game changer for indie hackers.",
+  },
+  {
+    id: 5,
+    name: "Alex Thompson",
+    role: "VP Engineering, CloudBase",
+    avatar: "AT",
+    content:
+      "The Slack integration is seamless. Our team forgot the agents aren't real people. That's how good it is.",
+  },
+  {
+    id: 6,
+    name: "Jennifer Wu",
+    role: "COO, GrowthLabs",
+    avatar: "JW",
+    content:
+      "We created specialized agents for sales, support, and ops. Each one has their own personality and expertise.",
+  },
+];
+
+export function TestimonialsCarousel() {
+  return (
+    <section className="bg-muted/30 py-20">
+      <div className="mx-auto max-w-6xl px-6">
+        <div className="mb-12 text-center">
+          <h2 className="mb-4 text-3xl font-bold tracking-tight sm:text-4xl">
+            Early users are already seeing results
+          </h2>
+          <p className="text-lg text-muted-foreground">
+            Here&apos;s what beta testers are saying about makeacompany.ai
+          </p>
+        </div>
+
+        <div className="scrollbar-thin -mx-2 flex snap-x snap-mandatory gap-4 overflow-x-auto px-2 pb-2">
+          {TESTIMONIALS.map((testimonial) => (
+            <article
+              key={testimonial.id}
+              className="min-w-[84%] snap-start rounded-xl border border-border bg-card p-6 shadow-sm sm:min-w-[48%] lg:min-w-[31%]"
+            >
+              <div className="mb-4 flex gap-1">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <Star key={i} className="h-4 w-4 fill-yellow-500 text-yellow-500" />
+                ))}
+              </div>
+              <p className="mb-6 text-pretty text-muted-foreground">&quot;{testimonial.content}&quot;</p>
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
+                  {testimonial.avatar}
+                </div>
+                <div>
+                  <p className="font-semibold">{testimonial.name}</p>
+                  <p className="text-sm text-muted-foreground">{testimonial.role}</p>
+                </div>
+              </div>
+            </article>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
