@@ -1,20 +1,66 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ArrowRight, Loader2 } from "lucide-react";
 import { apiBase } from "@/lib/site";
+import { DEFAULT_WAITLIST_CAP, WAITLIST_REFRESH_EVENT } from "@/lib/waitlist";
 
 type CheckoutButtonProps = {
   label: string;
   className?: string;
 };
 
+type WaitlistStatsResponse = {
+  signups: number;
+  cap?: number;
+  full?: boolean;
+};
+
 export function CheckoutButton({ label, className }: CheckoutButtonProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [stats, setStats] = useState<WaitlistStatsResponse | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      try {
+        const res = await fetch(`${apiBase()}/v1/billing/waitlist-stats`, {
+          method: "GET",
+          cache: "no-store",
+        });
+        if (!res.ok) {
+          return;
+        }
+        const json = (await res.json()) as WaitlistStatsResponse;
+        if (!cancelled) {
+          setStats(json);
+        }
+      } catch {
+        /* keep prior stats */
+      }
+    }
+
+    void load();
+    const onRefresh = () => {
+      void load();
+      window.setTimeout(() => void load(), 1500);
+    };
+    window.addEventListener(WAITLIST_REFRESH_EVENT, onRefresh);
+    return () => {
+      cancelled = true;
+      window.removeEventListener(WAITLIST_REFRESH_EVENT, onRefresh);
+    };
+  }, []);
+
+  const cap =
+    stats && typeof stats.cap === "number" && stats.cap > 0 ? stats.cap : DEFAULT_WAITLIST_CAP;
+  const waitlistFull =
+    stats !== null && (stats.full === true || stats.signups >= cap);
 
   async function onClick() {
-    if (loading) {
+    if (loading || waitlistFull) {
       return;
     }
     setLoading(true);
@@ -27,8 +73,15 @@ export function CheckoutButton({ label, className }: CheckoutButtonProps) {
       });
       const data = (await res.json()) as { url?: string; error?: string };
       if (!res.ok) {
-        setError(data.error ?? "Checkout failed");
+        const msg = data.error ?? "Checkout failed";
+        setError(msg);
         setLoading(false);
+        if (res.status === 403 && msg.toLowerCase().includes("waitlist")) {
+          void fetch(`${apiBase()}/v1/billing/waitlist-stats`, { cache: "no-store" })
+            .then((r) => r.json())
+            .then((j) => setStats(j as WaitlistStatsResponse))
+            .catch(() => undefined);
+        }
         return;
       }
       if (!data.url) {
@@ -49,7 +102,7 @@ export function CheckoutButton({ label, className }: CheckoutButtonProps) {
     <div className="flex w-full flex-col items-center gap-2.5 sm:gap-3">
       <button
         type="button"
-        disabled={loading}
+        disabled={loading || waitlistFull}
         aria-busy={loading}
         onClick={onClick}
         className={`group inline-flex h-12 w-full items-center justify-center rounded-lg bg-primary px-5 text-base font-semibold text-primary-foreground motion-colors hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-70 sm:h-14 sm:w-auto sm:px-8 sm:text-lg ${className ?? ""}`}
@@ -59,6 +112,8 @@ export function CheckoutButton({ label, className }: CheckoutButtonProps) {
             <Loader2 className="mr-2 h-4 w-4 animate-spin text-white sm:h-5 sm:w-5" />
             Opening Stripe...
           </>
+        ) : waitlistFull ? (
+          <>Waitlist full!</>
         ) : (
           <>
             {label}

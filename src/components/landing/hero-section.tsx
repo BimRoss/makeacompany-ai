@@ -12,7 +12,7 @@ export function HeroSection() {
       <div className="relative mx-auto max-w-4xl text-center">
         <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-foreground bg-white px-3 py-1.5 text-xs text-black sm:mb-8 sm:px-4 sm:py-2 sm:text-sm">
           <Sparkles className="h-3.5 w-3.5 text-black sm:h-4 sm:w-4" />
-          <span>First 10,000 users get a FREE month on launch</span>
+          <span>First 100 users get a FREE month on launch</span>
         </div>
 
         <h1 className="mb-4 text-balance text-3xl font-bold tracking-tight sm:mb-6 sm:text-5xl md:text-6xl lg:text-7xl">

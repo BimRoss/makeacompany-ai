@@ -3,12 +3,12 @@
 import { useEffect, useState } from "react";
 import { Users } from "lucide-react";
 import { apiBase } from "@/lib/site";
-
-const MAX_WAITLIST = 10000;
-const WAITLIST_REFRESH_EVENT = "waitlist:refresh";
+import { DEFAULT_WAITLIST_CAP, WAITLIST_REFRESH_EVENT } from "@/lib/waitlist";
 
 type WaitlistStatsResponse = {
   signups: number;
+  cap?: number;
+  full?: boolean;
   amountCents: number;
   amountDisplay: string;
 };
@@ -74,8 +74,9 @@ export function WaitlistProgress() {
     );
   }
 
-  const percentage = Math.min((data.signups / MAX_WAITLIST) * 100, 100);
-  const spotsLeft = Math.max(MAX_WAITLIST - data.signups, 0);
+  const cap = typeof data.cap === "number" && data.cap > 0 ? data.cap : DEFAULT_WAITLIST_CAP;
+  const percentage = Math.min((data.signups / cap) * 100, 100);
+  const spotsLeft = Math.max(cap - data.signups, 0);
 
   return (
     <section className="py-16">
@@ -91,7 +92,7 @@ export function WaitlistProgress() {
                 <p className="text-2xl font-bold tabular-nums">
                   {data.signups.toLocaleString()}{" "}
                   <span className="text-base font-normal text-muted-foreground">
-                    / {MAX_WAITLIST.toLocaleString()}
+                    / {cap.toLocaleString()}
                   </span>
                 </p>
               </div>

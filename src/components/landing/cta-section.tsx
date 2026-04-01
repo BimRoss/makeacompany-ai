@@ -14,7 +14,7 @@ export function CtaSection() {
               Don&apos;t miss your free month
             </h2>
             <p className="mx-auto mb-8 max-w-xl text-pretty text-lg text-muted-foreground">
-              Join the first 10,000 users and get your first month completely free when we launch.
+              Join the first 100 users and get your first month completely free when we launch.
               Zero risk, fully refundable deposit.
             </p>
             <div className="mb-8 flex flex-wrap items-center justify-center gap-x-6 gap-y-3 text-sm">

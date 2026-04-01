@@ -40,6 +40,7 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 	s.mux.HandleFunc("/v1/billing/checkout-status", s.handleCheckoutStatus)
 	s.mux.HandleFunc("/v1/billing/webhook", s.handleWebhook)
 	s.mux.HandleFunc("/v1/billing/waitlist-stats", s.handleWaitlistStats)
+	s.mux.HandleFunc("/v1/admin/waitlist", s.handleAdminWaitlist)
 	return s, nil
 }
 
@@ -94,6 +95,16 @@ func (s *Server) handleCheckout(w http.ResponseWriter, r *http.Request) {
 	}
 	if strings.TrimSpace(s.cfg.StripeSecretKey) == "" {
 		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "stripe is not configured"})
+		return
+	}
+	signups, _, err := s.store.GetWaitlistStats(r.Context())
+	if err != nil {
+		s.log.Printf("checkout waitlist stats: %v", err)
+		writeJSON(w, http.StatusServiceUnavailable, map[string]any{"error": "unable to verify waitlist availability"})
+		return
+	}
+	if signups >= WaitlistCap {
+		writeJSON(w, http.StatusForbidden, map[string]any{"error": "waitlist full"})
 		return
 	}
 	priceID, err := s.waitlistPriceID()
@@ -178,9 +189,26 @@ func (s *Server) handleWaitlistStats(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"signups":       signups,
+		"cap":           WaitlistCap,
+		"full":          signups >= WaitlistCap,
 		"amountCents":   amountCents,
 		"amountDisplay": fmt.Sprintf("%.2f", float64(amountCents)/100),
 	})
+}
+
+// handleAdminWaitlist lists waitlist rows from Redis. Unauthenticated — exposes PII; add auth before broad exposure.
+func (s *Server) handleAdminWaitlist(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	users, err := s.store.ListWaitlistUsers(r.Context())
+	if err != nil {
+		s.log.Printf("admin waitlist: %v", err)
+		http.Error(w, "list error", http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"users": users})
 }
 
 func (s *Server) handleCheckoutStatus(w http.ResponseWriter, r *http.Request) {
@@ -215,6 +243,14 @@ func (s *Server) handleCheckoutStatus(w http.ResponseWriter, r *http.Request) {
 
 	email, err := s.saveWaitlistFromSession(context.Background(), sess)
 	if err != nil {
+		if errors.Is(err, ErrWaitlistFull) {
+			writeJSON(w, http.StatusOK, map[string]any{
+				"registered":    false,
+				"paymentStatus": paymentStatus,
+				"waitlistFull":  true,
+			})
+			return
+		}
 		s.log.Printf("checkout-status save waitlist: %v", err)
 		writeJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
 		return
@@ -315,6 +351,11 @@ func (s *Server) handleWebhook(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) completeWaitlistFromSession(w http.ResponseWriter, sess *stripe.CheckoutSession) {
 	if _, err := s.saveWaitlistFromSession(context.Background(), sess); err != nil {
+		if errors.Is(err, ErrWaitlistFull) {
+			s.log.Printf("waitlist full: checkout session %s completed after cap", sess.ID)
+			writeJSON(w, http.StatusOK, map[string]any{"received": true, "waitlistFull": true})
+			return
+		}
 		s.log.Printf("save waitlist: %v", err)
 		http.Error(w, "store error", http.StatusInternalServerError)
 		return

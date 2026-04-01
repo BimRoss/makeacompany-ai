@@ -43,21 +43,21 @@ export function CountdownTimer() {
   if (!mounted) {
     return (
       <section className="bg-muted/30 py-16">
-        <div className="mx-auto h-24 max-w-4xl px-6" />
+        <div className="mx-auto h-24 max-w-4xl px-8 sm:px-6" />
       </section>
     );
   }
 
   return (
     <section className="bg-muted/30 py-16">
-      <div className="mx-auto max-w-4xl px-6 text-center">
+      <div className="mx-auto max-w-4xl px-8 text-center sm:px-6">
         <h2 className="mb-2 text-sm font-semibold uppercase tracking-widest text-primary">
           Launching May 1st, 2026
         </h2>
         <p className="mb-8 text-lg text-muted-foreground">
           Lock in your free month before time runs out
         </p>
-        <div className="flex items-center justify-center gap-3 sm:gap-4">
+        <div className="flex items-center justify-center gap-1 sm:gap-4">
           <TimeBox value={timeLeft.days} label="Days" />
           <Separator />
           <TimeBox value={timeLeft.hours} label="Hours" />
@@ -74,7 +74,7 @@ export function CountdownTimer() {
 function TimeBox({ value, label }: { value: number; label: string }) {
   return (
     <div className="flex flex-col items-center">
-      <div className="flex h-20 w-20 items-center justify-center rounded-lg border border-border bg-card text-3xl font-bold tabular-nums shadow-sm sm:h-24 sm:w-24 sm:text-4xl">
+      <div className="flex h-16 w-16 items-center justify-center rounded-lg border border-border bg-card text-xl font-bold tabular-nums shadow-sm sm:h-24 sm:w-24 sm:text-4xl">
         {value.toString().padStart(2, "0")}
       </div>
       <span className="mt-2 text-xs font-medium uppercase tracking-wider text-muted-foreground sm:text-sm">
@@ -85,5 +85,7 @@ function TimeBox({ value, label }: { value: number; label: string }) {
 }
 
 function Separator() {
-  return <span className="text-2xl font-bold text-muted-foreground/50 sm:text-3xl">:</span>;
+  return (
+    <span className="shrink-0 text-base font-bold text-muted-foreground/50 sm:text-3xl">:</span>
+  );
 }

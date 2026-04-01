@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { apiBase } from "@/lib/site";
-
-const WAITLIST_REFRESH_EVENT = "waitlist:refresh";
+import { WAITLIST_REFRESH_EVENT } from "@/lib/waitlist";
 const TOAST_MS = 6000;
 
 type CheckoutStatusResponse = {
@@ -11,6 +10,7 @@ type CheckoutStatusResponse = {
   paymentStatus?: string;
   email?: string;
   error?: string;
+  waitlistFull?: boolean;
 };
 
 export function CheckoutReturnToast() {
@@ -67,6 +67,12 @@ export function CheckoutReturnToast() {
           window.dispatchEvent(new CustomEvent(WAITLIST_REFRESH_EVENT));
           window.sessionStorage.setItem(dedupeKey, "done");
           window.localStorage.setItem("makeacompany:registered", "true");
+        } else if (data.waitlistFull) {
+          setMessage(
+            "The waitlist filled before we could save your spot. If you were charged, contact us for a refund.",
+          );
+          window.dispatchEvent(new CustomEvent(WAITLIST_REFRESH_EVENT));
+          window.sessionStorage.setItem(dedupeKey, "done");
         } else {
           setMessage("Payment is still processing. Refresh in a moment.");
         }
