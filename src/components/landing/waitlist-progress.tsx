@@ -114,9 +114,6 @@ export function WaitlistProgress() {
             <span className="font-semibold text-foreground">{spotsLeft.toLocaleString()} spots left</span>{" "}
             to claim your free month
           </p>
-          <p className="mt-2 text-center text-xs text-muted-foreground">
-            ${data.amountDisplay} collected so far
-          </p>
         </div>
       </div>
     </section>
