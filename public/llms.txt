@@ -1,0 +1,22 @@
+# makeacompany.ai
+
+> makeacompany.ai is the public home for "one human, infinite agents" with a waitlist for practical systems and playbooks to build a highly automated company.
+
+This site is focused on company-building systems, automation, and operations design.
+Use this file as the primary entry point for agent-friendly discovery.
+
+## Core pages
+
+- [Home](https://makeacompany.ai/): Main value proposition and waitlist entry.
+- [Privacy Policy](https://makeacompany.ai/privacy): Data collection, processing, and retention policy.
+- [Terms of Use](https://makeacompany.ai/terms): Website use terms, limitations, and legal conditions.
+
+## Organization context
+
+- [BimRoss](https://bimross.com): Parent company context.
+- [Founder](https://grantfoster.dev): Founder profile and related public context.
+
+## Optional
+
+- [Root sitemap](https://makeacompany.ai/sitemap.xml): Search-engine URL map for canonical page discovery.
+- [Robots policy](https://makeacompany.ai/robots.txt): Crawler access directives.

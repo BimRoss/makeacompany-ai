@@ -4,7 +4,7 @@ import { DM_Sans, Syne } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
-import { siteDescription, siteTitle, siteUrl } from "@/lib/site";
+import { siteDescription, siteName, siteTitle, siteUrl } from "@/lib/site";
 
 const dmSans = DM_Sans({
   variable: "--font-dm-sans",
@@ -22,6 +22,13 @@ export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: { default: siteTitle, template: `%s · makeacompany.ai` },
   description: siteDescription,
+  alternates: {
+    canonical: "/",
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
   openGraph: {
     title: siteTitle,
     description: siteDescription,
@@ -39,6 +46,27 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   const gaMeasurementID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
+  const structuredData = {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Organization",
+        name: "BimRoss",
+        url: "https://bimross.com",
+      },
+      {
+        "@type": "WebSite",
+        name: siteName,
+        url: siteUrl,
+        description: siteDescription,
+        publisher: {
+          "@type": "Organization",
+          name: "BimRoss",
+          url: "https://bimross.com",
+        },
+      },
+    ],
+  };
 
   return (
     <html lang="en" suppressHydrationWarning>
@@ -47,6 +75,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         suppressHydrationWarning
       >
         <ThemeProvider>{children}</ThemeProvider>
+        <Script id="structured-data" type="application/ld+json" strategy="afterInteractive">
+          {JSON.stringify(structuredData)}
+        </Script>
         {gaMeasurementID ? (
           <>
             <Script

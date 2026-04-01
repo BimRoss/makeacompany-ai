@@ -48,16 +48,6 @@ export function HeroSection() {
 
       <div className="relative mt-16 w-full max-w-5xl px-4">
         <div className="overflow-hidden rounded-xl border border-border/40 bg-card shadow-2xl">
-          <div className="flex items-center gap-2 border-b border-border/40 bg-muted/30 px-4 py-3">
-            <div className="flex gap-2">
-              <div className="h-3 w-3 rounded-full bg-foreground/40" />
-              <div className="h-3 w-3 rounded-full bg-foreground/25" />
-              <div className="h-3 w-3 rounded-full bg-foreground/15" />
-            </div>
-            <div className="ml-4 flex-1 rounded-md bg-background/50 px-3 py-1 text-xs text-muted-foreground">
-              slack.com/workspace/your-ai-company
-            </div>
-          </div>
           <div className="relative aspect-[16/10] w-full bg-muted/20">
             <Image
               src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/CleanShot%202026-04-01%20at%2002.09.24-6CNZbGNveSlnANXHSsfpupK6pZOvyS.png"
