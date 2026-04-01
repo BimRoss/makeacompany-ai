@@ -50,6 +50,16 @@ npm run dev   # repo root
 
 Checkout selects test vs live **price** from `STRIPE_SECRET_KEY` mode (`sk_live_` uses live price id).
 
+### Admin cluster (runtime Secret)
+
+From a machine with `kubectl` access to the **admin** cluster:
+
+```bash
+./scripts/update-rancher-secrets.sh
+```
+
+Reads repo-root `.env` and applies Secret **`makeacompany-ai-runtime-secrets`** in namespace **`makeacompany-ai`** (same keys as the table above). Catalog price ids often originate in **[stripe-factory](https://github.com/BimRoss/stripe-factory)**; you can also run **`stripe-factory/scripts/update-rancher-secrets.sh`** from that repo if your Stripe material lives there.
+
 ## CI/CD
 
 GitHub Actions: [.github/workflows/makeacompany-ai-images.yml](.github/workflows/makeacompany-ai-images.yml)
