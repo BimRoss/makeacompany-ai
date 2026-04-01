@@ -24,8 +24,8 @@ export function HeroSection() {
             Build an AI-powered company in Slack with employees that execute 24/7.
           </span>
           <span className="hidden sm:inline">
-            Create an entire AI-powered company that lives in your Slack. Employees
-            that never sleep, never quit, and actually get work done.
+            Create an AI-powered company that lives in your Slack. Employees who
+            never sleep, never quit, and actually get work done.
           </span>
         </p>
 
@@ -34,15 +34,15 @@ export function HeroSection() {
           <div className="hidden items-center justify-center gap-2.5 sm:flex sm:flex-row sm:flex-wrap sm:gap-x-8 sm:gap-y-4">
             <div className="flex items-center gap-2">
               <div className="h-2 w-2 rounded-full border border-foreground bg-background" />
-              <span>Chat to create your company</span>
+              <span className="text-black dark:text-white">Chat to create your company</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="h-2 w-2 rounded-full border border-foreground bg-background" />
-              <span>Define roles & personalities</span>
+              <span className="text-black dark:text-white">Define roles & personalities</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="h-2 w-2 rounded-full border border-foreground bg-background" />
-              <span>Deploy to Slack instantly</span>
+              <span className="text-black dark:text-white">Deploy to Slack instantly</span>
             </div>
           </div>
         </div>
