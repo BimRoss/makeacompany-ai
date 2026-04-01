@@ -44,7 +44,7 @@ npm run dev   # repo root
 | `REDIS_URL` | Redis connection URL |
 | `APP_BASE_URL` | Public site URL (Stripe success/cancel) |
 | `STRIPE_SECRET_KEY` | Optional single key (`sk_test_…` or `sk_live_…`) — wins if set |
-| `STRIPE_SECRET_KEY_TEST` / `STRIPE_SECRET_KEY_LIVE` | Split keys; backend picks the **first non-empty** in order: `STRIPE_SECRET_KEY`, `STRIPE_SECRET_KEY_TEST`, `STRIPE_SECRET_KEY_LIVE`, `STRIPE_API_KEY_TEST` |
+| `STRIPE_SECRET_KEY_TEST` / `STRIPE_SECRET_KEY_LIVE` | Split keys; backend picks the **first non-empty** in order: `STRIPE_SECRET_KEY`, `STRIPE_SECRET_KEY_LIVE`, `STRIPE_SECRET_KEY_TEST`, `STRIPE_API_KEY_TEST` |
 | `STRIPE_API_KEY_TEST` | Optional alias (e.g. stripe-factory) for a test secret key |
 | `STRIPE_PUBLISHABLE_KEY_*` / `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY_*` | Public keys for Stripe.js; compose maps `STRIPE_PUBLISHABLE_KEY_*` → `NEXT_PUBLIC_*` for the frontend container |
 | `STRIPE_WEBHOOK_SECRET_SNAPSHOT_TEST` | Test-mode signing secret for **snapshot** webhook destination (`whsec_…`) |
@@ -56,7 +56,7 @@ npm run dev   # repo root
 
 **Webhook URL (POST):** `{backend origin}/v1/billing/webhook` — e.g. ngrok `https://YOUR_SUBDOMAIN.ngrok-free.dev/v1/billing/webhook` forwarding to `localhost:8080`. Snapshot and thin destinations can share this path; each destination still has its own signing secret.
 
-Checkout selects test vs live **price** from the **effective** API secret’s prefix (`sk_live_` uses live price id). For **production**, prefer only `STRIPE_SECRET_KEY` (live) or only `STRIPE_SECRET_KEY_LIVE` in the cluster Secret — avoid putting a test secret in the same namespace if you can.
+Checkout selects test vs live **price** from the **effective** API secret’s prefix (`sk_live_` uses live price id). For **production**, prefer `STRIPE_SECRET_KEY` (live) or `STRIPE_SECRET_KEY_LIVE`.
 
 **`NEXT_PUBLIC_*` in Kubernetes:** values in **`makeacompany-ai-config`** are injected at pod runtime. Client-bundled `NEXT_PUBLIC_*` in a production **Docker** image are fixed at **`npm run build`** unless you add build-args in CI; set publishable keys in the image build when the frontend starts using Stripe.js in the browser.
 
@@ -68,7 +68,7 @@ From a machine with `kubectl` access to the **admin** cluster:
 ./scripts/update-rancher-secrets.sh
 ```
 
-Reads repo-root `.env` and applies Secret **`makeacompany-ai-runtime-secrets`** in namespace **`makeacompany-ai`** (all set Stripe secret + price + webhook keys). If `STRIPE_PUBLISHABLE_KEY_*` or `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY_*` are set, it also merges **`NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY_TEST`** / **`NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY_LIVE`** into ConfigMap **`makeacompany-ai-config`**. Catalog price ids often originate in **[stripe-factory](https://github.com/BimRoss/stripe-factory)**; you can also run **`stripe-factory/scripts/update-rancher-secrets.sh`** from that repo if your Stripe material lives there.
+Reads repo-root `.env` and applies Secret **`makeacompany-ai-runtime-secrets`** in namespace **`makeacompany-ai`** (Stripe runtime keys + price + webhook keys). It always writes an effective `STRIPE_SECRET_KEY`, preferring live when split keys are present. If `STRIPE_PUBLISHABLE_KEY_*` or `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY_*` are set, it also merges **`NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY_TEST`** / **`NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY_LIVE`** into ConfigMap **`makeacompany-ai-config`**. Catalog price ids often originate in **[stripe-factory](https://github.com/BimRoss/stripe-factory)**; you can also run **`stripe-factory/scripts/update-rancher-secrets.sh`** from that repo if your Stripe material lives there.
 
 ## CI/CD
 

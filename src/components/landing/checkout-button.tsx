@@ -46,13 +46,13 @@ export function CheckoutButton({ label, className }: CheckoutButtonProps) {
   }
 
   return (
-    <div className="flex flex-col items-center gap-2.5 sm:gap-3">
+    <div className="flex w-full flex-col items-center gap-2.5 sm:gap-3">
       <button
         type="button"
         disabled={loading}
         aria-busy={loading}
         onClick={onClick}
-        className={`group inline-flex h-12 items-center justify-center rounded-lg bg-primary px-6 text-base font-semibold text-primary-foreground motion-colors hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-70 sm:h-14 sm:px-8 sm:text-lg ${className ?? ""}`}
+        className={`group inline-flex h-12 w-full items-center justify-center rounded-lg bg-primary px-5 text-base font-semibold text-primary-foreground motion-colors hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-70 sm:h-14 sm:w-auto sm:px-8 sm:text-lg ${className ?? ""}`}
       >
         {loading ? (
           <>
@@ -66,7 +66,11 @@ export function CheckoutButton({ label, className }: CheckoutButtonProps) {
           </>
         )}
       </button>
-      {error ? <p className="rounded-md border border-border bg-card px-3 py-2 text-sm">{error}</p> : null}
+      {error ? (
+        <p className="w-full rounded-md border border-border bg-card px-3 py-2 text-sm sm:w-auto">
+          {error}
+        </p>
+      ) : null}
     </div>
   );
 }

@@ -40,14 +40,16 @@ func LoadConfig() Config {
 	}
 }
 
-// resolveStripeSecretKey picks one API secret for stripe-go: explicit STRIPE_SECRET_KEY, else
-// STRIPE_SECRET_KEY_TEST (local dev when both test+live are present), else STRIPE_SECRET_KEY_LIVE
-// (typical prod Secret with only live), else STRIPE_API_KEY_TEST (stripe-factory alias).
+// resolveStripeSecretKey picks one API secret for stripe-go:
+// 1) explicit STRIPE_SECRET_KEY
+// 2) STRIPE_SECRET_KEY_LIVE (prefer live when split keys are both present)
+// 3) STRIPE_SECRET_KEY_TEST (local/dev fallback)
+// 4) STRIPE_API_KEY_TEST (stripe-factory alias)
 func resolveStripeSecretKey() string {
 	return envFirst(
 		"STRIPE_SECRET_KEY",
-		"STRIPE_SECRET_KEY_TEST",
 		"STRIPE_SECRET_KEY_LIVE",
+		"STRIPE_SECRET_KEY_TEST",
 		"STRIPE_API_KEY_TEST",
 	)
 }

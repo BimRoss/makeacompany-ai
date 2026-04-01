@@ -9,8 +9,8 @@ set -euo pipefail
 # Set SYNC_PULL_SECRET=false to skip.
 #
 # Keys (must match backend internal/app/config.go and docker-compose / .env.example):
-#   Effective API key (first non-empty wins in the app): STRIPE_SECRET_KEY, STRIPE_SECRET_KEY_TEST,
-#   STRIPE_SECRET_KEY_LIVE, STRIPE_API_KEY_TEST
+#   Effective API key: explicit STRIPE_SECRET_KEY, else STRIPE_SECRET_KEY_LIVE,
+#   else STRIPE_SECRET_KEY_TEST, else STRIPE_API_KEY_TEST
 #   STRIPE_WEBHOOK_SECRET_SNAPSHOT_TEST / STRIPE_WEBHOOK_SECRET_THIN_TEST (preferred), or
 #   STRIPE_WEBHOOK_SECRET_SNAPSHOT / STRIPE_WEBHOOK_SECRET_THIN, or STRIPE_WEBHOOK_SECRET (legacy snapshot)
 #   STRIPE_PRICE_ID_WAITLIST_TEST
@@ -83,7 +83,7 @@ set -a
 source "${ENV_FILE}"
 set +a
 
-STRIPE_SECRET_EFFECTIVE="${STRIPE_SECRET_KEY:-${STRIPE_SECRET_KEY_TEST:-${STRIPE_SECRET_KEY_LIVE:-${STRIPE_API_KEY_TEST:-}}}}"
+STRIPE_SECRET_EFFECTIVE="${STRIPE_SECRET_KEY:-${STRIPE_SECRET_KEY_LIVE:-${STRIPE_SECRET_KEY_TEST:-${STRIPE_API_KEY_TEST:-}}}}"
 
 if [[ -z "${STRIPE_SECRET_EFFECTIVE}" ]]; then
   echo "need at least one of STRIPE_SECRET_KEY, STRIPE_SECRET_KEY_TEST, STRIPE_SECRET_KEY_LIVE, STRIPE_API_KEY_TEST in ${ENV_FILE}" >&2
@@ -119,9 +119,7 @@ append_literal_if_set() {
 }
 
 secret_args=(--namespace "${NAMESPACE}")
-append_literal_if_set STRIPE_SECRET_KEY
-append_literal_if_set STRIPE_SECRET_KEY_TEST
-append_literal_if_set STRIPE_SECRET_KEY_LIVE
+secret_args+=(--from-literal=STRIPE_SECRET_KEY="${STRIPE_SECRET_EFFECTIVE}")
 append_literal_if_set STRIPE_PRICE_ID_WAITLIST_TEST
 append_literal_if_set STRIPE_PRICE_ID_WAITLIST_LIVE
 if [[ -n "${SNAP}" ]]; then

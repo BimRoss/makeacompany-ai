@@ -31,7 +31,7 @@ export function CtaSection() {
                 <span>Priority access</span>
               </div>
             </div>
-            <CheckoutButton label="Secure Your Spot Now" className="px-10" />
+            <CheckoutButton label="Secure Your Spot Now" className="sm:px-10" />
             <p className="mt-6 text-sm text-muted-foreground">
               Trusted by founders from Y Combinator, Techstars, and 500 Startups
             </p>
