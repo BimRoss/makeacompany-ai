@@ -1,0 +1,82 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Light: grantfoster.dev-adjacent warm off-white */
+:root {
+  --background: #f6f4ef;
+  --foreground: #0c1222;
+  --card: rgba(255, 255, 255, 0.78);
+  --card-foreground: #0c1222;
+  --muted: #64748b;
+  --muted-foreground: #475569;
+  --secondary: rgba(15, 23, 42, 0.06);
+  --border: rgba(15, 23, 42, 0.1);
+  --ring: rgba(15, 23, 42, 0.25);
+  --accent: #0c6e8a;
+  --accent-foreground: #ffffff;
+  --accent-glow: rgba(12, 110, 138, 0.45);
+  --grid: rgba(15, 23, 42, 0.06);
+}
+
+/* Dark: bimross.com-adjacent charcoal (not true black) */
+.dark {
+  --background: #12141a;
+  --foreground: #f4f4f2;
+  --card: rgba(28, 32, 42, 0.92);
+  --card-foreground: #f4f4f2;
+  --muted: #94a3b8;
+  --muted-foreground: #cbd5e1;
+  --secondary: rgba(255, 255, 255, 0.06);
+  --border: rgba(255, 255, 255, 0.1);
+  --ring: rgba(255, 255, 255, 0.22);
+  --accent: #5eead4;
+  --accent-foreground: #042a24;
+  --accent-glow: rgba(94, 234, 212, 0.35);
+  --grid: rgba(255, 255, 255, 0.04);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --font-sans: var(--font-dm-sans);
+  --font-display: var(--font-syne);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-secondary: var(--secondary);
+  --color-border: var(--border);
+  --color-ring: var(--ring);
+  --color-accent: var(--accent);
+}
+
+* {
+  border-color: var(--border);
+}
+
+html {
+  background-color: var(--background);
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-dm-sans), system-ui, sans-serif;
+  font-size: 1rem;
+  line-height: 1.6;
+  letter-spacing: -0.011em;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+.font-display {
+  font-family: var(--font-syne), system-ui, sans-serif;
+}
+
+.hero-grid {
+  background-image:
+    linear-gradient(var(--grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 48px 48px;
+}

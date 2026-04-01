@@ -1,0 +1,11 @@
+.DS_Store
+.env
+.env.local
+.next/
+node_modules/
+out/
+dist/
+*.log
+coverage/
+backend/bin/
+*.exe

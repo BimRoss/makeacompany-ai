@@ -1,0 +1,54 @@
+# Local full stack: docker compose --profile local up --build
+#
+services:
+  redis:
+    profiles: ["local"]
+    image: redis:7-alpine
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+
+  backend:
+    profiles: ["local"]
+    build:
+      context: .
+      dockerfile: deploy/docker/backend.Dockerfile
+    env_file:
+      - ./.env
+    environment:
+      PORT: "8080"
+      REDIS_URL: redis://redis:6379/0
+      APP_BASE_URL: ${APP_BASE_URL:-http://localhost:3000}
+    depends_on:
+      - redis
+    ports:
+      - "${BACKEND_PORT:-8080}:8080"
+
+  frontend-local:
+    profiles: ["local"]
+    build:
+      context: .
+      dockerfile: deploy/docker/frontend.Dockerfile
+      target: development
+    env_file:
+      - ./.env
+    depends_on:
+      - backend
+    environment:
+      NEXT_PUBLIC_BACKEND_API_BASE_URL: ${NEXT_PUBLIC_BACKEND_API_BASE_URL:-http://localhost:8080}
+      NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}
+      NEXT_TELEMETRY_DISABLED: "1"
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    volumes:
+      - ./src:/app/src
+      - ./public:/app/public
+      - ./package.json:/app/package.json
+      - ./next.config.ts:/app/next.config.ts
+      - ./tsconfig.json:/app/tsconfig.json
+      - ./postcss.config.mjs:/app/postcss.config.mjs
+
+volumes:
+  redis_data:
