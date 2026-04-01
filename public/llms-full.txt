@@ -5,9 +5,10 @@ Core concept: one human, infinite agents.
 
 ## Positioning
 
-- Audience: founders, operators, and builders who want to scale output with AI systems.
+- Audience: solo founders and lean teams who want leverage without proportional headcount.
 - Primary workflow: create and configure an AI-powered company with role-based agents that operate inside Slack.
-- Product intent: reduce operational overhead and increase leverage for small teams or solo operators.
+- Product intent: reduce operational overhead and increase leverage—AI “employees” that execute 24/7 alongside human operators.
+- Homepage headline (current): your AI company, live in Slack; waitlist uses a small refundable deposit and a cap on early-access spots.
 
 ## Important pages
 

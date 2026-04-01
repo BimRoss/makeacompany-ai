@@ -31,9 +31,16 @@ export function CtaSection() {
                 <span>Priority access</span>
               </div>
             </div>
-            <CheckoutButton label="Secure Your Spot Now" className="sm:px-10" />
-            <p className="mt-6 text-sm text-muted-foreground">
-              Trusted by founders from Y Combinator, Techstars, and 500 Startups
+            <CheckoutButton label="Join the Waitlist" className="sm:px-10" />
+            <p className="mt-6 text-pretty text-sm text-muted-foreground">
+              Built by{" "}
+              <a
+                href="https://bimross.com"
+                className="font-medium text-foreground underline-offset-4 hover:underline"
+              >
+                BimRoss
+              </a>
+              —operators shipping AI systems in production, not slide decks.
             </p>
           </div>
         </div>

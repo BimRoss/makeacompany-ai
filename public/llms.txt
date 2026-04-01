@@ -1,6 +1,6 @@
 # makeacompany.ai
 
-> makeacompany.ai is the public home for "one human, infinite agents" with a waitlist for practical systems and playbooks to build a highly automated company.
+> makeacompany.ai is the public home for "one human, infinite agents"—an AI company that runs in Slack, aimed at solo founders and lean teams. The homepage is the waitlist surface (refundable deposit, limited early spots).
 
 This site is focused on company-building systems, automation, and operations design.
 Use this file as the primary entry point for agent-friendly discovery.

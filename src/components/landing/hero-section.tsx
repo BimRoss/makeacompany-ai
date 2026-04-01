@@ -16,16 +16,16 @@ export function HeroSection() {
         </div>
 
         <h1 className="mb-4 text-balance text-3xl font-bold tracking-tight sm:mb-6 sm:text-5xl md:text-6xl lg:text-7xl">
-          Companies for everyone.
+          Your AI company, live in Slack.
         </h1>
 
         <p className="mx-auto mb-4 max-w-xl text-pretty text-base leading-relaxed text-muted-foreground sm:mb-8 sm:max-w-2xl sm:text-xl">
           <span className="sm:hidden">
-            Build an AI-powered company in Slack with employees that execute 24/7.
+            For solo founders and lean teams: AI &quot;employees&quot; that execute 24/7—without another payroll line.
           </span>
           <span className="hidden sm:inline">
-            Create an AI-powered company that lives in your Slack. Employees who
-            never sleep, never quit, and actually get work done.
+            For solo founders and lean teams who need leverage, not headcount: an AI-powered company
+            inside Slack—roles that ship around the clock without another payroll line.
           </span>
         </p>
 
@@ -49,9 +49,12 @@ export function HeroSection() {
 
         <CheckoutButton label="Join the Waitlist" />
 
-        <p className="mt-3 text-xs text-muted-foreground sm:mt-4 sm:text-sm">
-          $1 reservation fee, fully refundable if you change your mind
-        </p>
+        <div className="mt-3 space-y-1.5 text-xs text-muted-foreground sm:mt-4 sm:text-sm">
+          <p>$1 reservation—fully refundable anytime before launch.</p>
+          <p className="text-pretty text-muted-foreground/90">
+            It holds your spot in the first 100 and keeps the waitlist for people who actually show up.
+          </p>
+        </div>
       </div>
 
       <div className="relative mt-6 w-full max-w-5xl px-1 sm:mt-16 sm:px-4">

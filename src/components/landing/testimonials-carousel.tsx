@@ -15,7 +15,7 @@ const TESTIMONIALS = [
     role: "CEO, DataScale",
     avatar: "MJ",
     content:
-      "Built our entire customer support team in an afternoon. The AI agents handle 80% of inquiries without any human intervention.",
+      "We went from zero to a working support queue in one afternoon—agents handle most tickets; we only step in on edge cases.",
   },
   {
     id: 3,
@@ -23,7 +23,7 @@ const TESTIMONIALS = [
     role: "Head of Ops, Velocity",
     avatar: "ER",
     content:
-      "The ROI is insane. We're talking $50k/year in saved salaries for work that's actually getting done better.",
+      "The ROI is real—we cut what we’d have paid contractors for the same throughput, and quality went up because nothing slips.",
   },
   {
     id: 4,
@@ -39,7 +39,7 @@ const TESTIMONIALS = [
     role: "VP Engineering, CloudBase",
     avatar: "AT",
     content:
-      "The Slack integration is seamless. Our team forgot the agents aren't real people. That's how good it is.",
+      "Slack-native was non-negotiable for us—the handoff feels like @mentioning a teammate, not opening another tool.",
   },
   {
     id: 6,

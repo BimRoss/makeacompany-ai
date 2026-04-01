@@ -57,9 +57,9 @@ export default function HomePage() {
       <CheckoutReturnToast />
       <Header />
       <HeroSection />
+      <TestimonialsCarousel />
       <CountdownTimer />
       <WaitlistProgress />
-      <TestimonialsCarousel />
       <CtaSection />
       <SeoFaqSection />
       <Footer />
