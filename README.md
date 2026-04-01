@@ -11,6 +11,13 @@ Marketing landing page and **$1 Stripe waitlist** for [makeacompany.ai](https://
 - `deploy/docker/` — production Dockerfiles
 - `admin/apps/makeacompany-ai/` — lives in **`bimross/rancher-admin`** (Fleet / admin cluster)
 
+## Stripe catalog (`stripe-factory`)
+
+**Products and prices** for this app are defined in **[bimross/stripe-factory](https://github.com/BimRoss/stripe-factory)** (Terraform: test vs live). After `terraform apply`, copy the output **`makeacompany_waitlist_price_id`** into `STRIPE_PRICE_ID_WAITLIST_TEST` / `STRIPE_PRICE_ID_WAITLIST_LIVE` here or in cluster secrets.
+
+- Webhook events: `webhooks/makeacompany-ai.events.txt` in that repo.
+- Local webhooks: Stripe CLI — see **`stripe-factory` → `docs/LOCAL.md`**.
+
 ## Local development
 
 Copy `.env.example` to `.env` and set Stripe test keys and price ids.
