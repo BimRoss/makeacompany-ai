@@ -32,12 +32,24 @@ func LoadConfig() Config {
 		Port:                        envInt("PORT", 8080),
 		RedisURL:                    envString("REDIS_URL", "redis://localhost:6379/0"),
 		AppBaseURL:                  strings.TrimRight(envString("APP_BASE_URL", "http://localhost:3000"), "/"),
-		StripeSecretKey:             os.Getenv("STRIPE_SECRET_KEY"),
+		StripeSecretKey:             resolveStripeSecretKey(),
 		StripeWebhookSecretSnapshot: snapshot,
 		StripeWebhookSecretThin:     thin,
 		StripePriceWaitlistTest:     os.Getenv("STRIPE_PRICE_ID_WAITLIST_TEST"),
 		StripePriceWaitlistLive:     os.Getenv("STRIPE_PRICE_ID_WAITLIST_LIVE"),
 	}
+}
+
+// resolveStripeSecretKey picks one API secret for stripe-go: explicit STRIPE_SECRET_KEY, else
+// STRIPE_SECRET_KEY_TEST (local dev when both test+live are present), else STRIPE_SECRET_KEY_LIVE
+// (typical prod Secret with only live), else STRIPE_API_KEY_TEST (stripe-factory alias).
+func resolveStripeSecretKey() string {
+	return envFirst(
+		"STRIPE_SECRET_KEY",
+		"STRIPE_SECRET_KEY_TEST",
+		"STRIPE_SECRET_KEY_LIVE",
+		"STRIPE_API_KEY_TEST",
+	)
 }
 
 // envFirst returns the first non-empty trimmed env value for the given keys.
