@@ -58,7 +58,7 @@ export function HeroSection() {
         <div className="overflow-hidden rounded-xl border border-border/40 bg-card shadow-2xl">
           <div className="relative aspect-[16/9] w-full bg-muted/20 sm:aspect-[16/10]">
             <Image
-              src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/CleanShot%202026-04-01%20at%2002.09.24-6CNZbGNveSlnANXHSsfpupK6pZOvyS.png"
+              src="/hero-screenshot-2026-04-01-041155.png"
               alt="AI employees working in Slack"
               fill
               sizes="(max-width: 1024px) 100vw, 1024px"
