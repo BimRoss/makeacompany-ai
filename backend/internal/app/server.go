@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -16,11 +17,11 @@ import (
 )
 
 type Server struct {
-	cfg    Config
-	log    *log.Logger
-	store  *Store
-	mux    *http.ServeMux
-	cors   string
+	cfg   Config
+	log   *log.Logger
+	store *Store
+	mux   *http.ServeMux
+	cors  string
 }
 
 func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
@@ -37,6 +38,7 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 	s.mux.HandleFunc("/health", s.handleHealth)
 	s.mux.HandleFunc("/v1/billing/checkout", s.handleCheckout)
 	s.mux.HandleFunc("/v1/billing/webhook", s.handleWebhook)
+	s.mux.HandleFunc("/v1/billing/waitlist-stats", s.handleWaitlistStats)
 	return s, nil
 }
 
@@ -142,12 +144,50 @@ func (s *Server) waitlistPriceID() (string, error) {
 	return test, nil
 }
 
+func (s *Server) webhookSigningSecrets() []string {
+	var out []string
+	if s.cfg.StripeWebhookSecretSnapshot != "" {
+		out = append(out, s.cfg.StripeWebhookSecretSnapshot)
+	}
+	if s.cfg.StripeWebhookSecretThin != "" {
+		out = append(out, s.cfg.StripeWebhookSecretThin)
+	}
+	return out
+}
+
+func (s *Server) verifyStripeSignature(body []byte, sig string) (secret string, err error) {
+	for _, sec := range s.webhookSigningSecrets() {
+		if err := stripewebhook.ValidatePayloadWithTolerance(body, sig, sec, stripewebhook.DefaultTolerance); err == nil {
+			return sec, nil
+		}
+	}
+	return "", errors.New("no matching signature")
+}
+
+func (s *Server) handleWaitlistStats(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	signups, amountCents, err := s.store.GetWaitlistStats(r.Context())
+	if err != nil {
+		s.log.Printf("waitlist stats: %v", err)
+		http.Error(w, "stats error", http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"signups":       signups,
+		"amountCents":   amountCents,
+		"amountDisplay": fmt.Sprintf("%.2f", float64(amountCents)/100),
+	})
+}
+
 func (s *Server) handleWebhook(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	if s.cfg.StripeWebhookSecret == "" {
+	if len(s.webhookSigningSecrets()) == 0 {
 		http.Error(w, "webhook not configured", http.StatusBadRequest)
 		return
 	}
@@ -156,21 +196,79 @@ func (s *Server) handleWebhook(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid body", http.StatusBadRequest)
 		return
 	}
-	event, err := stripewebhook.ConstructEvent(body, r.Header.Get("Stripe-Signature"), s.cfg.StripeWebhookSecret)
+	sig := r.Header.Get("Stripe-Signature")
+	usedSecret, err := s.verifyStripeSignature(body, sig)
 	if err != nil {
 		http.Error(w, "invalid signature", http.StatusBadRequest)
 		return
 	}
-	if event.Type != "checkout.session.completed" {
-		writeJSON(w, http.StatusOK, map[string]any{"received": true, "ignored": event.Type})
+
+	var envelope struct {
+		Object string `json:"object"`
+	}
+	if err := json.Unmarshal(body, &envelope); err != nil {
+		http.Error(w, "bad json", http.StatusBadRequest)
 		return
 	}
-	var sess stripe.CheckoutSession
-	if err := json.Unmarshal(event.Data.Raw, &sess); err != nil {
-		s.log.Printf("webhook unmarshal: %v", err)
-		http.Error(w, "bad payload", http.StatusBadRequest)
-		return
+
+	opts := stripewebhook.ConstructEventOptions{IgnoreAPIVersionMismatch: true}
+
+	switch envelope.Object {
+	case "event":
+		event, err := stripewebhook.ConstructEventWithOptions(body, sig, usedSecret, opts)
+		if err != nil {
+			s.log.Printf("webhook construct event: %v", err)
+			http.Error(w, "invalid event", http.StatusBadRequest)
+			return
+		}
+		if event.Type != stripe.EventTypeCheckoutSessionCompleted {
+			writeJSON(w, http.StatusOK, map[string]any{"received": true, "ignored": string(event.Type)})
+			return
+		}
+		var sess stripe.CheckoutSession
+		if err := json.Unmarshal(event.Data.Raw, &sess); err != nil {
+			s.log.Printf("webhook unmarshal session: %v", err)
+			http.Error(w, "bad payload", http.StatusBadRequest)
+			return
+		}
+		s.completeWaitlistFromSession(w, &sess)
+
+	case "v2.core.event":
+		// Thin payload: fetch full Checkout Session by related_object.id (see Stripe thin events docs).
+		var thin struct {
+			Type          string `json:"type"`
+			RelatedObject struct {
+				ID   string `json:"id"`
+				Type string `json:"type"`
+			} `json:"related_object"`
+		}
+		if err := json.Unmarshal(body, &thin); err != nil {
+			http.Error(w, "bad thin payload", http.StatusBadRequest)
+			return
+		}
+		if thin.Type != "v1.checkout.session.completed" {
+			writeJSON(w, http.StatusOK, map[string]any{"received": true, "ignored": thin.Type})
+			return
+		}
+		if thin.RelatedObject.ID == "" || !strings.HasPrefix(thin.RelatedObject.ID, "cs_") {
+			s.log.Printf("thin webhook: missing or invalid checkout session id")
+			http.Error(w, "bad thin payload", http.StatusBadRequest)
+			return
+		}
+		sess, err := checkoutsession.Get(thin.RelatedObject.ID, nil)
+		if err != nil {
+			s.log.Printf("retrieve checkout session: %v", err)
+			http.Error(w, "stripe retrieve failed", http.StatusBadRequest)
+			return
+		}
+		s.completeWaitlistFromSession(w, sess)
+
+	default:
+		http.Error(w, "unsupported webhook object", http.StatusBadRequest)
 	}
+}
+
+func (s *Server) completeWaitlistFromSession(w http.ResponseWriter, sess *stripe.CheckoutSession) {
 	email := strings.TrimSpace(sess.CustomerDetails.Email)
 	if email == "" {
 		email = strings.TrimSpace(sess.CustomerEmail)

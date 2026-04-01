@@ -11,6 +11,11 @@ import (
 
 const keyPrefix = "makeacompany"
 
+const (
+	statsSignupsKey     = keyPrefix + ":stats:signups"
+	statsAmountCentsKey = keyPrefix + ":stats:amount_cents"
+)
+
 type Store struct {
 	rdb *redis.Client
 }
@@ -52,7 +57,8 @@ func (s *Store) SaveWaitlistSignup(ctx context.Context, sessionID, email, stripe
 
 	userKey := fmt.Sprintf("%s:waitlist:%s", keyPrefix, email)
 	now := time.Now().UTC().Format(time.RFC3339)
-	return s.rdb.HSet(ctx, userKey, map[string]interface{}{
+	pipe := s.rdb.Pipeline()
+	pipe.HSet(ctx, userKey, map[string]interface{}{
 		"email":           email,
 		"stripeSessionId": sessionID,
 		"stripeCustomer":  stripeCustomer,
@@ -61,5 +67,28 @@ func (s *Store) SaveWaitlistSignup(ctx context.Context, sessionID, email, stripe
 		"currency":        currency,
 		"updatedAt":       now,
 		"source":          "waitlist",
-	}).Err()
+	})
+	pipe.Incr(ctx, statsSignupsKey)
+	if amountTotal > 0 {
+		pipe.IncrBy(ctx, statsAmountCentsKey, amountTotal)
+	}
+	_, err = pipe.Exec(ctx)
+	return err
+}
+
+// GetWaitlistStats returns aggregate counters maintained on successful first-time session processing.
+func (s *Store) GetWaitlistStats(ctx context.Context) (signups int64, amountCents int64, err error) {
+	n, err := s.rdb.Get(ctx, statsSignupsKey).Int64()
+	if err == redis.Nil {
+		n = 0
+	} else if err != nil {
+		return 0, 0, err
+	}
+	a, err := s.rdb.Get(ctx, statsAmountCentsKey).Int64()
+	if err == redis.Nil {
+		a = 0
+	} else if err != nil {
+		return 0, 0, err
+	}
+	return n, a, nil
 }

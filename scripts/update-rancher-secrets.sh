@@ -6,7 +6,8 @@ set -euo pipefail
 #
 # Keys (must match backend internal/app/config.go):
 #   STRIPE_SECRET_KEY
-#   STRIPE_WEBHOOK_SECRET
+#   STRIPE_WEBHOOK_SECRET_SNAPSHOT and STRIPE_WEBHOOK_SECRET_THIN (recommended), or
+#   STRIPE_WEBHOOK_SECRET (legacy; treated as snapshot-only)
 #   STRIPE_PRICE_ID_WAITLIST_TEST
 #   STRIPE_PRICE_ID_WAITLIST_LIVE
 #
@@ -49,8 +50,10 @@ if [[ -z "${STRIPE_SECRET_KEY}" ]]; then
   echo "need STRIPE_SECRET_KEY or STRIPE_API_KEY_TEST in ${ENV_FILE}" >&2
   exit 1
 fi
-if [[ -z "${STRIPE_WEBHOOK_SECRET:-}" ]]; then
-  echo "need STRIPE_WEBHOOK_SECRET in ${ENV_FILE}" >&2
+SNAP="${STRIPE_WEBHOOK_SECRET_SNAPSHOT:-${STRIPE_WEBHOOK_SECRET:-}}"
+THIN="${STRIPE_WEBHOOK_SECRET_THIN:-}"
+if [[ -z "${SNAP}" && -z "${THIN}" ]]; then
+  echo "need STRIPE_WEBHOOK_SECRET_SNAPSHOT / STRIPE_WEBHOOK_SECRET_THIN or legacy STRIPE_WEBHOOK_SECRET in ${ENV_FILE}" >&2
   exit 1
 fi
 if [[ -z "${STRIPE_PRICE_ID_WAITLIST_TEST:-}" ]]; then
@@ -70,10 +73,16 @@ fi
 secret_args=(
   --namespace "${NAMESPACE}"
   --from-literal=STRIPE_SECRET_KEY="${STRIPE_SECRET_KEY}"
-  --from-literal=STRIPE_WEBHOOK_SECRET="${STRIPE_WEBHOOK_SECRET}"
   --from-literal=STRIPE_PRICE_ID_WAITLIST_TEST="${STRIPE_PRICE_ID_WAITLIST_TEST}"
   --from-literal=STRIPE_PRICE_ID_WAITLIST_LIVE="${STRIPE_PRICE_ID_WAITLIST_LIVE}"
 )
+if [[ -n "${SNAP}" ]]; then
+  secret_args+=(--from-literal=STRIPE_WEBHOOK_SECRET_SNAPSHOT="${SNAP}")
+  secret_args+=(--from-literal=STRIPE_WEBHOOK_SECRET="${SNAP}")
+fi
+if [[ -n "${THIN}" ]]; then
+  secret_args+=(--from-literal=STRIPE_WEBHOOK_SECRET_THIN="${THIN}")
+fi
 
 kubectl "${kubectl_args[@]}" create secret generic "${SECRET_NAME}" \
   "${secret_args[@]}" \

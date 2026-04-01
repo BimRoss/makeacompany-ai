@@ -44,7 +44,11 @@ npm run dev   # repo root
 | `REDIS_URL` | Redis connection URL |
 | `APP_BASE_URL` | Public site URL (Stripe success/cancel) |
 | `STRIPE_SECRET_KEY` | `sk_test_…` or `sk_live_…` |
-| `STRIPE_WEBHOOK_SECRET` | Webhook signing secret |
+| `STRIPE_WEBHOOK_SECRET_SNAPSHOT` | Signing secret for **snapshot** webhook destination |
+| `STRIPE_WEBHOOK_SECRET_THIN` | Signing secret for **thin** webhook destination (same URL path, different `whsec`) |
+| `STRIPE_WEBHOOK_SECRET` | Optional legacy: if set without `…_SNAPSHOT`, used as snapshot secret |
+
+**Webhook URL (POST):** `{backend origin}/v1/billing/webhook` — e.g. ngrok `https://YOUR_SUBDOMAIN.ngrok-free.dev/v1/billing/webhook` forwarding to `localhost:8080`. Stripe snapshot and thin destinations can share this path; use each destination’s own signing secret in env.
 | `STRIPE_PRICE_ID_WAITLIST_TEST` | $1 one-time price (test mode) |
 | `STRIPE_PRICE_ID_WAITLIST_LIVE` | $1 one-time price (live mode) |
 

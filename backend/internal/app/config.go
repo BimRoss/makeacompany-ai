@@ -7,24 +7,31 @@ import (
 )
 
 type Config struct {
-	Port                    int
-	RedisURL                string
-	AppBaseURL              string
-	StripeSecretKey         string
-	StripeWebhookSecret     string
-	StripePriceWaitlistTest string
-	StripePriceWaitlistLive string
+	Port                       int
+	RedisURL                   string
+	AppBaseURL                 string
+	StripeSecretKey            string
+	StripeWebhookSecretSnapshot string
+	StripeWebhookSecretThin    string
+	StripePriceWaitlistTest    string
+	StripePriceWaitlistLive    string
 }
 
 func LoadConfig() Config {
+	// Snapshot signing secret: dedicated key or legacy STRIPE_WEBHOOK_SECRET (single destination).
+	snapshot := strings.TrimSpace(os.Getenv("STRIPE_WEBHOOK_SECRET_SNAPSHOT"))
+	if snapshot == "" {
+		snapshot = strings.TrimSpace(os.Getenv("STRIPE_WEBHOOK_SECRET"))
+	}
 	return Config{
-		Port:                    envInt("PORT", 8080),
-		RedisURL:                envString("REDIS_URL", "redis://localhost:6379/0"),
-		AppBaseURL:              strings.TrimRight(envString("APP_BASE_URL", "http://localhost:3000"), "/"),
-		StripeSecretKey:         os.Getenv("STRIPE_SECRET_KEY"),
-		StripeWebhookSecret:     os.Getenv("STRIPE_WEBHOOK_SECRET"),
-		StripePriceWaitlistTest: os.Getenv("STRIPE_PRICE_ID_WAITLIST_TEST"),
-		StripePriceWaitlistLive: os.Getenv("STRIPE_PRICE_ID_WAITLIST_LIVE"),
+		Port:                        envInt("PORT", 8080),
+		RedisURL:                    envString("REDIS_URL", "redis://localhost:6379/0"),
+		AppBaseURL:                  strings.TrimRight(envString("APP_BASE_URL", "http://localhost:3000"), "/"),
+		StripeSecretKey:             os.Getenv("STRIPE_SECRET_KEY"),
+		StripeWebhookSecretSnapshot: snapshot,
+		StripeWebhookSecretThin:     strings.TrimSpace(os.Getenv("STRIPE_WEBHOOK_SECRET_THIN")),
+		StripePriceWaitlistTest:     os.Getenv("STRIPE_PRICE_ID_WAITLIST_TEST"),
+		StripePriceWaitlistLive:     os.Getenv("STRIPE_PRICE_ID_WAITLIST_LIVE"),
 	}
 }
 

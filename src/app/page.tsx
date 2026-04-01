@@ -1,5 +1,6 @@
 import { CheckoutCTA } from "@/components/checkout-cta";
 import { SiteHeader } from "@/components/site-header";
+import { WaitlistStats } from "@/components/waitlist-stats";
 import { siteDescription, siteTitle } from "@/lib/site";
 
 export default function HomePage() {
@@ -16,6 +17,10 @@ export default function HomePage() {
         <p className="mx-auto mt-6 max-w-2xl text-center text-base text-[var(--muted-foreground)] sm:text-lg">
           {siteDescription}
         </p>
+
+        <div className="mx-auto mt-10 w-full max-w-lg">
+          <WaitlistStats />
+        </div>
 
         <section className="mt-14 flex flex-col items-center gap-10 sm:mt-20">
           <div className="w-full max-w-xl overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[0_24px_80px_-40px_rgba(0,0,0,0.35)]">
