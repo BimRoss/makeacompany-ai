@@ -6,8 +6,8 @@ set -euo pipefail
 #
 # Keys (must match backend internal/app/config.go):
 #   STRIPE_SECRET_KEY
-#   STRIPE_WEBHOOK_SECRET_SNAPSHOT and STRIPE_WEBHOOK_SECRET_THIN (recommended), or
-#   STRIPE_WEBHOOK_SECRET (legacy; treated as snapshot-only)
+#   STRIPE_WEBHOOK_SECRET_SNAPSHOT_TEST / STRIPE_WEBHOOK_SECRET_THIN_TEST (preferred), or
+#   STRIPE_WEBHOOK_SECRET_SNAPSHOT / STRIPE_WEBHOOK_SECRET_THIN, or STRIPE_WEBHOOK_SECRET (legacy snapshot)
 #   STRIPE_PRICE_ID_WAITLIST_TEST
 #   STRIPE_PRICE_ID_WAITLIST_LIVE
 #
@@ -50,10 +50,10 @@ if [[ -z "${STRIPE_SECRET_KEY}" ]]; then
   echo "need STRIPE_SECRET_KEY or STRIPE_API_KEY_TEST in ${ENV_FILE}" >&2
   exit 1
 fi
-SNAP="${STRIPE_WEBHOOK_SECRET_SNAPSHOT:-${STRIPE_WEBHOOK_SECRET:-}}"
-THIN="${STRIPE_WEBHOOK_SECRET_THIN:-}"
+SNAP="${STRIPE_WEBHOOK_SECRET_SNAPSHOT_TEST:-${STRIPE_WEBHOOK_SECRET_SNAPSHOT:-${STRIPE_WEBHOOK_SECRET:-}}}"
+THIN="${STRIPE_WEBHOOK_SECRET_THIN_TEST:-${STRIPE_WEBHOOK_SECRET_THIN:-}}"
 if [[ -z "${SNAP}" && -z "${THIN}" ]]; then
-  echo "need STRIPE_WEBHOOK_SECRET_SNAPSHOT / STRIPE_WEBHOOK_SECRET_THIN or legacy STRIPE_WEBHOOK_SECRET in ${ENV_FILE}" >&2
+  echo "need STRIPE_WEBHOOK_SECRET_*_TEST (or SNAPSHOT/THIN / legacy STRIPE_WEBHOOK_SECRET) in ${ENV_FILE}" >&2
   exit 1
 fi
 if [[ -z "${STRIPE_PRICE_ID_WAITLIST_TEST:-}" ]]; then
@@ -77,10 +77,12 @@ secret_args=(
   --from-literal=STRIPE_PRICE_ID_WAITLIST_LIVE="${STRIPE_PRICE_ID_WAITLIST_LIVE}"
 )
 if [[ -n "${SNAP}" ]]; then
+  secret_args+=(--from-literal=STRIPE_WEBHOOK_SECRET_SNAPSHOT_TEST="${SNAP}")
   secret_args+=(--from-literal=STRIPE_WEBHOOK_SECRET_SNAPSHOT="${SNAP}")
   secret_args+=(--from-literal=STRIPE_WEBHOOK_SECRET="${SNAP}")
 fi
 if [[ -n "${THIN}" ]]; then
+  secret_args+=(--from-literal=STRIPE_WEBHOOK_SECRET_THIN_TEST="${THIN}")
   secret_args+=(--from-literal=STRIPE_WEBHOOK_SECRET_THIN="${THIN}")
 fi
 

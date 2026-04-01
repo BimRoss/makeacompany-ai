@@ -44,13 +44,16 @@ npm run dev   # repo root
 | `REDIS_URL` | Redis connection URL |
 | `APP_BASE_URL` | Public site URL (Stripe success/cancel) |
 | `STRIPE_SECRET_KEY` | `sk_test_…` or `sk_live_…` |
-| `STRIPE_WEBHOOK_SECRET_SNAPSHOT` | Signing secret for **snapshot** webhook destination |
-| `STRIPE_WEBHOOK_SECRET_THIN` | Signing secret for **thin** webhook destination (same URL path, different `whsec`) |
-| `STRIPE_WEBHOOK_SECRET` | Optional legacy: if set without `…_SNAPSHOT`, used as snapshot secret |
-
-**Webhook URL (POST):** `{backend origin}/v1/billing/webhook` — e.g. ngrok `https://YOUR_SUBDOMAIN.ngrok-free.dev/v1/billing/webhook` forwarding to `localhost:8080`. Stripe snapshot and thin destinations can share this path; use each destination’s own signing secret in env.
+| `STRIPE_WEBHOOK_SECRET_SNAPSHOT_TEST` | Test-mode signing secret for **snapshot** webhook destination (`whsec_…`) |
+| `STRIPE_WEBHOOK_SECRET_THIN_TEST` | Test-mode signing secret for **thin** webhook destination (same URL path, different `whsec`) |
+| `STRIPE_WEBHOOK_SECRET_SNAPSHOT` / `STRIPE_WEBHOOK_SECRET_THIN` | Optional aliases if you omit the `_TEST` suffix |
+| `STRIPE_WEBHOOK_SECRET` | Optional legacy: used as snapshot secret if snapshot-specific vars are unset |
 | `STRIPE_PRICE_ID_WAITLIST_TEST` | $1 one-time price (test mode) |
 | `STRIPE_PRICE_ID_WAITLIST_LIVE` | $1 one-time price (live mode) |
+
+**Webhook URL (POST):** `{backend origin}/v1/billing/webhook` — e.g. ngrok `https://YOUR_SUBDOMAIN.ngrok-free.dev/v1/billing/webhook` forwarding to `localhost:8080`. Snapshot and thin destinations can share this path; each destination still has its own signing secret.
+
+**Later (live split):** you may add separate Dashboard secrets such as `STRIPE_API_KEY_LIVE`, `STRIPE_WEBHOOK_SECRET_SNAPSHOT_LIVE`, and `STRIPE_WEBHOOK_SECRET_THIN_LIVE`; wiring those into the backend and cluster Secret is not implemented yet—today checkout mode follows `STRIPE_SECRET_KEY` (`sk_test_` vs `sk_live_`) and price ids.
 
 Checkout selects test vs live **price** from `STRIPE_SECRET_KEY` mode (`sk_live_` uses live price id).
 
