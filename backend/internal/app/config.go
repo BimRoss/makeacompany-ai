@@ -7,14 +7,14 @@ import (
 )
 
 type Config struct {
-	Port                       int
-	RedisURL                   string
-	AppBaseURL                 string
-	StripeSecretKey            string
+	Port                        int
+	RedisURL                    string
+	AppBaseURL                  string
+	StripeSecretKey             string
 	StripeWebhookSecretSnapshot string
-	StripeWebhookSecretThin    string
-	StripePriceWaitlistTest    string
-	StripePriceWaitlistLive    string
+	StripeWebhookSecretThin     string
+	StripePriceWaitlistTest     string
+	StripePriceWaitlistLive     string
 }
 
 func LoadConfig() Config {
