@@ -52,6 +52,8 @@ jobs:
           context: .
           file: deploy/docker/frontend.Dockerfile
           target: production
+          build-args: |
+            NEXT_PUBLIC_GA_MEASUREMENT_ID=${{ vars.NEXT_PUBLIC_GA_MEASUREMENT_ID }}
           push: ${{ startsWith(github.ref, 'refs/tags/') }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
