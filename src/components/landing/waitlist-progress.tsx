@@ -103,7 +103,7 @@ export function WaitlistProgress() {
 
           <div className="h-3 overflow-hidden rounded-full border border-border bg-muted/20">
             <div
-              className="h-full bg-foreground transition-all"
+              className="h-full bg-foreground motion-all"
               style={{ width: `${percentage}%` }}
               aria-hidden
             />

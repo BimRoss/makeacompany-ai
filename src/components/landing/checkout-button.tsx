@@ -52,7 +52,7 @@ export function CheckoutButton({ label, className }: CheckoutButtonProps) {
         disabled={loading}
         aria-busy={loading}
         onClick={onClick}
-        className={`group inline-flex h-14 items-center justify-center rounded-lg bg-primary px-8 text-lg font-semibold text-primary-foreground transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-70 ${className ?? ""}`}
+        className={`group inline-flex h-14 items-center justify-center rounded-lg bg-primary px-8 text-lg font-semibold text-primary-foreground motion-colors hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-70 ${className ?? ""}`}
       >
         {loading ? (
           <>
@@ -62,7 +62,7 @@ export function CheckoutButton({ label, className }: CheckoutButtonProps) {
         ) : (
           <>
             {label}
-            <ArrowRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
+            <ArrowRight className="ml-2 h-5 w-5 motion-transform group-hover:translate-x-1" />
           </>
         )}
       </button>

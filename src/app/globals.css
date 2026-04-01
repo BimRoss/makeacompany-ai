@@ -4,6 +4,8 @@
 
 /* Light theme: strict monochrome */
 :root {
+  --motion-duration: 0.5s;
+  --motion-ease: ease-in-out;
   --background: #ffffff;
   --foreground: #000000;
   --card: #ffffff;
@@ -85,9 +87,17 @@ body,
 .bg-accent,
 .text-accent-foreground,
 .hero-grid {
-  transition-property: background-color, border-color, color, fill, stroke, box-shadow;
-  transition-duration: 1s;
-  transition-timing-function: ease-in-out;
+  transition-property:
+    background-color,
+    border-color,
+    color,
+    fill,
+    stroke,
+    box-shadow,
+    text-decoration-color,
+    opacity;
+  transition-duration: var(--motion-duration);
+  transition-timing-function: var(--motion-ease);
 }
 
 html {
@@ -116,21 +126,46 @@ body {
   background-size: 48px 48px;
 }
 
-@media (hover: hover) and (pointer: fine) {
-  [class*="hover:"] {
-    transition-property:
-      color,
-      background-color,
-      border-color,
-      text-decoration-color,
-      fill,
-      stroke,
-      opacity,
-      box-shadow,
-      transform,
-      filter,
-      backdrop-filter;
-    transition-duration: 0.5s !important;
-    transition-timing-function: ease-in-out !important;
-  }
+/* Reusable motion contract for all interactive surfaces. */
+.motion-colors {
+  transition-property:
+    color,
+    background-color,
+    border-color,
+    text-decoration-color,
+    fill,
+    stroke,
+    opacity,
+    box-shadow,
+    filter,
+    backdrop-filter;
+  transition-duration: var(--motion-duration);
+  transition-timing-function: var(--motion-ease);
+}
+
+.motion-transform {
+  transition-property: transform, opacity;
+  transition-duration: var(--motion-duration);
+  transition-timing-function: var(--motion-ease);
+}
+
+.motion-all {
+  transition-property:
+    color,
+    background-color,
+    border-color,
+    text-decoration-color,
+    fill,
+    stroke,
+    box-shadow,
+    opacity,
+    transform,
+    filter,
+    backdrop-filter,
+    width,
+    height,
+    padding,
+    margin;
+  transition-duration: var(--motion-duration);
+  transition-timing-function: var(--motion-ease);
 }
