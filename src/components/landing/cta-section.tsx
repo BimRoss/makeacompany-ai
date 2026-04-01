@@ -19,15 +19,15 @@ export function CtaSection() {
             </p>
             <div className="mb-8 flex flex-wrap items-center justify-center gap-x-6 gap-y-3 text-sm">
               <div className="flex items-center gap-2 text-muted-foreground">
-                <CheckCircle className="h-4 w-4 text-green-500" />
+                <CheckCircle className="h-4 w-4 text-foreground" />
                 <span>$1 refundable deposit</span>
               </div>
               <div className="flex items-center gap-2 text-muted-foreground">
-                <CheckCircle className="h-4 w-4 text-green-500" />
+                <CheckCircle className="h-4 w-4 text-foreground" />
                 <span>Free month on launch</span>
               </div>
               <div className="flex items-center gap-2 text-muted-foreground">
-                <CheckCircle className="h-4 w-4 text-green-500" />
+                <CheckCircle className="h-4 w-4 text-foreground" />
                 <span>Priority access</span>
               </div>
             </div>

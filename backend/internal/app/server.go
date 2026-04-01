@@ -37,6 +37,7 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 	s.mux.HandleFunc("/readyz", s.handleReadiness)
 	s.mux.HandleFunc("/health", s.handleHealth)
 	s.mux.HandleFunc("/v1/billing/checkout", s.handleCheckout)
+	s.mux.HandleFunc("/v1/billing/checkout-status", s.handleCheckoutStatus)
 	s.mux.HandleFunc("/v1/billing/webhook", s.handleWebhook)
 	s.mux.HandleFunc("/v1/billing/waitlist-stats", s.handleWaitlistStats)
 	return s, nil
@@ -182,6 +183,50 @@ func (s *Server) handleWaitlistStats(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (s *Server) handleCheckoutStatus(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if strings.TrimSpace(s.cfg.StripeSecretKey) == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "stripe is not configured"})
+		return
+	}
+	sessionID := strings.TrimSpace(r.URL.Query().Get("session_id"))
+	if sessionID == "" || !strings.HasPrefix(sessionID, "cs_") {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "invalid session_id"})
+		return
+	}
+	sess, err := checkoutsession.Get(sessionID, nil)
+	if err != nil {
+		s.log.Printf("checkout-status retrieve session: %v", err)
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "unable to retrieve checkout session"})
+		return
+	}
+
+	paymentStatus := string(sess.PaymentStatus)
+	if paymentStatus != "paid" && paymentStatus != "no_payment_required" {
+		writeJSON(w, http.StatusOK, map[string]any{
+			"registered":    false,
+			"paymentStatus": paymentStatus,
+		})
+		return
+	}
+
+	email, err := s.saveWaitlistFromSession(context.Background(), sess)
+	if err != nil {
+		s.log.Printf("checkout-status save waitlist: %v", err)
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"registered":    true,
+		"paymentStatus": paymentStatus,
+		"email":         email,
+	})
+}
+
 func (s *Server) handleWebhook(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -269,14 +314,25 @@ func (s *Server) handleWebhook(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) completeWaitlistFromSession(w http.ResponseWriter, sess *stripe.CheckoutSession) {
-	email := strings.TrimSpace(sess.CustomerDetails.Email)
+	if _, err := s.saveWaitlistFromSession(context.Background(), sess); err != nil {
+		s.log.Printf("save waitlist: %v", err)
+		http.Error(w, "store error", http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"received": true})
+}
+
+func (s *Server) saveWaitlistFromSession(ctx context.Context, sess *stripe.CheckoutSession) (string, error) {
+	var email string
+	if sess.CustomerDetails != nil {
+		email = strings.TrimSpace(sess.CustomerDetails.Email)
+	}
 	if email == "" {
 		email = strings.TrimSpace(sess.CustomerEmail)
 	}
 	if email == "" {
 		s.log.Printf("checkout session %s completed without email", sess.ID)
-		http.Error(w, "missing customer email", http.StatusBadRequest)
-		return
+		return "", errors.New("missing customer email")
 	}
 	var custID string
 	if sess.Customer != nil {
@@ -285,13 +341,10 @@ func (s *Server) completeWaitlistFromSession(w http.ResponseWriter, sess *stripe
 	amount := sess.AmountTotal
 	cur := string(sess.Currency)
 	status := string(sess.PaymentStatus)
-	ctx := context.Background()
 	if err := s.store.SaveWaitlistSignup(ctx, sess.ID, email, custID, status, amount, cur); err != nil {
-		s.log.Printf("save waitlist: %v", err)
-		http.Error(w, "store error", http.StatusInternalServerError)
-		return
+		return "", err
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"received": true})
+	return email, nil
 }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {

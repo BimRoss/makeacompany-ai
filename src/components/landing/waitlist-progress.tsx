@@ -5,6 +5,7 @@ import { Users } from "lucide-react";
 import { apiBase } from "@/lib/site";
 
 const MAX_WAITLIST = 10000;
+const WAITLIST_REFRESH_EVENT = "waitlist:refresh";
 
 type WaitlistStatsResponse = {
   signups: number;
@@ -41,9 +42,15 @@ export function WaitlistProgress() {
 
     load();
     const interval = setInterval(load, 30000);
+    const onRefresh = () => {
+      void load();
+      window.setTimeout(() => void load(), 1500);
+    };
+    window.addEventListener(WAITLIST_REFRESH_EVENT, onRefresh);
     return () => {
       cancelled = true;
       clearInterval(interval);
+      window.removeEventListener(WAITLIST_REFRESH_EVENT, onRefresh);
     };
   }, []);
 
@@ -51,7 +58,7 @@ export function WaitlistProgress() {
     return (
       <section className="py-16">
         <div className="mx-auto max-w-2xl px-6">
-          <p className="rounded-xl border border-border bg-card px-4 py-3 text-center text-sm text-red-500">
+          <p className="rounded-xl border border-border bg-card px-4 py-3 text-center text-sm">
             {error}
           </p>
         </div>
@@ -76,8 +83,8 @@ export function WaitlistProgress() {
         <div className="rounded-2xl border border-border bg-card p-8 shadow-sm">
           <div className="mb-6 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
-                <Users className="h-5 w-5 text-primary" />
+              <div className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-background">
+                <Users className="h-5 w-5 text-foreground" />
               </div>
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Waitlist Progress</p>
@@ -89,14 +96,14 @@ export function WaitlistProgress() {
                 </p>
               </div>
             </div>
-            <div className="rounded-full bg-primary/10 px-3 py-1 text-sm font-semibold text-primary">
+            <div className="rounded-full border border-border bg-background px-3 py-1 text-sm font-semibold">
               {percentage.toFixed(1)}%
             </div>
           </div>
 
-          <div className="h-3 overflow-hidden rounded-full bg-primary/20">
+          <div className="h-3 overflow-hidden rounded-full border border-border bg-muted/20">
             <div
-              className="h-full bg-primary transition-all"
+              className="h-full bg-foreground transition-all"
               style={{ width: `${percentage}%` }}
               aria-hidden
             />

@@ -72,12 +72,12 @@ export function TestimonialsCarousel() {
             >
               <div className="mb-4 flex gap-1">
                 {Array.from({ length: 5 }).map((_, i) => (
-                  <Star key={i} className="h-4 w-4 fill-yellow-500 text-yellow-500" />
+                  <Star key={i} className="h-4 w-4 fill-foreground text-foreground" />
                 ))}
               </div>
               <p className="mb-6 text-pretty text-muted-foreground">&quot;{testimonial.content}&quot;</p>
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-background text-sm font-semibold">
                   {testimonial.avatar}
                 </div>
                 <div>

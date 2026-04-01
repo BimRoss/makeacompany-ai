@@ -50,7 +50,7 @@ export function CheckoutButton({ label, className }: CheckoutButtonProps) {
         {loading ? "Opening checkout..." : label}
         <ArrowRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
       </button>
-      {error ? <p className="text-sm text-red-500">{error}</p> : null}
+      {error ? <p className="rounded-md border border-border bg-card px-3 py-2 text-sm">{error}</p> : null}
     </div>
   );
 }
