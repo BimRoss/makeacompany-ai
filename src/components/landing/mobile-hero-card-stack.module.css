@@ -39,23 +39,23 @@
 
 .middle {
   z-index: 20;
-  transform: translate3d(18px, 18px, 0) rotate(1.8deg) scale(0.95);
+  transform: translate3d(24px, 20px, 0) rotate(2.8deg) scale(0.95);
   opacity: 1;
 }
 
 .back {
   z-index: 10;
-  transform: translate3d(34px, 34px, 0) rotate(3.2deg) scale(0.9);
+  transform: translate3d(44px, 36px, 0) rotate(5deg) scale(0.9);
   opacity: 1;
 }
 
 @media (max-width: 430px) {
   .middle {
-    transform: translate3d(14px, 14px, 0) rotate(1.8deg) scale(0.95);
+    transform: translate3d(18px, 15px, 0) rotate(2.6deg) scale(0.95);
   }
 
   .back {
-    transform: translate3d(26px, 26px, 0) rotate(3.2deg) scale(0.9);
+    transform: translate3d(34px, 29px, 0) rotate(4.6deg) scale(0.9);
   }
 }
 
