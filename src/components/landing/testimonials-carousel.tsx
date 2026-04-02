@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { Star } from "lucide-react";
 import { useRef, useState } from "react";
 
@@ -46,11 +47,12 @@ const TESTIMONIALS = [
   },
   {
     id: 6,
-    name: "Jennifer Wu",
-    role: "COO, GrowthLabs",
-    avatar: "JW",
+    name: "Grant Foster",
+    role: "Founder, BimRoss",
+    avatar: "GF",
+    avatarImage: "/grant-headshot.png",
     content:
-      "We created specialized agents for sales, support, and ops. Each one has their own personality and expertise.",
+      "Well, I'm the founder... and I couldn't exist without it... literally. I can never tell if I'm working on the company or the product, but regardless, it's helped me scale my company to... well, this.",
   },
 ];
 
@@ -124,8 +126,18 @@ export function TestimonialsCarousel() {
               </div>
               <p className="mb-6 text-pretty text-muted-foreground">&quot;{testimonial.content}&quot;</p>
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-background text-sm font-semibold">
-                  {testimonial.avatar}
+                <div className="relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-border bg-background text-sm font-semibold">
+                  {"avatarImage" in testimonial && testimonial.avatarImage ? (
+                    <Image
+                      src={testimonial.avatarImage}
+                      alt={testimonial.name}
+                      fill
+                      sizes="40px"
+                      className="object-cover object-top"
+                    />
+                  ) : (
+                    testimonial.avatar
+                  )}
                 </div>
                 <div>
                   <p className="font-semibold">{testimonial.name}</p>

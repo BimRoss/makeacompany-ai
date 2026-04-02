@@ -1,6 +1,7 @@
 import Image from "next/image";
 import { Sparkles } from "lucide-react";
 import { CheckoutButton } from "@/components/landing/checkout-button";
+import { MobileHeroCardStack } from "@/components/landing/mobile-hero-card-stack";
 import { siteDescription, siteTagline } from "@/lib/site";
 
 export function HeroSection() {
@@ -63,49 +64,38 @@ export function HeroSection() {
       </div>
 
       <div className="relative mt-6 w-full max-w-5xl px-4 sm:mt-16 sm:px-4">
-        {/* Narrow viewports: single phone mockup (no desktop screenshot). */}
-        <div className="mx-auto w-full max-w-[min(280px,88vw)] sm:hidden">
-          <div className="relative aspect-[9/19] w-full overflow-hidden rounded-[1.65rem] border border-border/50 bg-background shadow-[0_28px_65px_-18px_rgba(0,0,0,0.55),0_12px_24px_-10px_rgba(0,0,0,0.35)] ring-1 ring-black/[0.06]">
-            <Image
-              src="/hero-mobile-slack.png"
-              alt="AI employees collaborating in Slack"
-              fill
-              sizes="280px"
-              className="object-cover object-top"
-              priority
-            />
-          </div>
+        {/* Narrow viewports: stacked phone mockups (no desktop screenshot). */}
+        <div className="sm:hidden">
+          <MobileHeroCardStack />
         </div>
 
         {/* sm+: desktop Slack screenshot with phone overlapping the left. */}
-        <div className="relative hidden sm:block">
-          <div className="overflow-hidden rounded-xl border border-border/40 bg-card shadow-2xl">
-            <div className="relative aspect-[16/9] w-full bg-muted/20 sm:aspect-[16/10]">
-              <Image
-                src="/hero-screenshot-2026-04-01-041155.png"
-                alt="AI employees working in Slack"
-                fill
-                sizes="(max-width: 1024px) 100vw, 1024px"
-                className="object-cover object-top"
-                priority
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-background/20 to-transparent" />
+        <div className="relative hidden isolate sm:block">
+          <div className="peer/desktop relative z-10 origin-center scale-[0.93] transition-[transform,box-shadow] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none hover:z-40 hover:-translate-y-1.5 hover:scale-[1.01] hover:shadow-[0_42px_90px_-34px_rgba(0,0,0,0.62)]">
+            <div className="overflow-hidden rounded-xl border border-border/40 bg-card shadow-2xl">
+              <div className="relative aspect-[16/9] w-full bg-muted/20 sm:aspect-[16/10]">
+                <Image
+                  src="/hero-screenshot-2026-04-01-041155.png"
+                  alt="AI employees working in Slack"
+                  fill
+                  sizes="(max-width: 1024px) 100vw, 1024px"
+                  className="object-cover object-top"
+                  priority
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-background/20 to-transparent" />
+              </div>
             </div>
           </div>
 
           <div
-            className="pointer-events-none absolute -left-3 top-1/2 z-20 w-[min(38%,260px)] -translate-y-1/2 md:-left-2 md:w-[min(36%,300px)] lg:w-[min(32%,320px)]"
-            aria-hidden
+            className="absolute -left-3 top-1/2 z-30 w-[min(38%,260px)] -translate-y-1/2 transition-[transform,opacity,z-index] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none peer-hover/desktop:z-10 peer-hover/desktop:translate-x-2 peer-hover/desktop:translate-y-[calc(-50%+10px)] peer-hover/desktop:scale-[0.97] peer-hover/desktop:opacity-95 md:-left-2 md:w-[min(36%,300px)] lg:w-[min(32%,320px)]"
+            role="group"
+            aria-label="Mobile Slack examples"
           >
-            <div className="relative aspect-[9/19] w-full overflow-hidden rounded-[1.65rem] border border-border/50 bg-background shadow-[0_28px_65px_-18px_rgba(0,0,0,0.55),0_12px_24px_-10px_rgba(0,0,0,0.35)] ring-1 ring-black/[0.06]">
-              <Image
-                src="/hero-mobile-slack.png"
-                alt=""
-                fill
-                sizes="(max-width: 1024px) 260px, 320px"
-                className="object-cover object-top"
-              />
-            </div>
+            <MobileHeroCardStack
+              className="max-w-none px-3 pb-5 pt-4"
+              imageSizes="(max-width: 1024px) 260px, 320px"
+            />
           </div>
         </div>
       </div>
