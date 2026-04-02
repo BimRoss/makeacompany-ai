@@ -43,6 +43,7 @@ npm run dev   # repo root
 |----------|---------|
 | `REDIS_URL` | Redis connection URL |
 | `APP_BASE_URL` | Public site URL (Stripe success/cancel) |
+| `NEXT_PUBLIC_LINKEDIN_PARTNER_ID` | LinkedIn Insight Tag partner id; frontend injects LinkedIn tracking only in production when set |
 | `STRIPE_SECRET_KEY` | Optional single key (`sk_test_…` or `sk_live_…`) — wins if set |
 | `STRIPE_SECRET_KEY_TEST` / `STRIPE_SECRET_KEY_LIVE` | Split keys; backend picks the **first non-empty** in order: `STRIPE_SECRET_KEY`, `STRIPE_SECRET_KEY_LIVE`, `STRIPE_SECRET_KEY_TEST`, `STRIPE_API_KEY_TEST` |
 | `STRIPE_API_KEY_TEST` | Optional alias (e.g. stripe-factory) for a test secret key |
@@ -58,7 +59,7 @@ npm run dev   # repo root
 
 Checkout selects test vs live **price** from the **effective** API secret’s prefix (`sk_live_` uses live price id). For **production**, prefer `STRIPE_SECRET_KEY` (live) or `STRIPE_SECRET_KEY_LIVE`.
 
-**`NEXT_PUBLIC_*` in Kubernetes:** values in **`makeacompany-ai-config`** are injected at pod runtime. Client-bundled `NEXT_PUBLIC_*` in a production **Docker** image are fixed at **`npm run build`** unless you add build-args in CI; set publishable keys in the image build when the frontend starts using Stripe.js in the browser.
+**`NEXT_PUBLIC_*` in Kubernetes:** values in **`makeacompany-ai-config`** are injected at pod runtime. Client-bundled `NEXT_PUBLIC_*` in a production **Docker** image are fixed at **`npm run build`** unless you add build-args in CI; set publishable keys in the image build when the frontend starts using Stripe.js in the browser. The same build-time rule applies to `NEXT_PUBLIC_LINKEDIN_PARTNER_ID` for LinkedIn Insight in production.
 
 ### Admin cluster (runtime Secret)
 

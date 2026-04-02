@@ -54,7 +54,8 @@ export default function PrivacyPage() {
           <section className="space-y-3">
             <h2 className="text-xl font-semibold">Cookies and analytics</h2>
             <p>
-              We may use cookies and similar technologies to maintain session behavior, measure traffic, and
+              We may use cookies and similar technologies (including analytics and advertising pixels such as
+              Google Analytics and LinkedIn Insight Tag) to maintain session behavior, measure traffic, and
               improve user experience. You can adjust browser settings to control cookies, though some features
               may not function correctly.
             </p>

@@ -65,6 +65,8 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   const gaMeasurementID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
+  const linkedInPartnerID = process.env.NEXT_PUBLIC_LINKEDIN_PARTNER_ID;
+  const shouldLoadLinkedIn = process.env.NODE_ENV === "production" && Boolean(linkedInPartnerID);
   const structuredData = {
     "@context": "https://schema.org",
     "@graph": [
@@ -109,6 +111,35 @@ function gtag(){dataLayer.push(arguments);}
 gtag('js', new Date());
 gtag('config', '${gaMeasurementID}');`}
             </Script>
+          </>
+        ) : null}
+        {shouldLoadLinkedIn ? (
+          <>
+            <Script id="linkedin-insight-partner-id" strategy="afterInteractive">
+              {`_linkedin_partner_id = "${linkedInPartnerID}";
+window._linkedin_data_partner_ids = window._linkedin_data_partner_ids || [];
+window._linkedin_data_partner_ids.push(_linkedin_partner_id);`}
+            </Script>
+            <Script id="linkedin-insight-loader" strategy="afterInteractive">
+              {`(function(l) {
+if (!l){window.lintrk = function(a,b){window.lintrk.q.push([a,b])};
+window.lintrk.q=[]}
+var s = document.getElementsByTagName("script")[0];
+var b = document.createElement("script");
+b.type = "text/javascript";b.async = true;
+b.src = "https://snap.licdn.com/li.lms-analytics/insight.min.js";
+s.parentNode.insertBefore(b, s);})(window.lintrk);`}
+            </Script>
+            <noscript>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                height="1"
+                width="1"
+                style={{ display: "none" }}
+                alt=""
+                src={`https://px.ads.linkedin.com/collect/?pid=${linkedInPartnerID}&fmt=gif`}
+              />
+            </noscript>
           </>
         ) : null}
       </body>
