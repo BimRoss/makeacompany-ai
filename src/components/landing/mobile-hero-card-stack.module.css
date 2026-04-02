@@ -32,20 +32,30 @@
 }
 
 .front {
-  z-index: 20;
+  z-index: 30;
   transform: translate3d(0, 0, 0) rotate(0deg) scale(1);
+  opacity: 1;
+}
+
+.middle {
+  z-index: 20;
+  transform: translate3d(18px, 18px, 0) rotate(1.8deg) scale(0.95);
   opacity: 1;
 }
 
 .back {
   z-index: 10;
-  transform: translate3d(28px, 28px, 0) rotate(2.5deg) scale(0.92);
+  transform: translate3d(34px, 34px, 0) rotate(3.2deg) scale(0.9);
   opacity: 1;
 }
 
 @media (max-width: 430px) {
+  .middle {
+    transform: translate3d(14px, 14px, 0) rotate(1.8deg) scale(0.95);
+  }
+
   .back {
-    transform: translate3d(22px, 22px, 0) rotate(2.5deg) scale(0.92);
+    transform: translate3d(26px, 26px, 0) rotate(3.2deg) scale(0.9);
   }
 }
 

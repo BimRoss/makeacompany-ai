@@ -5,7 +5,7 @@ import clsx from "clsx";
 import { useState } from "react";
 import styles from "./mobile-hero-card-stack.module.css";
 
-type Front = 0 | 1;
+type Front = 0 | 1 | 2;
 
 type MobileHeroCardStackProps = {
   /** Merged onto the outer wrapper; use for overlay layout (e.g. `max-w-none w-full`). */
@@ -41,7 +41,7 @@ export function MobileHeroCardStack({
           className={clsx(
             styles.cardButton,
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-            front === 0 ? styles.front : styles.back,
+            front === 0 ? styles.front : front === 1 ? styles.middle : styles.back,
           )}
           onClick={() => bringToFront(0)}
         >
@@ -64,13 +64,35 @@ export function MobileHeroCardStack({
           className={clsx(
             styles.cardButton,
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-            front === 1 ? styles.front : styles.back,
+            front === 1 ? styles.front : front === 2 ? styles.middle : styles.back,
           )}
           onClick={() => bringToFront(1)}
         >
           <Image
             src="/hero-mobile-thread.png"
             alt="Slack thread with Ross and replies"
+            fill
+            sizes={imageSizes}
+            className={styles.cardImage}
+            draggable={false}
+          />
+        </button>
+
+        {/* Home card */}
+        <button
+          type="button"
+          aria-label="Show workspace home screenshot"
+          aria-pressed={front === 2}
+          className={clsx(
+            styles.cardButton,
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+            front === 2 ? styles.front : front === 0 ? styles.middle : styles.back,
+          )}
+          onClick={() => bringToFront(2)}
+        >
+          <Image
+            src="/hero-mobile-home.png"
+            alt="BimRoss Slack home screen"
             fill
             sizes={imageSizes}
             className={styles.cardImage}
