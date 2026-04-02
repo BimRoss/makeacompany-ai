@@ -39,7 +39,7 @@ export function Header() {
         </div>
         <div className="flex items-center gap-3">
           <Image
-            src="/makeacompany-mark-c.png"
+            src="/logo.png"
             alt="Make a Company logo mark"
             width={40}
             height={40}
