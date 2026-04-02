@@ -1,7 +1,12 @@
 export const siteName = "Make a Company";
-export const siteTitle = "Your AI Company in Slack";
+/** Primary tagline for share cards and positioning */
+export const siteTagline = "Make everyone a CEO.";
+export const siteTitle = `Make a Company — ${siteTagline.replace(/\.$/, "")}.`;
 export const siteDescription =
-  "Waitlist: AI employees in Slack for solo founders and lean teams—first 100 get a free month at launch. $1 refundable deposit.";
+  "Waitlist: AI employees in Slack—leverage of a team without the headcount. $1 fully refundable deposit; first 100 get a free month at launch.";
+/** One line under the headline on generated OG/Twitter images */
+export const siteShareSubhead =
+  "Keep the CEO seat. Let AI employees run the plays—in Slack, 24/7.";
 export const siteUrl =
   process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") || "https://makeacompany.ai";
 

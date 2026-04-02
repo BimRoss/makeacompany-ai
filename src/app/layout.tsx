@@ -4,7 +4,7 @@ import { DM_Sans, Syne } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
-import { siteDescription, siteName, siteTitle, siteUrl } from "@/lib/site";
+import { siteDescription, siteName, siteTagline, siteTitle, siteUrl } from "@/lib/site";
 
 const dmSans = DM_Sans({
   variable: "--font-dm-sans",
@@ -51,7 +51,7 @@ export const metadata: Metadata = {
         url: "/opengraph-image",
         width: 1200,
         height: 630,
-        alt: "Make a Company — one human, infinite agents",
+        alt: `${siteName} — ${siteTagline}`,
       },
     ],
   },

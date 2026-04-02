@@ -9,7 +9,7 @@ import { HeroSection } from "@/components/landing/hero-section";
 import { faqStructuredData, SeoFaqSection } from "@/components/landing/seo-faq";
 import { TestimonialsCarousel } from "@/components/landing/testimonials-carousel";
 import { WaitlistProgress } from "@/components/landing/waitlist-progress";
-import { siteDescription, siteTitle, siteUrl } from "@/lib/site";
+import { siteDescription, siteName, siteTagline, siteTitle, siteUrl } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: siteTitle,
@@ -19,10 +19,11 @@ export const metadata: Metadata = {
   },
   keywords: [
     "AI company",
-    "one human infinite agents",
+    "Make everyone a CEO",
     "AI employees",
     "Slack agents",
     "company automation",
+    "solo founder leverage",
     "BimRoss",
   ],
   openGraph: {
@@ -34,7 +35,7 @@ export const metadata: Metadata = {
         url: "/opengraph-image",
         width: 1200,
         height: 630,
-        alt: "Make a Company — one human, infinite agents",
+        alt: `${siteName} — ${siteTagline}`,
       },
     ],
   },

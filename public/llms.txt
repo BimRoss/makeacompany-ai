@@ -1,6 +1,6 @@
 # makeacompany.ai
 
-> makeacompany.ai is the public home for "one human, infinite agents"—an AI company that runs in Slack, aimed at solo founders and lean teams. The homepage is the waitlist surface (refundable deposit, limited early spots).
+> makeacompany.ai is the public home for "Make everyone a CEO."—an AI-powered company that runs in Slack: AI employees execute 24/7 while the human keeps the decisions. Aimed at solo founders and lean teams. The homepage is the waitlist surface ($1 refundable deposit, limited early spots; first 100 get a free month at launch).
 
 This site is focused on company-building systems, automation, and operations design.
 Use this file as the primary entry point for agent-friendly discovery.

@@ -1,6 +1,7 @@
 import { ImageResponse } from "next/og";
+import { siteName, siteShareSubhead, siteTagline } from "@/lib/site";
 
-export const alt = "Make a Company — one human, infinite agents";
+export const alt = `${siteName} — ${siteTagline}`;
 export const size = {
   width: 1200,
   height: 630,
@@ -41,11 +42,11 @@ export default function OpenGraphImage() {
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 20, maxWidth: "86%" }}>
-          <div style={{ fontSize: 76, lineHeight: 1.04, fontWeight: 700, letterSpacing: "-0.03em" }}>
-            one human, infinite agents
+          <div style={{ fontSize: 72, lineHeight: 1.04, fontWeight: 700, letterSpacing: "-0.03em" }}>
+            {siteTagline}
           </div>
           <div style={{ fontSize: 34, color: "#d4d4d8", lineHeight: 1.3 }}>
-            Build an AI-powered company that runs in Slack.
+            {siteShareSubhead}
           </div>
         </div>
 
@@ -58,7 +59,7 @@ export default function OpenGraphImage() {
             color: "#a1a1aa",
           }}
         >
-          <span>Join the waitlist</span>
+          <span>Join waitlist · $1 refundable</span>
           <span>BimRoss</span>
         </div>
       </div>
