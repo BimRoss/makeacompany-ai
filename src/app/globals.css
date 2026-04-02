@@ -25,6 +25,11 @@
   --grid: rgba(0, 0, 0, 0.08);
   --faq-motion-duration: 0.55s;
   --faq-motion-ease: cubic-bezier(0.33, 1, 0.68, 1);
+  /* Slim scrollbars — monochrome, minimal chrome */
+  --scrollbar-size: 5px;
+  --scrollbar-track: transparent;
+  --scrollbar-thumb: rgba(0, 0, 0, 0.18);
+  --scrollbar-thumb-hover: rgba(0, 0, 0, 0.32);
 }
 
 /* Dark theme: strict monochrome */
@@ -46,6 +51,8 @@
   --radius: 0.625rem;
   --accent-glow: rgba(255, 255, 255, 0.3);
   --grid: rgba(255, 255, 255, 0.08);
+  --scrollbar-thumb: rgba(255, 255, 255, 0.22);
+  --scrollbar-thumb-hover: rgba(255, 255, 255, 0.4);
 }
 
 @theme inline {
@@ -115,6 +122,39 @@ body {
   letter-spacing: -0.011em;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
+}
+
+/* App-wide slim scrollbars (viewport + overflow regions) — Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+/* WebKit / Chromium / Safari — thin track, pill thumb */
+*::-webkit-scrollbar {
+  width: var(--scrollbar-size);
+  height: var(--scrollbar-size);
+}
+
+*::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: var(--scrollbar-thumb);
+  border-radius: 9999px;
+  /* Inset the thumb so it reads slimmer than the gutter without going sub-pixel */
+  border: 1px solid transparent;
+  background-clip: padding-box;
+  transition: background-color 0.2s ease;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background-color: var(--scrollbar-thumb-hover);
+}
+
+*::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
 /* Global interactive cursor: hand over the whole control; nested SVG/text inherit so hover matches. */

@@ -1,4 +1,7 @@
+"use client";
+
 import { Star } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 
 const TESTIMONIALS = [
   {
@@ -51,7 +54,107 @@ const TESTIMONIALS = [
   },
 ];
 
+const MD_MIN = 768;
+
+function nearestSnapScrollLeft(el: HTMLDivElement): number {
+  const articles = Array.from(el.querySelectorAll<HTMLElement>("article"));
+  if (articles.length === 0) return el.scrollLeft;
+
+  const maxScroll = Math.max(0, el.scrollWidth - el.clientWidth);
+  const viewportCenter = el.scrollLeft + el.clientWidth / 2;
+
+  let bestLeft = el.scrollLeft;
+  let bestDist = Infinity;
+
+  for (const child of articles) {
+    const childCenter = child.offsetLeft + child.offsetWidth / 2;
+    const dist = Math.abs(childCenter - viewportCenter);
+    if (dist < bestDist) {
+      bestDist = dist;
+      bestLeft = Math.max(0, Math.min(child.offsetLeft, maxScroll));
+    }
+  }
+
+  return bestLeft;
+}
+
+type CarouselPhase = "idle" | "dragging" | "settling";
+
 export function TestimonialsCarousel() {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const settleFallbackRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [phase, setPhase] = useState<CarouselPhase>("idle");
+
+  useEffect(() => {
+    return () => {
+      if (settleFallbackRef.current) clearTimeout(settleFallbackRef.current);
+    };
+  }, []);
+
+  const onMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.button !== 0) return;
+    if (typeof window !== "undefined" && window.innerWidth < MD_MIN) return;
+    const el = scrollRef.current;
+    if (!el) return;
+
+    if (settleFallbackRef.current) {
+      clearTimeout(settleFallbackRef.current);
+      settleFallbackRef.current = null;
+    }
+
+    const startX = e.pageX;
+    const startScroll = el.scrollLeft;
+
+    setPhase("dragging");
+
+    const onMove = (ev: MouseEvent) => {
+      el.scrollLeft = startScroll - (ev.pageX - startX);
+    };
+    const onUp = () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+
+      const target = nearestSnapScrollLeft(el);
+      const reduceMotion =
+        typeof window !== "undefined" &&
+        window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      const delta = Math.abs(target - el.scrollLeft);
+
+      if (settleFallbackRef.current) {
+        clearTimeout(settleFallbackRef.current);
+        settleFallbackRef.current = null;
+      }
+
+      if (reduceMotion || delta < 2) {
+        el.scrollTo({ left: target, behavior: "auto" });
+        setPhase("idle");
+        return;
+      }
+
+      setPhase("settling");
+      el.scrollTo({ left: target, behavior: "smooth" });
+
+      let finished = false;
+      const finishSettling = () => {
+        if (finished) return;
+        finished = true;
+        if (settleFallbackRef.current) {
+          clearTimeout(settleFallbackRef.current);
+          settleFallbackRef.current = null;
+        }
+        // If the user already started a new drag, stay on that phase.
+        setPhase((p) => (p === "settling" ? "idle" : p));
+      };
+
+      el.addEventListener("scrollend", finishSettling, { once: true });
+      settleFallbackRef.current = setTimeout(finishSettling, 600);
+    };
+
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    e.preventDefault();
+  };
+
   return (
     <section className="bg-muted/30 py-20">
       <div className="mx-auto max-w-6xl px-6">
@@ -64,11 +167,23 @@ export function TestimonialsCarousel() {
           </p>
         </div>
 
-        <div className="scrollbar-thin -mx-2 flex snap-x snap-mandatory gap-4 overflow-x-auto px-2 pb-2">
+        <div
+          ref={scrollRef}
+          onMouseDown={onMouseDown}
+          className={`-mx-2 flex gap-4 overflow-x-auto overscroll-x-contain px-2 pb-2 ${
+            phase === "idle"
+              ? "snap-x snap-mandatory md:cursor-grab"
+              : phase === "dragging"
+                ? "snap-none md:cursor-grabbing md:select-none"
+                : "snap-none md:cursor-grab"
+          }`}
+          role="region"
+          aria-label="Testimonials"
+        >
           {TESTIMONIALS.map((testimonial) => (
             <article
               key={testimonial.id}
-              className="min-w-[84%] snap-start rounded-xl border border-border bg-card p-6 shadow-sm sm:min-w-[48%] lg:min-w-[31%]"
+              className={`faq-details min-w-[84%] snap-start rounded-xl border border-border bg-card/60 p-6 md:hover:border-foreground/25 md:hover:bg-card md:hover:shadow-[0_14px_44px_-12px_rgba(0,0,0,0.14)] dark:md:hover:shadow-[0_14px_44px_-12px_rgba(255,255,255,0.08)] sm:min-w-[48%] lg:min-w-[31%] ${phase === "dragging" ? "md:cursor-grabbing" : "md:cursor-pointer"}`}
             >
               <div className="mb-4 flex gap-1">
                 {Array.from({ length: 5 }).map((_, i) => (
