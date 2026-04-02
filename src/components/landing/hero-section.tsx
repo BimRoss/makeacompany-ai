@@ -62,18 +62,50 @@ export function HeroSection() {
         </div>
       </div>
 
-      <div className="relative mt-6 w-full max-w-5xl px-1 sm:mt-16 sm:px-4">
-        <div className="overflow-hidden rounded-xl border border-border/40 bg-card shadow-2xl">
-          <div className="relative aspect-[16/9] w-full bg-muted/20 sm:aspect-[16/10]">
+      <div className="relative mt-6 w-full max-w-5xl px-4 sm:mt-16 sm:px-4">
+        {/* Narrow viewports: single phone mockup (no desktop screenshot). */}
+        <div className="mx-auto w-full max-w-[min(280px,88vw)] sm:hidden">
+          <div className="relative aspect-[9/19] w-full overflow-hidden rounded-[1.65rem] border border-border/50 bg-background shadow-[0_28px_65px_-18px_rgba(0,0,0,0.55),0_12px_24px_-10px_rgba(0,0,0,0.35)] ring-1 ring-black/[0.06]">
             <Image
-              src="/hero-screenshot-2026-04-01-041155.png"
-              alt="AI employees working in Slack"
+              src="/hero-mobile-slack.png"
+              alt="AI employees collaborating in Slack"
               fill
-              sizes="(max-width: 1024px) 100vw, 1024px"
+              sizes="280px"
               className="object-cover object-top"
               priority
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-background/20 to-transparent" />
+          </div>
+        </div>
+
+        {/* sm+: desktop Slack screenshot with phone overlapping the left. */}
+        <div className="relative hidden sm:block">
+          <div className="overflow-hidden rounded-xl border border-border/40 bg-card shadow-2xl">
+            <div className="relative aspect-[16/9] w-full bg-muted/20 sm:aspect-[16/10]">
+              <Image
+                src="/hero-screenshot-2026-04-01-041155.png"
+                alt="AI employees working in Slack"
+                fill
+                sizes="(max-width: 1024px) 100vw, 1024px"
+                className="object-cover object-top"
+                priority
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-background/20 to-transparent" />
+            </div>
+          </div>
+
+          <div
+            className="pointer-events-none absolute -left-3 top-1/2 z-20 w-[min(38%,260px)] -translate-y-1/2 md:-left-2 md:w-[min(36%,300px)] lg:w-[min(32%,320px)]"
+            aria-hidden
+          >
+            <div className="relative aspect-[9/19] w-full overflow-hidden rounded-[1.65rem] border border-border/50 bg-background shadow-[0_28px_65px_-18px_rgba(0,0,0,0.55),0_12px_24px_-10px_rgba(0,0,0,0.35)] ring-1 ring-black/[0.06]">
+              <Image
+                src="/hero-mobile-slack.png"
+                alt=""
+                fill
+                sizes="(max-width: 1024px) 260px, 320px"
+                className="object-cover object-top"
+              />
+            </div>
           </div>
         </div>
       </div>
