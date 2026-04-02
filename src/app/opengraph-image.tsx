@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
-import { siteName, siteShareSubhead, siteTagline } from "@/lib/site";
+import { siteDescription, siteTagline } from "@/lib/site";
 
-export const alt = `${siteName} — ${siteTagline}`;
+export const alt = `${siteTagline} — ${siteDescription}`;
 export const size = {
   width: 1200,
   height: 630,
@@ -46,7 +46,7 @@ export default function OpenGraphImage() {
             {siteTagline}
           </div>
           <div style={{ fontSize: 34, color: "#d4d4d8", lineHeight: 1.3 }}>
-            {siteShareSubhead}
+            {siteDescription}
           </div>
         </div>
 

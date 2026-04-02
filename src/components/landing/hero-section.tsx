@@ -1,6 +1,7 @@
 import Image from "next/image";
 import { Sparkles } from "lucide-react";
 import { CheckoutButton } from "@/components/landing/checkout-button";
+import { siteDescription, siteTagline } from "@/lib/site";
 
 export function HeroSection() {
   return (
@@ -15,9 +16,13 @@ export function HeroSection() {
           <span>First 100 users get a FREE month on launch</span>
         </div>
 
-        <h1 className="mb-4 text-balance text-3xl font-bold tracking-tight sm:mb-6 sm:text-5xl md:text-6xl lg:text-7xl">
-          Your AI company, live in Slack.
+        <h1 className="mb-3 text-balance text-3xl font-bold tracking-tight text-foreground sm:mb-4 sm:text-5xl md:text-6xl lg:text-7xl">
+          {siteTagline}
         </h1>
+
+        <p className="mx-auto mb-6 max-w-xl text-pretty text-lg font-medium leading-relaxed text-muted-foreground sm:mb-8 sm:max-w-2xl sm:text-xl md:text-2xl">
+          {siteDescription}
+        </p>
 
         <p className="mx-auto mb-4 max-w-xl text-pretty text-base leading-relaxed text-muted-foreground sm:mb-8 sm:max-w-2xl sm:text-xl">
           <span className="sm:hidden">

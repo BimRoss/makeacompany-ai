@@ -40,20 +40,17 @@ export function Header() {
         <div className="flex items-center gap-3">
           <Image
             src="/logo.png"
-            alt="Make a Company logo mark"
+            alt="makeacompany.ai logo"
             width={40}
             height={40}
             className="h-10 w-10 rounded-md object-contain"
           />
           <p
-            className={`font-display text-lg font-semibold tracking-[-0.03em] motion-colors sm:text-xl ${
+            className={`font-display text-lg font-semibold tracking-[-0.03em] text-muted-foreground motion-colors sm:text-xl ${
               isScrolled ? "opacity-95" : "opacity-100"
             }`}
           >
-            Make a Company{" "}
-            <span className="font-sans text-base font-medium tracking-[-0.015em] text-muted-foreground sm:text-lg">
-              .ai
-            </span>
+            makeacompany.ai
           </p>
         </div>
         <button
