@@ -19,7 +19,9 @@ export function HeroSection() {
           <span>First 100 users get a FREE month on launch</span>
         </div>
 
-        <HeroRoadmap />
+        <div className="hidden sm:block">
+          <HeroRoadmap />
+        </div>
 
         <h1 className="mb-3 text-balance text-3xl font-bold tracking-tight text-foreground sm:mb-4 sm:text-5xl md:text-6xl lg:text-7xl">
           {siteTagline}
