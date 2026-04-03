@@ -2,7 +2,7 @@ const roadmapStages = [
   { label: "Idea", active: true },
   { label: "Basic Interaction", active: true },
   { label: "Vertical Scaling", active: true },
-  { label: "Testing", active: false },
+  { label: "Testing", active: false, current: true },
   { label: "Launch", active: false },
   { label: "Iteration", active: false },
 ];
@@ -26,7 +26,11 @@ export function HeroRoadmap() {
               )}
               <span
                 className={`relative z-10 h-2.5 w-2.5 rounded-full border ${
-                  stage.active ? "border-foreground bg-foreground" : "border-border bg-background"
+                  stage.active
+                    ? "border-foreground bg-foreground"
+                    : stage.current
+                      ? "border-muted-foreground/70 bg-muted-foreground/60 sm:animate-pulse"
+                      : "border-border bg-background"
                 } sm:h-3 sm:w-3`}
               />
             </li>
