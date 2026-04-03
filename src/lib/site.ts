@@ -4,7 +4,7 @@ export const siteDomainLabel = "makeacompany.ai";
 export const siteName = siteDomainLabel;
 
 /** Primary headline — hero H1, Open Graph / Twitter title */
-export const siteTagline = "Make Everyone a CEO";
+export const siteTagline = "Make a Company for $1";
 
 /**
  * Subhead — meta description, hero secondary line, OG image secondary text.

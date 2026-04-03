@@ -20,7 +20,7 @@ export const metadata: Metadata = {
   },
   keywords: [
     "AI company",
-    "Make Everyone a CEO",
+    "Make a Company for $1",
     "AI employees",
     "Slack agents",
     "company automation",

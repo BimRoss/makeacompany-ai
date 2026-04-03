@@ -4,7 +4,7 @@ Product: makeacompany.ai
 Site: https://makeacompany.ai
 
 /* THANKS */
-Community of builders turning leverage into outcomes—Make Everyone a CEO.
+Community of builders turning leverage into outcomes—Make a Company for $1.
 
 /* SITE */
 Standards: HTML5, CSS3, TypeScript, Next.js

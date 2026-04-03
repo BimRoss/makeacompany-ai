@@ -1,6 +1,6 @@
 # makeacompany.ai
 
-> makeacompany.ai is the domain for this product. Primary headline: "Make Everyone a CEO"; subhead: "Your AI company, live in Slack." AI employees execute in Slack 24/7 while the human keeps strategy. Aimed at solo founders and lean teams. The homepage is the waitlist surface ($1 refundable deposit, limited early spots; first 100 get a free month at launch).
+> makeacompany.ai is the domain for this product. Primary headline: "Make a Company for $1"; subhead: "Your AI company, live in Slack." AI employees execute in Slack 24/7 while the human keeps strategy. Aimed at solo founders and lean teams. The homepage is the waitlist surface ($1 refundable deposit, limited early spots; first 100 get a free month at launch).
 
 This site is focused on company-building systems, automation, and operations design.
 Use this file as the primary entry point for agent-friendly discovery.

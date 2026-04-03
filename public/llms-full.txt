@@ -1,14 +1,14 @@
 # makeacompany.ai — full context
 
 makeacompany.ai is a waitlist and launch surface for a product focused on building highly automated, AI-powered companies.
-Core headline: Make Everyone a CEO. Subhead: Your AI company, live in Slack. (Human keeps strategy; AI employees run execution in Slack.)
+Core headline: Make a Company for $1. Subhead: Your AI company, live in Slack. (Human keeps strategy; AI employees run execution in Slack.)
 
 ## Positioning
 
 - Audience: solo founders and lean teams who want leverage without proportional headcount.
 - Primary workflow: create and configure an AI-powered company with role-based agents that operate inside Slack.
 - Product intent: reduce operational overhead and increase leverage—AI “employees” that execute 24/7 alongside human operators.
-- Homepage hero (current): H1 "Make Everyone a CEO"; gray subhead "Your AI company, live in Slack."; share cards match. Waitlist uses a $1 refundable deposit and a cap on early-access spots.
+- Homepage hero (current): H1 "Make a Company for $1"; gray subhead "Your AI company, live in Slack."; share cards match. Waitlist uses a $1 refundable deposit and a cap on early-access spots.
 
 ## Important pages
 

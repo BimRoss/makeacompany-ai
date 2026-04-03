@@ -5,6 +5,8 @@ import { ArrowRight, Loader2 } from "lucide-react";
 import { apiBase } from "@/lib/site";
 import { DEFAULT_WAITLIST_CAP, WAITLIST_REFRESH_EVENT } from "@/lib/waitlist";
 
+const CHECKOUT_PENDING_KEY = "makeacompany:checkout-pending";
+
 type CheckoutButtonProps = {
   label: string;
   className?: string;
@@ -20,6 +22,22 @@ export function CheckoutButton({ label, className }: CheckoutButtonProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState<WaitlistStatsResponse | null>(null);
+
+  useEffect(() => {
+    function clearPendingCheckout() {
+      window.sessionStorage.removeItem(CHECKOUT_PENDING_KEY);
+      setLoading(false);
+    }
+
+    // Browsers can restore this page from bfcache when users back out of Stripe.
+    // Ensure we never stay stuck in a loading/disabled state after return.
+    const onPageShow = () => clearPendingCheckout();
+    window.addEventListener("pageshow", onPageShow);
+
+    return () => {
+      window.removeEventListener("pageshow", onPageShow);
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -75,6 +93,7 @@ export function CheckoutButton({ label, className }: CheckoutButtonProps) {
       if (!res.ok) {
         const msg = data.error ?? "Checkout failed";
         setError(msg);
+        window.sessionStorage.removeItem(CHECKOUT_PENDING_KEY);
         setLoading(false);
         if (res.status === 403 && msg.toLowerCase().includes("waitlist")) {
           void fetch(`${apiBase()}/v1/billing/waitlist-stats`, { cache: "no-store" })
@@ -86,14 +105,17 @@ export function CheckoutButton({ label, className }: CheckoutButtonProps) {
       }
       if (!data.url) {
         setError("No checkout URL returned");
+        window.sessionStorage.removeItem(CHECKOUT_PENDING_KEY);
         setLoading(false);
         return;
       }
       // Keep button disabled while the browser transitions to Stripe.
+      window.sessionStorage.setItem(CHECKOUT_PENDING_KEY, "1");
       window.location.assign(data.url);
       return;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Network error");
+      window.sessionStorage.removeItem(CHECKOUT_PENDING_KEY);
       setLoading(false);
     }
   }
