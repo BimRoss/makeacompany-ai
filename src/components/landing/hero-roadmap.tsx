@@ -4,13 +4,13 @@ const roadmapStages = [
   { label: "Vertical Scaling", active: false },
   { label: "Onboarding", active: false },
   { label: "Launch", active: false },
-  { label: "Next", active: false },
+  { label: "Iteration", active: false },
 ];
 
 export function HeroRoadmap() {
   return (
     <div
-      className="mx-auto mb-4 w-full max-w-3xl rounded-xl border border-border/70 bg-background/70 px-3 py-3 backdrop-blur-[2px] sm:mb-6 sm:px-5 sm:py-4"
+      className="mx-auto mb-4 w-full max-w-3xl px-1 py-1 sm:mb-6"
       aria-label="Product roadmap progress"
     >
       <ol className="grid grid-cols-6 items-center gap-1.5 sm:gap-2" aria-hidden>
