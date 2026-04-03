@@ -1,6 +1,7 @@
 import Image from "next/image";
 import { Sparkles } from "lucide-react";
 import { CheckoutButton } from "@/components/landing/checkout-button";
+import { HeroRoadmap } from "@/components/landing/hero-roadmap";
 import { MobileHeroCardStack } from "@/components/landing/mobile-hero-card-stack";
 import { TaoSlackSignalBadges } from "@/components/landing/tao-slack-signal-badges";
 import { siteDescription, siteTagline } from "@/lib/site";
@@ -17,6 +18,8 @@ export function HeroSection() {
           <Sparkles className="h-3.5 w-3.5 text-foreground sm:h-4 sm:w-4" />
           <span>First 100 users get a FREE month on launch</span>
         </div>
+
+        <HeroRoadmap />
 
         <h1 className="mb-3 text-balance text-3xl font-bold tracking-tight text-foreground sm:mb-4 sm:text-5xl md:text-6xl lg:text-7xl">
           {siteTagline}
