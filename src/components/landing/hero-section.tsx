@@ -2,6 +2,7 @@ import Image from "next/image";
 import { Sparkles } from "lucide-react";
 import { CheckoutButton } from "@/components/landing/checkout-button";
 import { MobileHeroCardStack } from "@/components/landing/mobile-hero-card-stack";
+import { TaoSlackSignalBadges } from "@/components/landing/tao-slack-signal-badges";
 import { siteDescription, siteTagline } from "@/lib/site";
 
 export function HeroSection() {
@@ -24,6 +25,10 @@ export function HeroSection() {
         <p className="mx-auto mb-6 max-w-xl text-pretty text-lg font-medium leading-relaxed text-muted-foreground sm:mb-8 sm:max-w-2xl sm:text-xl md:text-2xl">
           {siteDescription}
         </p>
+
+        <div className="mb-5 flex w-full justify-center sm:mb-6">
+          <TaoSlackSignalBadges />
+        </div>
 
         <p className="mx-auto mb-4 max-w-xl text-pretty text-base leading-relaxed text-muted-foreground sm:mb-8 sm:max-w-2xl sm:text-xl">
           <span className="sm:hidden">
