@@ -1,8 +1,8 @@
 const roadmapStages = [
   { label: "Idea", active: true },
   { label: "Basic Interaction", active: true },
-  { label: "Vertical Scaling", active: false },
-  { label: "Onboarding", active: false },
+  { label: "Vertical Scaling", active: true },
+  { label: "Testing", active: false },
   { label: "Launch", active: false },
   { label: "Iteration", active: false },
 ];
