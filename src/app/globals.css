@@ -390,18 +390,26 @@ button:disabled {
   top: 50%;
   width: 4.75rem;
   height: 4.75rem;
+  padding: 0;
+  cursor: pointer;
+  appearance: none;
   border-radius: 9999px;
   border: 1px solid rgba(0, 0, 0, 0.08);
   background: #ffffff;
   overflow: hidden;
   transform: translate3d(0, -50%, 0) scale(1);
-  transition-property: transform, box-shadow, filter;
+  transition-property: transform, box-shadow, filter, opacity;
   transition-duration: 800ms;
   transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
   box-shadow:
     0 14px 34px -16px rgba(0, 0, 0, 0.42),
     0 3px 11px -6px rgba(0, 0, 0, 0.22);
   filter: saturate(0.98);
+}
+
+.tao-slack-signal-button:focus-visible {
+  outline: 2px solid rgba(0, 0, 0, 0.45);
+  outline-offset: 3px;
 }
 
 .tao-slack-signal-button--slack {
@@ -438,6 +446,7 @@ button:disabled {
 
   .tao-slack-signal-button--slack:hover + .tao-slack-signal-button--tao {
     z-index: 1;
+    opacity: 0.5;
     transform: translate3d(0.35rem, calc(-50% + 0.12rem), 0) scale(0.97) rotate(1deg);
     box-shadow:
       0 12px 30px -18px rgba(0, 0, 0, 0.32),
@@ -450,6 +459,43 @@ button:disabled {
   }
 
   .tao-slack-signal-stack:has(.tao-slack-signal-button--tao:hover) .tao-slack-signal-button--slack {
+    z-index: 1;
+    opacity: 0.5;
+    transform: translate3d(-0.35rem, calc(-50% + 0.12rem), 0) scale(0.97) rotate(-1deg);
+    box-shadow:
+      0 12px 30px -18px rgba(0, 0, 0, 0.32),
+      0 3px 8px -7px rgba(0, 0, 0, 0.2);
+  }
+}
+
+@media (hover: none), (pointer: coarse) {
+  .tao-slack-signal-wrap[data-active="slack"] .tao-slack-signal-button--slack {
+    z-index: 3;
+    transform: translate3d(-0.45rem, calc(-50% - 0.2rem), 0) scale(1.06) rotate(-1.2deg);
+    box-shadow:
+      0 20px 42px -18px rgba(0, 0, 0, 0.52),
+      0 7px 16px -9px rgba(0, 0, 0, 0.3);
+    filter: saturate(1.02);
+  }
+
+  .tao-slack-signal-wrap[data-active="slack"] .tao-slack-signal-button--tao {
+    z-index: 1;
+    transform: translate3d(0.35rem, calc(-50% + 0.12rem), 0) scale(0.97) rotate(1deg);
+    box-shadow:
+      0 12px 30px -18px rgba(0, 0, 0, 0.32),
+      0 3px 8px -7px rgba(0, 0, 0, 0.2);
+  }
+
+  .tao-slack-signal-wrap[data-active="tao"] .tao-slack-signal-button--tao {
+    z-index: 3;
+    transform: translate3d(0.45rem, calc(-50% - 0.2rem), 0) scale(1.06) rotate(1.2deg);
+    box-shadow:
+      0 20px 42px -18px rgba(0, 0, 0, 0.52),
+      0 7px 16px -9px rgba(0, 0, 0, 0.3);
+    filter: saturate(1.02);
+  }
+
+  .tao-slack-signal-wrap[data-active="tao"] .tao-slack-signal-button--slack {
     z-index: 1;
     transform: translate3d(-0.35rem, calc(-50% + 0.12rem), 0) scale(0.97) rotate(-1deg);
     box-shadow:
