@@ -31,6 +31,9 @@ export function CtaSection() {
                 <span>Priority access</span>
               </div>
             </div>
+            <p className="mx-auto mb-4 inline-flex items-center rounded-full border border-border bg-muted px-4 py-1.5 text-sm font-semibold tracking-tight text-foreground sm:px-5 sm:text-base">
+              Make a company for $1
+            </p>
             <CheckoutButton label="Join the Waitlist" className="sm:px-10" />
             <p className="mt-6 text-pretty text-sm text-muted-foreground">
               Built by{" "}
