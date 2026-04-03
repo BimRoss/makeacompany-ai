@@ -6,6 +6,7 @@ import { CtaSection } from "@/components/landing/cta-section";
 import { Footer } from "@/components/landing/footer";
 import { Header } from "@/components/landing/header";
 import { HeroSection } from "@/components/landing/hero-section";
+import { HeroRoadmap } from "@/components/landing/hero-roadmap";
 import { faqStructuredData, SeoFaqSection } from "@/components/landing/seo-faq";
 import { TestimonialsCarousel } from "@/components/landing/testimonials-carousel";
 import { WaitlistProgress } from "@/components/landing/waitlist-progress";
@@ -62,6 +63,11 @@ export default function HomePage() {
       <CountdownTimer />
       <WaitlistProgress />
       <CtaSection />
+      <section className="hidden sm:block">
+        <div className="mx-auto w-full max-w-4xl px-6">
+          <HeroRoadmap />
+        </div>
+      </section>
       <SeoFaqSection />
       <Footer />
     </main>
