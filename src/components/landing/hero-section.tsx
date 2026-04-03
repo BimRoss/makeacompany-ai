@@ -58,6 +58,10 @@ export function HeroSection() {
           </div>
         </div>
 
+        <p className="mx-auto mb-3 inline-flex items-center rounded-full border border-border bg-muted px-4 py-1.5 text-sm font-semibold tracking-tight text-foreground sm:mb-4 sm:px-5 sm:text-base">
+          Make a company for $1
+        </p>
+
         <CheckoutButton label="Join the Waitlist" />
 
         <div className="mt-3 space-y-1.5 text-xs text-muted-foreground sm:mt-4 sm:text-sm">
