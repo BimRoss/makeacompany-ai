@@ -43,6 +43,7 @@ npm run dev   # repo root
 |----------|---------|
 | `REDIS_URL` | Redis connection URL |
 | `APP_BASE_URL` | Public site URL (Stripe success/cancel) |
+| `NEXT_PUBLIC_GA_MEASUREMENT_ID` | GA4 stream id injected into frontend at build time |
 | `NEXT_PUBLIC_LINKEDIN_PARTNER_ID` | LinkedIn Insight Tag partner id; frontend injects LinkedIn tracking only in production when set |
 | `STRIPE_SECRET_KEY` | Optional single key (`sk_test_…` or `sk_live_…`) — wins if set |
 | `STRIPE_SECRET_KEY_TEST` / `STRIPE_SECRET_KEY_LIVE` | Split keys; backend picks the **first non-empty** in order: `STRIPE_SECRET_KEY`, `STRIPE_SECRET_KEY_LIVE`, `STRIPE_SECRET_KEY_TEST`, `STRIPE_API_KEY_TEST` |
@@ -76,6 +77,27 @@ Reads repo-root `.env` and applies Secret **`makeacompany-ai-runtime-secrets`** 
 GitHub Actions: [.github/workflows/makeacompany-ai-images.yml](.github/workflows/makeacompany-ai-images.yml)
 
 - On **`v*`** tags: build and push `geeemoney/makeacompany-ai-frontend` and `geeemoney/makeacompany-ai-backend`, then bump image tags in **`bimross/rancher-admin`** (`admin/apps/makeacompany-ai/*.yaml`).
+
+### GA setup contract
+
+- `NEXT_PUBLIC_GA_MEASUREMENT_ID` must exist as a GitHub **repository variable**.
+- The frontend Docker image bakes `NEXT_PUBLIC_*` values at `npm run build` time. If GA changes, ship a new tagged image (`v*`) so GitOps rolls a rebuilt frontend.
+- Tagged releases fail fast if the GA variable is missing.
+- Production frontend emits a non-interaction `ga_health_ping` event once per browser session after GA bootstrap.
+
+Verify what users are actually getting:
+
+```bash
+python - <<'PY'
+import urllib.request
+html = urllib.request.urlopen('https://makeacompany.ai', timeout=15).read().decode('utf-8', 'ignore')
+print('googletagmanager.com/gtag/js?id=G-29N1GMQ3NE' in html)
+PY
+```
+
+For immediate DebugView validation, open:
+
+`https://makeacompany.ai/?ga_debug=1`
 
 ### Repository secrets
 

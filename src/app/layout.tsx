@@ -65,6 +65,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   const gaMeasurementID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
+  const shouldLoadGA = process.env.NODE_ENV === "production" && Boolean(gaMeasurementID);
   const linkedInPartnerID = process.env.NEXT_PUBLIC_LINKEDIN_PARTNER_ID;
   const shouldLoadLinkedIn = process.env.NODE_ENV === "production" && Boolean(linkedInPartnerID);
   const structuredData = {
@@ -99,7 +100,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <Script id="structured-data" type="application/ld+json" strategy="afterInteractive">
           {JSON.stringify(structuredData)}
         </Script>
-        {gaMeasurementID ? (
+        {shouldLoadGA ? (
           <>
             <Script
               src={`https://www.googletagmanager.com/gtag/js?id=${gaMeasurementID}`}
@@ -109,7 +110,24 @@ export default function RootLayout({ children }: { children: ReactNode }) {
               {`window.dataLayer = window.dataLayer || [];
 function gtag(){dataLayer.push(arguments);}
 gtag('js', new Date());
-gtag('config', '${gaMeasurementID}');`}
+gtag('config', '${gaMeasurementID}');
+
+// Synthetic health event: one non-interaction ping per browser session.
+try {
+  var gaHealthKey = 'ga_health_ping_sent';
+  if (!sessionStorage.getItem(gaHealthKey)) {
+    var gaDebug = window.location.search.indexOf('ga_debug=1') !== -1;
+    gtag('event', 'ga_health_ping', {
+      event_category: 'observability',
+      event_label: 'frontend_boot',
+      non_interaction: true,
+      debug_mode: gaDebug
+    });
+    sessionStorage.setItem(gaHealthKey, '1');
+  }
+} catch (err) {
+  // Ignore storage restrictions in private/locked-down browser contexts.
+}`}
             </Script>
           </>
         ) : null}
