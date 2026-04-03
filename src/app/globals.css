@@ -233,6 +233,19 @@ button:disabled {
   transition-timing-function: var(--motion-ease);
 }
 
+/* Hero desktop stack: animate Tailwind v4 transform longhands smoothly. */
+.hero-stack-motion {
+  transition-property: translate, scale, opacity, box-shadow;
+  transition-duration: 500ms;
+  transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-stack-motion {
+    transition: none;
+  }
+}
+
 /* FAQ accordions: smooth expand/collapse (avoids native <details> snap). */
 /* Lift on hover uses `transform` here so it shares one property with the transition. Tailwind v4's
    `-translate-y-*` utilities set the separate `translate` property, which would otherwise snap. */

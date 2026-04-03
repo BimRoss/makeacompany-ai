@@ -71,7 +71,7 @@ export function HeroSection() {
 
         {/* sm+: desktop Slack screenshot with phone overlapping the left. */}
         <div className="relative hidden isolate sm:block">
-          <div className="peer/desktop relative z-10 origin-center scale-[0.93] transition-[transform,box-shadow] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none hover:z-40 hover:-translate-y-1.5 hover:scale-[1.01] hover:shadow-[0_42px_90px_-34px_rgba(0,0,0,0.62)]">
+          <div className="hero-stack-motion peer/desktop relative z-10 origin-center scale-[0.93] hover:z-40 hover:-translate-y-1.5 hover:scale-[1.01] hover:shadow-[0_42px_90px_-34px_rgba(0,0,0,0.62)]">
             <div className="overflow-hidden rounded-xl border border-border/40 bg-card shadow-2xl">
               <div className="relative aspect-[16/9] w-full bg-muted/20 sm:aspect-[16/10]">
                 <Image
@@ -88,7 +88,7 @@ export function HeroSection() {
           </div>
 
           <div
-            className="absolute -left-3 top-1/2 z-30 w-[min(38%,260px)] -translate-y-1/2 transition-[transform,opacity,z-index] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none peer-hover/desktop:z-10 peer-hover/desktop:translate-x-2 peer-hover/desktop:translate-y-[calc(-50%+10px)] peer-hover/desktop:scale-[0.97] peer-hover/desktop:opacity-95 md:-left-2 md:w-[min(36%,300px)] lg:w-[min(32%,320px)]"
+            className="hero-stack-motion absolute -left-3 top-1/2 z-30 w-[min(38%,260px)] -translate-y-1/2 peer-hover/desktop:z-10 peer-hover/desktop:translate-x-2 peer-hover/desktop:translate-y-[calc(-50%+10px)] peer-hover/desktop:scale-[0.97] peer-hover/desktop:opacity-95 md:-left-2 md:w-[min(36%,300px)] lg:w-[min(32%,320px)]"
             role="group"
             aria-label="Mobile Slack examples"
           >
