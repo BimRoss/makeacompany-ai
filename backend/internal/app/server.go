@@ -11,10 +11,34 @@ import (
 	"strings"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/stripe/stripe-go/v82"
 	checkoutsession "github.com/stripe/stripe-go/v82/checkout/session"
 	stripewebhook "github.com/stripe/stripe-go/v82/webhook"
 )
+
+var (
+	httpRequestsTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "makeacompany_http_requests_total",
+			Help: "Total HTTP requests handled by the makeacompany backend.",
+		},
+		[]string{"method", "route", "status_class"},
+	)
+	httpRequestDuration = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "makeacompany_http_request_duration_seconds",
+			Help:    "HTTP request latency in seconds for the makeacompany backend.",
+			Buckets: prometheus.DefBuckets,
+		},
+		[]string{"method", "route"},
+	)
+)
+
+func init() {
+	prometheus.MustRegister(httpRequestsTotal, httpRequestDuration)
+}
 
 type Server struct {
 	cfg   Config
@@ -36,6 +60,7 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 	s.mux.HandleFunc("/livez", s.handleLivez)
 	s.mux.HandleFunc("/readyz", s.handleReadiness)
 	s.mux.HandleFunc("/health", s.handleHealth)
+	s.mux.Handle("/metrics", promhttp.Handler())
 	s.mux.HandleFunc("/v1/billing/checkout", s.handleCheckout)
 	s.mux.HandleFunc("/v1/billing/checkout-status", s.handleCheckoutStatus)
 	s.mux.HandleFunc("/v1/billing/webhook", s.handleWebhook)
@@ -46,8 +71,53 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 
 func (s *Server) Handler() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		s.withCORS(w, r, s.mux)
+		start := time.Now()
+		recorder := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
+		s.withCORS(recorder, r, s.mux)
+		duration := time.Since(start).Seconds()
+		route := normalizeMetricRoute(r.URL.Path)
+		method := strings.ToUpper(strings.TrimSpace(r.Method))
+		statusClass := fmt.Sprintf("%dxx", recorder.status/100)
+		httpRequestsTotal.WithLabelValues(method, route, statusClass).Inc()
+		httpRequestDuration.WithLabelValues(method, route).Observe(duration)
 	})
+}
+
+type statusRecorder struct {
+	http.ResponseWriter
+	status int
+}
+
+func (sr *statusRecorder) WriteHeader(statusCode int) {
+	sr.status = statusCode
+	sr.ResponseWriter.WriteHeader(statusCode)
+}
+
+func normalizeMetricRoute(path string) string {
+	switch {
+	case path == "/livez":
+		return "/livez"
+	case path == "/readyz":
+		return "/readyz"
+	case path == "/health":
+		return "/health"
+	case path == "/metrics":
+		return "/metrics"
+	case path == "/v1/billing/checkout":
+		return "/v1/billing/checkout"
+	case path == "/v1/billing/checkout-status":
+		return "/v1/billing/checkout-status"
+	case path == "/v1/billing/webhook":
+		return "/v1/billing/webhook"
+	case path == "/v1/billing/waitlist-stats":
+		return "/v1/billing/waitlist-stats"
+	case path == "/v1/admin/waitlist":
+		return "/v1/admin/waitlist"
+	case strings.HasPrefix(path, "/v1/"):
+		return "/v1/other"
+	default:
+		return "/other"
+	}
 }
 
 func (s *Server) withCORS(w http.ResponseWriter, r *http.Request, next http.Handler) {

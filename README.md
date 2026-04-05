@@ -9,6 +9,7 @@ Marketing landing page and **$1 Stripe waitlist** for [makeacompany.ai](https://
 - `backend/` — Go HTTP server: health, `POST /v1/billing/checkout`, `POST /v1/billing/webhook`
 - `src/` — Next.js (App Router) single-page site, `next-themes` light/dark
 - `src/app/admin/` — operator control surface (`/admin`), starting with Team cards
+- `src/app/admin/health/` — operator observability page (`/admin/health`) with Grafana embeds
 - `deploy/docker/` — production Dockerfiles
 - `admin/apps/makeacompany-ai/` — lives in **`bimross/rancher-admin`** (Fleet / admin cluster)
 
@@ -60,8 +61,12 @@ npm run dev   # repo root
 |----------|---------|
 | `REDIS_URL` | Redis connection URL |
 | `APP_BASE_URL` | Public site URL (Stripe success/cancel) |
+| `BACKEND_INTERNAL_API_BASE_URL` | Server-side internal backend base for Next route handlers (defaults to localhost locally and service DNS in Kubernetes) |
 | `NEXT_PUBLIC_GA_MEASUREMENT_ID` | GA4 stream id injected into frontend at build time |
 | `NEXT_PUBLIC_LINKEDIN_PARTNER_ID` | LinkedIn Insight Tag partner id; frontend injects LinkedIn tracking only in production when set |
+| `HEALTH_GRAFANA_DASHBOARD_URL` | Base Grafana dashboard URL used by `/admin/health` |
+| `HEALTH_GRAFANA_PANEL_IDS` | Comma-separated panel IDs (defaults to `1,2,3,4,5,6`) |
+| `HEALTH_GRAFANA_PANEL_TITLES` | Comma-separated chart titles aligned to `HEALTH_GRAFANA_PANEL_IDS` |
 | `STRIPE_SECRET_KEY` | Optional single key (`sk_test_…` or `sk_live_…`) — wins if set |
 | `STRIPE_SECRET_KEY_TEST` / `STRIPE_SECRET_KEY_LIVE` | Split keys; backend picks the **first non-empty** in order: `STRIPE_SECRET_KEY`, `STRIPE_SECRET_KEY_LIVE`, `STRIPE_SECRET_KEY_TEST`, `STRIPE_API_KEY_TEST` |
 | `STRIPE_API_KEY_TEST` | Optional alias (e.g. stripe-factory) for a test secret key |
@@ -74,6 +79,8 @@ npm run dev   # repo root
 | `STRIPE_PRICE_ID_WAITLIST_LIVE` | $1 one-time price (live mode) |
 
 **Webhook URL (POST):** `{backend origin}/v1/billing/webhook` — e.g. ngrok `https://YOUR_SUBDOMAIN.ngrok-free.dev/v1/billing/webhook` forwarding to `localhost:8080`. Snapshot and thin destinations can share this path; each destination still has its own signing secret.
+
+`/admin/health` polls `GET /api/admin/health`, which proxies backend health and renders Grafana `d-solo` iframes from the dashboard/panel env above.
 
 Checkout selects test vs live **price** from the **effective** API secret’s prefix (`sk_live_` uses live price id). For **production**, prefer `STRIPE_SECRET_KEY` (live) or `STRIPE_SECRET_KEY_LIVE`.
 

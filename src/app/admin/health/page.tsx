@@ -1,0 +1,164 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+
+import { AdminShell } from "@/components/admin/admin-shell";
+
+import styles from "./health.module.css";
+
+type HealthStatus = "ok" | "degraded" | "unknown";
+
+type GrafanaEmbed = {
+  key: string;
+  panelId: string;
+  title: string;
+  dashboardUrl: string | null;
+};
+
+type HealthPayload = {
+  status?: HealthStatus;
+  checkedAt?: string;
+  error?: string;
+  grafanaEmbeds?: GrafanaEmbed[];
+};
+
+function asGrafanaEmbedUrl(value?: string | null, panelId: string = "1"): string | null {
+  if (!value) {
+    return null;
+  }
+  try {
+    const url = new URL(value);
+    if (url.pathname.startsWith("/grafana/d/")) {
+      url.pathname = url.pathname.replace(/^\/grafana\/d\//, "/grafana/d-solo/");
+    } else if (url.pathname.startsWith("/d/")) {
+      url.pathname = url.pathname.replace(/^\/d\//, "/d-solo/");
+    }
+    url.searchParams.set("orgId", url.searchParams.get("orgId") ?? "1");
+    url.searchParams.set("theme", "dark");
+    url.searchParams.set("from", "now-6h");
+    url.searchParams.set("to", "now");
+    url.searchParams.set("refresh", "30s");
+    url.searchParams.set("panelId", panelId);
+    url.searchParams.set("kiosk", "1");
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
+function formatDateTime(value?: string): string {
+  if (!value) {
+    return "—";
+  }
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return "—";
+  }
+  return parsed.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" });
+}
+
+function statusTone(status: HealthStatus): "healthy" | "degraded" | "unknown" {
+  if (status === "ok") {
+    return "healthy";
+  }
+  if (status === "degraded") {
+    return "degraded";
+  }
+  return "unknown";
+}
+
+export default function AdminHealthPage() {
+  const [payload, setPayload] = useState<HealthPayload | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const load = async () => {
+      try {
+        const response = await fetch("/api/admin/health", { cache: "no-store" });
+        const data = (await response.json()) as HealthPayload;
+        if (!cancelled) {
+          setPayload(data);
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown error";
+        if (!cancelled) {
+          setPayload({
+            status: "degraded",
+            error: message,
+            checkedAt: new Date().toISOString(),
+          });
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    };
+
+    void load();
+    const intervalID = setInterval(() => {
+      void load();
+    }, 15_000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(intervalID);
+    };
+  }, []);
+
+  const status = payload?.status ?? "unknown";
+  const embeds = useMemo(
+    () =>
+      (payload?.grafanaEmbeds ?? []).map((embed) => ({
+        ...embed,
+        url: asGrafanaEmbedUrl(embed.dashboardUrl, embed.panelId),
+      })),
+    [payload?.grafanaEmbeds]
+  );
+  const updatedAt = payload?.checkedAt ? formatDateTime(payload.checkedAt) : "Waiting for first poll…";
+
+  return (
+    <AdminShell updatedAt={updatedAt} source="live /api/admin/health" activeTab="health">
+      <section className={styles.layout}>
+        <header className={styles.topRow}>
+          <div className={styles.statusCard} data-tone={statusTone(status)}>
+            <p className={styles.kicker}>System status</p>
+            <p className={styles.value}>{loading ? "Loading…" : status.toUpperCase()}</p>
+            <p className={styles.meta}>Checks backend readiness + Grafana panel availability.</p>
+          </div>
+          <div className={styles.statusCard}>
+            <p className={styles.kicker}>Graphs</p>
+            <p className={styles.value}>{embeds.length}</p>
+            <p className={styles.meta}>Target is 6 operator graphs for request, runtime, and agent flow.</p>
+          </div>
+        </header>
+
+        {payload?.error ? (
+          <div className={styles.errorBanner}>Health API returned degraded status: {payload.error}</div>
+        ) : null}
+
+        <div className={styles.grid}>
+          {embeds.length === 0 ? (
+            <div className={styles.placeholder}>
+              Configure `HEALTH_GRAFANA_DASHBOARD_URL`, `HEALTH_GRAFANA_PANEL_IDS`, and
+              `HEALTH_GRAFANA_PANEL_TITLES` to render this page.
+            </div>
+          ) : null}
+
+          {embeds.map((embed) => (
+            <article key={embed.key} className={styles.panel}>
+              <h2 className={styles.panelTitle}>{embed.title}</h2>
+              {embed.url ? (
+                <iframe title={embed.title} src={embed.url} className={styles.iframe} />
+              ) : (
+                <div className={styles.placeholder}>Could not build embed URL for panel {embed.panelId}.</div>
+              )}
+            </article>
+          ))}
+        </div>
+      </section>
+    </AdminShell>
+  );
+}

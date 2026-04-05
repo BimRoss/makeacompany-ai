@@ -11,7 +11,7 @@ export default function AdminTeamPage() {
   });
 
   return (
-    <AdminShell updatedAt={updatedAt} source={snapshot.source}>
+    <AdminShell updatedAt={updatedAt} source={snapshot.source} activeTab="team">
       <section className="space-y-4">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div>
