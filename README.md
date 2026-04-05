@@ -8,8 +8,25 @@ Marketing landing page and **$1 Stripe waitlist** for [makeacompany.ai](https://
 
 - `backend/` — Go HTTP server: health, `POST /v1/billing/checkout`, `POST /v1/billing/webhook`
 - `src/` — Next.js (App Router) single-page site, `next-themes` light/dark
+- `src/app/admin/` — operator control surface (`/admin`), starting with Team cards
 - `deploy/docker/` — production Dockerfiles
 - `admin/apps/makeacompany-ai/` — lives in **`bimross/rancher-admin`** (Fleet / admin cluster)
+
+## Admin Team control surface
+
+- Route: `/admin`
+- Current module: **Team** (desktop/mobile responsive cards)
+- Data source: synced snapshot generated from `slack-factory/manifests/*/app-manifest.json`
+
+Sync team data into this repo:
+
+```bash
+npm run sync:team
+```
+
+Generated file:
+
+- `src/data/admin/team-snapshot.json`
 
 ## Stripe catalog (`stripe-factory`)
 
