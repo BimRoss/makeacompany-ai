@@ -150,11 +150,11 @@ export function TeamCardsGrid({ members }: TeamCardsGridProps) {
           .filter((embed): embed is TeamMemberMetricEmbed => Boolean(embed.url));
 
         return (
-          <section key={member.id} className="rounded-2xl border border-border bg-card px-3 py-2 shadow-sm sm:px-4 sm:py-3">
+          <section key={member.id} className="rounded-2xl border border-border bg-card px-3 py-2 sm:px-4 sm:py-3">
             <div className="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(340px,380px)_repeat(3,minmax(0,1fr))]">
               <TeamMemberCard
                 member={member}
-                className="h-full border-none bg-transparent p-0 shadow-none md:hover:translate-y-0 md:hover:shadow-none"
+                className="h-full border-none bg-transparent p-2 shadow-none sm:p-3 md:hover:translate-y-0 md:hover:shadow-none"
               />
               {metricEmbeds.length > 0 ? (
                 metricEmbeds.map((embed) => (
