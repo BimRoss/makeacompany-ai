@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import Script from "next/script";
 import { CountdownTimer } from "@/components/landing/countdown-timer";
 import { CheckoutReturnToast } from "@/components/landing/checkout-return-toast";
@@ -69,6 +70,16 @@ export default function HomePage() {
         </div>
       </section>
       <SeoFaqSection />
+      <section className="pb-8 pt-3">
+        <div className="mx-auto flex w-full max-w-6xl justify-center px-6">
+          <Link
+            href="/employees"
+            className="inline-flex h-10 items-center justify-center rounded-md border border-border bg-background px-5 text-sm font-medium text-foreground motion-colors hover:bg-muted"
+          >
+            Employees
+          </Link>
+        </div>
+      </section>
       <Footer />
     </main>
   );
