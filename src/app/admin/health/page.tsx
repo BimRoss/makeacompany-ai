@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useTheme } from "next-themes";
 
 import { AdminShell } from "@/components/admin/admin-shell";
 
@@ -19,7 +20,11 @@ type HealthPayload = {
   grafanaEmbeds?: GrafanaEmbed[];
 };
 
-function asGrafanaEmbedUrl(value?: string | null, panelId: string = "1"): string | null {
+function asGrafanaEmbedUrl(
+  value?: string | null,
+  panelId: string = "1",
+  grafanaTheme: "light" | "dark" = "light"
+): string | null {
   if (!value) {
     return null;
   }
@@ -31,7 +36,7 @@ function asGrafanaEmbedUrl(value?: string | null, panelId: string = "1"): string
       url.pathname = url.pathname.replace(/^\/d\//, "/d-solo/");
     }
     url.searchParams.set("orgId", url.searchParams.get("orgId") ?? "1");
-    url.searchParams.set("theme", "light");
+    url.searchParams.set("theme", grafanaTheme);
     url.searchParams.set("from", "now-6h");
     url.searchParams.set("to", "now");
     url.searchParams.set("refresh", "30s");
@@ -56,6 +61,7 @@ function formatDateTime(value?: string): string {
 
 export default function AdminHealthPage() {
   const [payload, setPayload] = useState<HealthPayload | null>(null);
+  const { resolvedTheme } = useTheme();
 
   useEffect(() => {
     let cancelled = false;
@@ -93,9 +99,13 @@ export default function AdminHealthPage() {
     () =>
       (payload?.grafanaEmbeds ?? []).map((embed) => ({
         ...embed,
-        url: asGrafanaEmbedUrl(embed.dashboardUrl, embed.panelId),
+        url: asGrafanaEmbedUrl(
+          embed.dashboardUrl,
+          embed.panelId,
+          resolvedTheme === "dark" ? "dark" : "light"
+        ),
       })),
-    [payload?.grafanaEmbeds]
+    [payload?.grafanaEmbeds, resolvedTheme]
   );
   const updatedAt = payload?.checkedAt ? formatDateTime(payload.checkedAt) : "Waiting for first poll…";
 

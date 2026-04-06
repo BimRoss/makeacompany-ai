@@ -19,7 +19,7 @@
 
 .panel {
   border: 1px solid hsl(var(--border));
-  background: #fff;
+  background: hsl(var(--card));
   border-radius: 1rem;
   padding: 0.75rem;
   display: grid;
@@ -39,7 +39,7 @@
   min-height: 290px;
   border: 1px solid hsl(var(--border));
   border-radius: 0.7rem;
-  background: #fff;
+  background: hsl(var(--card));
 }
 
 .placeholder {
