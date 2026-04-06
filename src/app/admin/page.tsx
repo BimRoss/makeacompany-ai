@@ -6,7 +6,7 @@ export default function AdminTeamPage() {
   const members = getAdminTeamMembers();
 
   return (
-    <AdminShell activeTab="team">
+    <AdminShell>
       <section className="space-y-4">
         {members.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-border bg-card p-8 text-center">

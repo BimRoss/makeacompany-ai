@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
@@ -37,7 +38,7 @@ export function Header() {
         <div className="pointer-events-none absolute inset-0">
           <div className="absolute -left-1/3 top-0 h-full w-1/3 -skew-x-12 bg-gradient-to-r from-transparent via-white/45 to-transparent opacity-0 motion-all group-hover:translate-x-[360%] group-hover:opacity-100 dark:via-white/20" />
         </div>
-        <div className="flex items-center gap-3">
+        <Link href="/" aria-label="Go to homepage" className="flex items-center gap-3">
           <Image
             src="/logo.png"
             alt="makeacompany.ai logo"
@@ -52,7 +53,7 @@ export function Header() {
           >
             makeacompany.ai
           </p>
-        </div>
+        </Link>
         <button
           type="button"
           onClick={() => setTheme(isDark ? "light" : "dark")}

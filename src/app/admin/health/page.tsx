@@ -100,7 +100,7 @@ export default function AdminHealthPage() {
   const updatedAt = payload?.checkedAt ? formatDateTime(payload.checkedAt) : "Waiting for first poll…";
 
   return (
-    <AdminShell activeTab="health">
+    <AdminShell>
       <section className={styles.layout}>
         {payload?.error ? (
           <div className={styles.errorBanner}>
