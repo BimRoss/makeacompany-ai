@@ -19,6 +19,27 @@ const defaultPanelTitles = [
   "Outbound posts/min by agent",
 ];
 
+const DEFAULT_GRAFANA_DASHBOARD_PATH =
+  "/grafana/d/makeacompany-observability/makeacompany-observability?orgId=1";
+
+function buildDefaultGrafanaDashboardUrl(requestHost: string | null, requestProto: string | null): string {
+  const hostOnly = requestHost?.split(",")[0]?.trim() || "";
+  const proto = requestProto?.split(",")[0]?.trim();
+  const normalizedProto = proto === "http" || proto === "https" ? proto : "https";
+  const hostname = hostOnly.split(":")[0]?.trim().toLowerCase();
+
+  // Local docker/dev does not route /grafana; use production ingress URL.
+  if (hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1") {
+    return `https://makeacompany.ai${DEFAULT_GRAFANA_DASHBOARD_PATH}`;
+  }
+
+  if (!hostOnly) {
+    return `https://makeacompany.ai${DEFAULT_GRAFANA_DASHBOARD_PATH}`;
+  }
+
+  return `${normalizedProto}://${hostOnly}${DEFAULT_GRAFANA_DASHBOARD_PATH}`;
+}
+
 function normalizeGrafanaDashboardUrl(
   configured: string | null,
   requestHost: string | null,
@@ -79,11 +100,10 @@ export async function GET() {
     defaultBackendBase;
   const backendHealthURL = `${backendBase.replace(/\/$/, "")}/health`;
 
-  const grafanaDashboardUrl = normalizeGrafanaDashboardUrl(
-    process.env.HEALTH_GRAFANA_DASHBOARD_URL?.trim() || null,
-    host,
-    proto
-  );
+  const configuredDashboardUrl = process.env.HEALTH_GRAFANA_DASHBOARD_URL?.trim() || null;
+  const grafanaDashboardUrl =
+    normalizeGrafanaDashboardUrl(configuredDashboardUrl, host, proto) ??
+    buildDefaultGrafanaDashboardUrl(host, proto);
   const panelIds = parseList(process.env.HEALTH_GRAFANA_PANEL_IDS, ["1", "2", "3", "4", "5", "6"]);
   const panelTitles = parseList(process.env.HEALTH_GRAFANA_PANEL_TITLES, defaultPanelTitles);
   const grafanaEmbeds = buildGrafanaEmbeds(grafanaDashboardUrl, panelIds, panelTitles);
