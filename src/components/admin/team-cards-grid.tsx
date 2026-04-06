@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useTheme } from "next-themes";
 
 import type { TeamMember } from "@/lib/admin/team";
-import { TeamMemberCard, type TeamMemberMetricEmbed } from "@/components/admin/team-member-card";
+import { TeamMemberCard } from "@/components/admin/team-member-card";
 
 type TeamCardsGridProps = {
   members: TeamMember[];
@@ -19,6 +19,12 @@ type GrafanaEmbed = {
 
 type HealthPayload = {
   grafanaEmbeds?: GrafanaEmbed[];
+};
+
+type TeamMemberMetricEmbed = {
+  key: string;
+  title: string;
+  url: string;
 };
 
 const DEFAULT_AGENT_PANEL_COUNT = 3;
@@ -160,7 +166,7 @@ export function TeamCardsGrid({ members }: TeamCardsGridProps) {
   const baseEmbeds = useMemo(() => healthPayload?.grafanaEmbeds ?? [], [healthPayload?.grafanaEmbeds]);
 
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="space-y-4">
       {members.map((member) => {
         const selectedEmbeds = pickPanelsForMember(member, baseEmbeds);
         const metricEmbeds: TeamMemberMetricEmbed[] = selectedEmbeds
@@ -177,7 +183,35 @@ export function TeamCardsGrid({ members }: TeamCardsGridProps) {
           }))
           .filter((embed): embed is TeamMemberMetricEmbed => Boolean(embed.url));
 
-        return <TeamMemberCard key={member.id} member={member} metricEmbeds={metricEmbeds} />;
+        return (
+          <section key={member.id} className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(360px,420px)_1fr]">
+            <TeamMemberCard member={member} className="h-full" />
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 2xl:grid-cols-3">
+              {metricEmbeds.length > 0 ? (
+                metricEmbeds.map((embed) => (
+                  <article
+                    key={embed.key}
+                    className="rounded-xl border border-border bg-card p-3 shadow-sm motion-colors"
+                  >
+                    <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+                      {embed.title}
+                    </p>
+                    <iframe
+                      title={`${member.displayName} - ${embed.title}`}
+                      src={embed.url}
+                      loading="lazy"
+                      className="h-44 w-full rounded-lg border border-border bg-card"
+                    />
+                  </article>
+                ))
+              ) : (
+                <article className="rounded-xl border border-dashed border-border bg-card/60 p-4 text-sm text-muted-foreground sm:col-span-2 2xl:col-span-3">
+                  Metrics unavailable right now.
+                </article>
+              )}
+            </div>
+          </section>
+        );
       })}
     </div>
   );

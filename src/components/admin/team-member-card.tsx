@@ -12,13 +12,7 @@ import { TeamStatusBadge } from "@/components/admin/team-status-badge";
 
 type TeamMemberCardProps = {
   member: TeamMember;
-  metricEmbeds?: TeamMemberMetricEmbed[];
-};
-
-export type TeamMemberMetricEmbed = {
-  key: string;
-  title: string;
-  url: string;
+  className?: string;
 };
 
 function laneLabel(lane: TeamMember["lane"]): string {
@@ -38,12 +32,18 @@ function laneLabel(lane: TeamMember["lane"]): string {
   }
 }
 
-export function TeamMemberCard({ member, metricEmbeds = [] }: TeamMemberCardProps) {
+export function TeamMemberCard({ member, className }: TeamMemberCardProps) {
   const [headshotFailed, setHeadshotFailed] = useState(false);
   const headshotUrl = headshotFailed ? getAdminHeadshotGeneratedUrl(member) : getAdminHeadshotUrl(member);
+  const articleClassName = [
+    "surface-card-motion group relative overflow-hidden rounded-2xl border border-border bg-card p-5 shadow-sm motion-colors sm:p-6 md:hover:-translate-y-1 md:hover:shadow-lg",
+    className,
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   return (
-    <article className="surface-card-motion group relative overflow-hidden rounded-2xl border border-border bg-card p-5 shadow-sm motion-colors sm:p-6 md:hover:-translate-y-1 md:hover:shadow-lg">
+    <article className={articleClassName}>
       <div className="relative flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1 space-y-1">
           <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
@@ -76,24 +76,6 @@ export function TeamMemberCard({ member, metricEmbeds = [] }: TeamMemberCardProp
       <div className="relative mt-4 space-y-2">
         <p className="line-clamp-3 text-sm leading-relaxed text-muted-foreground">{member.longDescription}</p>
       </div>
-
-      {metricEmbeds.length > 0 ? (
-        <div className="relative mt-4 space-y-2 border-t border-border/80 pt-3">
-          {metricEmbeds.map((embed) => (
-            <section key={embed.key} className="space-y-1.5">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-                {embed.title}
-              </p>
-              <iframe
-                title={`${member.displayName} - ${embed.title}`}
-                src={embed.url}
-                loading="lazy"
-                className="h-36 w-full rounded-lg border border-border bg-card"
-              />
-            </section>
-          ))}
-        </div>
-      ) : null}
     </article>
   );
 }
