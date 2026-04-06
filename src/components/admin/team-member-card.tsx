@@ -1,8 +1,20 @@
+"use client";
+
+import { useState } from "react";
+
 import type { TeamMember } from "@/lib/admin/team";
+import { getAdminHeadshotFallback, getAdminHeadshotUrl } from "@/lib/admin/headshots";
 import { TeamStatusBadge } from "@/components/admin/team-status-badge";
 
 type TeamMemberCardProps = {
   member: TeamMember;
+  metricEmbeds?: TeamMemberMetricEmbed[];
+};
+
+export type TeamMemberMetricEmbed = {
+  key: string;
+  title: string;
+  url: string;
 };
 
 function laneLabel(lane: TeamMember["lane"]): string {
@@ -22,24 +34,42 @@ function laneLabel(lane: TeamMember["lane"]): string {
   }
 }
 
-export function TeamMemberCard({ member }: TeamMemberCardProps) {
+export function TeamMemberCard({ member, metricEmbeds = [] }: TeamMemberCardProps) {
+  const [headshotFailed, setHeadshotFailed] = useState(false);
+  const headshotUrl = headshotFailed ? null : getAdminHeadshotUrl(member);
+
   return (
     <article className="surface-card-motion group relative overflow-hidden rounded-2xl border border-border bg-card p-5 shadow-sm motion-colors sm:p-6 md:hover:-translate-y-1 md:hover:shadow-lg">
-      <div
-        className="pointer-events-none absolute inset-x-0 top-0 h-20 opacity-15"
-        style={{
-          background: `linear-gradient(180deg, ${member.backgroundColor} 0%, transparent 100%)`,
-        }}
-        aria-hidden
-      />
-
       <div className="relative flex items-start justify-between gap-3">
-        <div className="space-y-1">
+        <div className="min-w-0 flex-1 space-y-1">
           <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
             {laneLabel(member.lane)}
           </p>
-          <h2 className="text-xl font-semibold tracking-tight text-foreground">{member.displayName}</h2>
-          <p className="text-sm text-muted-foreground">{member.roleTitle}</p>
+          <div className="mt-1 flex items-center gap-3 pl-1">
+            <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full border border-border bg-muted">
+              {headshotUrl ? (
+                // Using a native img avoids next/image remote-host checks in local dev.
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={headshotUrl}
+                  alt={`${member.displayName} headshot`}
+                  className="h-full w-full object-cover"
+                  onError={() => setHeadshotFailed(true)}
+                />
+              ) : (
+                <span className="flex h-full w-full items-center justify-center text-sm font-semibold text-muted-foreground">
+                  {getAdminHeadshotFallback(member)}
+                </span>
+              )}
+            </div>
+            <div className="min-w-0">
+              <h2 className="truncate text-xl font-semibold tracking-tight text-foreground">
+                {member.displayName}
+              </h2>
+              <p className="truncate text-sm text-muted-foreground">@{member.botDisplayName}</p>
+            </div>
+          </div>
+          <p className="pl-1 text-sm text-muted-foreground">{member.roleTitle}</p>
         </div>
         <TeamStatusBadge status={member.status} />
       </div>
@@ -48,9 +78,23 @@ export function TeamMemberCard({ member }: TeamMemberCardProps) {
         <p className="line-clamp-3 text-sm leading-relaxed text-muted-foreground">{member.longDescription}</p>
       </div>
 
-      <div className="relative mt-5 flex flex-wrap items-center justify-between gap-2 border-t border-border/80 pt-3 text-xs text-muted-foreground">
-        <span className="rounded-full bg-muted px-2 py-1 font-medium">@{member.botDisplayName}</span>
-      </div>
+      {metricEmbeds.length > 0 ? (
+        <div className="relative mt-4 space-y-2 border-t border-border/80 pt-3">
+          {metricEmbeds.map((embed) => (
+            <section key={embed.key} className="space-y-1.5">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+                {embed.title}
+              </p>
+              <iframe
+                title={`${member.displayName} - ${embed.title}`}
+                src={embed.url}
+                loading="lazy"
+                className="h-36 w-full rounded-lg border border-border bg-card"
+              />
+            </section>
+          ))}
+        </div>
+      ) : null}
     </article>
   );
 }

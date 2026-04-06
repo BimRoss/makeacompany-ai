@@ -48,6 +48,16 @@ docker compose --profile local up --build
 - Site: http://localhost:3000  
 - API: http://localhost:8080  
 
+```bash
+# Frontend dev server + admin-cluster backend/Grafana via compose-managed kubectl port-forwards
+docker compose --profile prod up --build
+```
+
+- Site: http://localhost:3000
+- Prod backend forward: http://localhost:18080
+- Prod Grafana forward: http://localhost:13000
+- Required env for this profile: `KUBECONFIG_HOST_PATH` (for example `/Users/grant/.kube/config/admin.yaml`)
+
 Or run Redis via Docker and:
 
 ```bash
@@ -62,6 +72,10 @@ npm run dev   # repo root
 | `REDIS_URL` | Redis connection URL |
 | `APP_BASE_URL` | Public site URL (Stripe success/cancel) |
 | `BACKEND_INTERNAL_API_BASE_URL` | Server-side internal backend base for Next route handlers (defaults to localhost locally and service DNS in Kubernetes) |
+| `KUBECONFIG_HOST_PATH` | Local kubeconfig path mounted into compose `k8s-*` port-forward services (used by `--profile prod`) |
+| `KUBECONFIG_CONTEXT` | Kubernetes context for compose `k8s-*` forwards (defaults to `admin`) |
+| `PROD_BACKEND_PORT` | Host port for forwarded `makeacompany-ai-backend` service (defaults to `18080`) |
+| `PROD_GRAFANA_PORT` | Host port for forwarded `makeacompany-ai-grafana` service (defaults to `13000`) |
 | `NEXT_PUBLIC_GA_MEASUREMENT_ID` | GA4 stream id injected into frontend at build time |
 | `NEXT_PUBLIC_LINKEDIN_PARTNER_ID` | LinkedIn Insight Tag partner id; frontend injects LinkedIn tracking only in production when set |
 | `HEALTH_GRAFANA_DASHBOARD_URL` | Base Grafana dashboard URL used by `/admin/health` |

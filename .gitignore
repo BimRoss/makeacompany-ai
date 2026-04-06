@@ -9,3 +9,4 @@ dist/
 coverage/
 backend/bin/
 *.exe
+*.tsbuildinfo

@@ -1,5 +1,5 @@
 import { AdminShell } from "@/components/admin/admin-shell";
-import { TeamMemberCard } from "@/components/admin/team-member-card";
+import { TeamCardsGrid } from "@/components/admin/team-cards-grid";
 import { getAdminTeamMembers } from "@/lib/admin/team";
 
 export default function AdminTeamPage() {
@@ -17,11 +17,7 @@ export default function AdminTeamPage() {
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {members.map((member) => (
-              <TeamMemberCard key={member.id} member={member} />
-            ))}
-          </div>
+          <TeamCardsGrid members={members} />
         )}
       </section>
     </AdminShell>

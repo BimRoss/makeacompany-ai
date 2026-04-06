@@ -53,5 +53,76 @@ services:
       - ./tsconfig.json:/app/tsconfig.json
       - ./postcss.config.mjs:/app/postcss.config.mjs
 
+  # Frontend dev server + prod backend/Grafana via in-compose kubectl forwards.
+  frontend-prod:
+    profiles: ["prod"]
+    build:
+      context: .
+      dockerfile: deploy/docker/frontend.Dockerfile
+      target: development
+    env_file:
+      - ./.env
+    depends_on:
+      - k8s-backend-forward
+      - k8s-grafana-forward
+    environment:
+      NEXT_PUBLIC_BACKEND_API_BASE_URL: http://localhost:${PROD_BACKEND_PORT:-18080}
+      BACKEND_INTERNAL_API_BASE_URL: http://k8s-backend-forward:8080
+      NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}
+      HEALTH_GRAFANA_DASHBOARD_URL: http://localhost:${PROD_GRAFANA_PORT:-13000}/grafana/d/makeacompany-observability/makeacompany-observability?orgId=1
+      NEXT_PUBLIC_LINKEDIN_PARTNER_ID: ${NEXT_PUBLIC_LINKEDIN_PARTNER_ID:-}
+      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY_TEST: ${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY_TEST:-${STRIPE_PUBLISHABLE_KEY_TEST:-}}
+      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY_LIVE: ${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY_LIVE:-${STRIPE_PUBLISHABLE_KEY_LIVE:-}}
+      NEXT_TELEMETRY_DISABLED: "1"
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    volumes:
+      - ./src:/app/src
+      - ./public:/app/public
+      - ./package.json:/app/package.json
+      - ./next.config.ts:/app/next.config.ts
+      - ./tsconfig.json:/app/tsconfig.json
+      - ./postcss.config.mjs:/app/postcss.config.mjs
+
+  k8s-backend-forward:
+    profiles: ["prod"]
+    image: registry.k8s.io/kubectl:v1.32.2
+    command:
+      - --kubeconfig=/kube/config
+      - --context
+      - ${KUBECONFIG_CONTEXT:-admin}
+      - -n
+      - makeacompany-ai
+      - port-forward
+      - svc/makeacompany-ai-backend
+      - 8080:8080
+      - --address
+      - 0.0.0.0
+    volumes:
+      - ${KUBECONFIG_HOST_PATH:?Set KUBECONFIG_HOST_PATH to your local kubeconfig file}:/kube/config:ro
+    ports:
+      - "${PROD_BACKEND_PORT:-18080}:8080"
+    restart: unless-stopped
+
+  k8s-grafana-forward:
+    profiles: ["prod"]
+    image: registry.k8s.io/kubectl:v1.32.2
+    command:
+      - --kubeconfig=/kube/config
+      - --context
+      - ${KUBECONFIG_CONTEXT:-admin}
+      - -n
+      - makeacompany-ai
+      - port-forward
+      - svc/makeacompany-ai-grafana
+      - 3000:3000
+      - --address
+      - 0.0.0.0
+    volumes:
+      - ${KUBECONFIG_HOST_PATH:?Set KUBECONFIG_HOST_PATH to your local kubeconfig file}:/kube/config:ro
+    ports:
+      - "${PROD_GRAFANA_PORT:-13000}:3000"
+    restart: unless-stopped
+
 volumes:
   redis_data:
