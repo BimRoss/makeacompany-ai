@@ -110,7 +110,7 @@ function asGrafanaEmbedUrl(
     url.searchParams.set("theme", grafanaTheme);
     url.searchParams.set("from", "now-1h");
     url.searchParams.set("to", "now");
-    url.searchParams.set("refresh", "30s");
+    url.searchParams.set("refresh", "2m");
     url.searchParams.set("panelId", panelId);
     url.searchParams.set("kiosk", "1");
     if (agentName) {

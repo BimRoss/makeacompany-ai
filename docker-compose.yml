@@ -88,16 +88,18 @@ services:
     profiles: ["prod"]
     image: registry.k8s.io/kubectl:v1.32.2
     command:
-      - --kubeconfig=/kube/config
-      - --context
-      - ${KUBECONFIG_CONTEXT:-admin}
-      - -n
-      - makeacompany-ai
-      - port-forward
-      - svc/makeacompany-ai-backend
-      - 8080:8080
-      - --address
-      - 0.0.0.0
+      - /bin/sh
+      - -ec
+      - |
+        while true; do
+          kubectl \
+            --kubeconfig=/kube/config \
+            --context "${KUBECONFIG_CONTEXT:-admin}" \
+            -n makeacompany-ai \
+            port-forward svc/makeacompany-ai-backend 8080:8080 --address 0.0.0.0
+          echo "k8s-backend-forward: port-forward ended; retrying in 2s"
+          sleep 2
+        done
     volumes:
       - ${KUBECONFIG_HOST_PATH:?Set KUBECONFIG_HOST_PATH to your local kubeconfig file}:/kube/config:ro
     ports:
@@ -108,16 +110,18 @@ services:
     profiles: ["prod"]
     image: registry.k8s.io/kubectl:v1.32.2
     command:
-      - --kubeconfig=/kube/config
-      - --context
-      - ${KUBECONFIG_CONTEXT:-admin}
-      - -n
-      - makeacompany-ai
-      - port-forward
-      - svc/makeacompany-ai-grafana
-      - 3000:3000
-      - --address
-      - 0.0.0.0
+      - /bin/sh
+      - -ec
+      - |
+        while true; do
+          kubectl \
+            --kubeconfig=/kube/config \
+            --context "${KUBECONFIG_CONTEXT:-admin}" \
+            -n makeacompany-ai \
+            port-forward svc/makeacompany-ai-grafana 3000:3000 --address 0.0.0.0
+          echo "k8s-grafana-forward: port-forward ended; retrying in 2s"
+          sleep 2
+        done
     volumes:
       - ${KUBECONFIG_HOST_PATH:?Set KUBECONFIG_HOST_PATH to your local kubeconfig file}:/kube/config:ro
     ports:

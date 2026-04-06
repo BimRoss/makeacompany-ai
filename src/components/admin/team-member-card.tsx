@@ -3,7 +3,11 @@
 import { useState } from "react";
 
 import type { TeamMember } from "@/lib/admin/team";
-import { getAdminHeadshotFallback, getAdminHeadshotUrl } from "@/lib/admin/headshots";
+import {
+  getAdminHeadshotFallback,
+  getAdminHeadshotGeneratedUrl,
+  getAdminHeadshotUrl,
+} from "@/lib/admin/headshots";
 import { TeamStatusBadge } from "@/components/admin/team-status-badge";
 
 type TeamMemberCardProps = {
@@ -36,7 +40,7 @@ function laneLabel(lane: TeamMember["lane"]): string {
 
 export function TeamMemberCard({ member, metricEmbeds = [] }: TeamMemberCardProps) {
   const [headshotFailed, setHeadshotFailed] = useState(false);
-  const headshotUrl = headshotFailed ? null : getAdminHeadshotUrl(member);
+  const headshotUrl = headshotFailed ? getAdminHeadshotGeneratedUrl(member) : getAdminHeadshotUrl(member);
 
   return (
     <article className="surface-card-motion group relative overflow-hidden rounded-2xl border border-border bg-card p-5 shadow-sm motion-colors sm:p-6 md:hover:-translate-y-1 md:hover:shadow-lg">
@@ -47,20 +51,15 @@ export function TeamMemberCard({ member, metricEmbeds = [] }: TeamMemberCardProp
           </p>
           <div className="mt-1 flex items-center gap-3 pl-1">
             <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full border border-border bg-muted">
-              {headshotUrl ? (
-                // Using a native img avoids next/image remote-host checks in local dev.
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={headshotUrl}
-                  alt={`${member.displayName} headshot`}
-                  className="h-full w-full object-cover"
-                  onError={() => setHeadshotFailed(true)}
-                />
-              ) : (
-                <span className="flex h-full w-full items-center justify-center text-sm font-semibold text-muted-foreground">
-                  {getAdminHeadshotFallback(member)}
-                </span>
-              )}
+              {/* Using a native img avoids next/image remote-host checks in local dev. */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={headshotUrl}
+                alt={`${member.displayName} headshot`}
+                className="h-full w-full object-cover"
+                onError={() => setHeadshotFailed(true)}
+              />
+              <span className="sr-only">{getAdminHeadshotFallback(member)}</span>
             </div>
             <div className="min-w-0">
               <h2 className="truncate text-xl font-semibold tracking-tight text-foreground">
