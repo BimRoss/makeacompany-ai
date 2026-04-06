@@ -27,72 +27,38 @@ type TeamMemberMetricEmbed = {
   url: string;
 };
 
-const DEFAULT_AGENT_PANEL_COUNT = 3;
+function selectCanonicalPanels(embeds: GrafanaEmbed[]): GrafanaEmbed[] {
+  const byId = (id: string) => embeds.find((embed) => embed.panelId === id);
+  const byTitle = (pattern: RegExp) =>
+    embeds.find((embed) => pattern.test(embed.title.toLowerCase()));
 
-type PanelIntent = "requests" | "latency" | "goroutines" | "memory" | "inbound" | "outbound";
+  const goroutines =
+    byTitle(/go goroutines|goroutine/) ??
+    byId("4");
+  const requestsPerMinute =
+    byTitle(/requests per minute|requests\/min|request/) ??
+    byId("1");
+  const eventsCombined =
+    byTitle(/combined events|events combined|events total/) ??
+    byId("7") ??
+    byTitle(/inbound events|outbound posts|events\/min|events per min/) ??
+    byId("3") ??
+    byId("6");
 
-const lanePanelPreferences: Record<TeamMember["lane"], PanelIntent[]> = {
-  automation: ["goroutines", "latency", "requests"],
-  sales: ["inbound", "outbound", "requests"],
-  strategy: ["latency", "requests", "memory"],
-  operations: ["requests", "latency", "memory"],
-  internship: ["inbound", "requests", "goroutines"],
-  general: ["requests", "latency", "goroutines"],
-};
+  const selected = [goroutines, requestsPerMinute, eventsCombined].filter(
+    (panel): panel is GrafanaEmbed => Boolean(panel)
+  );
 
-function intentMatchesPanel(intent: PanelIntent, panelTitle: string): boolean {
-  const title = panelTitle.toLowerCase();
-  switch (intent) {
-    case "requests":
-      return /request|req\/|rpm|rps/.test(title);
-    case "latency":
-      return /latency|p95|duration|response time/.test(title);
-    case "goroutines":
-      return /goroutine/.test(title);
-    case "memory":
-      return /memory|rss|heap/.test(title);
-    case "inbound":
-      return /inbound|ingress|events\/min|events per min/.test(title);
-    case "outbound":
-      return /outbound|egress|posts\/min|posts per min/.test(title);
-    default:
-      return false;
-  }
-}
-
-function pickPanelsForMember(member: TeamMember, embeds: GrafanaEmbed[]): GrafanaEmbed[] {
-  if (embeds.length <= DEFAULT_AGENT_PANEL_COUNT) {
-    return embeds;
-  }
-
-  const selected: GrafanaEmbed[] = [];
-  const usedKeys = new Set<string>();
-  const preferences = lanePanelPreferences[member.lane] ?? lanePanelPreferences.general;
-
-  for (const intent of preferences) {
-    const match = embeds.find((embed) => !usedKeys.has(embed.key) && intentMatchesPanel(intent, embed.title));
-    if (!match) {
+  const deduped: GrafanaEmbed[] = [];
+  const seen = new Set<string>();
+  for (const panel of selected) {
+    if (seen.has(panel.key)) {
       continue;
     }
-    selected.push(match);
-    usedKeys.add(match.key);
-    if (selected.length === DEFAULT_AGENT_PANEL_COUNT) {
-      return selected;
-    }
+    seen.add(panel.key);
+    deduped.push(panel);
   }
-
-  for (const embed of embeds) {
-    if (usedKeys.has(embed.key)) {
-      continue;
-    }
-    selected.push(embed);
-    usedKeys.add(embed.key);
-    if (selected.length === DEFAULT_AGENT_PANEL_COUNT) {
-      break;
-    }
-  }
-
-  return selected;
+  return deduped;
 }
 
 function asGrafanaEmbedUrl(
@@ -168,7 +134,7 @@ export function TeamCardsGrid({ members }: TeamCardsGridProps) {
   return (
     <div className="space-y-4">
       {members.map((member) => {
-        const selectedEmbeds = pickPanelsForMember(member, baseEmbeds);
+        const selectedEmbeds = selectCanonicalPanels(baseEmbeds);
         const metricEmbeds: TeamMemberMetricEmbed[] = selectedEmbeds
           .map((embed) => ({
             key: `${member.id}-${embed.key}`,
@@ -184,28 +150,25 @@ export function TeamCardsGrid({ members }: TeamCardsGridProps) {
           .filter((embed): embed is TeamMemberMetricEmbed => Boolean(embed.url));
 
         return (
-          <section key={member.id} className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(360px,420px)_1fr]">
-            <TeamMemberCard member={member} className="h-full" />
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 2xl:grid-cols-3">
+          <section key={member.id} className="rounded-2xl border border-border bg-card px-3 py-2 shadow-sm sm:px-4 sm:py-3">
+            <div className="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(340px,380px)_repeat(3,minmax(0,1fr))]">
+              <TeamMemberCard
+                member={member}
+                className="h-full border-none bg-transparent p-0 shadow-none md:hover:translate-y-0 md:hover:shadow-none"
+              />
               {metricEmbeds.length > 0 ? (
                 metricEmbeds.map((embed) => (
-                  <article
-                    key={embed.key}
-                    className="rounded-xl border border-border bg-card p-3 shadow-sm motion-colors"
-                  >
-                    <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-                      {embed.title}
-                    </p>
+                  <div key={embed.key} className="motion-colors">
                     <iframe
                       title={`${member.displayName} - ${embed.title}`}
                       src={embed.url}
                       loading="lazy"
-                      className="h-44 w-full rounded-lg border border-border bg-card"
+                      className="h-44 w-full rounded-md border-0 bg-transparent"
                     />
-                  </article>
+                  </div>
                 ))
               ) : (
-                <article className="rounded-xl border border-dashed border-border bg-card/60 p-4 text-sm text-muted-foreground sm:col-span-2 2xl:col-span-3">
+                <article className="rounded-md border border-dashed border-border px-3 py-2 text-sm text-muted-foreground xl:col-span-3">
                   Metrics unavailable right now.
                 </article>
               )}
