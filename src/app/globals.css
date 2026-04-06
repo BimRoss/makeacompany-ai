@@ -529,3 +529,29 @@ button:disabled {
       0 3px 11px -6px rgba(0, 0, 0, 0.22);
   }
 }
+
+/* Admin status badges: subtle live pulse for active teammates. */
+@keyframes status-dot-live {
+  0% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.45);
+    transform: scale(1);
+  }
+  65% {
+    box-shadow: 0 0 0 0.35rem rgba(16, 185, 129, 0);
+    transform: scale(1.08);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+    transform: scale(1);
+  }
+}
+
+.status-dot-live {
+  animation: status-dot-live 1.7s ease-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .status-dot-live {
+    animation: none;
+  }
+}

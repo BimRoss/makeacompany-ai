@@ -16,12 +16,12 @@ export function TeamStatusBadge({ status }: TeamStatusBadgeProps) {
     <span
       className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] ${
         isActive
-          ? "border-foreground/20 bg-foreground/5 text-foreground"
+          ? "border-emerald-500/35 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
           : "border-border bg-muted text-muted-foreground"
       }`}
     >
       <span
-        className={`h-1.5 w-1.5 rounded-full ${isActive ? "bg-foreground" : "bg-muted-foreground"}`}
+        className={`h-1.5 w-1.5 rounded-full ${isActive ? "status-dot-live bg-emerald-500 dark:bg-emerald-400" : "bg-muted-foreground"}`}
         aria-hidden
       />
       {LABEL_BY_STATUS[status]}
