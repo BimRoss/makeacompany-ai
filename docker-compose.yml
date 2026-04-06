@@ -53,7 +53,7 @@ services:
       - ./tsconfig.json:/app/tsconfig.json
       - ./postcss.config.mjs:/app/postcss.config.mjs
 
-  # Frontend dev server + prod backend/Grafana via in-compose kubectl forwards.
+  # Frontend dev server + prod backend via in-compose kubectl forward.
   frontend-prod:
     profiles: ["prod"]
     build:
@@ -65,13 +65,10 @@ services:
     depends_on:
       k8s-backend-forward:
         condition: service_healthy
-      k8s-grafana-forward:
-        condition: service_healthy
     environment:
       NEXT_PUBLIC_BACKEND_API_BASE_URL: http://localhost:${PROD_BACKEND_PORT:-18080}
       BACKEND_INTERNAL_API_BASE_URL: http://k8s-backend-forward:8080
       NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}
-      HEALTH_GRAFANA_DASHBOARD_URL: http://localhost:${PROD_GRAFANA_PORT:-13000}/grafana/d/makeacompany-observability/makeacompany-observability?orgId=1
       NEXT_PUBLIC_LINKEDIN_PARTNER_ID: ${NEXT_PUBLIC_LINKEDIN_PARTNER_ID:-}
       NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY_TEST: ${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY_TEST:-${STRIPE_PUBLISHABLE_KEY_TEST:-}}
       NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY_LIVE: ${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY_LIVE:-${STRIPE_PUBLISHABLE_KEY_LIVE:-}}
@@ -90,56 +87,36 @@ services:
     profiles: ["prod"]
     image: registry.k8s.io/kubectl:v1.32.2
     command:
-      - /bin/sh
-      - -ec
-      - |
-        while true; do
-          echo "[$$(date -u +%Y-%m-%dT%H:%M:%SZ)] k8s-backend-forward: starting port-forward"
-          kubectl \
-            --kubeconfig=/kube/config \
-            --context "${KUBECONFIG_CONTEXT:-admin}" \
-            -n makeacompany-ai \
-            port-forward svc/makeacompany-ai-backend 8080:8080 --address 0.0.0.0
-          rc=$$?
-          echo "[$$(date -u +%Y-%m-%dT%H:%M:%SZ)] k8s-backend-forward: port-forward ended with exit $$rc; retrying in 2s"
-          sleep 2
-        done
+      - --kubeconfig=/kube/config
+      - --context
+      - ${KUBECONFIG_CONTEXT:-admin}
+      - -n
+      - makeacompany-ai
+      - port-forward
+      - svc/makeacompany-ai-backend
+      - 8080:8080
+      - --address
+      - 0.0.0.0
     volumes:
       - ${KUBECONFIG_HOST_PATH:?Set KUBECONFIG_HOST_PATH to your local kubeconfig file}:/kube/config:ro
     ports:
       - "${PROD_BACKEND_PORT:-18080}:8080"
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/health >/dev/null || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 6
-      start_period: 15s
-    restart: unless-stopped
-
-  k8s-grafana-forward:
-    profiles: ["prod"]
-    image: registry.k8s.io/kubectl:v1.32.2
-    command:
-      - /bin/sh
-      - -ec
-      - |
-        while true; do
-          echo "[$$(date -u +%Y-%m-%dT%H:%M:%SZ)] k8s-grafana-forward: starting port-forward"
-          kubectl \
-            --kubeconfig=/kube/config \
-            --context "${KUBECONFIG_CONTEXT:-admin}" \
-            -n makeacompany-ai \
-            port-forward svc/makeacompany-ai-grafana 3000:3000 --address 0.0.0.0
-          rc=$$?
-          echo "[$$(date -u +%Y-%m-%dT%H:%M:%SZ)] k8s-grafana-forward: port-forward ended with exit $$rc; retrying in 2s"
-          sleep 2
-        done
-    volumes:
-      - ${KUBECONFIG_HOST_PATH:?Set KUBECONFIG_HOST_PATH to your local kubeconfig file}:/kube/config:ro
-    ports:
-      - "${PROD_GRAFANA_PORT:-13000}:3000"
-    healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/api/health >/dev/null || exit 1"]
+      test:
+        [
+          "CMD",
+          "kubectl",
+          "--kubeconfig=/kube/config",
+          "--context",
+          "${KUBECONFIG_CONTEXT:-admin}",
+          "-n",
+          "makeacompany-ai",
+          "get",
+          "svc",
+          "makeacompany-ai-backend",
+          "-o",
+          "name",
+        ]
       interval: 10s
       timeout: 5s
       retries: 6

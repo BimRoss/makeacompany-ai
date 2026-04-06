@@ -8,14 +8,13 @@ Marketing landing page and **$1 Stripe waitlist** for [makeacompany.ai](https://
 
 - `backend/` — Go HTTP server: health, `POST /v1/billing/checkout`, `POST /v1/billing/webhook`
 - `src/` — Next.js (App Router) single-page site, `next-themes` light/dark
-- `src/app/admin/` — operator control surface (`/admin`), starting with Team cards
-- `src/app/admin/health/` — operator observability page (`/admin/health`) with Grafana embeds
+- `src/app/employees/` — operator control surface (`/employees`) with Team cards
 - `deploy/docker/` — production Dockerfiles
 - `admin/apps/makeacompany-ai/` — lives in **`bimross/rancher-admin`** (Fleet / admin cluster)
 
-## Admin Team control surface
+## Employees control surface
 
-- Route: `/admin`
+- Route: `/employees`
 - Current module: **Team** (desktop/mobile responsive cards)
 - Data source: synced snapshot generated from `slack-factory/manifests/*/app-manifest.json`
 
@@ -49,23 +48,20 @@ docker compose --profile local up --build
 - API: http://localhost:8080  
 
 ```bash
-# Frontend dev server + admin-cluster backend/Grafana via compose-managed kubectl port-forwards
+# Frontend dev server + admin-cluster backend via compose-managed kubectl port-forward
 docker compose --profile prod up --build
 ```
 
 - Site: http://localhost:3000
 - Prod backend forward: http://localhost:18080
-- Prod Grafana forward: http://localhost:13000
 - Required env for this profile: `KUBECONFIG_HOST_PATH` (for example `/Users/grant/.kube/config/admin.yaml`)
-- `frontend-prod` now waits for both port-forward services to report healthy before startup.
-- Grafana in this path is served from the `/grafana` subpath, so dashboard URLs must include `/grafana/d/...`.
+- `frontend-prod` waits for the backend port-forward service to report healthy before startup.
 
-Quick checks if `/admin/health` graphs look wrong:
+Quick checks if `/employees` data looks wrong:
 
 ```bash
 docker compose --profile prod ps
 curl -sf http://localhost:18080/health >/dev/null && echo "backend forward OK"
-curl -sf http://localhost:13000/grafana/api/health >/dev/null && echo "grafana forward OK"
 ```
 
 Or run Redis via Docker and:
@@ -85,12 +81,8 @@ npm run dev   # repo root
 | `KUBECONFIG_HOST_PATH` | Local kubeconfig path mounted into compose `k8s-*` port-forward services (used by `--profile prod`) |
 | `KUBECONFIG_CONTEXT` | Kubernetes context for compose `k8s-*` forwards (defaults to `admin`) |
 | `PROD_BACKEND_PORT` | Host port for forwarded `makeacompany-ai-backend` service (defaults to `18080`) |
-| `PROD_GRAFANA_PORT` | Host port for forwarded `makeacompany-ai-grafana` service (defaults to `13000`) |
 | `NEXT_PUBLIC_GA_MEASUREMENT_ID` | GA4 stream id injected into frontend at build time |
 | `NEXT_PUBLIC_LINKEDIN_PARTNER_ID` | LinkedIn Insight Tag partner id; frontend injects LinkedIn tracking only in production when set |
-| `HEALTH_GRAFANA_DASHBOARD_URL` | Base Grafana dashboard URL used by `/admin/health` (for `--profile prod`: `http://localhost:13000/grafana/d/...`) |
-| `HEALTH_GRAFANA_PANEL_IDS` | Comma-separated panel IDs (defaults to `1,2,3,4,5,6`) |
-| `HEALTH_GRAFANA_PANEL_TITLES` | Comma-separated chart titles aligned to `HEALTH_GRAFANA_PANEL_IDS` |
 | `STRIPE_SECRET_KEY` | Optional single key (`sk_test_…` or `sk_live_…`) — wins if set |
 | `STRIPE_SECRET_KEY_TEST` / `STRIPE_SECRET_KEY_LIVE` | Split keys; backend picks the **first non-empty** in order: `STRIPE_SECRET_KEY`, `STRIPE_SECRET_KEY_LIVE`, `STRIPE_SECRET_KEY_TEST`, `STRIPE_API_KEY_TEST` |
 | `STRIPE_API_KEY_TEST` | Optional alias (e.g. stripe-factory) for a test secret key |
@@ -103,8 +95,6 @@ npm run dev   # repo root
 | `STRIPE_PRICE_ID_WAITLIST_LIVE` | $1 one-time price (live mode) |
 
 **Webhook URL (POST):** `{backend origin}/v1/billing/webhook` — e.g. ngrok `https://YOUR_SUBDOMAIN.ngrok-free.dev/v1/billing/webhook` forwarding to `localhost:8080`. Snapshot and thin destinations can share this path; each destination still has its own signing secret.
-
-`/admin/health` polls `GET /api/admin/health`, which proxies backend health and renders Grafana `d-solo` iframes from the dashboard/panel env above.
 
 Checkout selects test vs live **price** from the **effective** API secret’s prefix (`sk_live_` uses live price id). For **production**, prefer `STRIPE_SECRET_KEY` (live) or `STRIPE_SECRET_KEY_LIVE`.
 

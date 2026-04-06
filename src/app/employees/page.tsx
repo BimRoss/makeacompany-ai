@@ -2,7 +2,7 @@ import { AdminShell } from "@/components/admin/admin-shell";
 import { TeamCardsGrid } from "@/components/admin/team-cards-grid";
 import { getAdminTeamMembers } from "@/lib/admin/team";
 
-export default function AdminTeamPage() {
+export default function EmployeesPage() {
   const members = getAdminTeamMembers();
 
   return (
