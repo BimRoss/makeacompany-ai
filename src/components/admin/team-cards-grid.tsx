@@ -33,13 +33,13 @@ function selectCanonicalPanels(embeds: GrafanaEmbed[]): GrafanaEmbed[] {
     embeds.find((embed) => pattern.test(embed.title.toLowerCase()));
 
   const goroutines =
-    byTitle(/go goroutines|goroutine/) ??
+    byTitle(/activities|go goroutines|goroutine/) ??
     byId("4");
   const requestsPerMinute =
-    byTitle(/requests per minute|requests\/min|request/) ??
+    byTitle(/requests per minute|requests\s*\/min|requests\/min|request/) ??
     byId("1");
   const eventsCombined =
-    byTitle(/combined events|events combined|events total/) ??
+    byTitle(/events\s*\/min|combined events|events combined|events total/) ??
     byId("7") ??
     byTitle(/inbound events|outbound posts|events\/min|events per min/) ??
     byId("3") ??

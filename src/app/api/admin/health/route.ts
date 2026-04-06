@@ -10,14 +10,7 @@ type GrafanaEmbed = {
   dashboardUrl: string | null;
 };
 
-const defaultPanelTitles = [
-  "Requests per minute",
-  "P95 request latency",
-  "Inbound events/min by agent",
-  "Go goroutines",
-  "Backend memory RSS",
-  "Outbound posts/min by agent",
-];
+const defaultPanelTitles = ["Activities", "Requests /min", "Events /min"];
 
 const DEFAULT_GRAFANA_DASHBOARD_PATH =
   "/grafana/d/makeacompany-observability/makeacompany-observability?orgId=1";
@@ -104,7 +97,7 @@ export async function GET() {
   const grafanaDashboardUrl =
     normalizeGrafanaDashboardUrl(configuredDashboardUrl, host, proto) ??
     buildDefaultGrafanaDashboardUrl(host, proto);
-  const panelIds = parseList(process.env.HEALTH_GRAFANA_PANEL_IDS, ["1", "2", "3", "4", "5", "6"]);
+  const panelIds = parseList(process.env.HEALTH_GRAFANA_PANEL_IDS, ["4", "1", "7"]);
   const panelTitles = parseList(process.env.HEALTH_GRAFANA_PANEL_TITLES, defaultPanelTitles);
   const grafanaEmbeds = buildGrafanaEmbeds(grafanaDashboardUrl, panelIds, panelTitles);
 

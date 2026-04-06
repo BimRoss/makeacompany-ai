@@ -16,7 +16,7 @@ export function TeamStatusBadge({ status }: TeamStatusBadgeProps) {
     <span
       className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] ${
         isActive
-          ? "border-emerald-500/35 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+          ? "border-border bg-white text-foreground"
           : "border-border bg-muted text-muted-foreground"
       }`}
     >
