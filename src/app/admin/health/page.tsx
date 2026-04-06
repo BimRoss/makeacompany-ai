@@ -6,8 +6,6 @@ import { AdminShell } from "@/components/admin/admin-shell";
 
 import styles from "./health.module.css";
 
-type HealthStatus = "ok" | "degraded" | "unknown";
-
 type GrafanaEmbed = {
   key: string;
   panelId: string;
@@ -16,7 +14,6 @@ type GrafanaEmbed = {
 };
 
 type HealthPayload = {
-  status?: HealthStatus;
   checkedAt?: string;
   error?: string;
   grafanaEmbeds?: GrafanaEmbed[];
@@ -34,7 +31,7 @@ function asGrafanaEmbedUrl(value?: string | null, panelId: string = "1"): string
       url.pathname = url.pathname.replace(/^\/d\//, "/d-solo/");
     }
     url.searchParams.set("orgId", url.searchParams.get("orgId") ?? "1");
-    url.searchParams.set("theme", "dark");
+    url.searchParams.set("theme", "light");
     url.searchParams.set("from", "now-6h");
     url.searchParams.set("to", "now");
     url.searchParams.set("refresh", "30s");
@@ -57,19 +54,8 @@ function formatDateTime(value?: string): string {
   return parsed.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" });
 }
 
-function statusTone(status: HealthStatus): "healthy" | "degraded" | "unknown" {
-  if (status === "ok") {
-    return "healthy";
-  }
-  if (status === "degraded") {
-    return "degraded";
-  }
-  return "unknown";
-}
-
 export default function AdminHealthPage() {
   const [payload, setPayload] = useState<HealthPayload | null>(null);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -85,14 +71,9 @@ export default function AdminHealthPage() {
         const message = error instanceof Error ? error.message : "Unknown error";
         if (!cancelled) {
           setPayload({
-            status: "degraded",
             error: message,
             checkedAt: new Date().toISOString(),
           });
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
         }
       }
     };
@@ -108,7 +89,6 @@ export default function AdminHealthPage() {
     };
   }, []);
 
-  const status = payload?.status ?? "unknown";
   const embeds = useMemo(
     () =>
       (payload?.grafanaEmbeds ?? []).map((embed) => ({
@@ -120,23 +100,12 @@ export default function AdminHealthPage() {
   const updatedAt = payload?.checkedAt ? formatDateTime(payload.checkedAt) : "Waiting for first poll…";
 
   return (
-    <AdminShell updatedAt={updatedAt} source="live /api/admin/health" activeTab="health">
+    <AdminShell activeTab="health">
       <section className={styles.layout}>
-        <header className={styles.topRow}>
-          <div className={styles.statusCard} data-tone={statusTone(status)}>
-            <p className={styles.kicker}>System status</p>
-            <p className={styles.value}>{loading ? "Loading…" : status.toUpperCase()}</p>
-            <p className={styles.meta}>Checks backend readiness + Grafana panel availability.</p>
-          </div>
-          <div className={styles.statusCard}>
-            <p className={styles.kicker}>Graphs</p>
-            <p className={styles.value}>{embeds.length}</p>
-            <p className={styles.meta}>Target is 6 operator graphs for request, runtime, and agent flow.</p>
-          </div>
-        </header>
-
         {payload?.error ? (
-          <div className={styles.errorBanner}>Health API returned degraded status: {payload.error}</div>
+          <div className={styles.errorBanner}>
+            Health API returned degraded status at {updatedAt}: {payload.error}
+          </div>
         ) : null}
 
         <div className={styles.grid}>

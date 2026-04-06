@@ -246,6 +246,19 @@ button:disabled {
   }
 }
 
+/* Admin team cards: smooth hover lift in both directions. */
+.surface-card-motion {
+  transition-property: translate, box-shadow, border-color, background-color;
+  transition-duration: var(--motion-duration);
+  transition-timing-function: var(--motion-ease);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .surface-card-motion {
+    transition: none;
+  }
+}
+
 /* FAQ accordions: smooth expand/collapse (avoids native <details> snap). */
 /* Lift on hover uses `transform` here so it shares one property with the transition. Tailwind v4's
    `-translate-y-*` utilities set the separate `translate` property, which would otherwise snap. */

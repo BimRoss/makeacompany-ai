@@ -13,10 +13,10 @@ type GrafanaEmbed = {
 const defaultPanelTitles = [
   "Requests per minute",
   "P95 request latency",
-  "Error rate %",
+  "Inbound events/min by agent",
   "Go goroutines",
   "Backend memory RSS",
-  "Agent activity per minute",
+  "Outbound posts/min by agent",
 ];
 
 function normalizeGrafanaDashboardUrl(

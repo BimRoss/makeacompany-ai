@@ -24,7 +24,7 @@ function laneLabel(lane: TeamMember["lane"]): string {
 
 export function TeamMemberCard({ member }: TeamMemberCardProps) {
   return (
-    <article className="group relative overflow-hidden rounded-2xl border border-border bg-card p-5 shadow-sm motion-colors motion-transform sm:p-6 md:hover:-translate-y-1 md:hover:shadow-xl">
+    <article className="surface-card-motion group relative overflow-hidden rounded-2xl border border-border bg-card p-5 shadow-sm motion-colors sm:p-6 md:hover:-translate-y-1 md:hover:shadow-lg">
       <div
         className="pointer-events-none absolute inset-x-0 top-0 h-20 opacity-15"
         style={{
@@ -44,14 +44,12 @@ export function TeamMemberCard({ member }: TeamMemberCardProps) {
         <TeamStatusBadge status={member.status} />
       </div>
 
-      <div className="relative mt-4 space-y-3">
-        <p className="text-sm font-medium text-foreground">{member.shortDescription}</p>
-        <p className="line-clamp-5 text-sm leading-relaxed text-muted-foreground">{member.longDescription}</p>
+      <div className="relative mt-4 space-y-2">
+        <p className="line-clamp-3 text-sm leading-relaxed text-muted-foreground">{member.longDescription}</p>
       </div>
 
       <div className="relative mt-5 flex flex-wrap items-center justify-between gap-2 border-t border-border/80 pt-3 text-xs text-muted-foreground">
         <span className="rounded-full bg-muted px-2 py-1 font-medium">@{member.botDisplayName}</span>
-        <span className="font-mono text-[10px] tracking-tight">{member.sourceManifest}</span>
       </div>
     </article>
   );
