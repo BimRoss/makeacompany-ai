@@ -57,6 +57,16 @@ docker compose --profile prod up --build
 - Prod backend forward: http://localhost:18080
 - Prod Grafana forward: http://localhost:13000
 - Required env for this profile: `KUBECONFIG_HOST_PATH` (for example `/Users/grant/.kube/config/admin.yaml`)
+- `frontend-prod` now waits for both port-forward services to report healthy before startup.
+- Grafana in this path is served from the `/grafana` subpath, so dashboard URLs must include `/grafana/d/...`.
+
+Quick checks if `/admin/health` graphs look wrong:
+
+```bash
+docker compose --profile prod ps
+curl -sf http://localhost:18080/health >/dev/null && echo "backend forward OK"
+curl -sf http://localhost:13000/grafana/api/health >/dev/null && echo "grafana forward OK"
+```
 
 Or run Redis via Docker and:
 
@@ -78,7 +88,7 @@ npm run dev   # repo root
 | `PROD_GRAFANA_PORT` | Host port for forwarded `makeacompany-ai-grafana` service (defaults to `13000`) |
 | `NEXT_PUBLIC_GA_MEASUREMENT_ID` | GA4 stream id injected into frontend at build time |
 | `NEXT_PUBLIC_LINKEDIN_PARTNER_ID` | LinkedIn Insight Tag partner id; frontend injects LinkedIn tracking only in production when set |
-| `HEALTH_GRAFANA_DASHBOARD_URL` | Base Grafana dashboard URL used by `/admin/health` |
+| `HEALTH_GRAFANA_DASHBOARD_URL` | Base Grafana dashboard URL used by `/admin/health` (for `--profile prod`: `http://localhost:13000/grafana/d/...`) |
 | `HEALTH_GRAFANA_PANEL_IDS` | Comma-separated panel IDs (defaults to `1,2,3,4,5,6`) |
 | `HEALTH_GRAFANA_PANEL_TITLES` | Comma-separated chart titles aligned to `HEALTH_GRAFANA_PANEL_IDS` |
 | `STRIPE_SECRET_KEY` | Optional single key (`sk_test_…` or `sk_live_…`) — wins if set |

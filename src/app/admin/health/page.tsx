@@ -17,6 +17,20 @@ type GrafanaEmbed = {
 type HealthPayload = {
   checkedAt?: string;
   error?: string;
+  backendHealthURL?: string;
+  grafanaDashboardUrl?: string | null;
+  backendProbe?: {
+    url: string;
+    reachable: boolean;
+    status: number | null;
+    error: string | null;
+  };
+  grafanaProbe?: {
+    url: string;
+    reachable: boolean;
+    status: number | null;
+    error: string | null;
+  };
   grafanaEmbeds?: GrafanaEmbed[];
 };
 
@@ -108,13 +122,19 @@ export default function AdminHealthPage() {
     [payload?.grafanaEmbeds, resolvedTheme]
   );
   const updatedAt = payload?.checkedAt ? formatDateTime(payload.checkedAt) : "Waiting for first poll…";
+  const backendReachable = payload?.backendProbe?.reachable ?? true;
+  const grafanaReachable = payload?.grafanaProbe?.reachable ?? true;
+  const hasDegradedState = Boolean(payload?.error) || !backendReachable || !grafanaReachable;
 
   return (
     <AdminShell>
       <section className={styles.layout}>
-        {payload?.error ? (
+        {hasDegradedState ? (
           <div className={styles.errorBanner}>
-            Health API returned degraded status at {updatedAt}: {payload.error}
+            Health API returned degraded status at {updatedAt}
+            {payload?.error ? `: ${payload.error}` : "."}
+            {!backendReachable ? ` Backend probe failed (${payload?.backendProbe?.error ?? "unknown"}).` : ""}
+            {!grafanaReachable ? ` Grafana probe failed (${payload?.grafanaProbe?.error ?? "unknown"}).` : ""}
           </div>
         ) : null}
 
@@ -136,6 +156,14 @@ export default function AdminHealthPage() {
               )}
             </article>
           ))}
+        </div>
+        <div className={styles.placeholder}>
+          Backend: {payload?.backendProbe?.reachable ? "reachable" : "unreachable"} (
+          {payload?.backendProbe?.status ?? "no-status"}) {payload?.backendProbe?.url || payload?.backendHealthURL || "n/a"}
+          <br />
+          Grafana: {payload?.grafanaProbe?.reachable ? "reachable" : "unreachable"} (
+          {payload?.grafanaProbe?.status ?? "no-status"}){" "}
+          {payload?.grafanaProbe?.url || payload?.grafanaDashboardUrl || "n/a"}
         </div>
       </section>
     </AdminShell>

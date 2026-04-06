@@ -10,6 +10,13 @@ type GrafanaEmbed = {
   dashboardUrl: string | null;
 };
 
+type EndpointProbe = {
+  url: string;
+  reachable: boolean;
+  status: number | null;
+  error: string | null;
+};
+
 const defaultPanelTitles = [
   "Requests per minute",
   "P95 request latency",
@@ -66,6 +73,49 @@ function buildGrafanaEmbeds(
   }));
 }
 
+async function probeEndpoint(url: string): Promise<EndpointProbe> {
+  try {
+    const response = await fetch(url, {
+      cache: "no-store",
+      signal: AbortSignal.timeout(4_000),
+    });
+    return {
+      url,
+      reachable: response.ok,
+      status: response.status,
+      error: response.ok ? null : `HTTP ${response.status}`,
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    return {
+      url,
+      reachable: false,
+      status: null,
+      error: message,
+    };
+  }
+}
+
+function toGrafanaHealthURL(dashboardUrl: string | null): string | null {
+  if (!dashboardUrl) {
+    return null;
+  }
+  try {
+    const url = new URL(dashboardUrl);
+    let basePath = "";
+    const slashGrafana = "/grafana/";
+    if (url.pathname.includes(slashGrafana)) {
+      basePath = "/grafana";
+    }
+    url.pathname = `${basePath}/api/health`;
+    url.search = "";
+    url.hash = "";
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
 export async function GET() {
   const h = await headers();
   const host = h.get("x-forwarded-host") ?? h.get("host");
@@ -87,22 +137,50 @@ export async function GET() {
   const panelIds = parseList(process.env.HEALTH_GRAFANA_PANEL_IDS, ["1", "2", "3", "4", "5", "6"]);
   const panelTitles = parseList(process.env.HEALTH_GRAFANA_PANEL_TITLES, defaultPanelTitles);
   const grafanaEmbeds = buildGrafanaEmbeds(grafanaDashboardUrl, panelIds, panelTitles);
+  const grafanaHealthURL = toGrafanaHealthURL(grafanaDashboardUrl);
+  const [backendProbe, grafanaProbe] = await Promise.all([
+    probeEndpoint(backendHealthURL),
+    grafanaHealthURL
+      ? probeEndpoint(grafanaHealthURL)
+      : Promise.resolve({
+          url: "",
+          reachable: false,
+          status: null,
+          error: "HEALTH_GRAFANA_DASHBOARD_URL is not configured or invalid",
+        }),
+  ]);
 
   try {
-    const response = await fetch(backendHealthURL, { cache: "no-store" });
+    const response = await fetch(backendHealthURL, {
+      cache: "no-store",
+      signal: AbortSignal.timeout(4_000),
+    });
     const payload = await response.json().catch(() => ({
       status: "degraded",
       error: "invalid backend health response",
     }));
+    const degradedReasons = [
+      ...(response.ok ? [] : [`backend health endpoint returned HTTP ${response.status}`]),
+      ...(grafanaProbe.reachable ? [] : [`grafana endpoint probe failed: ${grafanaProbe.error ?? "unknown"}`]),
+    ];
     return NextResponse.json(
       {
         ...payload,
+        status: degradedReasons.length > 0 ? "degraded" : payload.status,
+        error:
+          degradedReasons.length > 0
+            ? [typeof payload.error === "string" ? payload.error : null, ...degradedReasons]
+                .filter(Boolean)
+                .join("; ")
+            : payload.error,
         checkedAt: new Date().toISOString(),
         backendHealthURL,
         grafanaDashboardUrl,
+        backendProbe,
+        grafanaProbe,
         grafanaEmbeds,
       },
-      { status: response.ok ? 200 : 502 }
+      { status: degradedReasons.length > 0 ? 502 : response.ok ? 200 : 502 }
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
@@ -113,6 +191,8 @@ export async function GET() {
         checkedAt: new Date().toISOString(),
         backendHealthURL,
         grafanaDashboardUrl,
+        backendProbe,
+        grafanaProbe,
         grafanaEmbeds,
       },
       { status: 502 }
