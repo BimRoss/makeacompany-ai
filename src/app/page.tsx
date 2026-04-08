@@ -74,9 +74,9 @@ export default function HomePage() {
         <div className="mx-auto flex w-full max-w-6xl justify-center px-6">
           <Link
             href="/employees"
-            className="inline-flex h-10 items-center justify-center rounded-md border border-border bg-background px-5 text-sm font-medium text-foreground motion-colors hover:bg-muted"
+            className="inline-flex h-12 items-center justify-center rounded-md border border-border bg-background px-7 text-base font-medium text-foreground motion-colors hover:bg-muted"
           >
-            Employees
+            Meet Your Employees
           </Link>
         </div>
       </section>
