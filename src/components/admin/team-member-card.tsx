@@ -19,7 +19,7 @@ export function TeamMemberCard({ member, className }: TeamMemberCardProps) {
   const [headshotFailed, setHeadshotFailed] = useState(false);
   const headshotUrl = headshotFailed ? getAdminHeadshotGeneratedUrl(member) : getAdminHeadshotUrl(member);
   const articleClassName = [
-    "surface-card-motion group relative overflow-hidden rounded-2xl border border-border bg-card p-4 shadow-sm motion-colors sm:p-5 md:hover:-translate-y-1 md:hover:shadow-lg",
+    "employees-card-motion group relative overflow-hidden rounded-2xl border border-border bg-card p-4 shadow-sm motion-colors sm:p-5 md:hover:shadow-lg",
     className,
   ]
     .filter(Boolean)
