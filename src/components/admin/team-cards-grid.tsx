@@ -169,7 +169,10 @@ export function TeamCardsGrid({ members }: TeamCardsGridProps) {
                 ))
               ) : (
                 <article className="rounded-md border border-dashed border-border px-3 py-2 text-sm text-muted-foreground xl:col-span-3">
-                  Metrics unavailable right now.
+                  <p>No recent Slack metrics for {member.displayName} in the last hour.</p>
+                  <p className="mt-1 text-xs">
+                    These charts use `employee-factory` runtime counters (Slack events/posts), not Cursor or IDE activity.
+                  </p>
                 </article>
               )}
             </div>
