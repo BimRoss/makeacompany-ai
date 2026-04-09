@@ -1,8 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 
 import type { TeamMember } from "@/lib/admin/team";
+import { getAdminSkillsByIds } from "@/lib/admin/skills";
 import {
   getAdminHeadshotFallback,
   getAdminHeadshotGeneratedUrl,
@@ -18,8 +20,9 @@ type TeamMemberCardProps = {
 export function TeamMemberCard({ member, className }: TeamMemberCardProps) {
   const [headshotFailed, setHeadshotFailed] = useState(false);
   const headshotUrl = headshotFailed ? getAdminHeadshotGeneratedUrl(member) : getAdminHeadshotUrl(member);
+  const mappedSkills = getAdminSkillsByIds(member.skillIds);
   const articleClassName = [
-    "employees-card-motion group relative overflow-hidden rounded-2xl border border-border bg-card p-4 shadow-sm motion-colors sm:p-5 md:hover:shadow-lg",
+    "employees-card-motion group relative overflow-hidden rounded-2xl border border-border bg-card p-4 shadow-sm motion-colors sm:p-5 md:cursor-pointer md:hover:shadow-lg",
     className,
   ]
     .filter(Boolean)
@@ -54,6 +57,22 @@ export function TeamMemberCard({ member, className }: TeamMemberCardProps) {
 
       <div className="relative mt-3 space-y-2">
         <p className="line-clamp-3 text-sm leading-relaxed text-muted-foreground">{member.longDescription}</p>
+        {mappedSkills.length > 0 ? (
+          <div className="pt-1">
+            <ul className="flex flex-wrap gap-1.5">
+              {mappedSkills.map((skill) => (
+                <li key={`${member.id}-${skill.id}`}>
+                  <Link
+                    href="/skills"
+                    className="inline-flex rounded-full border border-foreground/20 bg-foreground px-2.5 py-1 text-[11px] font-medium uppercase tracking-wide text-background motion-all ease-in-out hover:scale-[1.03] hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/25 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                  >
+                    {skill.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
       </div>
     </article>
   );

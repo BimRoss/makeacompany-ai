@@ -1,0 +1,30 @@
+{
+  "generatedAt": "2026-04-09T19:07:27.589Z",
+  "source": "slack-factory/skills-catalog.json + slack-factory/manifests",
+  "skills": [
+    {
+      "id": "email",
+      "label": "Google Mail",
+      "description": "Draft, send, and triage email communication.",
+      "employeeIds": [
+        "joanne"
+      ]
+    },
+    {
+      "id": "google-docs",
+      "label": "Google Docs",
+      "description": "Create, edit, and organize working docs.",
+      "employeeIds": [
+        "joanne"
+      ]
+    },
+    {
+      "id": "read-server",
+      "label": "Read Server",
+      "description": "Read server state and logs.",
+      "employeeIds": [
+        "ross"
+      ]
+    }
+  ]
+}

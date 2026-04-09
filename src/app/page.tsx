@@ -71,12 +71,18 @@ export default function HomePage() {
       </section>
       <SeoFaqSection />
       <section className="pb-8 pt-3">
-        <div className="mx-auto flex w-full max-w-6xl justify-center px-6">
+        <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-center gap-3 px-6">
           <Link
             href="/employees"
             className="inline-flex h-12 items-center justify-center rounded-md border border-border bg-background px-7 text-base font-medium text-foreground motion-colors hover:bg-muted"
           >
             Meet Your Employees
+          </Link>
+          <Link
+            href="/skills"
+            className="inline-flex h-12 items-center justify-center rounded-md border border-border bg-background px-7 text-base font-medium text-foreground motion-colors hover:bg-muted"
+          >
+            See Their Skills
           </Link>
         </div>
       </section>

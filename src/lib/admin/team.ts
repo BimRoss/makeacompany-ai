@@ -21,6 +21,7 @@ export type TeamMember = {
   backgroundColor: string;
   status: TeamStatus;
   sourceManifest: string;
+  skillIds: string[];
 };
 
 type TeamSnapshot = {
@@ -36,5 +37,8 @@ export function getAdminTeamSnapshot(): TeamSnapshot {
 }
 
 export function getAdminTeamMembers(): TeamMember[] {
-  return typedSnapshot.employees;
+  return typedSnapshot.employees.map((member) => ({
+    ...member,
+    skillIds: Array.isArray(member.skillIds) ? member.skillIds : [],
+  }));
 }
