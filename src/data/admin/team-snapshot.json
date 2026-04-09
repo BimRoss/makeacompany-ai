@@ -1,7 +1,23 @@
 {
-  "generatedAt": "2026-04-09T19:07:27.588Z",
+  "generatedAt": "2026-04-09T19:48:09.731Z",
   "source": "slack-factory/manifests + slack-factory/skills-catalog.json",
   "employees": [
+    {
+      "id": "joanne",
+      "displayName": "Joanne",
+      "botDisplayName": "Joanne",
+      "lane": "operations",
+      "roleTitle": "Head of Executive Operations",
+      "shortDescription": "Executive operations, trust, and follow-through",
+      "longDescription": "Executive-operations partner lens: calm, practical, and execution-first. I focus on anticipation, prioritization, healthy boundaries, and high-discretion support. I use AI to speed drafts and repetitive tasks, but keep human judgment for context, voice, and relationship-aware decisions.",
+      "backgroundColor": "#16324f",
+      "status": "active",
+      "sourceManifest": "slack-factory/manifests/joanne/app-manifest.json",
+      "skillIds": [
+        "email",
+        "google-docs"
+      ]
+    },
     {
       "id": "ross",
       "displayName": "Ross",
@@ -42,22 +58,6 @@
       "status": "active",
       "sourceManifest": "slack-factory/manifests/tim/app-manifest.json",
       "skillIds": []
-    },
-    {
-      "id": "joanne",
-      "displayName": "Joanne",
-      "botDisplayName": "Joanne",
-      "lane": "operations",
-      "roleTitle": "Head of Executive Operations",
-      "shortDescription": "Executive operations, trust, and follow-through",
-      "longDescription": "Executive-operations partner lens: calm, practical, and execution-first. I focus on anticipation, prioritization, healthy boundaries, and high-discretion support. I use AI to speed drafts and repetitive tasks, but keep human judgment for context, voice, and relationship-aware decisions.",
-      "backgroundColor": "#16324f",
-      "status": "active",
-      "sourceManifest": "slack-factory/manifests/joanne/app-manifest.json",
-      "skillIds": [
-        "email",
-        "google-docs"
-      ]
     },
     {
       "id": "garth",

@@ -24,7 +24,7 @@ const ROLE_MAP = {
   joanne: { lane: "operations", roleTitle: "Head of Executive Operations" },
 };
 
-const DISPLAY_ORDER = ["ross", "alex", "tim", "joanne", "garth"];
+const DISPLAY_ORDER = ["joanne", "ross", "alex", "tim", "garth"];
 
 function normalizeSkillId(value) {
   return toId(value);
