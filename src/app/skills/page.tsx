@@ -8,7 +8,7 @@ const comingSoonSkills: AdminSkill[] = [
   {
     id: "github",
     label: "Github",
-    description: "Build, deploy, and scale apps",
+    description: "Build and deploy apps",
     employeeIds: [],
     comingSoon: true,
   },
@@ -65,6 +65,13 @@ const comingSoonSkills: AdminSkill[] = [
     id: "ridges",
     label: "Ridges",
     description: "deploy AI coding agents even better than ours",
+    employeeIds: [],
+    comingSoon: true,
+  },
+  {
+    id: "write-server",
+    label: "Write Server",
+    description: "scale applications, create new tools",
     employeeIds: [],
     comingSoon: true,
   },
