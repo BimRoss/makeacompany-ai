@@ -16,8 +16,8 @@ set -euo pipefail
 #   STRIPE_PRICE_ID_WAITLIST_TEST
 #   STRIPE_PRICE_ID_WAITLIST_LIVE
 #
-# Optional publishable keys (public; also merged into ConfigMap makeacompany-ai-config as NEXT_PUBLIC_*):
-#   STRIPE_PUBLISHABLE_KEY_TEST / STRIPE_PUBLISHABLE_KEY_LIVE or NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY_* 
+# Optional publishable keys (public; synced into runtime Secret as NEXT_PUBLIC_*):
+#   STRIPE_PUBLISHABLE_KEY_TEST / STRIPE_PUBLISHABLE_KEY_LIVE or NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY_*
 #
 # Usage:
 #   ./scripts/update-rancher-secrets.sh
@@ -108,8 +108,6 @@ if [[ "${SYNC_PULL_SECRET}" == "true" ]]; then
   sync_pull_secret_from_subnet_signal
 fi
 
-CONFIGMAP_NAME="${CONFIGMAP_NAME:-makeacompany-ai-config}"
-
 append_literal_if_set() {
   local key="$1"
   local val="${!key:-}"
@@ -122,6 +120,14 @@ secret_args=(--namespace "${NAMESPACE}")
 secret_args+=(--from-literal=STRIPE_SECRET_KEY="${STRIPE_SECRET_EFFECTIVE}")
 append_literal_if_set STRIPE_PRICE_ID_WAITLIST_TEST
 append_literal_if_set STRIPE_PRICE_ID_WAITLIST_LIVE
+NPU_TEST="${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY_TEST:-${STRIPE_PUBLISHABLE_KEY_TEST:-}}"
+NPU_LIVE="${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY_LIVE:-${STRIPE_PUBLISHABLE_KEY_LIVE:-}}"
+if [[ -n "${NPU_TEST}" ]]; then
+  secret_args+=(--from-literal=NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY_TEST="${NPU_TEST}")
+fi
+if [[ -n "${NPU_LIVE}" ]]; then
+  secret_args+=(--from-literal=NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY_LIVE="${NPU_LIVE}")
+fi
 if [[ -n "${SNAP}" ]]; then
   secret_args+=(--from-literal=STRIPE_WEBHOOK_SECRET_SNAPSHOT_TEST="${SNAP}")
   secret_args+=(--from-literal=STRIPE_WEBHOOK_SECRET_SNAPSHOT="${SNAP}")
@@ -137,28 +143,3 @@ kubectl_app create secret generic "${SECRET_NAME}" \
   --dry-run=client -o yaml | kubectl_app apply -f -
 
 echo "applied secret ${SECRET_NAME} in namespace ${NAMESPACE}"
-
-sync_publishable_configmap() {
-  export NPU_TEST="${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY_TEST:-${STRIPE_PUBLISHABLE_KEY_TEST:-}}"
-  export NPU_LIVE="${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY_LIVE:-${STRIPE_PUBLISHABLE_KEY_LIVE:-}}"
-  if [[ -z "${NPU_TEST}" && -z "${NPU_LIVE}" ]]; then
-    return 0
-  fi
-  kubectl_app get configmap "${CONFIGMAP_NAME}" -n "${NAMESPACE}" -o json | python3 -c '
-import json, os, sys
-cm = json.load(sys.stdin)
-data = cm.setdefault("data", {})
-for key, env_name in (
-    ("NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY_TEST", "NPU_TEST"),
-    ("NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY_LIVE", "NPU_LIVE"),
-):
-    v = os.environ.get(env_name, "").strip()
-    if v:
-        data[key] = v
-json.dump(cm, sys.stdout)
-' | kubectl_app apply -f -
-
-  echo "updated ${CONFIGMAP_NAME} with NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY_* (if set in ${ENV_FILE})"
-}
-
-sync_publishable_configmap
