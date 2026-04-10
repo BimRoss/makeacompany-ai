@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-04-09T19:48:09.732Z",
+  "generatedAt": "2026-04-10T23:45:53.797Z",
   "source": "slack-factory/skills-catalog.json + slack-factory/manifests",
   "skills": [
     {
@@ -24,6 +24,14 @@
       "description": "Read server state and logs.",
       "employeeIds": [
         "ross"
+      ]
+    },
+    {
+      "id": "twitter",
+      "label": "Twitter",
+      "description": "Discover and search high-impression tweets quickly.",
+      "employeeIds": [
+        "garth"
       ]
     }
   ]

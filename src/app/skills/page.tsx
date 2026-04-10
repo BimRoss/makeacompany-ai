@@ -20,13 +20,6 @@ const comingSoonSkills: AdminSkill[] = [
     comingSoon: true,
   },
   {
-    id: "twitter",
-    label: "Twitter",
-    description: "discover and search tweets in seconds",
-    employeeIds: [],
-    comingSoon: true,
-  },
-  {
     id: "reddit",
     label: "Reddit",
     description: "learn quickly from humans (and bots)",

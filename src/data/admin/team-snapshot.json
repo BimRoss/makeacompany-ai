@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-04-09T19:48:09.731Z",
+  "generatedAt": "2026-04-10T23:45:53.796Z",
   "source": "slack-factory/manifests + slack-factory/skills-catalog.json",
   "employees": [
     {
@@ -70,7 +70,9 @@
       "backgroundColor": "#1a1a2e",
       "status": "active",
       "sourceManifest": "slack-factory/manifests/garth/app-manifest.json",
-      "skillIds": []
+      "skillIds": [
+        "twitter"
+      ]
     }
   ]
 }
