@@ -15,6 +15,7 @@ set -euo pipefail
 #   STRIPE_WEBHOOK_SECRET_SNAPSHOT / STRIPE_WEBHOOK_SECRET_THIN, or STRIPE_WEBHOOK_SECRET (legacy snapshot)
 #   STRIPE_PRICE_ID_WAITLIST_TEST
 #   STRIPE_PRICE_ID_WAITLIST_LIVE
+#   COOKIE_HEALTH_TOKEN (optional in .env, but preserved from existing runtime secret when present)
 #
 # Optional publishable keys (public; synced into runtime Secret as NEXT_PUBLIC_*):
 #   STRIPE_PUBLISHABLE_KEY_TEST / STRIPE_PUBLISHABLE_KEY_LIVE or NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY_*
@@ -116,6 +117,12 @@ append_literal_if_set() {
   fi
 }
 
+read_existing_secret_key() {
+  local key="$1"
+  kubectl_app get secret "${SECRET_NAME}" -n "${NAMESPACE}" -o "jsonpath={.data.${key}}" 2>/dev/null \
+    | python3 -c 'import sys,base64; raw=sys.stdin.read().strip(); print(base64.b64decode(raw).decode() if raw else "")' 2>/dev/null || true
+}
+
 secret_args=(--namespace "${NAMESPACE}")
 secret_args+=(--from-literal=STRIPE_SECRET_KEY="${STRIPE_SECRET_EFFECTIVE}")
 append_literal_if_set STRIPE_PRICE_ID_WAITLIST_TEST
@@ -136,6 +143,15 @@ fi
 if [[ -n "${THIN}" ]]; then
   secret_args+=(--from-literal=STRIPE_WEBHOOK_SECRET_THIN_TEST="${THIN}")
   secret_args+=(--from-literal=STRIPE_WEBHOOK_SECRET_THIN="${THIN}")
+fi
+
+# Preserve existing cookie token if local .env does not provide one.
+COOKIE_HEALTH_TOKEN_EFFECTIVE="${COOKIE_HEALTH_TOKEN:-}"
+if [[ -z "${COOKIE_HEALTH_TOKEN_EFFECTIVE}" ]]; then
+  COOKIE_HEALTH_TOKEN_EFFECTIVE="$(read_existing_secret_key COOKIE_HEALTH_TOKEN)"
+fi
+if [[ -n "${COOKIE_HEALTH_TOKEN_EFFECTIVE}" ]]; then
+  secret_args+=(--from-literal=COOKIE_HEALTH_TOKEN="${COOKIE_HEALTH_TOKEN_EFFECTIVE}")
 fi
 
 kubectl_app create secret generic "${SECRET_NAME}" \
