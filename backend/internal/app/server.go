@@ -8,6 +8,8 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -41,25 +43,29 @@ func init() {
 }
 
 type Server struct {
-	cfg   Config
-	log   *log.Logger
-	store *Store
-	mux   *http.ServeMux
-	cors  string
+	cfg    Config
+	log    *log.Logger
+	store  *Store
+	mux    *http.ServeMux
+	cors   string
+	health *healthChecker
 }
 
 func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 	stripe.Key = cfg.StripeSecretKey
 	s := &Server{
-		cfg:   cfg,
-		log:   logger,
-		store: store,
-		mux:   http.NewServeMux(),
-		cors:  cfg.AppBaseURL,
+		cfg:    cfg,
+		log:    logger,
+		store:  store,
+		mux:    http.NewServeMux(),
+		cors:   cfg.AppBaseURL,
+		health: newHealthChecker(store.rdb, os.Getenv("COOKIE_HEALTH_TOKEN")),
 	}
 	s.mux.HandleFunc("/livez", s.handleLivez)
 	s.mux.HandleFunc("/readyz", s.handleReadiness)
 	s.mux.HandleFunc("/health", s.handleHealth)
+	s.mux.HandleFunc("/api/internal/cookie-health", s.handleCookieHealthIngest)
+	s.mux.HandleFunc("/api/internal/indexer-recent-requests", s.handleIndexerRecentRequests)
 	s.mux.Handle("/metrics", promhttp.Handler())
 	s.mux.HandleFunc("/v1/billing/checkout", s.handleCheckout)
 	s.mux.HandleFunc("/v1/billing/checkout-status", s.handleCheckoutStatus)
@@ -155,7 +161,81 @@ func (s *Server) handleReadiness(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
-	s.handleReadiness(w, r)
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	writeJSON(w, http.StatusOK, s.health.Build(r.Context()))
+}
+
+func (s *Server) handleCookieHealthIngest(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	s.health.handleCookieHealthPush(w, r)
+}
+
+func (s *Server) handleIndexerRecentRequests(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	const defaultLimit = 100
+	const maxLimit = 5_000_000
+
+	limit := defaultLimit
+	if raw := strings.TrimSpace(r.URL.Query().Get("limit")); raw != "" {
+		parsed, err := strconv.Atoi(raw)
+		if err != nil || parsed < 0 {
+			http.Error(w, "invalid limit", http.StatusBadRequest)
+			return
+		}
+		limit = parsed
+	}
+	offset := 0
+	if raw := strings.TrimSpace(r.URL.Query().Get("offset")); raw != "" {
+		parsed, err := strconv.Atoi(raw)
+		if err != nil || parsed < 0 {
+			http.Error(w, "invalid offset", http.StatusBadRequest)
+			return
+		}
+		offset = parsed
+	}
+	if limit > maxLimit {
+		limit = maxLimit
+	}
+	if offset > maxLimit {
+		offset = maxLimit
+	}
+
+	payload, err := s.health.fetchIndexerRecentRequests(r.Context(), limit, offset)
+	if err != nil {
+		writeJSON(w, http.StatusBadGateway, map[string]any{
+			"status":   "degraded",
+			"error":    err.Error(),
+			"offset":   offset,
+			"limit":    limit,
+			"returned": 0,
+			"requests": []any{},
+		})
+		return
+	}
+
+	requests := payload.Requests
+	if requests == nil {
+		requests = []indexerRecentRequestLog{}
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"status":    "ok",
+		"offset":    offset,
+		"limit":     limit,
+		"returned":  len(requests),
+		"updatedAt": payload.UpdatedAt,
+		"requests":  requests,
+	})
 }
 
 func (s *Server) handleCheckout(w http.ResponseWriter, r *http.Request) {

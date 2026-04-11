@@ -96,6 +96,16 @@ npm run dev   # repo root
 | `STRIPE_WEBHOOK_SECRET` | Optional legacy: used as snapshot secret if snapshot-specific vars are unset |
 | `STRIPE_PRICE_ID_WAITLIST_TEST` | $1 one-time price (test mode) |
 | `STRIPE_PRICE_ID_WAITLIST_LIVE` | $1 one-time price (live mode) |
+| `HEALTH_GRAFANA_DASHBOARD_URL` | App observability dashboard URL used by `/employees` and `/admin` |
+| `HEALTH_GRAFANA_PANEL_IDS` / `HEALTH_GRAFANA_PANEL_TITLES` | App panel ids/titles for the admin APIs |
+| `HEALTH_GRAFANA_TWITTER_DASHBOARD_URL` | Twitter dashboard URL for `/admin` embeds |
+| `HEALTH_GRAFANA_TWITTER_PANEL_IDS` / `HEALTH_GRAFANA_TWITTER_PANEL_TITLES` | Twitter panel ids/titles for `/admin` embeds |
+| `HEALTH_TWITTER_INDEXER_URL` | Internal twitter-indexer base URL used by backend `/health` and recent-request proxy |
+| `HEALTH_TWITTER_WORKER_URLS` | Comma-separated twitter worker service URLs for backend worker checks |
+| `HEALTH_PROMETHEUS_URL` | Optional Prometheus endpoint used for monitoring status |
+| `HEALTH_GRAFANA_URL` | Optional Grafana endpoint used for monitoring status |
+| `HEALTH_COOKIE_STALE_AFTER_MINUTES` | Max age before cookie health payload is marked stale |
+| `COOKIE_HEALTH_TOKEN` | Shared auth token for `POST /api/internal/cookie-health` |
 
 **Webhook URL (POST):** `{backend origin}/v1/billing/webhook` — e.g. ngrok `https://YOUR_SUBDOMAIN.ngrok-free.dev/v1/billing/webhook` forwarding to `localhost:8080`. Snapshot and thin destinations can share this path; each destination still has its own signing secret.
 

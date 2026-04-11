@@ -8,9 +8,11 @@ type GrafanaEmbed = {
   panelId: string;
   title: string;
   dashboardUrl: string | null;
+  source: "twitter" | "app";
 };
 
 const defaultPanelTitles = ["Activities", "Requests /min", "Events /min"];
+const defaultTwitterPanelTitles = ["Indexer throughput", "Indexer errors", "Worker throughput"];
 
 const DEFAULT_GRAFANA_DASHBOARD_PATH =
   "/grafana/d/makeacompany-observability/makeacompany-observability?orgId=1";
@@ -69,14 +71,16 @@ function parseList(value: string | null | undefined, fallback: string[]): string
 
 function buildGrafanaEmbeds(
   dashboardUrl: string | null,
+  source: "twitter" | "app",
   panelIds: string[],
   panelTitles: string[]
 ): GrafanaEmbed[] {
   return panelIds.map((panelId, idx) => ({
-    key: `panel-${panelId}`,
+    key: `${source}-${panelId}`,
     panelId,
     title: panelTitles[idx] ?? `Panel ${panelId}`,
     dashboardUrl,
+    source,
   }));
 }
 
@@ -92,27 +96,56 @@ export async function GET() {
     process.env.NEXT_PUBLIC_BACKEND_API_BASE_URL ??
     defaultBackendBase;
   const backendHealthURL = `${backendBase.replace(/\/$/, "")}/health`;
+  const backendIndexerRequestsURL = `${backendBase.replace(/\/$/, "")}/api/internal/indexer-recent-requests?limit=100&offset=0`;
 
   const configuredDashboardUrl = process.env.HEALTH_GRAFANA_DASHBOARD_URL?.trim() || null;
   const grafanaDashboardUrl =
     normalizeGrafanaDashboardUrl(configuredDashboardUrl, host, proto) ??
     buildDefaultGrafanaDashboardUrl(host, proto);
+  const twitterDashboardUrl =
+    normalizeGrafanaDashboardUrl(
+      process.env.HEALTH_GRAFANA_TWITTER_DASHBOARD_URL?.trim() || configuredDashboardUrl,
+      host,
+      proto
+    ) ?? grafanaDashboardUrl;
+
   const panelIds = parseList(process.env.HEALTH_GRAFANA_PANEL_IDS, ["4", "1", "7"]);
   const panelTitles = parseList(process.env.HEALTH_GRAFANA_PANEL_TITLES, defaultPanelTitles);
-  const grafanaEmbeds = buildGrafanaEmbeds(grafanaDashboardUrl, panelIds, panelTitles);
+  const twitterPanelIds = parseList(process.env.HEALTH_GRAFANA_TWITTER_PANEL_IDS, ["1", "2", "3"]);
+  const twitterPanelTitles = parseList(
+    process.env.HEALTH_GRAFANA_TWITTER_PANEL_TITLES,
+    defaultTwitterPanelTitles
+  );
+  const grafanaEmbeds = [
+    ...buildGrafanaEmbeds(twitterDashboardUrl, "twitter", twitterPanelIds, twitterPanelTitles),
+    ...buildGrafanaEmbeds(grafanaDashboardUrl, "app", panelIds, panelTitles),
+  ];
 
   try {
-    const response = await fetch(backendHealthURL, { cache: "no-store" });
+    const [response, recentRequestsResponse] = await Promise.all([
+      fetch(backendHealthURL, { cache: "no-store" }),
+      fetch(backendIndexerRequestsURL, { cache: "no-store" }),
+    ]);
     const payload = await response.json().catch(() => ({
       status: "degraded",
       error: "invalid backend health response",
     }));
+    const recentRequestsPayload = await recentRequestsResponse
+      .json()
+      .catch(() => ({ status: "degraded", requests: [] }));
+    const recentRequests = Array.isArray(recentRequestsPayload?.requests)
+      ? recentRequestsPayload.requests
+      : [];
+
     return NextResponse.json(
       {
         ...payload,
+        recentRequests,
         checkedAt: new Date().toISOString(),
         backendHealthURL,
+        backendIndexerRequestsURL,
         grafanaDashboardUrl,
+        twitterGrafanaDashboardUrl: twitterDashboardUrl,
         grafanaEmbeds,
       },
       { status: response.ok ? 200 : 502 }
@@ -125,7 +158,9 @@ export async function GET() {
         error: `health proxy failed: ${message}`,
         checkedAt: new Date().toISOString(),
         backendHealthURL,
+        backendIndexerRequestsURL,
         grafanaDashboardUrl,
+        twitterGrafanaDashboardUrl: twitterDashboardUrl,
         grafanaEmbeds,
       },
       { status: 502 }
