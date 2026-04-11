@@ -13,6 +13,6 @@ export const metadata: Metadata = {
   },
 };
 
-export default function AdminLayout({ children }: { children: ReactNode }) {
+export default function TwitterLayout({ children }: { children: ReactNode }) {
   return children;
 }

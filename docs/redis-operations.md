@@ -17,7 +17,7 @@
 
 ## Admin API (PII)
 
-`GET /v1/admin/waitlist` returns waitlist hash rows for the site `/admin` table. It is **unauthenticated** today and exposes emails and Stripe identifiers. Add auth (or network restriction) before relying on it under broad traffic.
+`GET /v1/admin/waitlist` returns waitlist hash rows for the site `/twitter` table. It is **unauthenticated** today and exposes emails and Stripe identifiers. Add auth (or network restriction) before relying on it under broad traffic.
 
 ## Verify
 

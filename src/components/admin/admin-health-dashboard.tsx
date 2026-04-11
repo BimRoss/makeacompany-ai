@@ -340,10 +340,6 @@ export function AdminHealthDashboard() {
   const workers = payload?.workers;
   const cookieSuccess = cookies?.successCount ?? 0;
   const cookieFail = cookies?.failCount ?? 0;
-  const workersReadyValue =
-    workers?.readyCount === undefined || workers?.totalCount === undefined
-      ? "—"
-      : `${workers.readyCount}/${workers.totalCount}`;
   const accountMetaParts = [
     loading ? "..." : cookies?.ageMinutes !== undefined ? `${cookies.ageMinutes}m old` : "—",
     loading ? null : formatAuthExpiry(cookies?.authTokenExpiresAt),
@@ -374,7 +370,7 @@ export function AdminHealthDashboard() {
 
   return (
     <section className="space-y-3">
-      <nav className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+      <nav className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
         <article className="rounded-xl border border-border bg-card p-3">
           <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">account</h2>
           <div className="mt-1 flex items-end gap-2">
@@ -383,11 +379,6 @@ export function AdminHealthDashboard() {
             <strong className="text-3xl leading-none text-amber-500">{loading ? "—" : cookieFail}</strong>
           </div>
           <p className="mt-1 text-xs text-muted-foreground">{accountMetaParts.join(" · ")}</p>
-        </article>
-
-        <article className="rounded-xl border border-border bg-card p-3">
-          <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">jobs (1h)</h2>
-          <strong className="mt-1 block text-3xl leading-none">{loading ? "—" : formatNumber(indexer?.jobsLastHour)}</strong>
         </article>
 
         <article className="rounded-xl border border-border bg-card p-3">
@@ -406,19 +397,6 @@ export function AdminHealthDashboard() {
           <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">err %</h2>
           <strong className={`mt-1 block text-3xl leading-none ${errorRateColor}`}>
             {loading ? "—" : formatPercent(indexer?.errorRate)}
-          </strong>
-        </article>
-
-        <article className="rounded-xl border border-border bg-card p-3">
-          <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">workers</h2>
-          <strong className="mt-1 block text-3xl leading-none">{loading ? "—" : workersReadyValue}</strong>
-          <p className="mt-1 text-xs text-muted-foreground">ready / total</p>
-        </article>
-
-        <article className="rounded-xl border border-border bg-card p-3">
-          <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">worker rpm</h2>
-          <strong className="mt-1 block text-3xl leading-none">
-            {loading ? "—" : formatNumber(workers?.requestsPerMinute, 1)}
           </strong>
         </article>
       </nav>
@@ -553,7 +531,7 @@ export function AdminHealthDashboard() {
       <div className="grid grid-cols-1 gap-2 xl:grid-cols-2">
         {embedCards.length === 0 ? (
           <div className="rounded-xl border border-dashed border-border bg-card p-4 text-sm text-muted-foreground">
-            Configure health Grafana panel IDs to render charts on `/admin`.
+            Configure health Grafana panel IDs to render charts on `/twitter`.
           </div>
         ) : null}
         {embedCards.map((embed) => (
