@@ -1,4 +1,4 @@
-import type { TeamMember } from "@/lib/admin/team";
+import type { TeamMember } from "@/lib/admin/catalog";
 
 const LOCAL_HEADSHOT_BASE_PATH = "/headshots";
 

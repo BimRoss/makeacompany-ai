@@ -72,6 +72,11 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 	s.mux.HandleFunc("/v1/billing/webhook", s.handleWebhook)
 	s.mux.HandleFunc("/v1/billing/waitlist-stats", s.handleWaitlistStats)
 	s.mux.HandleFunc("/v1/admin/waitlist", s.handleAdminWaitlist)
+	s.mux.HandleFunc("/v1/admin/catalog", s.handleAdminCatalog)
+	s.mux.HandleFunc("/v1/admin/auth/start", s.handleAdminAuthStart)
+	s.mux.HandleFunc("/v1/admin/auth/finish", s.handleAdminAuthFinish)
+	s.mux.HandleFunc("/v1/admin/auth/me", s.handleAdminAuthMe)
+	s.mux.HandleFunc("/v1/admin/auth/logout", s.handleAdminAuthLogout)
 	return s, nil
 }
 
@@ -119,6 +124,16 @@ func normalizeMetricRoute(path string) string {
 		return "/v1/billing/waitlist-stats"
 	case path == "/v1/admin/waitlist":
 		return "/v1/admin/waitlist"
+	case path == "/v1/admin/catalog":
+		return "/v1/admin/catalog"
+	case path == "/v1/admin/auth/start":
+		return "/v1/admin/auth/start"
+	case path == "/v1/admin/auth/finish":
+		return "/v1/admin/auth/finish"
+	case path == "/v1/admin/auth/me":
+		return "/v1/admin/auth/me"
+	case path == "/v1/admin/auth/logout":
+		return "/v1/admin/auth/logout"
 	case strings.HasPrefix(path, "/v1/"):
 		return "/v1/other"
 	default:
@@ -131,7 +146,7 @@ func (s *Server) withCORS(w http.ResponseWriter, r *http.Request, next http.Hand
 	if origin != "" && (origin == s.cors || strings.HasPrefix(origin, "http://localhost:")) {
 		w.Header().Set("Access-Control-Allow-Origin", origin)
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Stripe-Signature")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Stripe-Signature, X-Admin-Token, X-Admin-Session, Authorization")
 	}
 	if r.Method == http.MethodOptions {
 		w.WriteHeader(http.StatusNoContent)
@@ -359,6 +374,54 @@ func (s *Server) handleAdminWaitlist(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"users": users})
+}
+
+func (s *Server) handleAdminCatalog(w http.ResponseWriter, r *http.Request) {
+	if !s.adminAuthEnabled() {
+		http.Error(w, "admin auth disabled", http.StatusServiceUnavailable)
+		return
+	}
+	if _, err := s.validateAdminSession(r.Context(), tokenFromAuthHeader(r)); err != nil {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+	switch r.Method {
+	case http.MethodGet:
+		catalog, err := s.store.GetCapabilityCatalog(r.Context())
+		if err != nil {
+			s.log.Printf("admin catalog get: %v", err)
+			http.Error(w, "catalog error", http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, http.StatusOK, catalog)
+		return
+	case http.MethodPut:
+		if token := strings.TrimSpace(s.cfg.AdminCatalogToken); token != "" {
+			if strings.TrimSpace(r.Header.Get("X-Admin-Token")) != token {
+				http.Error(w, "unauthorized", http.StatusUnauthorized)
+				return
+			}
+		}
+		var catalog CapabilityCatalog
+		if err := json.NewDecoder(r.Body).Decode(&catalog); err != nil {
+			http.Error(w, "invalid json", http.StatusBadRequest)
+			return
+		}
+		if err := s.store.PutCapabilityCatalog(r.Context(), catalog); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		stored, err := s.store.GetCapabilityCatalog(r.Context())
+		if err != nil {
+			writeJSON(w, http.StatusOK, map[string]any{"status": "ok"})
+			return
+		}
+		writeJSON(w, http.StatusOK, stored)
+		return
+	default:
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
 }
 
 func (s *Server) handleCheckoutStatus(w http.ResponseWriter, r *http.Request) {

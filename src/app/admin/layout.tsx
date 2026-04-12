@@ -2,10 +2,10 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
 export const metadata: Metadata = {
-  title: "Twitter",
-  description: "Twitter operations dashboard for makeacompany.ai",
+  title: "Admin",
+  description: "Admin control surface for makeacompany.ai",
   alternates: {
-    canonical: "/twitter",
+    canonical: "/admin",
   },
   robots: {
     index: false,

@@ -21,6 +21,7 @@ const (
 	statsSignupsKey     = keyPrefix + ":stats:signups"
 	statsAmountCentsKey = keyPrefix + ":stats:amount_cents"
 )
+const adminSessionKeyPrefix = keyPrefix + ":admin_session:"
 
 // maxWaitlistList caps SCAN/HGETALL work for admin listing (pathological keyspace guard).
 const maxWaitlistList = 500
@@ -146,6 +147,13 @@ type WaitlistUser struct {
 	Source          string `json:"source"`
 }
 
+type AdminSession struct {
+	Token     string `json:"token"`
+	Email     string `json:"email"`
+	CreatedAt string `json:"createdAt"`
+	ExpiresAt string `json:"expiresAt"`
+}
+
 // ListWaitlistUsers returns waitlist signup hashes via SCAN (not KEYS), newest updatedAt first.
 // At most maxWaitlistList rows are returned.
 func (s *Store) ListWaitlistUsers(ctx context.Context) ([]WaitlistUser, error) {
@@ -199,4 +207,65 @@ outer:
 		return ti.After(tj)
 	})
 	return users, nil
+}
+
+func adminSessionKey(token string) string {
+	return adminSessionKeyPrefix + strings.TrimSpace(token)
+}
+
+func (s *Store) CreateAdminSession(ctx context.Context, token, email string, expiresAt time.Time) error {
+	token = strings.TrimSpace(token)
+	email = strings.ToLower(strings.TrimSpace(email))
+	if token == "" || email == "" {
+		return fmt.Errorf("missing admin session token/email")
+	}
+	if expiresAt.IsZero() {
+		return fmt.Errorf("missing admin session expiration")
+	}
+	ttl := time.Until(expiresAt)
+	if ttl <= 0 {
+		return fmt.Errorf("admin session already expired")
+	}
+	now := time.Now().UTC().Format(time.RFC3339)
+	err := s.rdb.HSet(ctx, adminSessionKey(token), map[string]any{
+		"email":     email,
+		"createdAt": now,
+		"expiresAt": expiresAt.UTC().Format(time.RFC3339),
+	}).Err()
+	if err != nil {
+		return err
+	}
+	return s.rdb.Expire(ctx, adminSessionKey(token), ttl).Err()
+}
+
+func (s *Store) GetAdminSession(ctx context.Context, token string) (AdminSession, error) {
+	token = strings.TrimSpace(token)
+	if token == "" {
+		return AdminSession{}, fmt.Errorf("missing admin session token")
+	}
+	vals, err := s.rdb.HGetAll(ctx, adminSessionKey(token)).Result()
+	if err != nil {
+		return AdminSession{}, err
+	}
+	if len(vals) == 0 {
+		return AdminSession{}, redis.Nil
+	}
+	out := AdminSession{
+		Token:     token,
+		Email:     strings.ToLower(strings.TrimSpace(vals["email"])),
+		CreatedAt: strings.TrimSpace(vals["createdAt"]),
+		ExpiresAt: strings.TrimSpace(vals["expiresAt"]),
+	}
+	if out.Email == "" {
+		return AdminSession{}, redis.Nil
+	}
+	return out, nil
+}
+
+func (s *Store) DeleteAdminSession(ctx context.Context, token string) error {
+	token = strings.TrimSpace(token)
+	if token == "" {
+		return nil
+	}
+	return s.rdb.Del(ctx, adminSessionKey(token)).Err()
 }

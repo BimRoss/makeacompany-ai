@@ -1,8 +1,6 @@
 import { AdminShell } from "@/components/admin/admin-shell";
 import { SkillsCardsGrid } from "@/components/admin/skills-cards-grid";
-import type { AdminSkill } from "@/lib/admin/skills";
-import { getAdminSkills } from "@/lib/admin/skills";
-import { getAdminTeamMembers } from "@/lib/admin/team";
+import { getAdminCatalogData, type AdminSkill } from "@/lib/admin/catalog";
 
 const comingSoonSkills: AdminSkill[] = [
   {
@@ -70,9 +68,9 @@ const comingSoonSkills: AdminSkill[] = [
   },
 ];
 
-export default function SkillsPage() {
-  const skills = [...getAdminSkills(), ...comingSoonSkills];
-  const members = getAdminTeamMembers();
+export default async function SkillsPage() {
+  const { skills: configuredSkills, members } = await getAdminCatalogData();
+  const skills = [...configuredSkills, ...comingSoonSkills];
 
   return (
     <AdminShell>

@@ -1,5 +1,10 @@
-import { redirect } from "next/navigation";
+import { AdminShell } from "@/components/admin/admin-shell";
+import { AdminCatalogEditor } from "@/components/admin/admin-catalog-editor";
 
 export default function AdminPage() {
-  redirect("/twitter");
+  return (
+    <AdminShell>
+      <AdminCatalogEditor />
+    </AdminShell>
+  );
 }

@@ -14,8 +14,8 @@
       "status": "active",
       "sourceManifest": "slack-factory/manifests/joanne/app-manifest.json",
       "skillIds": [
-        "email",
-        "google-docs"
+        "write-email",
+        "write-docs"
       ]
     },
     {
@@ -71,7 +71,7 @@
       "status": "active",
       "sourceManifest": "slack-factory/manifests/garth/app-manifest.json",
       "skillIds": [
-        "twitter"
+        "read-twitter"
       ]
     }
   ]

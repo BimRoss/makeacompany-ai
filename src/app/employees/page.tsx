@@ -1,9 +1,9 @@
 import { AdminShell } from "@/components/admin/admin-shell";
 import { TeamCardsGrid } from "@/components/admin/team-cards-grid";
-import { getAdminTeamMembers } from "@/lib/admin/team";
+import { getAdminCatalogData } from "@/lib/admin/catalog";
 
-export default function EmployeesPage() {
-  const members = getAdminTeamMembers();
+export default async function EmployeesPage() {
+  const { members, skills } = await getAdminCatalogData();
 
   return (
     <AdminShell>
@@ -17,7 +17,7 @@ export default function EmployeesPage() {
             </p>
           </div>
         ) : (
-          <TeamCardsGrid members={members} />
+          <TeamCardsGrid members={members} skills={skills} />
         )}
       </section>
     </AdminShell>

@@ -1,4 +1,4 @@
-import type { TeamStatus } from "@/lib/admin/team";
+import type { TeamStatus } from "@/lib/admin/catalog";
 
 type TeamStatusBadgeProps = {
   status: TeamStatus;

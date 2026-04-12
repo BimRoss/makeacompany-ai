@@ -10,6 +10,9 @@ type Config struct {
 	Port                        int
 	RedisURL                    string
 	AppBaseURL                  string
+	AdminCatalogToken           string
+	AdminAllowedEmail           string
+	AdminSessionTTLSec          int
 	StripeSecretKey             string
 	StripeWebhookSecretSnapshot string
 	StripeWebhookSecretThin     string
@@ -32,6 +35,9 @@ func LoadConfig() Config {
 		Port:                        envInt("PORT", 8080),
 		RedisURL:                    envString("REDIS_URL", "redis://localhost:6379/0"),
 		AppBaseURL:                  strings.TrimRight(envString("APP_BASE_URL", "http://localhost:3000"), "/"),
+		AdminCatalogToken:           strings.TrimSpace(os.Getenv("ADMIN_CATALOG_TOKEN")),
+		AdminAllowedEmail:           strings.ToLower(strings.TrimSpace(os.Getenv("ADMIN_ALLOWED_EMAIL"))),
+		AdminSessionTTLSec:          envInt("ADMIN_SESSION_TTL_SEC", 43200),
 		StripeSecretKey:             resolveStripeSecretKey(),
 		StripeWebhookSecretSnapshot: snapshot,
 		StripeWebhookSecretThin:     thin,

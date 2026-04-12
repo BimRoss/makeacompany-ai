@@ -3,8 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 
-import type { TeamMember } from "@/lib/admin/team";
-import { getAdminSkillsByIds } from "@/lib/admin/skills";
+import type { AdminSkill, TeamMember } from "@/lib/admin/catalog";
 import {
   getAdminHeadshotFallback,
   getAdminHeadshotGeneratedUrl,
@@ -14,13 +13,16 @@ import { TeamStatusBadge } from "@/components/admin/team-status-badge";
 
 type TeamMemberCardProps = {
   member: TeamMember;
+  skillsById: Map<string, AdminSkill>;
   className?: string;
 };
 
-export function TeamMemberCard({ member, className }: TeamMemberCardProps) {
+export function TeamMemberCard({ member, skillsById, className }: TeamMemberCardProps) {
   const [headshotFailed, setHeadshotFailed] = useState(false);
   const headshotUrl = headshotFailed ? getAdminHeadshotGeneratedUrl(member) : getAdminHeadshotUrl(member);
-  const mappedSkills = getAdminSkillsByIds(member.skillIds);
+  const mappedSkills = member.skillIds
+    .map((skillId) => skillsById.get(skillId))
+    .filter((skill): skill is AdminSkill => Boolean(skill));
   const articleClassName = [
     "employees-card-motion group relative overflow-hidden rounded-2xl border border-border bg-card p-4 shadow-sm motion-colors sm:p-5 md:cursor-pointer md:hover:shadow-lg",
     className,

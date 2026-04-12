@@ -1,6 +1,5 @@
 import Link from "next/link";
-import type { AdminSkill } from "@/lib/admin/skills";
-import type { TeamMember } from "@/lib/admin/team";
+import type { AdminSkill, TeamMember } from "@/lib/admin/catalog";
 
 type SkillsCardsGridProps = {
   skills: AdminSkill[];

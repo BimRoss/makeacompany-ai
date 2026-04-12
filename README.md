@@ -16,7 +16,7 @@ Marketing landing page and **$1 Stripe waitlist** for [makeacompany.ai](https://
 
 - Route: `/employees`
 - Current module: **Team** (desktop/mobile responsive cards)
-- Data source: synced snapshot generated from `slack-factory/manifests/*/app-manifest.json`
+- Data source: Redis-backed capability catalog via backend `GET /v1/admin/catalog`
 - Chart source: Grafana panels backed by `employee-factory` Prometheus metrics (`employee_factory_slack_events_ingested_total` and `employee_factory_slack_posts_total`), filtered per employee.
 - `No data` on a card means that employee has no matching Slack runtime events/posts in the current chart lookback window (default: last hour). Cursor/IDE usage does not affect these counters.
 - Quick checks: confirm the employee bot is running and receiving Slack traffic, then recheck the dashboard window after activity.
@@ -27,9 +27,16 @@ Sync team data into this repo:
 npm run sync:team
 ```
 
-Generated file:
+Generated fallback files:
 
 - `src/data/admin/team-snapshot.json`
+
+Admin catalog editor:
+
+- Route: `/admin`
+- Proxy endpoint: `GET/PUT /api/admin/catalog` -> backend `GET/PUT /v1/admin/catalog`
+- `PUT` forwards optional `X-Admin-Token` (backend validates against `ADMIN_CATALOG_TOKEN` when set).
+- Sign-in route: `/admin/login` starts Stripe-backed verification before issuing an HttpOnly admin session cookie.
 
 ## Stripe catalog (`stripe-factory`)
 
@@ -79,6 +86,9 @@ npm run dev   # repo root
 | Variable | Purpose |
 |----------|---------|
 | `REDIS_URL` | Redis connection URL |
+| `ADMIN_CATALOG_TOKEN` | Optional shared token required for backend `PUT /v1/admin/catalog` (`X-Admin-Token` header) |
+| `ADMIN_ALLOWED_EMAIL` | Required email allowed to establish `/admin` session after Stripe auth completes |
+| `ADMIN_SESSION_TTL_SEC` | Admin session lifetime in seconds (default `43200`) |
 | `APP_BASE_URL` | Public site URL (Stripe success/cancel) |
 | `BACKEND_INTERNAL_API_BASE_URL` | Server-side internal backend base for Next route handlers (defaults to localhost locally and service DNS in Kubernetes) |
 | `KUBECONFIG_HOST_PATH` | Local kubeconfig path mounted into compose `k8s-*` port-forward services (used by `--profile prod`) |

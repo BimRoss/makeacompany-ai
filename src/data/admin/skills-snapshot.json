@@ -3,16 +3,16 @@
   "source": "slack-factory/skills-catalog.json + slack-factory/manifests",
   "skills": [
     {
-      "id": "email",
-      "label": "Google Mail",
+      "id": "write-email",
+      "label": "Write Email",
       "description": "Draft, send, and triage email communication.",
       "employeeIds": [
         "joanne"
       ]
     },
     {
-      "id": "google-docs",
-      "label": "Google Docs",
+      "id": "write-docs",
+      "label": "Write Docs",
       "description": "Create, edit, and organize working docs.",
       "employeeIds": [
         "joanne"
@@ -27,8 +27,8 @@
       ]
     },
     {
-      "id": "twitter",
-      "label": "Twitter",
+      "id": "read-twitter",
+      "label": "Read Twitter",
       "description": "Discover and search high-impression tweets quickly.",
       "employeeIds": [
         "garth"

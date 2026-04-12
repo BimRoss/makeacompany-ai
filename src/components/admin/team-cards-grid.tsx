@@ -3,11 +3,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTheme } from "next-themes";
 
-import type { TeamMember } from "@/lib/admin/team";
+import type { AdminSkill, TeamMember } from "@/lib/admin/catalog";
 import { TeamMemberCard } from "@/components/admin/team-member-card";
 
 type TeamCardsGridProps = {
   members: TeamMember[];
+  skills: AdminSkill[];
 };
 
 type GrafanaEmbed = {
@@ -97,9 +98,10 @@ function asGrafanaEmbedUrl(
   }
 }
 
-export function TeamCardsGrid({ members }: TeamCardsGridProps) {
+export function TeamCardsGrid({ members, skills }: TeamCardsGridProps) {
   const { resolvedTheme } = useTheme();
   const [healthPayload, setHealthPayload] = useState<HealthPayload | null>(null);
+  const skillsById = useMemo(() => new Map(skills.map((skill) => [skill.id, skill])), [skills]);
 
   useEffect(() => {
     let cancelled = false;
@@ -154,6 +156,7 @@ export function TeamCardsGrid({ members }: TeamCardsGridProps) {
             <div className="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(340px,380px)_repeat(3,minmax(0,1fr))]">
               <TeamMemberCard
                 member={member}
+                skillsById={skillsById}
                 className="h-full border-none bg-transparent p-2 shadow-none sm:p-3 md:hover:translate-y-0 md:hover:shadow-none"
               />
               {metricEmbeds.length > 0 ? (
