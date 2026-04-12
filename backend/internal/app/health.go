@@ -137,6 +137,7 @@ type indexerRecentRequestsResponse struct {
 	Status      string                    `json:"status"`
 	ServiceName string                    `json:"service_name"`
 	UpdatedAt   string                    `json:"updated_at"`
+	Total       int                       `json:"total"`
 	Requests    []indexerRecentRequestLog `json:"requests"`
 }
 
@@ -231,13 +232,33 @@ func (h *healthChecker) buildIndexer(ctx context.Context) indexerHealthSummary {
 		TelemetryStatus:   "unknown",
 	}
 
-	if rpm, err := h.estimateIndexerRecentRequestsRPM(ctx, 100, 5*time.Minute); err == nil {
-		summary.JobsPerMinute = rpm
-	}
-	if jobsLastHour, err := h.countIndexerRecentRequestsSince(ctx, 500, time.Hour); err == nil {
+	if recent, err := h.fetchIndexerRecentRequests(ctx, 500, 0); err == nil {
+		total := recent.Total
+		if total == 0 && len(recent.Requests) > 0 {
+			// Compatibility fallback for indexer builds without `total` in the JSON payload.
+			total = len(recent.Requests)
+		}
+		summary.TotalJobsAccepted = &total
+
+		lastHourCutoff := time.Now().UTC().Add(-time.Hour)
+		lastFiveMinutesCutoff := time.Now().UTC().Add(-5 * time.Minute)
+		jobsLastHour := 0
+		jobsLastFiveMinutes := 0
+		for _, request := range recent.Requests {
+			acceptedAt, parseErr := time.Parse(time.RFC3339, request.AcceptedAt)
+			if parseErr != nil {
+				continue
+			}
+			if acceptedAt.After(lastHourCutoff) {
+				jobsLastHour++
+			}
+			if acceptedAt.After(lastFiveMinutesCutoff) {
+				jobsLastFiveMinutes++
+			}
+		}
 		summary.JobsLastHour = &jobsLastHour
-	}
-	if summary.JobsPerMinute != nil || summary.JobsLastHour != nil {
+		jobsPerMinute := float64(jobsLastFiveMinutes) / 5
+		summary.JobsPerMinute = &jobsPerMinute
 		summary.TelemetryStatus = "ok"
 	}
 

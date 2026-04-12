@@ -11,8 +11,8 @@ type GrafanaEmbed = {
   source: "twitter" | "app";
 };
 
-const defaultPanelTitles = ["Activities", "Requests /min", "Events /min"];
-const defaultTwitterPanelTitles = ["Indexer throughput", "Indexer errors", "Worker throughput"];
+const defaultPanelTitles = ["Activities", "Requests /min"];
+const defaultTwitterPanelTitles = ["Indexer throughput", "Worker throughput"];
 
 const DEFAULT_GRAFANA_DASHBOARD_PATH =
   "/grafana/d/makeacompany-observability/makeacompany-observability?orgId=1";
@@ -109,9 +109,9 @@ export async function GET() {
       proto
     ) ?? grafanaDashboardUrl;
 
-  const panelIds = parseList(process.env.HEALTH_GRAFANA_PANEL_IDS, ["4", "1", "7"]);
+  const panelIds = parseList(process.env.HEALTH_GRAFANA_PANEL_IDS, ["4", "1"]);
   const panelTitles = parseList(process.env.HEALTH_GRAFANA_PANEL_TITLES, defaultPanelTitles);
-  const twitterPanelIds = parseList(process.env.HEALTH_GRAFANA_TWITTER_PANEL_IDS, ["1", "2", "3"]);
+  const twitterPanelIds = parseList(process.env.HEALTH_GRAFANA_TWITTER_PANEL_IDS, ["1", "3"]);
   const twitterPanelTitles = parseList(
     process.env.HEALTH_GRAFANA_TWITTER_PANEL_TITLES,
     defaultTwitterPanelTitles
