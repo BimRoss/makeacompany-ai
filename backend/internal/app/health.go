@@ -218,13 +218,17 @@ func (h *healthChecker) buildIndexer(ctx context.Context) indexerHealthSummary {
 		return indexerHealthSummary{Status: "degraded", Error: err.Error()}
 	}
 
+	totalJobsAccepted := ready.ReceivedJobs
+	errorRate := 0.0
 	summary := indexerHealthSummary{
-		Status:          "ok",
-		Ready:           true,
-		WorkerCount:     ready.WorkerCount,
-		ActiveJobs:      ready.ActiveJobs,
-		ReceivedJobs:    ready.ReceivedJobs,
-		TelemetryStatus: "unknown",
+		Status:            "ok",
+		Ready:             true,
+		WorkerCount:       ready.WorkerCount,
+		ActiveJobs:        ready.ActiveJobs,
+		ReceivedJobs:      ready.ReceivedJobs,
+		TotalJobsAccepted: &totalJobsAccepted,
+		ErrorRate:         &errorRate,
+		TelemetryStatus:   "unknown",
 	}
 
 	if rpm, err := h.estimateIndexerRecentRequestsRPM(ctx, 100, 5*time.Minute); err == nil {

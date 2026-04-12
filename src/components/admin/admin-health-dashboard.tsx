@@ -344,14 +344,13 @@ export function AdminHealthDashboard() {
     loading ? "..." : cookies?.ageMinutes !== undefined ? `${cookies.ageMinutes}m old` : "—",
     loading ? null : formatAuthExpiry(cookies?.authTokenExpiresAt),
   ].filter(Boolean);
+  const displayErrorRate = indexer?.errorRate ?? 0;
   const errorRateColor =
-    indexer?.errorRate === undefined
-      ? "text-foreground"
-      : indexer.errorRate >= 5
-        ? "text-red-500"
-        : indexer.errorRate >= 1
-          ? "text-amber-500"
-          : "text-emerald-500";
+    displayErrorRate >= 5
+      ? "text-red-500"
+      : displayErrorRate >= 1
+        ? "text-amber-500"
+        : "text-emerald-500";
 
   const embedCards = useMemo(
     () =>
@@ -384,7 +383,7 @@ export function AdminHealthDashboard() {
         <article className="rounded-xl border border-border bg-card p-3">
           <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">total jobs</h2>
           <strong className="mt-1 block text-3xl leading-none">
-            {loading ? "—" : formatNumber(indexer?.totalJobsAccepted)}
+            {loading ? "—" : formatNumber(indexer?.totalJobsAccepted ?? indexer?.receivedJobs ?? 0)}
           </strong>
         </article>
 
@@ -396,7 +395,7 @@ export function AdminHealthDashboard() {
         <article className="rounded-xl border border-border bg-card p-3">
           <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">err %</h2>
           <strong className={`mt-1 block text-3xl leading-none ${errorRateColor}`}>
-            {loading ? "—" : formatPercent(indexer?.errorRate)}
+            {loading ? "—" : formatPercent(displayErrorRate)}
           </strong>
         </article>
       </nav>
@@ -528,23 +527,19 @@ export function AdminHealthDashboard() {
         </section>
       </div>
 
-      <div className="grid grid-cols-1 gap-2 xl:grid-cols-2">
+      <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-4">
         {embedCards.length === 0 ? (
           <div className="rounded-xl border border-dashed border-border bg-card p-4 text-sm text-muted-foreground">
             Configure health Grafana panel IDs to render charts on `/twitter`.
           </div>
         ) : null}
         {embedCards.map((embed) => (
-          <div key={embed.key} className="min-w-0">
-            <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              {embed.source ? `${embed.source} · ` : ""}
-              {embed.title}
-            </p>
+          <div key={embed.key} className="min-w-0 overflow-hidden rounded-xl border border-border bg-card">
             <iframe
               title={`Grafana panel ${embed.panelId}`}
               src={embed.url}
               loading="lazy"
-              className="h-[320px] w-full rounded-xl border border-border bg-card"
+              className="aspect-square w-full bg-card"
             />
           </div>
         ))}
