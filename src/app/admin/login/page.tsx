@@ -45,6 +45,11 @@ export default function AdminLoginPage() {
             Sign-in was canceled.
           </p>
         ) : null}
+        {authState === "expired" ? (
+          <p className="rounded-md border border-border bg-muted px-3 py-2 text-sm text-muted-foreground">
+            Your admin session expired. Sign in again to continue.
+          </p>
+        ) : null}
         {error ? (
           <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
             {error}

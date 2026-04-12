@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 type LoadState = "idle" | "loading" | "saving" | "error" | "ready";
+type AuthState = "checking" | "ready" | "error";
 
 const emptyCatalogTemplate = `{
   "coreEmployees": [],
@@ -15,6 +16,34 @@ export function AdminCatalogEditor() {
   const [statusText, setStatusText] = useState<string>("");
   const [catalogJSON, setCatalogJSON] = useState<string>(emptyCatalogTemplate);
   const [adminToken, setAdminToken] = useState<string>("");
+  const [authState, setAuthState] = useState<AuthState>("checking");
+  const [authEmail, setAuthEmail] = useState<string>("");
+  const [authExpiresAt, setAuthExpiresAt] = useState<string>("");
+  const [expiresInSec, setExpiresInSec] = useState<number>(0);
+
+  const redirectToLogin = useCallback((reason: string) => {
+    window.location.href = `/admin/login?auth=${encodeURIComponent(reason)}`;
+  }, []);
+
+  const refreshAuth = useCallback(async () => {
+    try {
+      const response = await fetch("/api/admin/auth/me", { cache: "no-store" });
+      const payload = (await response.json().catch(() => null)) as
+        | { authenticated?: boolean; email?: string; expiresAt?: string }
+        | null;
+      if (!response.ok || !payload?.authenticated || !payload.email || !payload.expiresAt) {
+        setAuthState("error");
+        redirectToLogin("expired");
+        return;
+      }
+      setAuthEmail(payload.email);
+      setAuthExpiresAt(payload.expiresAt);
+      setAuthState("ready");
+    } catch {
+      setAuthState("error");
+      redirectToLogin("expired");
+    }
+  }, [redirectToLogin]);
 
   const loadCatalog = useCallback(async () => {
     setState("loading");
@@ -39,6 +68,58 @@ export function AdminCatalogEditor() {
   useEffect(() => {
     void loadCatalog();
   }, [loadCatalog]);
+
+  useEffect(() => {
+    void refreshAuth();
+    const poll = window.setInterval(() => {
+      void refreshAuth();
+    }, 60_000);
+    return () => {
+      window.clearInterval(poll);
+    };
+  }, [refreshAuth]);
+
+  useEffect(() => {
+    if (!authExpiresAt) {
+      setExpiresInSec(0);
+      return;
+    }
+    const expiry = new Date(authExpiresAt).getTime();
+    if (!Number.isFinite(expiry)) {
+      setExpiresInSec(0);
+      return;
+    }
+    const update = () => {
+      const sec = Math.max(0, Math.floor((expiry - Date.now()) / 1000));
+      setExpiresInSec(sec);
+      if (sec <= 0) {
+        redirectToLogin("expired");
+      }
+    };
+    update();
+    const tick = window.setInterval(update, 1000);
+    return () => {
+      window.clearInterval(tick);
+    };
+  }, [authExpiresAt, redirectToLogin]);
+
+  const expiryLabel = useMemo(() => {
+    if (!authExpiresAt) {
+      return "unknown";
+    }
+    const d = new Date(authExpiresAt);
+    if (Number.isNaN(d.getTime())) {
+      return "unknown";
+    }
+    return d.toLocaleString();
+  }, [authExpiresAt]);
+
+  const expiresInLabel = useMemo(() => {
+    const hours = Math.floor(expiresInSec / 3600);
+    const mins = Math.floor((expiresInSec % 3600) / 60);
+    const secs = expiresInSec % 60;
+    return `${hours}h ${mins}m ${secs}s`;
+  }, [expiresInSec]);
 
   const parsedPreview = useMemo(() => {
     try {
@@ -107,6 +188,22 @@ export function AdminCatalogEditor() {
         <p className="text-sm text-muted-foreground">
           Edit the shared employee/tool catalog stored in Redis (`makeacompany:catalog:capabilities:v1`).
         </p>
+      </div>
+      <div className="flex flex-wrap items-center gap-2 text-xs">
+        <span className="rounded-full border border-border bg-background px-2.5 py-1 text-muted-foreground">
+          Auth: {authState === "checking" ? "checking..." : authState === "ready" ? "active" : "expired"}
+        </span>
+        {authEmail ? (
+          <span className="rounded-full border border-border bg-background px-2.5 py-1 text-muted-foreground">
+            {authEmail}
+          </span>
+        ) : null}
+        <span className="rounded-full border border-border bg-background px-2.5 py-1 text-muted-foreground">
+          Expires in: {expiresInLabel}
+        </span>
+        <span className="rounded-full border border-border bg-background px-2.5 py-1 text-muted-foreground">
+          Expires at: {expiryLabel}
+        </span>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-[1fr_auto_auto_auto] sm:items-end">
