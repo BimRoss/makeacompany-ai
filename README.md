@@ -37,6 +37,7 @@ Admin catalog editor:
 - Proxy endpoint: `GET/PUT /api/admin/catalog` -> backend `GET/PUT /v1/admin/catalog`
 - `PUT` forwards optional `X-Admin-Token` (backend validates against `ADMIN_CATALOG_TOKEN` when set).
 - Sign-in route: `/admin/login` starts Stripe-backed verification before issuing an HttpOnly admin session cookie.
+- Includes an 8-panel service overview Grafana grid (4 columns x 2 rows) for high-level runtime monitoring.
 - Capability catalog is authoritative for Slack tooling assignments. `employee-factory` reads `GET /v1/runtime/capability-catalog` and only executes a tool when that catalog assigns the runtime tool to the employee and runtime secrets/env are ready.
 - Backend derives `runtimeTool` from `<employee>-<skill-id>` and migrates legacy values on catalog reads/writes.
 
@@ -111,6 +112,7 @@ npm run dev   # repo root
 | `STRIPE_PRICE_ID_WAITLIST_LIVE` | $1 one-time price (live mode) |
 | `HEALTH_GRAFANA_DASHBOARD_URL` | App observability dashboard URL used by `/employees` and `/twitter` |
 | `HEALTH_GRAFANA_PANEL_IDS` / `HEALTH_GRAFANA_PANEL_TITLES` | App panel ids/titles for the admin APIs |
+| `HEALTH_GRAFANA_ADMIN_PANEL_IDS` / `HEALTH_GRAFANA_ADMIN_PANEL_TITLES` | `/admin` service overview panels (8 recommended: request throughput, p95 latency, error rate, success vs error, queue depth, worker readiness, tool mix, webhook latency) |
 | `HEALTH_GRAFANA_TWITTER_DASHBOARD_URL` | Twitter dashboard URL for `/twitter` embeds |
 | `HEALTH_GRAFANA_TWITTER_PANEL_IDS` / `HEALTH_GRAFANA_TWITTER_PANEL_TITLES` | Twitter panel ids/titles for `/twitter` embeds |
 | `HEALTH_TWITTER_INDEXER_URL` | Internal twitter-indexer base URL used by backend `/health` and recent-request proxy |

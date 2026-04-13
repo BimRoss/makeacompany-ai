@@ -13,6 +13,16 @@ type GrafanaEmbed = {
 
 const defaultPanelTitles = ["Activities", "Requests /min", "Tool usage"];
 const defaultTwitterPanelTitles = ["Indexer throughput", "Worker throughput"];
+const defaultAdminPanelTitles = [
+  "Request throughput",
+  "P95 latency",
+  "Error rate",
+  "Success vs error",
+  "Queue depth",
+  "Worker readiness",
+  "Tool mix",
+  "Webhook latency",
+];
 
 const DEFAULT_GRAFANA_DASHBOARD_PATH =
   "/grafana/d/makeacompany-observability/makeacompany-observability?orgId=1";
@@ -116,10 +126,16 @@ export async function GET() {
     process.env.HEALTH_GRAFANA_TWITTER_PANEL_TITLES,
     defaultTwitterPanelTitles
   );
+  const adminPanelIds = parseList(process.env.HEALTH_GRAFANA_ADMIN_PANEL_IDS, ["1", "2", "3", "4", "5", "6", "7", "8"]);
+  const adminPanelTitles = parseList(
+    process.env.HEALTH_GRAFANA_ADMIN_PANEL_TITLES,
+    defaultAdminPanelTitles
+  );
   const grafanaEmbeds = [
     ...buildGrafanaEmbeds(twitterDashboardUrl, "twitter", twitterPanelIds, twitterPanelTitles),
     ...buildGrafanaEmbeds(grafanaDashboardUrl, "app", panelIds, panelTitles),
   ];
+  const adminGrafanaEmbeds = buildGrafanaEmbeds(grafanaDashboardUrl, "app", adminPanelIds, adminPanelTitles);
 
   try {
     const [response, recentRequestsResponse] = await Promise.all([
@@ -147,6 +163,7 @@ export async function GET() {
         grafanaDashboardUrl,
         twitterGrafanaDashboardUrl: twitterDashboardUrl,
         grafanaEmbeds,
+        adminGrafanaEmbeds,
       },
       { status: response.ok ? 200 : 502 }
     );
@@ -162,6 +179,7 @@ export async function GET() {
         grafanaDashboardUrl,
         twitterGrafanaDashboardUrl: twitterDashboardUrl,
         grafanaEmbeds,
+        adminGrafanaEmbeds,
       },
       { status: 502 }
     );
