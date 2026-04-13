@@ -1,8 +1,7 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import skillsSnapshot from "@/data/admin/skills-snapshot.json";
-import teamSnapshot from "@/data/admin/team-snapshot.json";
 import type {
   CapabilityCatalog,
   CapabilityCatalogEmployee,
@@ -14,20 +13,6 @@ type LoadState = "idle" | "loading" | "saving" | "error" | "ready";
 type EmployeeModalState = { mode: "create" } | { mode: "edit"; index: number } | null;
 type SkillModalState = { mode: "create" } | { mode: "edit"; index: number } | null;
 type EmployeeDraft = CapabilityCatalogEmployee & { skillIds: string[] };
-type TeamSnapshotEmployee = {
-  id: string;
-  displayName?: string;
-  botDisplayName?: string;
-  shortDescription?: string;
-  longDescription?: string;
-  skillIds?: string[];
-};
-type TeamSnapshotData = { employees: TeamSnapshotEmployee[] };
-type SkillsSnapshotSkill = { id: string; label?: string; description?: string };
-type SkillsSnapshotData = { skills: SkillsSnapshotSkill[] };
-
-const typedTeamSnapshot = teamSnapshot as TeamSnapshotData;
-const typedSkillsSnapshot = skillsSnapshot as SkillsSnapshotData;
 
 export function AdminCatalogEditor() {
   const [state, setState] = useState<LoadState>("idle");
@@ -326,11 +311,6 @@ export function AdminCatalogEditor() {
     }
   }
 
-  async function syncCatalogFromSlack() {
-    const synced = buildCatalogFromSlackSnapshot(catalog);
-    await persistCatalog(synced, "Synced from Slack snapshots and saved to Redis.");
-  }
-
   async function confirmDeleteSkill() {
     const index = skillModal?.mode === "edit" ? skillModal.index : -1;
     if (index < 0) return;
@@ -358,9 +338,12 @@ export function AdminCatalogEditor() {
       <div className="grid gap-4 lg:grid-cols-2">
         <section className="relative space-y-3 rounded-xl bg-background/70 p-3">
           <div className="flex items-center justify-between gap-3">
-            <div className="inline-flex -mt-2 items-center rounded-md border border-border bg-card px-3 py-2 shadow-sm">
+            <Link
+              href="/employees"
+              className="inline-flex -mt-2 items-center rounded-md bg-card px-3 py-2 shadow-sm transition-colors hover:bg-muted/80"
+            >
               <h2 className="text-sm font-semibold uppercase tracking-[0.16em] text-muted-foreground">Employees</h2>
-            </div>
+            </Link>
             <button
               type="button"
               onClick={openCreateEmployeeModal}
@@ -426,9 +409,12 @@ export function AdminCatalogEditor() {
 
         <section className="relative space-y-3 rounded-xl bg-background/70 p-3">
           <div className="flex items-center justify-between gap-3">
-            <div className="inline-flex -mt-2 items-center rounded-md border border-border bg-card px-3 py-2 shadow-sm">
+            <Link
+              href="/skills"
+              className="inline-flex -mt-2 items-center rounded-md bg-card px-3 py-2 shadow-sm transition-colors hover:bg-muted/80"
+            >
               <h2 className="text-sm font-semibold uppercase tracking-[0.16em] text-muted-foreground">Skills</h2>
-            </div>
+            </Link>
             <button
               type="button"
               onClick={openCreateSkillModal}
@@ -515,14 +501,6 @@ export function AdminCatalogEditor() {
 
       <div className="flex flex-wrap items-end justify-end gap-3">
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => void syncCatalogFromSlack()}
-            className="rounded-md bg-foreground px-3 py-2 text-sm font-medium text-background hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-            disabled={state === "loading" || state === "saving"}
-          >
-            Sync from Slack
-          </button>
           <button
             type="button"
             onClick={() => void logout()}
@@ -854,85 +832,4 @@ function normalizeCatalog(input: CapabilityCatalog): CapabilityCatalog {
   };
 }
 
-function buildCatalogFromSlackSnapshot(current: CapabilityCatalog): CapabilityCatalog {
-  const snapshotEmployees = typedTeamSnapshot.employees ?? [];
-  const snapshotSkills = typedSkillsSnapshot.skills ?? [];
-
-  const skillMetaById = new Map(
-    snapshotSkills
-      .map((skill) => {
-        const id = normalizeSkillID(skill.id ?? "");
-        if (!id) return null;
-        return [id, skill] as const;
-      })
-      .filter((entry): entry is readonly [string, SkillsSnapshotSkill] => Boolean(entry))
-  );
-
-  const normalizedSkills = current.skills.map((skill) => {
-    const snapshotSkill = skillMetaById.get(skill.id);
-    if (!snapshotSkill) return skill;
-    return {
-      ...skill,
-      label: snapshotSkill.label?.trim() || skill.label,
-      description: snapshotSkill.description?.trim() || skill.description,
-    };
-  });
-
-  const knownSkillIds = new Set(normalizedSkills.map((skill) => skill.id));
-  const nextEmployees: CapabilityCatalogEmployee[] = [];
-  const nextEmployeeSkillIds: Record<string, string[]> = {};
-  const seenEmployeeIds = new Set<string>();
-
-  for (const employee of snapshotEmployees) {
-    const id = String(employee.id ?? "").trim().toLowerCase();
-    if (!id || seenEmployeeIds.has(id)) continue;
-    seenEmployeeIds.add(id);
-
-    const fallback = current.coreEmployees.find((member) => member.id === id);
-    const label =
-      String(employee.displayName ?? "").trim() ||
-      String(employee.botDisplayName ?? "").trim() ||
-      fallback?.label ||
-      id;
-    const description =
-      String(employee.longDescription ?? "").trim() ||
-      String(employee.shortDescription ?? "").trim() ||
-      fallback?.description ||
-      "AI teammate";
-
-    nextEmployees.push({ id, label, description });
-
-    const snapshotSkillIds = Array.isArray(employee.skillIds) ? employee.skillIds : [];
-    const mergedSkillIds = snapshotSkillIds
-      .map((value) => normalizeSkillID(String(value ?? "")))
-      .filter((skillId) => Boolean(skillId) && knownSkillIds.has(skillId));
-    nextEmployeeSkillIds[id] = [...new Set(mergedSkillIds)].sort();
-  }
-
-  for (const employee of current.coreEmployees) {
-    const id = String(employee.id ?? "").trim().toLowerCase();
-    if (!id || seenEmployeeIds.has(id)) continue;
-    seenEmployeeIds.add(id);
-    nextEmployees.push(employee);
-
-    const existingSkillIds = current.employeeSkillIds[id] ?? [];
-    nextEmployeeSkillIds[id] = [
-      ...new Set(
-        existingSkillIds
-          .map((value) => normalizeSkillID(String(value ?? "")))
-          .filter((skillId) => Boolean(skillId) && knownSkillIds.has(skillId))
-      ),
-    ].sort();
-  }
-
-  const next: CapabilityCatalog = {
-    ...current,
-    coreEmployees: nextEmployees,
-    skills: normalizedSkills,
-    employeeSkillIds: nextEmployeeSkillIds,
-    source: "slack_snapshot_sync",
-  };
-
-  return normalizeCatalog(next);
-}
 

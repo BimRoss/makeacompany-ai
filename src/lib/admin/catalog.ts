@@ -82,10 +82,16 @@ function fallbackCatalogFromSnapshots(): {
 } {
   const typedSkills = skillsSnapshot as SkillsSnapshot;
   const typedTeam = teamSnapshot as TeamSnapshot;
-  const members = typedTeam.employees.map((member) => ({
-    ...member,
-    skillIds: Array.isArray(member.skillIds) ? member.skillIds : [],
-  }));
+  const members = typedTeam.employees
+    .map((member) => ({
+      ...member,
+      skillIds: Array.isArray(member.skillIds) ? member.skillIds : [],
+    }))
+    .sort((a, b) => {
+      const skillCountDiff = b.skillIds.length - a.skillIds.length;
+      if (skillCountDiff !== 0) return skillCountDiff;
+      return memberSort(a, b);
+    });
   return {
     members,
     skills: typedSkills.skills,
@@ -145,7 +151,11 @@ function normalizeCatalogToAdminData(catalog: CapabilityCatalog): {
       skillIds,
     };
   });
-  members.sort(memberSort);
+  members.sort((a, b) => {
+    const skillCountDiff = b.skillIds.length - a.skillIds.length;
+    if (skillCountDiff !== 0) return skillCountDiff;
+    return memberSort(a, b);
+  });
 
   const employeeIdsBySkill = new Map<string, string[]>();
   for (const member of members) {
@@ -173,16 +183,38 @@ export async function getAdminCatalogData(): Promise<{
   skills: AdminSkill[];
 }> {
   const base = backendBaseURL().replace(/\/$/, "");
-  try {
-    const response = await fetch(`${base}/v1/admin/catalog`, { cache: "no-store" });
+  const runtimeReadToken = process.env.CAPABILITY_CATALOG_READ_TOKEN?.trim();
+
+  async function fetchCatalog(path: string, headers?: HeadersInit): Promise<CapabilityCatalog | null> {
+    const response = await fetch(`${base}${path}`, {
+      cache: "no-store",
+      headers,
+    });
     if (!response.ok) {
-      return fallbackCatalogFromSnapshots();
+      return null;
     }
     const payload = (await response.json()) as CapabilityCatalog;
     if (!Array.isArray(payload?.coreEmployees) || !Array.isArray(payload?.skills)) {
-      return fallbackCatalogFromSnapshots();
+      return null;
     }
-    return normalizeCatalogToAdminData(payload);
+    return payload;
+  }
+
+  try {
+    const runtimeCatalog = await fetchCatalog(
+      "/v1/runtime/capability-catalog",
+      runtimeReadToken ? { Authorization: `Bearer ${runtimeReadToken}` } : undefined
+    );
+    if (runtimeCatalog) {
+      return normalizeCatalogToAdminData(runtimeCatalog);
+    }
+
+    const adminCatalog = await fetchCatalog("/v1/admin/catalog");
+    if (adminCatalog) {
+      return normalizeCatalogToAdminData(adminCatalog);
+    }
+
+    return fallbackCatalogFromSnapshots();
   } catch {
     return fallbackCatalogFromSnapshots();
   }

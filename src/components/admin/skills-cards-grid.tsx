@@ -57,35 +57,6 @@ export function SkillsCardsGrid({ skills, members }: SkillsCardsGridProps) {
               {skill.description}
             </p>
 
-            {!skill.comingSoon ? (
-              <div className="mt-2 space-y-2 text-xs text-muted-foreground">
-                <div className="flex flex-wrap items-center gap-2">
-                  <p className="font-medium uppercase tracking-wide text-foreground/80">Required</p>
-                  {(skill.requiredParams ?? []).length > 0 ? (
-                    (skill.requiredParams ?? []).map((param) => (
-                      <span key={`${skill.id}-required-${param}`} className="rounded-full border border-border bg-background px-2 py-0.5">
-                        {param}
-                      </span>
-                    ))
-                  ) : (
-                    <span className="text-muted-foreground">None</span>
-                  )}
-                </div>
-                <div className="flex flex-wrap items-center gap-2 opacity-50">
-                  <p className="font-medium uppercase tracking-wide text-foreground/80">Optional</p>
-                  {(skill.optionalParams ?? []).length > 0 ? (
-                    (skill.optionalParams ?? []).map((param) => (
-                      <span key={`${skill.id}-optional-${param}`} className="rounded-full border border-border bg-background px-2 py-0.5">
-                        {param}
-                      </span>
-                    ))
-                  ) : (
-                    <span className="text-muted-foreground">None</span>
-                  )}
-                </div>
-              </div>
-            ) : null}
-
             {!skill.comingSoon && assignedNames.length === 0 ? (
               <p className="mt-2 text-xs text-muted-foreground">No employees assigned yet.</p>
             ) : null}
