@@ -21,6 +21,7 @@ type GrafanaEmbed = {
 
 type HealthPayload = {
   grafanaEmbeds?: GrafanaEmbed[];
+  adminGrafanaEmbeds?: GrafanaEmbed[];
 };
 
 type TeamMemberMetricEmbed = {
@@ -45,8 +46,11 @@ function selectCanonicalPanels(embeds: GrafanaEmbed[]): GrafanaEmbed[] {
     byTitle(/tool usage|tools usage|tool breakdown|capability usage|capability breakdown|usage by tool/) ??
     byId("7") ??
     byTitle(/events\s*\/min|combined events|events combined|events total/);
+  const p95Latency =
+    byTitle(/p95 latency|latency p95|request latency|response latency|latency/) ??
+    byId("2");
 
-  const selected = [goroutines, requestsPerMinute, toolUsageBreakdown].filter(
+  const selected = [goroutines, requestsPerMinute, toolUsageBreakdown, p95Latency].filter(
     (panel): panel is GrafanaEmbed => Boolean(panel)
   );
 
@@ -131,12 +135,15 @@ export function TeamCardsGrid({ members, skills }: TeamCardsGridProps) {
     };
   }, []);
 
-  const baseEmbeds = useMemo(() => healthPayload?.grafanaEmbeds ?? [], [healthPayload?.grafanaEmbeds]);
+  const allEmbeds = useMemo(
+    () => [...(healthPayload?.grafanaEmbeds ?? []), ...(healthPayload?.adminGrafanaEmbeds ?? [])],
+    [healthPayload?.adminGrafanaEmbeds, healthPayload?.grafanaEmbeds]
+  );
 
   return (
     <div className="space-y-4">
       {members.map((member) => {
-        const selectedEmbeds = selectCanonicalPanels(baseEmbeds);
+        const selectedEmbeds = selectCanonicalPanels(allEmbeds);
         const metricEmbeds: TeamMemberMetricEmbed[] = selectedEmbeds
           .map((embed) => ({
             key: `${member.id}-${embed.key}`,
@@ -152,8 +159,8 @@ export function TeamCardsGrid({ members, skills }: TeamCardsGridProps) {
           .filter((embed): embed is TeamMemberMetricEmbed => Boolean(embed.url));
 
         return (
-          <section key={member.id} className="rounded-2xl border border-border bg-card px-3 py-2 sm:px-4 sm:py-3">
-            <div className="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(340px,380px)_repeat(3,minmax(0,1fr))]">
+          <section key={member.id} className="rounded-2xl border border-border bg-card p-3 sm:p-4">
+            <div className="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(340px,380px)_repeat(4,minmax(0,1fr))]">
               <TeamMemberCard
                 member={member}
                 skillsById={skillsById}
@@ -161,17 +168,20 @@ export function TeamCardsGrid({ members, skills }: TeamCardsGridProps) {
               />
               {metricEmbeds.length > 0 ? (
                 metricEmbeds.map((embed) => (
-                  <div key={embed.key} className="motion-colors">
+                  <article key={embed.key} className="rounded-xl border border-border/70 bg-background/50 p-2 motion-colors">
+                    <header className="mb-1 px-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                      {embed.title}
+                    </header>
                     <iframe
                       title={`${member.displayName} - ${embed.title}`}
                       src={embed.url}
                       loading="lazy"
                       className="h-44 w-full rounded-md border-0 bg-transparent"
                     />
-                  </div>
+                  </article>
                 ))
               ) : (
-                <article className="rounded-md border border-dashed border-border px-3 py-2 text-sm text-muted-foreground xl:col-span-3">
+                <article className="rounded-md border border-dashed border-border px-3 py-2 text-sm text-muted-foreground xl:col-span-4">
                   <p>No recent Slack metrics for {member.displayName} in the last hour.</p>
                   <p className="mt-1 text-xs">
                     These charts use `employee-factory` runtime counters (Slack events/posts), not Cursor or IDE activity.
