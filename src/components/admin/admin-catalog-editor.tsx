@@ -633,7 +633,7 @@ export function AdminCatalogEditor() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
           <div className="w-full max-w-xl space-y-3 rounded-xl border border-border bg-card p-4">
             <h3 className="text-base font-semibold text-foreground">
-              {skillModal.mode === "create" ? "Add skill" : "Edit skill"}
+              {skillModal.mode === "create" ? "Add skill" : skillDraft.id}
             </h3>
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="space-y-1">
@@ -664,26 +664,6 @@ export function AdminCatalogEditor() {
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-2">
                 <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Required params</span>
-                <div className="min-h-10 rounded-md border border-border bg-background px-2 py-2">
-                  {skillDraft.requiredParams.length > 0 ? (
-                    <div className="flex flex-wrap gap-2">
-                      {skillDraft.requiredParams.map((param) => (
-                        <button
-                          key={`required-param-pill-${param}`}
-                          type="button"
-                          onClick={() => removeSkillParam("required", param)}
-                          className="inline-flex items-center gap-1 rounded-full border border-foreground/20 bg-foreground px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-background"
-                          aria-label={`Remove required param ${param}`}
-                        >
-                          {param}
-                          <span aria-hidden>×</span>
-                        </button>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-xs text-muted-foreground">No required params yet.</p>
-                  )}
-                </div>
                 <div className="flex items-center gap-2">
                   <input
                     value={requiredParamInput}
@@ -707,19 +687,16 @@ export function AdminCatalogEditor() {
                     </button>
                   ) : null}
                 </div>
-              </div>
-              <div className="space-y-2">
-                <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Optional params</span>
                 <div className="min-h-10 rounded-md border border-border bg-background px-2 py-2">
-                  {skillDraft.optionalParams.length > 0 ? (
+                  {skillDraft.requiredParams.length > 0 ? (
                     <div className="flex flex-wrap gap-2">
-                      {skillDraft.optionalParams.map((param) => (
+                      {skillDraft.requiredParams.map((param) => (
                         <button
-                          key={`optional-param-pill-${param}`}
+                          key={`required-param-pill-${param}`}
                           type="button"
-                          onClick={() => removeSkillParam("optional", param)}
-                          className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground hover:bg-muted"
-                          aria-label={`Remove optional param ${param}`}
+                          onClick={() => removeSkillParam("required", param)}
+                          className="inline-flex items-center gap-1 rounded-full border border-foreground/20 bg-foreground px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-background"
+                          aria-label={`Remove required param ${param}`}
                         >
                           {param}
                           <span aria-hidden>×</span>
@@ -727,9 +704,12 @@ export function AdminCatalogEditor() {
                       ))}
                     </div>
                   ) : (
-                    <p className="text-xs text-muted-foreground">No optional params yet.</p>
+                    <p className="text-xs text-muted-foreground">No required params yet.</p>
                   )}
                 </div>
+              </div>
+              <div className="space-y-2">
+                <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Optional params</span>
                 <div className="flex items-center gap-2">
                   <input
                     value={optionalParamInput}
@@ -752,6 +732,26 @@ export function AdminCatalogEditor() {
                       Add
                     </button>
                   ) : null}
+                </div>
+                <div className="min-h-10 rounded-md border border-border bg-background px-2 py-2">
+                  {skillDraft.optionalParams.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {skillDraft.optionalParams.map((param) => (
+                        <button
+                          key={`optional-param-pill-${param}`}
+                          type="button"
+                          onClick={() => removeSkillParam("optional", param)}
+                          className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground hover:bg-muted"
+                          aria-label={`Remove optional param ${param}`}
+                        >
+                          {param}
+                          <span aria-hidden>×</span>
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">No optional params yet.</p>
+                  )}
                 </div>
               </div>
             </div>
