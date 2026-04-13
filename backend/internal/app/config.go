@@ -37,7 +37,7 @@ func LoadConfig() Config {
 		AppBaseURL:                  strings.TrimRight(envString("APP_BASE_URL", "http://localhost:3000"), "/"),
 		AdminCatalogToken:           strings.TrimSpace(os.Getenv("ADMIN_CATALOG_TOKEN")),
 		AdminAllowedEmail:           strings.ToLower(strings.TrimSpace(os.Getenv("ADMIN_ALLOWED_EMAIL"))),
-		AdminSessionTTLSec:          envInt("ADMIN_SESSION_TTL_SEC", 43200),
+		AdminSessionTTLSec:          envInt("ADMIN_SESSION_TTL_SEC", 259200),
 		StripeSecretKey:             resolveStripeSecretKey(),
 		StripeWebhookSecretSnapshot: snapshot,
 		StripeWebhookSecretThin:     thin,

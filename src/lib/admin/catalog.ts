@@ -33,22 +33,27 @@ export type AdminSkill = {
   comingSoon?: boolean;
 };
 
-type CapabilityCatalogEmployee = {
+export type CapabilityCatalogEmployee = {
   id: string;
   label: string;
   description: string;
 };
 
-type CapabilityCatalogSkill = {
+export type CapabilityCatalogSkill = {
   id: string;
   label: string;
   description: string;
+  runtimeTool: string;
+  requiredParams: string[];
+  optionalParams: string[];
 };
 
-type CapabilityCatalog = {
+export type CapabilityCatalog = {
   coreEmployees: CapabilityCatalogEmployee[];
   skills: CapabilityCatalogSkill[];
   employeeSkillIds: Record<string, string[]>;
+  updatedAt?: string;
+  source?: string;
 };
 
 type TeamSnapshot = {
