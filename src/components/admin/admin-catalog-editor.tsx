@@ -1,17 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Pencil, Trash2 } from "lucide-react";
 import type {
-  AdminSkill,
   CapabilityCatalog,
   CapabilityCatalogEmployee,
   CapabilityCatalogSkill,
-  TeamMember,
 } from "@/lib/admin/catalog";
-import { TeamMemberCard } from "@/components/admin/team-member-card";
 
 type LoadState = "idle" | "loading" | "saving" | "error" | "ready";
-type AuthState = "checking" | "ready" | "error";
 
 type EmployeeModalState =
   | { mode: "create" }
@@ -27,35 +24,6 @@ export function AdminCatalogEditor() {
     skills: [],
     employeeSkillIds: {},
   });
-  const [adminToken, setAdminToken] = useState<string>("");
-  const [authState, setAuthState] = useState<AuthState>("checking");
-  const [authEmail, setAuthEmail] = useState<string>("");
-  const [authExpiresAt, setAuthExpiresAt] = useState<string>("");
-  const [expiresInSec, setExpiresInSec] = useState<number>(0);
-
-  const redirectToLogin = useCallback((reason: string) => {
-    window.location.href = `/admin/login?auth=${encodeURIComponent(reason)}`;
-  }, []);
-
-  const refreshAuth = useCallback(async () => {
-    try {
-      const response = await fetch("/api/admin/auth/me", { cache: "no-store" });
-      const payload = (await response.json().catch(() => null)) as
-        | { authenticated?: boolean; email?: string; expiresAt?: string }
-        | null;
-      if (!response.ok || !payload?.authenticated || !payload.email || !payload.expiresAt) {
-        setAuthState("error");
-        redirectToLogin("expired");
-        return;
-      }
-      setAuthEmail(payload.email);
-      setAuthExpiresAt(payload.expiresAt);
-      setAuthState("ready");
-    } catch {
-      setAuthState("error");
-      redirectToLogin("expired");
-    }
-  }, [redirectToLogin]);
 
   const loadCatalog = useCallback(async () => {
     setState("loading");
@@ -81,58 +49,6 @@ export function AdminCatalogEditor() {
     void loadCatalog();
   }, [loadCatalog]);
 
-  useEffect(() => {
-    void refreshAuth();
-    const poll = window.setInterval(() => {
-      void refreshAuth();
-    }, 60_000);
-    return () => {
-      window.clearInterval(poll);
-    };
-  }, [refreshAuth]);
-
-  useEffect(() => {
-    if (!authExpiresAt) {
-      setExpiresInSec(0);
-      return;
-    }
-    const expiry = new Date(authExpiresAt).getTime();
-    if (!Number.isFinite(expiry)) {
-      setExpiresInSec(0);
-      return;
-    }
-    const update = () => {
-      const sec = Math.max(0, Math.floor((expiry - Date.now()) / 1000));
-      setExpiresInSec(sec);
-      if (sec <= 0) {
-        redirectToLogin("expired");
-      }
-    };
-    update();
-    const tick = window.setInterval(update, 1000);
-    return () => {
-      window.clearInterval(tick);
-    };
-  }, [authExpiresAt, redirectToLogin]);
-
-  const expiryLabel = useMemo(() => {
-    if (!authExpiresAt) {
-      return "unknown";
-    }
-    const d = new Date(authExpiresAt);
-    if (Number.isNaN(d.getTime())) {
-      return "unknown";
-    }
-    return d.toLocaleString();
-  }, [authExpiresAt]);
-
-  const expiresInLabel = useMemo(() => {
-    const hours = Math.floor(expiresInSec / 3600);
-    const mins = Math.floor((expiresInSec % 3600) / 60);
-    const secs = expiresInSec % 60;
-    return `${hours}h ${mins}m ${secs}s`;
-  }, [expiresInSec]);
-
   const [employeeModal, setEmployeeModal] = useState<EmployeeModalState>(null);
   const [skillModal, setSkillModal] = useState<SkillModalState>(null);
   const [employeeDraft, setEmployeeDraft] = useState<CapabilityCatalogEmployee>({
@@ -150,18 +66,27 @@ export function AdminCatalogEditor() {
   });
   const [requiredParamsInput, setRequiredParamsInput] = useState("");
   const [optionalParamsInput, setOptionalParamsInput] = useState("");
-  const previewData = useMemo(() => catalogToPreviewData(catalog), [catalog]);
-  const previewMemberById = useMemo(
-    () => new Map(previewData.members.map((member) => [member.id, member])),
-    [previewData.members]
-  );
-  const previewSkillById = useMemo(
-    () => new Map(previewData.skills.map((skill) => [skill.id, skill])),
-    [previewData.skills]
+  const skillLabelById = useMemo(
+    () => new Map(catalog.skills.map((skill) => [skill.id, skill.label])),
+    [catalog.skills]
   );
   const memberNameById = useMemo(
-    () => new Map(previewData.members.map((member) => [member.id, member.displayName])),
-    [previewData.members]
+    () => new Map(catalog.coreEmployees.map((member) => [member.id, member.label])),
+    [catalog.coreEmployees]
+  );
+  const skillEmployeeIdsBySkillId = useMemo(
+    () => {
+      const out = new Map<string, string[]>();
+      for (const [employeeId, skillIds] of Object.entries(catalog.employeeSkillIds)) {
+        for (const skillId of skillIds ?? []) {
+          const list = out.get(skillId) ?? [];
+          list.push(employeeId);
+          out.set(skillId, list);
+        }
+      }
+      return out;
+    },
+    [catalog.employeeSkillIds]
   );
 
   async function saveCatalog() {
@@ -173,7 +98,6 @@ export function AdminCatalogEditor() {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          ...(adminToken.trim() ? { "X-Admin-Token": adminToken.trim() } : {}),
         },
         body: JSON.stringify(normalized),
       });
@@ -330,7 +254,7 @@ export function AdminCatalogEditor() {
 
     if (!draft.id || !draft.label || !draft.description || !draft.runtimeTool || draft.requiredParams.length === 0) {
       setState("error");
-      setStatusText("Tool id, label, description, runtime tool, and required params are required.");
+      setStatusText("Skill id, label, description, runtime tool, and required params are required.");
       return;
     }
 
@@ -338,7 +262,7 @@ export function AdminCatalogEditor() {
     const duplicateIndex = catalog.skills.findIndex((item) => item.id === draft.id);
     if (duplicateIndex !== -1 && duplicateIndex !== replacingIndex) {
       setState("error");
-      setStatusText(`Tool id '${draft.id}' already exists.`);
+      setStatusText(`Skill id '${draft.id}' already exists.`);
       return;
     }
 
@@ -364,7 +288,7 @@ export function AdminCatalogEditor() {
 
     setSkillModal(null);
     setState("ready");
-    setStatusText("Tool draft updated. Save to Redis when ready.");
+    setStatusText("Skill draft updated. Save to Redis when ready.");
   }
 
   function deleteSkill(index: number) {
@@ -383,47 +307,12 @@ export function AdminCatalogEditor() {
       };
     });
     setState("ready");
-    setStatusText("Tool removed from local draft. Save to Redis when ready.");
+    setStatusText("Skill removed from local draft. Save to Redis when ready.");
   }
 
   return (
     <section className="space-y-4 rounded-2xl border border-border bg-card p-4 sm:p-5">
-      <div className="space-y-1">
-        <h1 className="text-xl font-semibold tracking-tight text-foreground">Catalog Admin</h1>
-        <p className="text-sm text-muted-foreground">
-          Manage employees and tools in a card view. Save when you are ready to persist to Redis.
-        </p>
-      </div>
-      <div className="flex flex-wrap items-center gap-2 text-xs">
-        <span className="rounded-full border border-border bg-background px-2.5 py-1 text-muted-foreground">
-          Auth: {authState === "checking" ? "checking..." : authState === "ready" ? "active" : "expired"}
-        </span>
-        {authEmail ? (
-          <span className="rounded-full border border-border bg-background px-2.5 py-1 text-muted-foreground">
-            {authEmail}
-          </span>
-        ) : null}
-        <span className="rounded-full border border-border bg-background px-2.5 py-1 text-muted-foreground">
-          Expires in: {expiresInLabel}
-        </span>
-        <span className="rounded-full border border-border bg-background px-2.5 py-1 text-muted-foreground">
-          Expires at: {expiryLabel}
-        </span>
-      </div>
-
-      <div className="grid gap-3 sm:grid-cols-[1fr_auto_auto_auto] sm:items-end">
-        <label className="space-y-1">
-          <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            Admin token (optional)
-          </span>
-          <input
-            type="password"
-            value={adminToken}
-            onChange={(event) => setAdminToken(event.target.value)}
-            placeholder="X-Admin-Token value"
-            className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground outline-none ring-0 placeholder:text-muted-foreground focus:border-foreground/40"
-          />
-        </label>
+      <div className="flex flex-wrap justify-end gap-2">
         <button
           type="button"
           onClick={() => void loadCatalog()}
@@ -463,34 +352,49 @@ export function AdminCatalogEditor() {
           </div>
           <div className="space-y-2">
             {catalog.coreEmployees.map((employee, index) => (
-              <section
+              <article
                 key={`${employee.id}-${index}`}
-                className="rounded-xl border border-border bg-card p-2"
+                className="employees-card-motion rounded-xl border border-border bg-card px-3 pb-1.5 pt-3 shadow-sm motion-colors sm:px-4 sm:pb-2 sm:pt-4 md:cursor-pointer md:hover:shadow-md"
               >
-                {previewMemberById.get(employee.id) ? (
-                  <TeamMemberCard
-                    member={previewMemberById.get(employee.id)!}
-                    skillsById={previewSkillById}
-                    className="border-none bg-transparent p-2 shadow-none md:hover:translate-y-0 md:hover:shadow-none"
-                  />
-                ) : null}
-                <div className="mt-1 flex justify-end gap-2 px-2 pb-2">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h3 className="text-base font-semibold tracking-tight text-foreground">{employee.label}</h3>
+                    <p className="text-xs text-muted-foreground">{employee.id}</p>
+                  </div>
+                </div>
+                <p className="mt-1 text-sm leading-6 text-muted-foreground">{employee.description}</p>
+                <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                  {(catalog.employeeSkillIds[employee.id] ?? []).map((skillId) => (
+                    <span
+                      key={`${employee.id}-${skillId}`}
+                      className="rounded-full border border-border bg-background px-2 py-0.5"
+                    >
+                      {skillLabelById.get(skillId) ?? skillId}
+                    </span>
+                  ))}
+                  {(catalog.employeeSkillIds[employee.id] ?? []).length === 0 ? (
+                    <span className="text-xs text-muted-foreground">No skills assigned yet.</span>
+                  ) : null}
+                </div>
+                <div className="mt-2 flex justify-start gap-2">
                   <button
                     type="button"
                     onClick={() => openEditEmployeeModal(index)}
-                    className="rounded-md border border-border px-2 py-1 text-xs font-medium text-foreground hover:bg-muted"
+                    aria-label={`Edit ${employee.label}`}
+                    className="rounded-md border border-border px-2 py-1 text-foreground hover:bg-muted"
                   >
-                    Edit
+                    <Pencil size={14} />
                   </button>
                   <button
                     type="button"
                     onClick={() => deleteEmployee(index)}
-                    className="rounded-md border border-destructive/40 px-2 py-1 text-xs font-medium text-destructive hover:bg-destructive/10"
+                    aria-label={`Delete ${employee.label}`}
+                    className="rounded-md border border-destructive/50 bg-destructive/10 px-2 py-1 text-destructive hover:bg-destructive/20"
                   >
-                    Delete
+                    <Trash2 size={14} />
                   </button>
                 </div>
-              </section>
+              </article>
             ))}
             {catalog.coreEmployees.length === 0 ? (
               <p className="rounded-md border border-dashed border-border px-3 py-4 text-sm text-muted-foreground">
@@ -502,13 +406,13 @@ export function AdminCatalogEditor() {
 
         <section className="space-y-3 rounded-xl border border-border bg-background p-3">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Tools</h2>
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Skills</h2>
             <button
               type="button"
               onClick={openCreateSkillModal}
               className="rounded-md border border-border px-2.5 py-1 text-xs font-medium text-foreground hover:bg-muted"
             >
-              Add tool
+              Add skill
             </button>
           </div>
           <div className="space-y-2">
@@ -523,7 +427,7 @@ export function AdminCatalogEditor() {
                     <p className="text-xs text-muted-foreground">{skill.id}</p>
                   </div>
                   <ul className="flex flex-wrap justify-end gap-1">
-                    {(previewData.skills.find((item) => item.id === skill.id)?.employeeIds ?? [])
+                    {(skillEmployeeIdsBySkillId.get(skill.id) ?? [])
                       .map((employeeId) => memberNameById.get(employeeId))
                       .filter((name): name is string => Boolean(name))
                       .map((name) => (
@@ -536,40 +440,65 @@ export function AdminCatalogEditor() {
                   </ul>
                 </div>
                 <p className="mt-1 text-sm leading-6 text-muted-foreground">{skill.description}</p>
-                <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                  <span className="rounded-full border border-border bg-background px-2 py-0.5">
-                    runtime: {skill.runtimeTool}
-                  </span>
-                  <span className="rounded-full border border-border bg-background px-2 py-0.5">
-                    required: {skill.requiredParams.length}
-                  </span>
-                  <span className="rounded-full border border-border bg-background px-2 py-0.5">
-                    optional: {skill.optionalParams.length}
-                  </span>
-                </div>
-                <div className="mt-2 flex justify-end gap-2">
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => openEditSkillModal(index)}
-                      className="rounded-md border border-border px-2 py-1 text-xs font-medium text-foreground hover:bg-muted"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => deleteSkill(index)}
-                      className="rounded-md border border-destructive/40 px-2 py-1 text-xs font-medium text-destructive hover:bg-destructive/10"
-                    >
-                      Delete
-                    </button>
+                <div className="mt-2 space-y-2 text-xs text-muted-foreground">
+                  <div className="space-y-1">
+                    <p className="font-medium uppercase tracking-wide text-foreground/80">Required</p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {skill.requiredParams.length > 0 ? (
+                        skill.requiredParams.map((param) => (
+                          <span
+                            key={`${skill.id}-required-${param}`}
+                            className="rounded-full border border-border bg-background px-2 py-0.5"
+                          >
+                            {param}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-muted-foreground">None</span>
+                      )}
+                    </div>
                   </div>
+                  <div className="space-y-1">
+                    <p className="font-medium uppercase tracking-wide text-foreground/80">Optional</p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {skill.optionalParams.length > 0 ? (
+                        skill.optionalParams.map((param) => (
+                          <span
+                            key={`${skill.id}-optional-${param}`}
+                            className="rounded-full border border-border bg-background px-2 py-0.5"
+                          >
+                            {param}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-muted-foreground">None</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-2 flex justify-start gap-2">
+                  <button
+                    type="button"
+                    onClick={() => openEditSkillModal(index)}
+                    aria-label={`Edit ${skill.label}`}
+                    className="rounded-md border border-border px-2 py-1 text-foreground hover:bg-muted"
+                  >
+                    <Pencil size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => deleteSkill(index)}
+                    aria-label={`Delete ${skill.label}`}
+                    className="rounded-md border border-destructive/50 bg-destructive/10 px-2 py-1 text-destructive hover:bg-destructive/20"
+                  >
+                    <Trash2 size={14} />
+                  </button>
                 </div>
               </article>
             ))}
             {catalog.skills.length === 0 ? (
               <p className="rounded-md border border-dashed border-border px-3 py-4 text-sm text-muted-foreground">
-                No tools yet.
+                No skills yet.
               </p>
             ) : null}
           </div>
@@ -579,7 +508,7 @@ export function AdminCatalogEditor() {
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
         <span>Status: {statusText || "Idle"}</span>
         <span>Employees: {catalog.coreEmployees.length}</span>
-        <span>Tools: {catalog.skills.length}</span>
+        <span>Skills: {catalog.skills.length}</span>
       </div>
 
       {employeeModal ? (
@@ -646,7 +575,7 @@ export function AdminCatalogEditor() {
           <div className="w-full max-w-xl space-y-3 rounded-xl border border-border bg-card p-4">
             <div className="flex items-center justify-between">
               <h3 className="text-base font-semibold text-foreground">
-                {skillModal.mode === "create" ? "Add tool" : "Edit tool"}
+                {skillModal.mode === "create" ? "Add skill" : "Edit skill"}
               </h3>
               <button
                 type="button"
@@ -785,58 +714,3 @@ function normalizeCatalog(input: CapabilityCatalog): CapabilityCatalog {
   };
 }
 
-function catalogToPreviewData(input: CapabilityCatalog): { members: TeamMember[]; skills: AdminSkill[] } {
-  const members: TeamMember[] = input.coreEmployees.map((employee) => {
-    const employeeID = employee.id.trim().toLowerCase();
-    const roleTitle = roleTitleForEmployee(employeeID);
-    const skillIds = [...(input.employeeSkillIds[employeeID] ?? [])];
-    return {
-      id: employeeID,
-      displayName: employee.label,
-      botDisplayName: employee.label,
-      lane: "general",
-      roleTitle,
-      shortDescription: employee.description,
-      longDescription: employee.description,
-      backgroundColor: "#000000",
-      status: "active",
-      sourceManifest: "redis:makeacompany:catalog",
-      skillIds,
-    };
-  });
-
-  const skillEmployeeMap = new Map<string, string[]>();
-  for (const member of members) {
-    for (const skillID of member.skillIds) {
-      const list = skillEmployeeMap.get(skillID) ?? [];
-      list.push(member.id);
-      skillEmployeeMap.set(skillID, list);
-    }
-  }
-
-  const skills: AdminSkill[] = input.skills.map((skill) => ({
-    id: skill.id,
-    label: skill.label,
-    description: skill.description,
-    employeeIds: skillEmployeeMap.get(skill.id) ?? [],
-  }));
-
-  return { members, skills };
-}
-
-function roleTitleForEmployee(employeeID: string): string {
-  switch (employeeID) {
-    case "alex":
-      return "Head of Sales";
-    case "tim":
-      return "Head of Simplifying";
-    case "ross":
-      return "Head of Automation";
-    case "garth":
-      return "Head of Interns";
-    case "joanne":
-      return "Head of Executive Operations";
-    default:
-      return "AI Employee";
-  }
-}
