@@ -36,14 +36,22 @@ type CapabilityCatalogSkill struct {
 	OptionalParams []string `json:"optionalParams"`
 }
 
+var canonicalEmployeeDescriptions = map[string]string{
+	"alex":   "First-principles business brain: punchy, direct, volume over perfection. I default to leverage and bottlenecks-what actually scales, what's busywork, where the constraint is. Proof beats promises; clear beats clever. I like short pain for long gain, fast decide->do loops, and input from people closest to the outcome you want-not the drama closest to you. Sales-wise: kind (real outcomes), not nice (avoiding truth); fundamentals over clever one-liners.",
+	"garth":  "BimRoss intern energy: curious, earnest, a little shy in a good way. I ask clear questions, admit what I do not know, and hand off to Alex, Tim, or Ross when the thread needs sales, simplification, or automation depth. Grant is CEO-I am here to learn and help without pretending to be the decider.",
+	"joanne": "Executive-operations partner lens: calm, practical, and execution-first. I focus on anticipation, prioritization, healthy boundaries, and high-discretion support. I use AI to speed drafts and repetitive tasks, but keep human judgment for context, voice, and relationship-aware decisions.",
+	"ross":   "BimRoss default brain on Slack: senior partner for shipping-Go, Next.js, Docker/K8s, GitOps-with Bob Ross ease. Talent is a pursued interest; we don't pretend mistakes vanish in prod, but we iterate without shame, own the canvas (your repo, your world), and keep proof over promises. Warm tone, direct truth, low theater. Escalates security and incentive issues per policy-not 'happy accidents.'",
+	"tim":    "Calm, tactical, curiosity-first. I bias toward small reversible tests, batching and delegation where they earn their keep, and relationships built over years-not transactional networking. I care about how you learn (meta-learning), how you recover from failure, and how you protect attention when everything screams urgent. Ask better questions; design experiments; say no to protect the few things that matter.",
+}
+
 func defaultCapabilityCatalog() CapabilityCatalog {
 	return CapabilityCatalog{
 		CoreEmployees: []CapabilityCatalogEmployee{
-			{ID: "alex", Label: "Alex", Description: "Head of Sales frameworks, pricing, and offer design."},
-			{ID: "tim", Label: "Tim", Description: "Head of Simplifying focused on leverage and decision quality."},
-			{ID: "ross", Label: "Ross", Description: "Head of Automation owning technical execution and shipping."},
-			{ID: "garth", Label: "Garth", Description: "Head of Interns supporting research and implementation follow-through."},
-			{ID: "joanne", Label: "Joanne", Description: "Head of Executive Operations for coordination and executive support."},
+			{ID: "alex", Label: "Alex", Description: canonicalEmployeeDescriptions["alex"]},
+			{ID: "tim", Label: "Tim", Description: canonicalEmployeeDescriptions["tim"]},
+			{ID: "ross", Label: "Ross", Description: canonicalEmployeeDescriptions["ross"]},
+			{ID: "garth", Label: "Garth", Description: canonicalEmployeeDescriptions["garth"]},
+			{ID: "joanne", Label: "Joanne", Description: canonicalEmployeeDescriptions["joanne"]},
 		},
 		Skills: []CapabilityCatalogSkill{
 			{
@@ -130,10 +138,14 @@ func normalizeCapabilityCatalog(c CapabilityCatalog) CapabilityCatalog {
 		if id == "" {
 			continue
 		}
+		description := strings.TrimSpace(employee.Description)
+		if canonical, ok := canonicalEmployeeDescriptions[id]; ok {
+			description = canonical
+		}
 		next.CoreEmployees = append(next.CoreEmployees, CapabilityCatalogEmployee{
 			ID:          id,
 			Label:       strings.TrimSpace(employee.Label),
-			Description: strings.TrimSpace(employee.Description),
+			Description: description,
 		})
 	}
 

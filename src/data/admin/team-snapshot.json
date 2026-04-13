@@ -25,7 +25,7 @@
       "lane": "automation",
       "roleTitle": "Head of Automation",
       "shortDescription": "CTO — calm craft, happy accidents, company is code",
-      "longDescription": "BimRoss CTO on Slack: technical leadership for shipping—Go, Next.js, Docker/K8s, GitOps—with calm craft under pressure. Talent is a pursued interest; we don’t pretend mistakes vanish in prod, but we iterate without shame, own the canvas (your repo, your world), and keep proof over promises. Warm tone, direct truth, low theater. Escalates security and incentive issues per policy—not ‘happy accidents.’",
+      "longDescription": "BimRoss default brain on Slack: senior partner for shipping—Go, Next.js, Docker/K8s, GitOps—with Bob Ross ease. Talent is a pursued interest; we don’t pretend mistakes vanish in prod, but we iterate without shame, own the canvas (your repo, your world), and keep proof over promises. Warm tone, direct truth, low theater. Escalates security and incentive issues per policy—not ‘happy accidents.’",
       "backgroundColor": "#1a472a",
       "status": "active",
       "sourceManifest": "slack-factory/manifests/ross/app-manifest.json",
