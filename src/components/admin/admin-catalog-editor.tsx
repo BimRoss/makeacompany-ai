@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Pencil, Trash2 } from "lucide-react";
+import skillsSnapshot from "@/data/admin/skills-snapshot.json";
+import teamSnapshot from "@/data/admin/team-snapshot.json";
 import type {
   CapabilityCatalog,
   CapabilityCatalogEmployee,
@@ -10,9 +12,24 @@ import type {
 
 type LoadState = "idle" | "loading" | "saving" | "error" | "ready";
 
-type EmployeeModalState = { mode: "edit"; index: number } | null;
+type EmployeeModalState = { mode: "create" } | { mode: "edit"; index: number } | null;
 type SkillModalState = { mode: "create" } | { mode: "edit"; index: number } | null;
+type DeleteSkillModalState = { index: number } | null;
 type EmployeeDraft = CapabilityCatalogEmployee & { skillIds: string[] };
+type TeamSnapshotEmployee = {
+  id: string;
+  displayName?: string;
+  botDisplayName?: string;
+  shortDescription?: string;
+  longDescription?: string;
+  skillIds?: string[];
+};
+type TeamSnapshotData = { employees: TeamSnapshotEmployee[] };
+type SkillsSnapshotSkill = { id: string; label?: string; description?: string };
+type SkillsSnapshotData = { skills: SkillsSnapshotSkill[] };
+
+const typedTeamSnapshot = teamSnapshot as TeamSnapshotData;
+const typedSkillsSnapshot = skillsSnapshot as SkillsSnapshotData;
 
 export function AdminCatalogEditor() {
   const [state, setState] = useState<LoadState>("idle");
@@ -49,6 +66,7 @@ export function AdminCatalogEditor() {
 
   const [employeeModal, setEmployeeModal] = useState<EmployeeModalState>(null);
   const [skillModal, setSkillModal] = useState<SkillModalState>(null);
+  const [deleteSkillModal, setDeleteSkillModal] = useState<DeleteSkillModalState>(null);
   const [employeeDraft, setEmployeeDraft] = useState<EmployeeDraft>({
     id: "",
     label: "",
@@ -88,42 +106,43 @@ export function AdminCatalogEditor() {
     [catalog.employeeSkillIds]
   );
 
-  async function saveCatalog() {
-    setState("saving");
-    setStatusText("Saving catalog to Redis...");
-    try {
-      const normalized = normalizeCatalog(catalog);
-      const response = await fetch("/api/admin/catalog", {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(normalized),
-      });
-      const payload = await response.json().catch(() => null);
-      if (!response.ok || !payload) {
-        setState("error");
-        const errorText =
-          typeof payload === "object" && payload && "error" in payload && typeof payload.error === "string"
-            ? payload.error
-            : "Save failed. Check token and payload shape.";
-        setStatusText(errorText);
-        return;
-      }
-      setCatalog(normalizeCatalog(payload as CapabilityCatalog));
-      setState("ready");
-      setStatusText("Catalog saved to Redis.");
-    } catch {
-      setState("error");
-      setStatusText("Save failed.");
-    }
-  }
-
   async function logout() {
     try {
       await fetch("/api/admin/auth/logout", { method: "POST" });
     } finally {
       window.location.href = "/admin/login";
+    }
+  }
+
+  async function persistCatalog(next: CapabilityCatalog, successMessage: string) {
+    setState("saving");
+    setStatusText("Saving catalog to Redis...");
+    try {
+      const response = await fetch("/api/admin/catalog", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(normalizeCatalog(next)),
+      });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok || !payload) {
+        const errorText =
+          typeof payload === "object" && payload && "error" in payload && typeof payload.error === "string"
+            ? payload.error
+            : "Save failed. Check backend catalog endpoint.";
+        setState("error");
+        setStatusText(errorText);
+        return false;
+      }
+      setCatalog(normalizeCatalog(payload as CapabilityCatalog));
+      setState("ready");
+      setStatusText(successMessage);
+      return true;
+    } catch {
+      setState("error");
+      setStatusText("Save failed.");
+      return false;
     }
   }
 
@@ -139,28 +158,57 @@ export function AdminCatalogEditor() {
     setEmployeeModal({ mode: "edit", index });
   }
 
-  function saveEmployeeDraft() {
+  function openCreateEmployeeModal() {
+    setEmployeeDraft({
+      id: "",
+      label: "",
+      description: "",
+      skillIds: [],
+    });
+    setEmployeeModal({ mode: "create" });
+  }
+
+  async function saveEmployeeDraft() {
     const draft = normalizeEmployee(employeeDraft);
     if (!draft.id) {
       setStatusText("Employee record is invalid.");
       setState("error");
       return;
     }
+    if (!draft.label || !draft.description) {
+      setStatusText("Employee id, name, and description are required.");
+      setState("error");
+      return;
+    }
 
-    setCatalog((current) => {
-      const nextSkillMap: Record<string, string[]> = { ...current.employeeSkillIds };
-      if (employeeModal?.mode === "edit" && current.coreEmployees[employeeModal.index]) {
-        nextSkillMap[draft.id] = [...new Set(employeeDraft.skillIds.map((id) => id.trim()).filter(Boolean))].sort();
+    const nextEmployees = [...catalog.coreEmployees];
+    const nextSkillMap: Record<string, string[]> = { ...catalog.employeeSkillIds };
+    if (employeeModal?.mode === "edit" && catalog.coreEmployees[employeeModal.index]) {
+      nextEmployees[employeeModal.index] = draft;
+      nextSkillMap[draft.id] = [...new Set(employeeDraft.skillIds.map((id) => id.trim()).filter(Boolean))].sort();
+    } else if (employeeModal?.mode === "create") {
+      const duplicateEmployee = nextEmployees.some((employee) => employee.id === draft.id);
+      if (duplicateEmployee) {
+        setStatusText(`Employee id '${draft.id}' already exists.`);
+        setState("error");
+        return;
       }
-      return {
-        ...current,
-        employeeSkillIds: nextSkillMap,
-      };
-    });
+      nextEmployees.push(draft);
+      nextSkillMap[draft.id] = [...new Set(employeeDraft.skillIds.map((id) => id.trim()).filter(Boolean))].sort();
+    }
 
-    setEmployeeModal(null);
-    setState("ready");
-    setStatusText("Employee skills updated. Save to Redis when ready.");
+    const nextCatalog: CapabilityCatalog = {
+      ...catalog,
+      coreEmployees: nextEmployees,
+      employeeSkillIds: nextSkillMap,
+    };
+    const success = await persistCatalog(
+      nextCatalog,
+      employeeModal?.mode === "create" ? "Employee added and synced to Redis." : "Employee updated and synced to Redis."
+    );
+    if (success) {
+      setEmployeeModal(null);
+    }
   }
 
   function toggleEmployeeDraftSkill(skillId: string) {
@@ -203,7 +251,7 @@ export function AdminCatalogEditor() {
     setSkillModal({ mode: "edit", index });
   }
 
-  function saveSkillDraft() {
+  async function saveSkillDraft() {
     const requiredParams = normalizeParamsList(requiredParamsInput);
     const optionalParams = normalizeParamsList(optionalParamsInput);
     const overlap = new Set(requiredParams);
@@ -236,83 +284,80 @@ export function AdminCatalogEditor() {
       return;
     }
 
-    setCatalog((current) => {
-      const nextSkills = [...current.skills];
-
-      if (skillModal?.mode === "edit") {
-        const previousSkillID = nextSkills[skillModal.index]?.id ?? "";
-        nextSkills[skillModal.index] = draft;
-        if (previousSkillID && previousSkillID !== draft.id) {
-          const nextSkillMap: Record<string, string[]> = {};
-          for (const [employeeID, skillIDs] of Object.entries(current.employeeSkillIds)) {
-            nextSkillMap[employeeID] = (skillIDs ?? []).map((id) => (id === previousSkillID ? draft.id : id));
-          }
-          return { ...current, skills: nextSkills, employeeSkillIds: nextSkillMap };
+    const nextSkills = [...catalog.skills];
+    let nextSkillMap: Record<string, string[]> = { ...catalog.employeeSkillIds };
+    if (skillModal?.mode === "edit") {
+      const previousSkillID = nextSkills[skillModal.index]?.id ?? "";
+      nextSkills[skillModal.index] = draft;
+      if (previousSkillID && previousSkillID !== draft.id) {
+        const remapped: Record<string, string[]> = {};
+        for (const [employeeID, skillIDs] of Object.entries(catalog.employeeSkillIds)) {
+          remapped[employeeID] = (skillIDs ?? []).map((id) => (id === previousSkillID ? draft.id : id));
         }
-      } else {
-        nextSkills.push(draft);
+        nextSkillMap = remapped;
       }
+    } else {
+      nextSkills.push(draft);
+    }
 
-      return { ...current, skills: nextSkills };
-    });
-
-    setSkillModal(null);
-    setState("ready");
-    setStatusText("Skill draft updated. Save to Redis when ready.");
+    const nextCatalog: CapabilityCatalog = {
+      ...catalog,
+      skills: nextSkills,
+      employeeSkillIds: nextSkillMap,
+    };
+    const success = await persistCatalog(nextCatalog, "Skill updated and synced to Redis.");
+    if (success) {
+      setSkillModal(null);
+    }
   }
 
-  function deleteSkill(index: number) {
-    setCatalog((current) => {
-      const removed = current.skills[index];
-      if (!removed) return current;
-      const nextSkills = current.skills.filter((_, i) => i !== index);
-      const nextSkillMap: Record<string, string[]> = {};
-      for (const [employeeID, skillIDs] of Object.entries(current.employeeSkillIds)) {
-        nextSkillMap[employeeID] = (skillIDs ?? []).filter((id) => id !== removed.id);
-      }
-      return {
-        ...current,
-        skills: nextSkills,
-        employeeSkillIds: nextSkillMap,
-      };
-    });
-    setState("ready");
-    setStatusText("Skill removed from local draft. Save to Redis when ready.");
+  function openDeleteSkillModal(index: number) {
+    const skill = catalog.skills[index];
+    if (!skill) return;
+    setDeleteSkillModal({ index });
+  }
+
+  async function syncCatalogFromSlack() {
+    const synced = buildCatalogFromSlackSnapshot(catalog);
+    await persistCatalog(synced, "Synced from Slack snapshots and saved to Redis.");
+  }
+
+  async function confirmDeleteSkill() {
+    const index = deleteSkillModal?.index ?? -1;
+    if (index < 0) return;
+    const removed = catalog.skills[index];
+    if (!removed) return;
+    const nextSkills = catalog.skills.filter((_, i) => i !== index);
+    const nextSkillMap: Record<string, string[]> = {};
+    for (const [employeeID, skillIDs] of Object.entries(catalog.employeeSkillIds)) {
+      nextSkillMap[employeeID] = (skillIDs ?? []).filter((id) => id !== removed.id);
+    }
+    const nextCatalog: CapabilityCatalog = {
+      ...catalog,
+      skills: nextSkills,
+      employeeSkillIds: nextSkillMap,
+    };
+    const success = await persistCatalog(nextCatalog, "Skill removed and synced to Redis.");
+    if (success) {
+      setDeleteSkillModal(null);
+    }
   }
 
   return (
-    <section className="space-y-4 rounded-2xl border border-border bg-card p-4 sm:p-5">
-      <div className="flex flex-wrap justify-end gap-2">
-        <button
-          type="button"
-          onClick={() => void loadCatalog()}
-          className="rounded-md border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
-          disabled={state === "loading" || state === "saving"}
-        >
-          Refresh
-        </button>
-        <button
-          type="button"
-          onClick={() => void saveCatalog()}
-          className="rounded-md bg-foreground px-3 py-2 text-sm font-medium text-background hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-          disabled={state === "loading" || state === "saving"}
-        >
-          Save to Redis
-        </button>
-        <button
-          type="button"
-          onClick={() => void logout()}
-          className="rounded-md border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
-        >
-          Logout
-        </button>
-      </div>
-
+    <section className="space-y-4 rounded-2xl bg-card px-4 pb-4 pt-0 sm:px-5 sm:pb-5 sm:pt-0">
       <div className="grid gap-4 lg:grid-cols-2">
-        <section className="space-y-3 rounded-xl border border-border bg-background p-3">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Employees</h2>
-            <span className="text-xs text-muted-foreground">Managed from Slack catalog</span>
+        <section className="relative space-y-3 rounded-xl bg-background/70 p-3 pt-6">
+          <div className="flex items-center justify-between gap-3">
+            <div className="inline-flex -mt-2 items-center rounded-md border border-border bg-card px-3 py-2 shadow-sm">
+              <h2 className="text-sm font-semibold uppercase tracking-[0.16em] text-muted-foreground">Employees</h2>
+            </div>
+            <button
+              type="button"
+              onClick={openCreateEmployeeModal}
+              className="rounded-md border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
+            >
+              Add employee
+            </button>
           </div>
           <div className="space-y-2">
             {catalog.coreEmployees.map((employee, index) => (
@@ -321,25 +366,30 @@ export function AdminCatalogEditor() {
                 className="employees-card-motion rounded-xl border border-border bg-card px-3 pb-1.5 pt-3 shadow-sm motion-colors sm:px-4 sm:pb-2 sm:pt-4 md:cursor-pointer md:hover:shadow-md"
               >
                 <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <h3 className="text-base font-semibold tracking-tight text-foreground">{employee.label}</h3>
+                  <div className="space-y-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="text-base font-semibold tracking-tight text-foreground">{employee.label}</h3>
+                      {(catalog.employeeSkillIds[employee.id] ?? []).map((skillId) => (
+                        <span
+                          key={`${employee.id}-${skillId}-desktop`}
+                          className="hidden rounded-full border border-foreground/20 bg-foreground px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-background sm:inline-flex"
+                        >
+                          {skillLabelById.get(skillId) ?? skillId}
+                        </span>
+                      ))}
+                      {(catalog.employeeSkillIds[employee.id] ?? [])[0] ? (
+                        <span className="inline-flex rounded-full border border-foreground/20 bg-foreground px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-background sm:hidden">
+                          {skillLabelById.get((catalog.employeeSkillIds[employee.id] ?? [])[0] ?? "") ??
+                            (catalog.employeeSkillIds[employee.id] ?? [])[0]}
+                        </span>
+                      ) : null}
+                      {(catalog.employeeSkillIds[employee.id] ?? []).length > 1 ? (
+                        <span className="inline-flex rounded-full border border-border bg-background px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground sm:hidden">
+                          +{(catalog.employeeSkillIds[employee.id] ?? []).length - 1}
+                        </span>
+                      ) : null}
+                    </div>
                   </div>
-                </div>
-                <p className="mt-1 text-sm leading-6 text-muted-foreground">{employee.description}</p>
-                <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                  {(catalog.employeeSkillIds[employee.id] ?? []).map((skillId) => (
-                    <span
-                      key={`${employee.id}-${skillId}`}
-                      className="inline-flex rounded-full border border-foreground/20 bg-foreground px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-background"
-                    >
-                      {skillLabelById.get(skillId) ?? skillId}
-                    </span>
-                  ))}
-                  {(catalog.employeeSkillIds[employee.id] ?? []).length === 0 ? (
-                    <span className="text-xs text-muted-foreground">No skills assigned yet.</span>
-                  ) : null}
-                </div>
-                <div className="mt-2 flex justify-start gap-2">
                   <button
                     type="button"
                     onClick={() => openEditEmployeeModal(index)}
@@ -349,23 +399,31 @@ export function AdminCatalogEditor() {
                     <Pencil size={14} />
                   </button>
                 </div>
+                <p className="mt-1 text-sm leading-6 text-muted-foreground">{employee.description}</p>
+                <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                  {(catalog.employeeSkillIds[employee.id] ?? []).length === 0 ? (
+                    <span className="text-xs text-muted-foreground">No skills assigned yet.</span>
+                  ) : null}
+                </div>
               </article>
             ))}
             {catalog.coreEmployees.length === 0 ? (
-              <p className="rounded-md border border-dashed border-border px-3 py-4 text-sm text-muted-foreground">
+              <p className="rounded-md bg-muted/30 px-3 py-4 text-sm text-muted-foreground">
                 No employees yet.
               </p>
             ) : null}
           </div>
         </section>
 
-        <section className="space-y-3 rounded-xl border border-border bg-background p-3">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Skills</h2>
+        <section className="relative space-y-3 rounded-xl bg-background/70 p-3 pt-6">
+          <div className="flex items-center justify-between gap-3">
+            <div className="inline-flex -mt-2 items-center rounded-md border border-border bg-card px-3 py-2 shadow-sm">
+              <h2 className="text-sm font-semibold uppercase tracking-[0.16em] text-muted-foreground">Skills</h2>
+            </div>
             <button
               type="button"
               onClick={openCreateSkillModal}
-              className="rounded-md border border-border px-2.5 py-1 text-xs font-medium text-foreground hover:bg-muted"
+              className="rounded-md border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
             >
               Add skill
             </button>
@@ -377,22 +435,41 @@ export function AdminCatalogEditor() {
                 className="employees-card-motion rounded-xl border border-border bg-card px-3 pb-1.5 pt-3 shadow-sm motion-colors sm:px-4 sm:pb-2 sm:pt-4 md:cursor-pointer md:hover:shadow-md"
               >
                 <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <h3 className="text-base font-semibold tracking-tight text-foreground">{skill.label}</h3>
-                    <p className="text-xs text-muted-foreground">{skill.id}</p>
-                  </div>
-                  <ul className="flex flex-wrap justify-end gap-1">
-                    {(skillEmployeeIdsBySkillId.get(skill.id) ?? [])
-                      .map((employeeId) => memberNameById.get(employeeId))
-                      .filter((name): name is string => Boolean(name))
-                      .map((name) => (
-                        <li key={`${skill.id}-${name}`}>
-                          <span className="inline-flex rounded-full border border-foreground/20 bg-foreground px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-background">
+                  <div className="space-y-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="text-base font-semibold tracking-tight text-foreground">{skill.label}</h3>
+                      {(skillEmployeeIdsBySkillId.get(skill.id) ?? [])
+                        .map((employeeId) => memberNameById.get(employeeId))
+                        .filter((name): name is string => Boolean(name))
+                        .map((name) => (
+                          <span
+                            key={`${skill.id}-${name}`}
+                            className="inline-flex rounded-full border border-foreground/20 bg-foreground px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-background"
+                          >
                             {name}
                           </span>
-                        </li>
-                      ))}
-                  </ul>
+                        ))}
+                    </div>
+                    <p className="text-xs text-muted-foreground">{skill.id}</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => openEditSkillModal(index)}
+                      aria-label={`Edit ${skill.label}`}
+                      className="rounded-md border border-border px-2 py-1 text-foreground hover:bg-muted"
+                    >
+                      <Pencil size={14} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => openDeleteSkillModal(index)}
+                      aria-label={`Delete ${skill.label}`}
+                      className="rounded-md border border-border px-2 py-1 text-muted-foreground transition-colors md:hover:border-destructive/50 md:hover:bg-destructive/10 md:hover:text-destructive"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
                 </div>
                 <p className="mt-1 text-sm leading-6 text-muted-foreground">{skill.description}</p>
                 <div className="mt-2 space-y-2 text-xs text-muted-foreground">
@@ -431,28 +508,10 @@ export function AdminCatalogEditor() {
                     </div>
                   </div>
                 </div>
-                <div className="mt-2 flex justify-start gap-2">
-                  <button
-                    type="button"
-                    onClick={() => openEditSkillModal(index)}
-                    aria-label={`Edit ${skill.label}`}
-                    className="rounded-md border border-border px-2 py-1 text-foreground hover:bg-muted"
-                  >
-                    <Pencil size={14} />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => deleteSkill(index)}
-                    aria-label={`Delete ${skill.label}`}
-                    className="rounded-md border border-border px-2 py-1 text-muted-foreground transition-colors md:hover:border-destructive/50 md:hover:bg-destructive/10 md:hover:text-destructive"
-                  >
-                    <Trash2 size={14} />
-                  </button>
-                </div>
               </article>
             ))}
             {catalog.skills.length === 0 ? (
-              <p className="rounded-md border border-dashed border-border px-3 py-4 text-sm text-muted-foreground">
+              <p className="rounded-md bg-muted/30 px-3 py-4 text-sm text-muted-foreground">
                 No skills yet.
               </p>
             ) : null}
@@ -460,38 +519,59 @@ export function AdminCatalogEditor() {
         </section>
       </div>
 
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-        <span>Status: {statusText || "Idle"}</span>
-        <span>Employees: {catalog.coreEmployees.length}</span>
-        <span>Skills: {catalog.skills.length}</span>
+      <div className="flex flex-wrap items-end justify-end gap-3">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => void syncCatalogFromSlack()}
+            className="rounded-md bg-foreground px-3 py-2 text-sm font-medium text-background hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={state === "loading" || state === "saving"}
+          >
+            Sync from Slack
+          </button>
+          <button
+            type="button"
+            onClick={() => void logout()}
+            className="rounded-md border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
+          >
+            Admin logout
+          </button>
+        </div>
       </div>
 
       {employeeModal ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
           <div className="w-full max-w-lg space-y-3 rounded-xl border border-border bg-card p-4">
-            <h3 className="text-base font-semibold text-foreground">Manage employee skills</h3>
+            <h3 className="text-base font-semibold text-foreground">
+              {employeeModal.mode === "create" ? "Add employee" : "Manage employee skills"}
+            </h3>
             <label className="space-y-1">
               <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">ID</span>
               <input
                 value={employeeDraft.id}
-                readOnly
-                className="w-full rounded-md border border-border bg-muted px-3 py-2 text-sm text-muted-foreground outline-none"
+                onChange={(event) => setEmployeeDraft((prev) => ({ ...prev, id: event.target.value }))}
+                readOnly={employeeModal.mode === "edit"}
+                className={
+                  employeeModal.mode === "edit"
+                    ? "w-full rounded-md border border-border bg-muted px-3 py-2 text-sm text-muted-foreground outline-none"
+                    : "w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-foreground/40"
+                }
               />
             </label>
             <label className="space-y-1">
               <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Name</span>
               <input
                 value={employeeDraft.label}
-                readOnly
-                className="w-full rounded-md border border-border bg-muted px-3 py-2 text-sm text-muted-foreground outline-none"
+                onChange={(event) => setEmployeeDraft((prev) => ({ ...prev, label: event.target.value }))}
+                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-foreground/40"
               />
             </label>
             <label className="space-y-1">
               <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Description</span>
               <textarea
                 value={employeeDraft.description}
-                readOnly
-                className="h-24 w-full rounded-md border border-border bg-muted px-3 py-2 text-sm text-muted-foreground outline-none"
+                onChange={(event) => setEmployeeDraft((prev) => ({ ...prev, description: event.target.value }))}
+                className="h-24 w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-foreground/40"
               />
             </label>
             <div className="space-y-1">
@@ -529,6 +609,7 @@ export function AdminCatalogEditor() {
                 type="button"
                 onClick={saveEmployeeDraft}
                 className="rounded-md bg-foreground px-3 py-2 text-sm font-medium text-background hover:opacity-90"
+                disabled={state === "saving" || state === "loading"}
               >
                 Save draft
               </button>
@@ -611,8 +692,37 @@ export function AdminCatalogEditor() {
                 type="button"
                 onClick={saveSkillDraft}
                 className="rounded-md bg-foreground px-3 py-2 text-sm font-medium text-background hover:opacity-90"
+                disabled={state === "saving" || state === "loading"}
               >
                 Save draft
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {deleteSkillModal ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
+          <div className="w-full max-w-md space-y-3 rounded-xl border border-border bg-card p-4">
+            <h3 className="text-base font-semibold text-foreground">Delete skill?</h3>
+            <p className="text-sm text-muted-foreground">
+              This will remove the skill from the catalog and unassign it from any employees currently using it.
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setDeleteSkillModal(null)}
+                className="rounded-md border border-border px-3 py-2 text-sm text-foreground hover:bg-muted"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmDeleteSkill}
+                className="rounded-md bg-destructive px-3 py-2 text-sm font-medium text-destructive-foreground hover:opacity-90"
+                disabled={state === "saving" || state === "loading"}
+              >
+                Delete skill
               </button>
             </div>
           </div>
@@ -737,5 +847,87 @@ function normalizeCatalog(input: CapabilityCatalog): CapabilityCatalog {
     updatedAt: input.updatedAt,
     source: input.source,
   };
+}
+
+function buildCatalogFromSlackSnapshot(current: CapabilityCatalog): CapabilityCatalog {
+  const snapshotEmployees = typedTeamSnapshot.employees ?? [];
+  const snapshotSkills = typedSkillsSnapshot.skills ?? [];
+
+  const skillMetaById = new Map(
+    snapshotSkills
+      .map((skill) => {
+        const id = normalizeSkillID(skill.id ?? "");
+        if (!id) return null;
+        return [id, skill] as const;
+      })
+      .filter((entry): entry is readonly [string, SkillsSnapshotSkill] => Boolean(entry))
+  );
+
+  const normalizedSkills = current.skills.map((skill) => {
+    const snapshotSkill = skillMetaById.get(skill.id);
+    if (!snapshotSkill) return skill;
+    return {
+      ...skill,
+      label: snapshotSkill.label?.trim() || skill.label,
+      description: snapshotSkill.description?.trim() || skill.description,
+    };
+  });
+
+  const knownSkillIds = new Set(normalizedSkills.map((skill) => skill.id));
+  const nextEmployees: CapabilityCatalogEmployee[] = [];
+  const nextEmployeeSkillIds: Record<string, string[]> = {};
+  const seenEmployeeIds = new Set<string>();
+
+  for (const employee of snapshotEmployees) {
+    const id = String(employee.id ?? "").trim().toLowerCase();
+    if (!id || seenEmployeeIds.has(id)) continue;
+    seenEmployeeIds.add(id);
+
+    const fallback = current.coreEmployees.find((member) => member.id === id);
+    const label =
+      String(employee.displayName ?? "").trim() ||
+      String(employee.botDisplayName ?? "").trim() ||
+      fallback?.label ||
+      id;
+    const description =
+      String(employee.longDescription ?? "").trim() ||
+      String(employee.shortDescription ?? "").trim() ||
+      fallback?.description ||
+      "AI teammate";
+
+    nextEmployees.push({ id, label, description });
+
+    const snapshotSkillIds = Array.isArray(employee.skillIds) ? employee.skillIds : [];
+    const mergedSkillIds = snapshotSkillIds
+      .map((value) => normalizeSkillID(String(value ?? "")))
+      .filter((skillId) => Boolean(skillId) && knownSkillIds.has(skillId));
+    nextEmployeeSkillIds[id] = [...new Set(mergedSkillIds)].sort();
+  }
+
+  for (const employee of current.coreEmployees) {
+    const id = String(employee.id ?? "").trim().toLowerCase();
+    if (!id || seenEmployeeIds.has(id)) continue;
+    seenEmployeeIds.add(id);
+    nextEmployees.push(employee);
+
+    const existingSkillIds = current.employeeSkillIds[id] ?? [];
+    nextEmployeeSkillIds[id] = [
+      ...new Set(
+        existingSkillIds
+          .map((value) => normalizeSkillID(String(value ?? "")))
+          .filter((skillId) => Boolean(skillId) && knownSkillIds.has(skillId))
+      ),
+    ].sort();
+  }
+
+  const next: CapabilityCatalog = {
+    ...current,
+    coreEmployees: nextEmployees,
+    skills: normalizedSkills,
+    employeeSkillIds: nextEmployeeSkillIds,
+    source: "slack_snapshot_sync",
+  };
+
+  return normalizeCatalog(next);
 }
 
