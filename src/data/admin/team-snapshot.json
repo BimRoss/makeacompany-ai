@@ -15,7 +15,7 @@
       "sourceManifest": "slack-factory/manifests/joanne/app-manifest.json",
       "skillIds": [
         "write-email",
-        "write-docs"
+        "write-doc"
       ]
     },
     {
@@ -29,9 +29,7 @@
       "backgroundColor": "#1a472a",
       "status": "active",
       "sourceManifest": "slack-factory/manifests/ross/app-manifest.json",
-      "skillIds": [
-        "read-server"
-      ]
+      "skillIds": []
     },
     {
       "id": "alex",

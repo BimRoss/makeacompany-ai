@@ -10,11 +10,9 @@ import type {
 
 type LoadState = "idle" | "loading" | "saving" | "error" | "ready";
 
-type EmployeeModalState =
-  | { mode: "create" }
-  | { mode: "edit"; index: number }
-  | null;
+type EmployeeModalState = { mode: "edit"; index: number } | null;
 type SkillModalState = { mode: "create" } | { mode: "edit"; index: number } | null;
+type EmployeeDraft = CapabilityCatalogEmployee & { skillIds: string[] };
 
 export function AdminCatalogEditor() {
   const [state, setState] = useState<LoadState>("idle");
@@ -51,10 +49,11 @@ export function AdminCatalogEditor() {
 
   const [employeeModal, setEmployeeModal] = useState<EmployeeModalState>(null);
   const [skillModal, setSkillModal] = useState<SkillModalState>(null);
-  const [employeeDraft, setEmployeeDraft] = useState<CapabilityCatalogEmployee>({
+  const [employeeDraft, setEmployeeDraft] = useState<EmployeeDraft>({
     id: "",
     label: "",
     description: "",
+    skillIds: [],
   });
   const [skillDraft, setSkillDraft] = useState<CapabilityCatalogSkill>({
     id: "",
@@ -128,11 +127,6 @@ export function AdminCatalogEditor() {
     }
   }
 
-  function openCreateEmployeeModal() {
-    setEmployeeDraft({ id: "", label: "", description: "" });
-    setEmployeeModal({ mode: "create" });
-  }
-
   function openEditEmployeeModal(index: number) {
     const employee = catalog.coreEmployees[index];
     if (!employee) return;
@@ -140,67 +134,43 @@ export function AdminCatalogEditor() {
       id: employee.id,
       label: employee.label,
       description: employee.description,
+      skillIds: [...(catalog.employeeSkillIds[employee.id] ?? [])],
     });
     setEmployeeModal({ mode: "edit", index });
   }
 
   function saveEmployeeDraft() {
     const draft = normalizeEmployee(employeeDraft);
-    if (!draft.id || !draft.label || !draft.description) {
-      setStatusText("Employee id, label, and description are required.");
+    if (!draft.id) {
+      setStatusText("Employee record is invalid.");
       setState("error");
-      return;
-    }
-    const replacingIndex = employeeModal?.mode === "edit" ? employeeModal.index : -1;
-    const duplicateIndex = catalog.coreEmployees.findIndex((item) => item.id === draft.id);
-    if (duplicateIndex !== -1 && duplicateIndex !== replacingIndex) {
-      setState("error");
-      setStatusText(`Employee id '${draft.id}' already exists.`);
       return;
     }
 
     setCatalog((current) => {
-      const nextEmployees = [...current.coreEmployees];
-
-      if (employeeModal?.mode === "edit") {
-        nextEmployees[employeeModal.index] = draft;
-      } else {
-        nextEmployees.push(draft);
-      }
-
-      const nextSkillMap: Record<string, string[]> = {};
-      for (const employee of nextEmployees) {
-        nextSkillMap[employee.id] = current.employeeSkillIds[employee.id] ?? [];
+      const nextSkillMap: Record<string, string[]> = { ...current.employeeSkillIds };
+      if (employeeModal?.mode === "edit" && current.coreEmployees[employeeModal.index]) {
+        nextSkillMap[draft.id] = [...new Set(employeeDraft.skillIds.map((id) => id.trim()).filter(Boolean))].sort();
       }
       return {
         ...current,
-        coreEmployees: nextEmployees,
         employeeSkillIds: nextSkillMap,
       };
     });
 
     setEmployeeModal(null);
     setState("ready");
-    setStatusText("Employee draft updated. Save to Redis when ready.");
+    setStatusText("Employee skills updated. Save to Redis when ready.");
   }
 
-  function deleteEmployee(index: number) {
-    setCatalog((current) => {
-      const removed = current.coreEmployees[index];
-      if (!removed) return current;
-      const nextEmployees = current.coreEmployees.filter((_, i) => i !== index);
-      const nextSkillMap: Record<string, string[]> = {};
-      for (const employee of nextEmployees) {
-        nextSkillMap[employee.id] = current.employeeSkillIds[employee.id] ?? [];
+  function toggleEmployeeDraftSkill(skillId: string) {
+    setEmployeeDraft((prev) => {
+      const exists = prev.skillIds.includes(skillId);
+      if (exists) {
+        return { ...prev, skillIds: prev.skillIds.filter((id) => id !== skillId) };
       }
-      return {
-        ...current,
-        coreEmployees: nextEmployees,
-        employeeSkillIds: nextSkillMap,
-      };
+      return { ...prev, skillIds: [...prev.skillIds, skillId].sort() };
     });
-    setState("ready");
-    setStatusText("Employee removed from local draft. Save to Redis when ready.");
   }
 
   function openCreateSkillModal() {
@@ -342,13 +312,7 @@ export function AdminCatalogEditor() {
         <section className="space-y-3 rounded-xl border border-border bg-background p-3">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Employees</h2>
-            <button
-              type="button"
-              onClick={openCreateEmployeeModal}
-              className="rounded-md border border-border px-2.5 py-1 text-xs font-medium text-foreground hover:bg-muted"
-            >
-              Add employee
-            </button>
+            <span className="text-xs text-muted-foreground">Managed from Slack catalog</span>
           </div>
           <div className="space-y-2">
             {catalog.coreEmployees.map((employee, index) => (
@@ -359,7 +323,6 @@ export function AdminCatalogEditor() {
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <h3 className="text-base font-semibold tracking-tight text-foreground">{employee.label}</h3>
-                    <p className="text-xs text-muted-foreground">{employee.id}</p>
                   </div>
                 </div>
                 <p className="mt-1 text-sm leading-6 text-muted-foreground">{employee.description}</p>
@@ -367,7 +330,7 @@ export function AdminCatalogEditor() {
                   {(catalog.employeeSkillIds[employee.id] ?? []).map((skillId) => (
                     <span
                       key={`${employee.id}-${skillId}`}
-                      className="rounded-full border border-border bg-background px-2 py-0.5"
+                      className="inline-flex rounded-full border border-foreground/20 bg-foreground px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-background"
                     >
                       {skillLabelById.get(skillId) ?? skillId}
                     </span>
@@ -380,18 +343,10 @@ export function AdminCatalogEditor() {
                   <button
                     type="button"
                     onClick={() => openEditEmployeeModal(index)}
-                    aria-label={`Edit ${employee.label}`}
+                    aria-label={`Manage skills for ${employee.label}`}
                     className="rounded-md border border-border px-2 py-1 text-foreground hover:bg-muted"
                   >
                     <Pencil size={14} />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => deleteEmployee(index)}
-                    aria-label={`Delete ${employee.label}`}
-                    className="rounded-md border border-destructive/50 bg-destructive/10 px-2 py-1 text-destructive hover:bg-destructive/20"
-                  >
-                    <Trash2 size={14} />
                   </button>
                 </div>
               </article>
@@ -489,7 +444,7 @@ export function AdminCatalogEditor() {
                     type="button"
                     onClick={() => deleteSkill(index)}
                     aria-label={`Delete ${skill.label}`}
-                    className="rounded-md border border-destructive/50 bg-destructive/10 px-2 py-1 text-destructive hover:bg-destructive/20"
+                    className="rounded-md border border-border px-2 py-1 text-muted-foreground transition-colors md:hover:border-destructive/50 md:hover:bg-destructive/10 md:hover:text-destructive"
                   >
                     <Trash2 size={14} />
                   </button>
@@ -514,42 +469,54 @@ export function AdminCatalogEditor() {
       {employeeModal ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
           <div className="w-full max-w-lg space-y-3 rounded-xl border border-border bg-card p-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-base font-semibold text-foreground">
-                {employeeModal.mode === "create" ? "Add employee" : "Edit employee"}
-              </h3>
-              <button
-                type="button"
-                className="rounded-md border border-border px-2 py-1 text-xs text-foreground hover:bg-muted"
-                onClick={() => setEmployeeModal(null)}
-              >
-                Close
-              </button>
-            </div>
+            <h3 className="text-base font-semibold text-foreground">Manage employee skills</h3>
             <label className="space-y-1">
               <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">ID</span>
               <input
                 value={employeeDraft.id}
-                onChange={(event) => setEmployeeDraft((prev) => ({ ...prev, id: event.target.value }))}
-                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-foreground/40"
+                readOnly
+                className="w-full rounded-md border border-border bg-muted px-3 py-2 text-sm text-muted-foreground outline-none"
               />
             </label>
             <label className="space-y-1">
-              <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Label</span>
+              <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Name</span>
               <input
                 value={employeeDraft.label}
-                onChange={(event) => setEmployeeDraft((prev) => ({ ...prev, label: event.target.value }))}
-                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-foreground/40"
+                readOnly
+                className="w-full rounded-md border border-border bg-muted px-3 py-2 text-sm text-muted-foreground outline-none"
               />
             </label>
             <label className="space-y-1">
               <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Description</span>
               <textarea
                 value={employeeDraft.description}
-                onChange={(event) => setEmployeeDraft((prev) => ({ ...prev, description: event.target.value }))}
-                className="h-28 w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-foreground/40"
+                readOnly
+                className="h-24 w-full rounded-md border border-border bg-muted px-3 py-2 text-sm text-muted-foreground outline-none"
               />
             </label>
+            <div className="space-y-1">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Skills</p>
+              <div className="flex flex-wrap gap-2">
+                {catalog.skills.map((skill) => {
+                  const selected = employeeDraft.skillIds.includes(skill.id);
+                  return (
+                    <button
+                      key={`employee-draft-${skill.id}`}
+                      type="button"
+                      onClick={() => toggleEmployeeDraftSkill(skill.id)}
+                      className={
+                        selected
+                          ? "inline-flex rounded-full border border-foreground/20 bg-foreground px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-background"
+                          : "inline-flex rounded-full border border-border bg-background px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground hover:bg-muted"
+                      }
+                    >
+                      {skill.label}
+                    </button>
+                  );
+                })}
+              </div>
+              {catalog.skills.length === 0 ? <p className="text-xs text-muted-foreground">No skills available.</p> : null}
+            </div>
             <div className="flex justify-end gap-2">
               <button
                 type="button"
@@ -573,18 +540,9 @@ export function AdminCatalogEditor() {
       {skillModal ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
           <div className="w-full max-w-xl space-y-3 rounded-xl border border-border bg-card p-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-base font-semibold text-foreground">
-                {skillModal.mode === "create" ? "Add skill" : "Edit skill"}
-              </h3>
-              <button
-                type="button"
-                className="rounded-md border border-border px-2 py-1 text-xs text-foreground hover:bg-muted"
-                onClick={() => setSkillModal(null)}
-              >
-                Close
-              </button>
-            </div>
+            <h3 className="text-base font-semibold text-foreground">
+              {skillModal.mode === "create" ? "Add skill" : "Edit skill"}
+            </h3>
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="space-y-1">
                 <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">ID</span>
@@ -680,6 +638,40 @@ function normalizeParamsList(raw: string): string[] {
   return [...new Set(parts)].sort();
 }
 
+function normalizeSkillID(raw: string): string {
+  const id = raw.trim();
+  if (id === "write-docs") return "write-doc";
+  return id;
+}
+
+function normalizeSkillParamName(raw: string): string {
+  const value = raw.trim();
+  if (!value) return "";
+  if (value === "additionalCommenters") return "commenters";
+  if (value === "additionalEditors") return "editors";
+  if (value === "additionalViewers") return "viewers";
+  if (value === "bodyText") return "intent";
+  if (value === "docType") return "type";
+  if (value === "maxResults") return "count";
+  if (
+    value === "bodyInstruction" ||
+    value === "goal" ||
+    value === "lengthTarget" ||
+    value === "tableRequest" ||
+    value === "deadline" ||
+    value === "tone" ||
+    value === "timeRange" ||
+    value === "sortBy"
+  ) {
+    return "";
+  }
+  return value;
+}
+
+function normalizeSkillParamList(values: string[]): string[] {
+  return [...new Set(values.map(normalizeSkillParamName).filter(Boolean))].sort();
+}
+
 function normalizeCatalog(input: CapabilityCatalog): CapabilityCatalog {
   const normalizedEmployees = (input.coreEmployees ?? [])
     .map(normalizeEmployee)
@@ -689,20 +681,53 @@ function normalizeCatalog(input: CapabilityCatalog): CapabilityCatalog {
 
   const normalizedSkills = (input.skills ?? [])
     .map((skill) => ({
-      id: skill.id?.trim() ?? "",
+      id: normalizeSkillID(skill.id ?? ""),
       label: skill.label?.trim() ?? "",
       description: skill.description?.trim() ?? "",
       runtimeTool: skill.runtimeTool?.trim().toLowerCase() ?? "",
-      requiredParams: [...new Set((skill.requiredParams ?? []).map((value) => value.trim()).filter(Boolean))].sort(),
-      optionalParams: [...new Set((skill.optionalParams ?? []).map((value) => value.trim()).filter(Boolean))].sort(),
+      requiredParams: normalizeSkillParamList(skill.requiredParams ?? []),
+      optionalParams: normalizeSkillParamList(skill.optionalParams ?? []),
     }))
+    .map((skill) => {
+      if (skill.id === "write-doc") {
+        return {
+          ...skill,
+          label: "Write Doc",
+          requiredParams: ["intent", "title", "type"],
+          optionalParams: ["commenters", "editors", "viewers"],
+        };
+      }
+      if (skill.id === "write-email") {
+        return {
+          ...skill,
+          requiredParams: ["intent", "subject", "to"],
+          optionalParams: ["commenters", "ctaText", "ctaUrl", "editors", "viewers"],
+        };
+      }
+      if (skill.id === "read-twitter") {
+        return {
+          ...skill,
+          optionalParams: ["count"],
+        };
+      }
+      return skill;
+    })
+    .filter((skill) => skill.id !== "read-server")
+    .map((skill) => {
+      const required = [...new Set(skill.requiredParams)].sort();
+      const requiredSet = new Set(required);
+      const optional = [...new Set(skill.optionalParams.filter((param) => !requiredSet.has(param)))].sort();
+      return { ...skill, requiredParams: required, optionalParams: optional };
+    })
     .filter((skill) => skill.id && skill.label && skill.description && skill.runtimeTool && skill.requiredParams.length > 0);
 
   const skillIDs = new Set(normalizedSkills.map((skill) => skill.id));
   const nextEmployeeSkillIDs: Record<string, string[]> = {};
   for (const employeeID of employeeIDs) {
     const mapped = input.employeeSkillIds?.[employeeID] ?? [];
-    nextEmployeeSkillIDs[employeeID] = [...new Set(mapped.map((id) => id.trim()).filter((id) => skillIDs.has(id)))].sort();
+    nextEmployeeSkillIDs[employeeID] = [
+      ...new Set(mapped.map((id) => normalizeSkillID(id)).filter((id) => skillIDs.has(id))),
+    ].sort();
   }
 
   return {

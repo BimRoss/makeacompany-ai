@@ -51,24 +51,16 @@ func defaultCapabilityCatalog() CapabilityCatalog {
 				Label:          "Write Email",
 				Description:    "Draft, send, and triage email communication.",
 				RuntimeTool:    "joanne_email",
-				RequiredParams: []string{"intent", "to", "subject", "bodyInstruction"},
-				OptionalParams: []string{"bodyText", "additionalCommenters", "additionalViewers", "ctaText", "ctaUrl", "tone", "deadline"},
+				RequiredParams: []string{"intent", "subject", "to"},
+				OptionalParams: []string{"commenters", "editors", "viewers", "ctaText", "ctaUrl"},
 			},
 			{
-				ID:             "write-docs",
-				Label:          "Write Docs",
+				ID:             "write-doc",
+				Label:          "Write Doc",
 				Description:    "Create, edit, and organize working docs.",
 				RuntimeTool:    "joanne_google_docs",
-				RequiredParams: []string{"intent", "title", "goal", "docType"},
-				OptionalParams: []string{"lengthTarget", "tableRequest", "additionalEditors", "additionalCommenters", "additionalViewers"},
-			},
-			{
-				ID:             "read-server",
-				Label:          "Read Server",
-				Description:    "Read server state and logs.",
-				RuntimeTool:    "ross_ops",
-				RequiredParams: []string{"intent"},
-				OptionalParams: []string{"goal", "namespace", "service", "timeRange", "limit"},
+				RequiredParams: []string{"intent", "title", "type"},
+				OptionalParams: []string{"commenters", "editors", "viewers"},
 			},
 			{
 				ID:             "read-twitter",
@@ -76,19 +68,161 @@ func defaultCapabilityCatalog() CapabilityCatalog {
 				Description:    "Discover and search high-impression tweets quickly.",
 				RuntimeTool:    "garth_twitter_lookup",
 				RequiredParams: []string{"intent", "query"},
-				OptionalParams: []string{"maxResults", "timeRange", "sortBy"},
+				OptionalParams: []string{"count"},
 			},
 		},
 		EmployeeSkillIDs: map[string][]string{
 			"alex":   {},
 			"tim":    {},
-			"ross":   {"read-server"},
+			"ross":   {},
 			"garth":  {"read-twitter"},
-			"joanne": {"write-email", "write-docs"},
+			"joanne": {"write-email", "write-doc"},
 		},
 		UpdatedAt: time.Now().UTC().Format(time.RFC3339),
 		Source:    "default",
 	}
+}
+
+func normalizeCatalogSkillID(raw string) string {
+	id := strings.TrimSpace(raw)
+	if id == "write-docs" {
+		return "write-doc"
+	}
+	return id
+}
+
+func normalizeCatalogSkillParamName(raw string) string {
+	value := strings.TrimSpace(raw)
+	if value == "" {
+		return ""
+	}
+	switch value {
+	case "additionalCommenters":
+		return "commenters"
+	case "additionalEditors":
+		return "editors"
+	case "additionalViewers":
+		return "viewers"
+	case "bodyText":
+		return "intent"
+	case "docType":
+		return "type"
+	case "maxResults":
+		return "count"
+	case "bodyInstruction", "goal", "lengthTarget", "tableRequest", "deadline", "tone", "timeRange", "sortBy":
+		return ""
+	default:
+		return value
+	}
+}
+
+func normalizeCapabilityCatalog(c CapabilityCatalog) CapabilityCatalog {
+	next := CapabilityCatalog{
+		CoreEmployees:    make([]CapabilityCatalogEmployee, 0, len(c.CoreEmployees)),
+		Skills:           make([]CapabilityCatalogSkill, 0, len(c.Skills)),
+		EmployeeSkillIDs: map[string][]string{},
+		UpdatedAt:        c.UpdatedAt,
+		Source:           c.Source,
+	}
+
+	for _, employee := range c.CoreEmployees {
+		id := strings.ToLower(strings.TrimSpace(employee.ID))
+		if id == "" {
+			continue
+		}
+		next.CoreEmployees = append(next.CoreEmployees, CapabilityCatalogEmployee{
+			ID:          id,
+			Label:       strings.TrimSpace(employee.Label),
+			Description: strings.TrimSpace(employee.Description),
+		})
+	}
+
+	for _, skill := range c.Skills {
+		id := normalizeCatalogSkillID(skill.ID)
+		if id == "read-server" || id == "" {
+			continue
+		}
+		required := normalizeCatalogParamList(skill.RequiredParams)
+		optional := normalizeCatalogParamList(skill.OptionalParams)
+		required = normalizeCatalogParamList(mapCatalogParams(required))
+		optional = normalizeCatalogParamList(mapCatalogParams(optional))
+
+		switch id {
+		case "write-email":
+			skill.Label = "Write Email"
+			required = []string{"intent", "subject", "to"}
+			optional = []string{"commenters", "ctaText", "ctaUrl", "editors", "viewers"}
+		case "write-doc":
+			skill.Label = "Write Doc"
+			required = []string{"intent", "title", "type"}
+			optional = []string{"commenters", "editors", "viewers"}
+		case "read-twitter":
+			optional = []string{"count"}
+		}
+
+		overlap := map[string]struct{}{}
+		for _, param := range required {
+			overlap[param] = struct{}{}
+		}
+		filteredOptional := make([]string, 0, len(optional))
+		for _, param := range optional {
+			if _, exists := overlap[param]; exists {
+				continue
+			}
+			filteredOptional = append(filteredOptional, param)
+		}
+		skill.OptionalParams = normalizeCatalogParamList(filteredOptional)
+		skill.RequiredParams = normalizeCatalogParamList(required)
+		skill.ID = id
+		skill.RuntimeTool = strings.ToLower(strings.TrimSpace(skill.RuntimeTool))
+		skill.Label = strings.TrimSpace(skill.Label)
+		skill.Description = strings.TrimSpace(skill.Description)
+		next.Skills = append(next.Skills, skill)
+	}
+
+	skillIDs := map[string]struct{}{}
+	for _, skill := range next.Skills {
+		skillIDs[skill.ID] = struct{}{}
+	}
+	normalizedEmployeeSkillIDs := map[string][]string{}
+	for employeeID, mapped := range c.EmployeeSkillIDs {
+		normalizedEmployeeSkillIDs[strings.ToLower(strings.TrimSpace(employeeID))] = mapped
+	}
+	for _, employee := range next.CoreEmployees {
+		mapped := normalizedEmployeeSkillIDs[employee.ID]
+		out := make([]string, 0, len(mapped))
+		seen := map[string]struct{}{}
+		for _, skillID := range mapped {
+			id := normalizeCatalogSkillID(skillID)
+			if id == "read-server" {
+				continue
+			}
+			if _, ok := skillIDs[id]; !ok {
+				continue
+			}
+			if _, exists := seen[id]; exists {
+				continue
+			}
+			seen[id] = struct{}{}
+			out = append(out, id)
+		}
+		sort.Strings(out)
+		next.EmployeeSkillIDs[employee.ID] = out
+	}
+
+	return next
+}
+
+func mapCatalogParams(in []string) []string {
+	out := make([]string, 0, len(in))
+	for _, value := range in {
+		mapped := normalizeCatalogSkillParamName(value)
+		if mapped == "" {
+			continue
+		}
+		out = append(out, mapped)
+	}
+	return out
 }
 
 func normalizeCatalogParamList(in []string) []string {
@@ -113,6 +247,7 @@ func normalizeCatalogParamList(in []string) []string {
 }
 
 func validateCapabilityCatalog(c CapabilityCatalog) error {
+	c = normalizeCapabilityCatalog(c)
 	if len(c.CoreEmployees) == 0 {
 		return fmt.Errorf("coreEmployees is required")
 	}
@@ -155,9 +290,6 @@ func validateCapabilityCatalog(c CapabilityCatalog) error {
 				return fmt.Errorf("skill %s has parameter %q in both required and optional", id, p)
 			}
 		}
-		skill.RequiredParams = required
-		skill.OptionalParams = optional
-		skill.RuntimeTool = strings.ToLower(strings.TrimSpace(skill.RuntimeTool))
 		skillIDs[id] = skill
 	}
 
@@ -198,6 +330,7 @@ func (s *Store) GetCapabilityCatalog(ctx context.Context) (CapabilityCatalog, er
 	if err := json.Unmarshal(raw, &catalog); err != nil {
 		return CapabilityCatalog{}, fmt.Errorf("decode catalog: %w", err)
 	}
+	catalog = normalizeCapabilityCatalog(catalog)
 	if err := validateCapabilityCatalog(catalog); err != nil {
 		return CapabilityCatalog{}, err
 	}
@@ -206,6 +339,7 @@ func (s *Store) GetCapabilityCatalog(ctx context.Context) (CapabilityCatalog, er
 }
 
 func (s *Store) PutCapabilityCatalog(ctx context.Context, catalog CapabilityCatalog) error {
+	catalog = normalizeCapabilityCatalog(catalog)
 	if err := validateCapabilityCatalog(catalog); err != nil {
 		return err
 	}

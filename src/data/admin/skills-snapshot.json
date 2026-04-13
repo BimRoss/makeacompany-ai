@@ -11,19 +11,11 @@
       ]
     },
     {
-      "id": "write-docs",
-      "label": "Write Docs",
+      "id": "write-doc",
+      "label": "Write Doc",
       "description": "Create, edit, and organize working docs.",
       "employeeIds": [
         "joanne"
-      ]
-    },
-    {
-      "id": "read-server",
-      "label": "Read Server",
-      "description": "Read server state and logs.",
-      "employeeIds": [
-        "ross"
       ]
     },
     {
