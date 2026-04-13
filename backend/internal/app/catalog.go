@@ -60,7 +60,7 @@ func defaultCapabilityCatalog() CapabilityCatalog {
 				Description:    "Draft, send, and triage email communication.",
 				RuntimeTool:    "joanne_email",
 				RequiredParams: []string{"intent", "subject", "to"},
-				OptionalParams: []string{"commenters", "editors", "viewers", "ctaText", "ctaUrl"},
+				OptionalParams: []string{"button", "commenters", "editors", "link", "viewers"},
 			},
 			{
 				ID:             "write-doc",
@@ -111,6 +111,10 @@ func normalizeCatalogSkillParamName(raw string) string {
 		return "editors"
 	case "additionalViewers":
 		return "viewers"
+	case "ctaText", "cta_text":
+		return "button"
+	case "ctaUrl", "ctaURL", "cta_url":
+		return "link"
 	case "bodyText":
 		return "intent"
 	case "docType":
@@ -163,7 +167,7 @@ func normalizeCapabilityCatalog(c CapabilityCatalog) CapabilityCatalog {
 		case "write-email":
 			skill.Label = "Write Email"
 			required = []string{"intent", "subject", "to"}
-			optional = []string{"commenters", "ctaText", "ctaUrl", "editors", "viewers"}
+			optional = []string{"button", "commenters", "editors", "link", "viewers"}
 		case "write-doc":
 			skill.Label = "Write Doc"
 			required = []string{"intent", "title", "type"}

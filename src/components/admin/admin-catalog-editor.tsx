@@ -103,6 +103,20 @@ export function AdminCatalogEditor() {
     },
     [catalog.employeeSkillIds]
   );
+  const employeesSortedBySkillCount = useMemo(
+    () =>
+      catalog.coreEmployees
+        .map((employee, index) => ({
+          employee,
+          index,
+          skillCount: (catalog.employeeSkillIds[employee.id] ?? []).length,
+        }))
+        .sort((a, b) => {
+          if (b.skillCount !== a.skillCount) return b.skillCount - a.skillCount;
+          return a.employee.label.localeCompare(b.employee.label);
+        }),
+    [catalog.coreEmployees, catalog.employeeSkillIds]
+  );
 
   async function logout() {
     try {
@@ -356,7 +370,7 @@ export function AdminCatalogEditor() {
             </button>
           </div>
           <div className="space-y-2">
-            {catalog.coreEmployees.map((employee, index) => (
+            {employeesSortedBySkillCount.map(({ employee, index }) => (
               <article
                 key={`${employee.id}-${index}`}
                 className="employees-card-motion rounded-xl border border-border bg-card px-3 pb-1.5 pt-3 shadow-sm motion-colors sm:px-4 sm:pb-2 sm:pt-4 md:cursor-pointer md:hover:shadow-md"
@@ -595,7 +609,7 @@ export function AdminCatalogEditor() {
                 className="rounded-md bg-foreground px-3 py-2 text-sm font-medium text-background hover:opacity-90"
                 disabled={state === "saving" || state === "loading"}
               >
-                Save draft
+                Save
               </button>
             </div>
           </div>
@@ -715,7 +729,7 @@ export function AdminCatalogEditor() {
                 className="rounded-md bg-foreground px-3 py-2 text-sm font-medium text-background hover:opacity-90"
                 disabled={state === "saving" || state === "loading"}
               >
-                Save draft
+                Save
               </button>
             </div>
           </div>
@@ -753,6 +767,8 @@ function normalizeSkillParamName(raw: string): string {
   if (value === "additionalCommenters") return "commenters";
   if (value === "additionalEditors") return "editors";
   if (value === "additionalViewers") return "viewers";
+  if (value === "ctaText" || value === "cta_text") return "button";
+  if (value === "ctaUrl" || value === "ctaURL" || value === "cta_url") return "link";
   if (value === "bodyText") return "intent";
   if (value === "docType") return "type";
   if (value === "maxResults") return "count";
@@ -804,7 +820,7 @@ function normalizeCatalog(input: CapabilityCatalog): CapabilityCatalog {
         return {
           ...skill,
           requiredParams: ["intent", "subject", "to"],
-          optionalParams: ["commenters", "ctaText", "ctaUrl", "editors", "viewers"],
+          optionalParams: ["button", "commenters", "editors", "link", "viewers"],
         };
       }
       if (skill.id === "read-twitter") {
