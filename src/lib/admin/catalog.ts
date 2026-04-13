@@ -30,6 +30,8 @@ export type AdminSkill = {
   label: string;
   description: string;
   employeeIds: string[];
+  requiredParams?: string[];
+  optionalParams?: string[];
   comingSoon?: boolean;
 };
 
@@ -159,6 +161,8 @@ function normalizeCatalogToAdminData(catalog: CapabilityCatalog): {
     label: String(skill.label || skill.id || "").trim(),
     description: String(skill.description || "").trim(),
     employeeIds: employeeIdsBySkill.get(String(skill.id || "").trim()) ?? [],
+    requiredParams: Array.isArray(skill.requiredParams) ? [...skill.requiredParams] : [],
+    optionalParams: Array.isArray(skill.optionalParams) ? [...skill.optionalParams] : [],
   }));
 
   return { members, skills };

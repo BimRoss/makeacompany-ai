@@ -356,7 +356,7 @@ export function AdminCatalogEditor() {
   return (
     <section className="space-y-4 rounded-2xl bg-card px-4 pb-4 pt-0 sm:px-5 sm:pb-5 sm:pt-0">
       <div className="grid gap-4 lg:grid-cols-2">
-        <section className="relative space-y-3 rounded-xl bg-background/70 p-3 pt-6">
+        <section className="relative space-y-3 rounded-xl bg-background/70 p-3">
           <div className="flex items-center justify-between gap-3">
             <div className="inline-flex -mt-2 items-center rounded-md border border-border bg-card px-3 py-2 shadow-sm">
               <h2 className="text-sm font-semibold uppercase tracking-[0.16em] text-muted-foreground">Employees</h2>
@@ -424,7 +424,7 @@ export function AdminCatalogEditor() {
           </div>
         </section>
 
-        <section className="relative space-y-3 rounded-xl bg-background/70 p-3 pt-6">
+        <section className="relative space-y-3 rounded-xl bg-background/70 p-3">
           <div className="flex items-center justify-between gap-3">
             <div className="inline-flex -mt-2 items-center rounded-md border border-border bg-card px-3 py-2 shadow-sm">
               <h2 className="text-sm font-semibold uppercase tracking-[0.16em] text-muted-foreground">Skills</h2>
@@ -471,39 +471,35 @@ export function AdminCatalogEditor() {
                 </div>
                 <p className="mt-1 text-sm leading-6 text-muted-foreground">{skill.description}</p>
                 <div className="mt-2 space-y-2 text-xs text-muted-foreground">
-                  <div className="space-y-1">
+                  <div className="flex flex-wrap items-center gap-2">
                     <p className="font-medium uppercase tracking-wide text-foreground/80">Required</p>
-                    <div className="flex flex-wrap items-center gap-2">
-                      {skill.requiredParams.length > 0 ? (
-                        skill.requiredParams.map((param) => (
-                          <span
-                            key={`${skill.id}-required-${param}`}
-                            className="rounded-full border border-border bg-background px-2 py-0.5"
-                          >
-                            {param}
-                          </span>
-                        ))
-                      ) : (
-                        <span className="text-muted-foreground">None</span>
-                      )}
-                    </div>
+                    {skill.requiredParams.length > 0 ? (
+                      skill.requiredParams.map((param) => (
+                        <span
+                          key={`${skill.id}-required-${param}`}
+                          className="rounded-full border border-border bg-background px-2 py-0.5"
+                        >
+                          {param}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-muted-foreground">None</span>
+                    )}
                   </div>
-                  <div className="space-y-1">
+                  <div className="flex flex-wrap items-center gap-2 opacity-50">
                     <p className="font-medium uppercase tracking-wide text-foreground/80">Optional</p>
-                    <div className="flex flex-wrap items-center gap-2">
-                      {skill.optionalParams.length > 0 ? (
-                        skill.optionalParams.map((param) => (
-                          <span
-                            key={`${skill.id}-optional-${param}`}
-                            className="rounded-full border border-border bg-background px-2 py-0.5"
-                          >
-                            {param}
-                          </span>
-                        ))
-                      ) : (
-                        <span className="text-muted-foreground">None</span>
-                      )}
-                    </div>
+                    {skill.optionalParams.length > 0 ? (
+                      skill.optionalParams.map((param) => (
+                        <span
+                          key={`${skill.id}-optional-${param}`}
+                          className="rounded-full border border-border bg-background px-2 py-0.5"
+                        >
+                          {param}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-muted-foreground">None</span>
+                    )}
                   </div>
                 </div>
               </article>
