@@ -36,7 +36,7 @@ export function AdminCatalogEditor() {
       }
       setCatalog(normalizeCatalog(payload as CapabilityCatalog));
       setState("ready");
-      setStatusText("Catalog loaded.");
+      setStatusText("");
     } catch {
       setState("error");
       setStatusText("Failed to load catalog.");
@@ -64,8 +64,8 @@ export function AdminCatalogEditor() {
     requiredParams: [],
     optionalParams: [],
   });
-  const [requiredParamsInput, setRequiredParamsInput] = useState("");
-  const [optionalParamsInput, setOptionalParamsInput] = useState("");
+  const [requiredParamInput, setRequiredParamInput] = useState("");
+  const [optionalParamInput, setOptionalParamInput] = useState("");
   const skillLabelById = useMemo(
     () => new Map(catalog.skills.map((skill) => [skill.id, skill.label])),
     [catalog.skills]
@@ -227,8 +227,8 @@ export function AdminCatalogEditor() {
       requiredParams: [],
       optionalParams: [],
     });
-    setRequiredParamsInput("");
-    setOptionalParamsInput("");
+    setRequiredParamInput("");
+    setOptionalParamInput("");
     setSkillModal({ mode: "create" });
     setConfirmDeleteSkillInline(false);
   }
@@ -244,15 +244,53 @@ export function AdminCatalogEditor() {
       requiredParams: [...(skill.requiredParams ?? [])],
       optionalParams: [...(skill.optionalParams ?? [])],
     });
-    setRequiredParamsInput((skill.requiredParams ?? []).join(", "));
-    setOptionalParamsInput((skill.optionalParams ?? []).join(", "));
+    setRequiredParamInput("");
+    setOptionalParamInput("");
     setSkillModal({ mode: "edit", index });
     setConfirmDeleteSkillInline(false);
   }
 
+  function addSkillParam(kind: "required" | "optional", rawValue: string) {
+    const nextParams = parseParamsInput(rawValue);
+    if (nextParams.length === 0) return;
+    setSkillDraft((prev) => {
+      const requiredSet = new Set(prev.requiredParams);
+      const optionalSet = new Set(prev.optionalParams);
+      for (const param of nextParams) {
+        if (kind === "required") {
+          requiredSet.add(param);
+          optionalSet.delete(param);
+        } else {
+          optionalSet.add(param);
+          requiredSet.delete(param);
+        }
+      }
+      return {
+        ...prev,
+        requiredParams: [...requiredSet].sort(),
+        optionalParams: [...optionalSet].sort(),
+      };
+    });
+    if (kind === "required") {
+      setRequiredParamInput("");
+    } else {
+      setOptionalParamInput("");
+    }
+  }
+
+  function removeSkillParam(kind: "required" | "optional", param: string) {
+    setSkillDraft((prev) => ({
+      ...prev,
+      requiredParams:
+        kind === "required" ? prev.requiredParams.filter((value) => value !== param) : [...prev.requiredParams],
+      optionalParams:
+        kind === "optional" ? prev.optionalParams.filter((value) => value !== param) : [...prev.optionalParams],
+    }));
+  }
+
   async function saveSkillDraft() {
-    const requiredParams = normalizeParamsList(requiredParamsInput);
-    const optionalParams = normalizeParamsList(optionalParamsInput);
+    const requiredParams = normalizeSkillParamList(skillDraft.requiredParams ?? []);
+    const optionalParams = normalizeSkillParamList(skillDraft.optionalParams ?? []);
     const overlap = new Set(requiredParams);
     if (optionalParams.some((value) => overlap.has(value))) {
       setState("error");
@@ -340,9 +378,9 @@ export function AdminCatalogEditor() {
           <div className="flex items-center justify-between gap-3">
             <Link
               href="/employees"
-              className="inline-flex -mt-2 items-center rounded-md bg-card px-3 py-2 shadow-sm transition-colors hover:bg-muted/80"
+              className="inline-flex items-center rounded-md border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
             >
-              <h2 className="text-sm font-semibold uppercase tracking-[0.16em] text-muted-foreground">Employees</h2>
+              <span>Employees</span>
             </Link>
             <button
               type="button"
@@ -411,9 +449,9 @@ export function AdminCatalogEditor() {
           <div className="flex items-center justify-between gap-3">
             <Link
               href="/skills"
-              className="inline-flex -mt-2 items-center rounded-md bg-card px-3 py-2 shadow-sm transition-colors hover:bg-muted/80"
+              className="inline-flex items-center rounded-md border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
             >
-              <h2 className="text-sm font-semibold uppercase tracking-[0.16em] text-muted-foreground">Skills</h2>
+              <span>Skills</span>
             </Link>
             <button
               type="button"
@@ -498,6 +536,10 @@ export function AdminCatalogEditor() {
           </div>
         </section>
       </div>
+
+      {statusText ? (
+        <p className={state === "error" ? "text-sm text-destructive" : "text-sm text-muted-foreground"}>{statusText}</p>
+      ) : null}
 
       <div className="flex flex-wrap items-end justify-end gap-3">
         <div className="flex items-center gap-2">
@@ -631,26 +673,98 @@ export function AdminCatalogEditor() {
               />
             </label>
             <div className="grid gap-3 sm:grid-cols-2">
-              <label className="space-y-1">
-                <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  Required params (comma separated)
-                </span>
-                <input
-                  value={requiredParamsInput}
-                  onChange={(event) => setRequiredParamsInput(event.target.value)}
-                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-foreground/40"
-                />
-              </label>
-              <label className="space-y-1">
-                <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  Optional params (comma separated)
-                </span>
-                <input
-                  value={optionalParamsInput}
-                  onChange={(event) => setOptionalParamsInput(event.target.value)}
-                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-foreground/40"
-                />
-              </label>
+              <div className="space-y-2">
+                <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Required params</span>
+                <div className="min-h-10 rounded-md border border-border bg-background px-2 py-2">
+                  {skillDraft.requiredParams.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {skillDraft.requiredParams.map((param) => (
+                        <button
+                          key={`required-param-pill-${param}`}
+                          type="button"
+                          onClick={() => removeSkillParam("required", param)}
+                          className="inline-flex items-center gap-1 rounded-full border border-foreground/20 bg-foreground px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-background"
+                          aria-label={`Remove required param ${param}`}
+                        >
+                          {param}
+                          <span aria-hidden>×</span>
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">No required params yet.</p>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    value={requiredParamInput}
+                    onChange={(event) => setRequiredParamInput(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        addSkillParam("required", requiredParamInput);
+                      }
+                    }}
+                    placeholder="Add required param"
+                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-foreground/40"
+                  />
+                  {requiredParamInput.trim() ? (
+                    <button
+                      type="button"
+                      onClick={() => addSkillParam("required", requiredParamInput)}
+                      className="rounded-md border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
+                    >
+                      Add
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+              <div className="space-y-2">
+                <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Optional params</span>
+                <div className="min-h-10 rounded-md border border-border bg-background px-2 py-2">
+                  {skillDraft.optionalParams.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {skillDraft.optionalParams.map((param) => (
+                        <button
+                          key={`optional-param-pill-${param}`}
+                          type="button"
+                          onClick={() => removeSkillParam("optional", param)}
+                          className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground hover:bg-muted"
+                          aria-label={`Remove optional param ${param}`}
+                        >
+                          {param}
+                          <span aria-hidden>×</span>
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">No optional params yet.</p>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    value={optionalParamInput}
+                    onChange={(event) => setOptionalParamInput(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        addSkillParam("optional", optionalParamInput);
+                      }
+                    }}
+                    placeholder="Add optional param"
+                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-foreground/40"
+                  />
+                  {optionalParamInput.trim() ? (
+                    <button
+                      type="button"
+                      onClick={() => addSkillParam("optional", optionalParamInput)}
+                      className="rounded-md border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
+                    >
+                      Add
+                    </button>
+                  ) : null}
+                </div>
+              </div>
             </div>
             <div className="flex justify-end gap-2">
               {skillModal.mode === "edit" ? (
@@ -727,6 +841,11 @@ function normalizeParamsList(raw: string): string[] {
     .map((item) => item.trim())
     .filter(Boolean);
   return [...new Set(parts)].sort();
+}
+
+function parseParamsInput(raw: string): string[] {
+  const parsed = normalizeParamsList(raw);
+  return normalizeSkillParamList(parsed);
 }
 
 function normalizeSkillID(raw: string): string {
