@@ -44,6 +44,13 @@ var canonicalEmployeeDescriptions = map[string]string{
 	"tim":    "Calm, tactical, curiosity-first. I bias toward small reversible tests, batching and delegation where they earn their keep, and relationships built over years-not transactional networking. I care about how you learn (meta-learning), how you recover from failure, and how you protect attention when everything screams urgent. Ask better questions; design experiments; say no to protect the few things that matter.",
 }
 
+var supportedCapabilityRuntimeTools = map[string]struct{}{
+	"joanne_email":         {},
+	"joanne_google_docs":   {},
+	"garth_twitter_lookup": {},
+	"ross_ops":             {},
+}
+
 func defaultCapabilityCatalog() CapabilityCatalog {
 	return CapabilityCatalog{
 		CoreEmployees: []CapabilityCatalogEmployee{
@@ -291,6 +298,10 @@ func validateCapabilityCatalog(c CapabilityCatalog) error {
 		}
 		if strings.TrimSpace(skill.RuntimeTool) == "" {
 			return fmt.Errorf("skill %s missing runtimeTool", id)
+		}
+		runtimeTool := strings.ToLower(strings.TrimSpace(skill.RuntimeTool))
+		if _, ok := supportedCapabilityRuntimeTools[runtimeTool]; !ok {
+			return fmt.Errorf("skill %s has unsupported runtimeTool %s", id, strings.TrimSpace(skill.RuntimeTool))
 		}
 		if len(skill.RequiredParams) == 0 {
 			return fmt.Errorf("skill %s missing requiredParams", id)
