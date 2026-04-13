@@ -79,6 +79,8 @@ func (s *Server) handleAdminAuthStart(w http.ResponseWriter, r *http.Request) {
 		SuccessURL:    stripe.String(successURL),
 		CancelURL:     stripe.String(cancelURL),
 		CustomerEmail: stripe.String(strings.TrimSpace(s.cfg.AdminAllowedEmail)),
+		// Restrict to card to avoid Stripe requiring extra setup-mode params (e.g. currency).
+		PaymentMethodTypes: stripe.StringSlice([]string{"card"}),
 	}
 	sess, err := checkoutsession.New(params)
 	if err != nil {
