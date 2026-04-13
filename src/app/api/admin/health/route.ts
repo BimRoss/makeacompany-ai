@@ -11,7 +11,7 @@ type GrafanaEmbed = {
   source: "twitter" | "app";
 };
 
-const defaultPanelTitles = ["Activities", "Requests /min"];
+const defaultPanelTitles = ["Activities", "Requests /min", "Tool usage"];
 const defaultTwitterPanelTitles = ["Indexer throughput", "Worker throughput"];
 
 const DEFAULT_GRAFANA_DASHBOARD_PATH =
@@ -109,7 +109,7 @@ export async function GET() {
       proto
     ) ?? grafanaDashboardUrl;
 
-  const panelIds = parseList(process.env.HEALTH_GRAFANA_PANEL_IDS, ["4", "1"]);
+  const panelIds = parseList(process.env.HEALTH_GRAFANA_PANEL_IDS, ["4", "1", "7"]);
   const panelTitles = parseList(process.env.HEALTH_GRAFANA_PANEL_TITLES, defaultPanelTitles);
   const twitterPanelIds = parseList(process.env.HEALTH_GRAFANA_TWITTER_PANEL_IDS, ["1", "3"]);
   const twitterPanelTitles = parseList(

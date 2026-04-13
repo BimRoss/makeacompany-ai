@@ -16,6 +16,7 @@ type GrafanaEmbed = {
   panelId: string;
   title: string;
   dashboardUrl: string | null;
+  source?: "twitter" | "app";
 };
 
 type HealthPayload = {
@@ -29,9 +30,10 @@ type TeamMemberMetricEmbed = {
 };
 
 function selectCanonicalPanels(embeds: GrafanaEmbed[]): GrafanaEmbed[] {
-  const byId = (id: string) => embeds.find((embed) => embed.panelId === id);
+  const appEmbeds = embeds.filter((embed) => embed.source !== "twitter");
+  const byId = (id: string) => appEmbeds.find((embed) => embed.panelId === id);
   const byTitle = (pattern: RegExp) =>
-    embeds.find((embed) => pattern.test(embed.title.toLowerCase()));
+    appEmbeds.find((embed) => pattern.test(embed.title.toLowerCase()));
 
   const goroutines =
     byTitle(/activities|go goroutines|goroutine/) ??
@@ -39,14 +41,12 @@ function selectCanonicalPanels(embeds: GrafanaEmbed[]): GrafanaEmbed[] {
   const requestsPerMinute =
     byTitle(/requests per minute|requests\s*\/min|requests\/min|request/) ??
     byId("1");
-  const eventsCombined =
-    byTitle(/events\s*\/min|combined events|events combined|events total/) ??
+  const toolUsageBreakdown =
+    byTitle(/tool usage|tools usage|tool breakdown|capability usage|capability breakdown|usage by tool/) ??
     byId("7") ??
-    byTitle(/inbound events|outbound posts|events\/min|events per min/) ??
-    byId("3") ??
-    byId("6");
+    byTitle(/events\s*\/min|combined events|events combined|events total/);
 
-  const selected = [goroutines, requestsPerMinute, eventsCombined].filter(
+  const selected = [goroutines, requestsPerMinute, toolUsageBreakdown].filter(
     (panel): panel is GrafanaEmbed => Boolean(panel)
   );
 

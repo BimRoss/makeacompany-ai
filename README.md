@@ -17,7 +17,7 @@ Marketing landing page and **$1 Stripe waitlist** for [makeacompany.ai](https://
 - Route: `/employees`
 - Current module: **Team** (desktop/mobile responsive cards)
 - Data source: Redis-backed capability catalog via backend `GET /v1/admin/catalog`
-- Chart source: Grafana panels backed by `employee-factory` Prometheus metrics (`employee_factory_slack_events_ingested_total` and `employee_factory_slack_posts_total`), filtered per employee.
+- Chart source: Grafana panels backed by `employee-factory` Prometheus metrics, filtered per employee (`Activities`, `Requests /min`, and per-tool usage breakdown).
 - `No data` on a card means that employee has no matching Slack runtime events/posts in the current chart lookback window (default: last hour). Cursor/IDE usage does not affect these counters.
 - Quick checks: confirm the employee bot is running and receiving Slack traffic, then recheck the dashboard window after activity.
 
