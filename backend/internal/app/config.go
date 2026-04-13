@@ -11,6 +11,7 @@ type Config struct {
 	RedisURL                    string
 	AppBaseURL                  string
 	AdminCatalogToken           string
+	CapabilityCatalogReadToken  string
 	AdminAllowedEmail           string
 	AdminSessionTTLSec          int
 	StripeSecretKey             string
@@ -36,6 +37,7 @@ func LoadConfig() Config {
 		RedisURL:                    envString("REDIS_URL", "redis://localhost:6379/0"),
 		AppBaseURL:                  strings.TrimRight(envString("APP_BASE_URL", "http://localhost:3000"), "/"),
 		AdminCatalogToken:           strings.TrimSpace(os.Getenv("ADMIN_CATALOG_TOKEN")),
+		CapabilityCatalogReadToken:  strings.TrimSpace(os.Getenv("CAPABILITY_CATALOG_READ_TOKEN")),
 		AdminAllowedEmail:           strings.ToLower(strings.TrimSpace(os.Getenv("ADMIN_ALLOWED_EMAIL"))),
 		AdminSessionTTLSec:          envInt("ADMIN_SESSION_TTL_SEC", 259200),
 		StripeSecretKey:             resolveStripeSecretKey(),

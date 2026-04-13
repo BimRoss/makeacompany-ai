@@ -73,6 +73,7 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 	s.mux.HandleFunc("/v1/billing/waitlist-stats", s.handleWaitlistStats)
 	s.mux.HandleFunc("/v1/admin/waitlist", s.handleAdminWaitlist)
 	s.mux.HandleFunc("/v1/admin/catalog", s.handleAdminCatalog)
+	s.mux.HandleFunc("/v1/runtime/capability-catalog", s.handleRuntimeCapabilityCatalog)
 	s.mux.HandleFunc("/v1/admin/auth/start", s.handleAdminAuthStart)
 	s.mux.HandleFunc("/v1/admin/auth/finish", s.handleAdminAuthFinish)
 	s.mux.HandleFunc("/v1/admin/auth/me", s.handleAdminAuthMe)
@@ -126,6 +127,8 @@ func normalizeMetricRoute(path string) string {
 		return "/v1/admin/waitlist"
 	case path == "/v1/admin/catalog":
 		return "/v1/admin/catalog"
+	case path == "/v1/runtime/capability-catalog":
+		return "/v1/runtime/capability-catalog"
 	case path == "/v1/admin/auth/start":
 		return "/v1/admin/auth/start"
 	case path == "/v1/admin/auth/finish":
@@ -146,7 +149,7 @@ func (s *Server) withCORS(w http.ResponseWriter, r *http.Request, next http.Hand
 	if origin != "" && (origin == s.cors || strings.HasPrefix(origin, "http://localhost:")) {
 		w.Header().Set("Access-Control-Allow-Origin", origin)
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Stripe-Signature, X-Admin-Token, X-Admin-Session, Authorization")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Stripe-Signature, X-Admin-Token, X-Admin-Session, X-Capability-Catalog-Token, Authorization")
 	}
 	if r.Method == http.MethodOptions {
 		w.WriteHeader(http.StatusNoContent)
@@ -422,6 +425,45 @@ func (s *Server) handleAdminCatalog(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
+}
+
+func (s *Server) handleRuntimeCapabilityCatalog(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	expectedToken := strings.TrimSpace(s.cfg.CapabilityCatalogReadToken)
+	if expectedToken != "" {
+		got := strings.TrimSpace(capabilityCatalogTokenFromRequest(r))
+		if got == "" || got != expectedToken {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+	}
+	catalog, err := s.store.GetCapabilityCatalog(r.Context())
+	if err != nil {
+		s.log.Printf("runtime capability catalog get: %v", err)
+		http.Error(w, "catalog error", http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, http.StatusOK, catalog)
+}
+
+func capabilityCatalogTokenFromRequest(r *http.Request) string {
+	if r == nil {
+		return ""
+	}
+	if v := strings.TrimSpace(r.Header.Get("X-Capability-Catalog-Token")); v != "" {
+		return v
+	}
+	auth := strings.TrimSpace(r.Header.Get("Authorization"))
+	if auth == "" {
+		return ""
+	}
+	if strings.HasPrefix(strings.ToLower(auth), "bearer ") {
+		return strings.TrimSpace(auth[7:])
+	}
+	return ""
 }
 
 func (s *Server) handleCheckoutStatus(w http.ResponseWriter, r *http.Request) {

@@ -37,7 +37,7 @@ Admin catalog editor:
 - Proxy endpoint: `GET/PUT /api/admin/catalog` -> backend `GET/PUT /v1/admin/catalog`
 - `PUT` forwards optional `X-Admin-Token` (backend validates against `ADMIN_CATALOG_TOKEN` when set).
 - Sign-in route: `/admin/login` starts Stripe-backed verification before issuing an HttpOnly admin session cookie.
-- Capability catalog is authoritative for Slack tooling assignments. `employee-factory` only executes a tool when `/admin` assigns that tool to the employee and runtime secrets/env are ready.
+- Capability catalog is authoritative for Slack tooling assignments. `employee-factory` reads `GET /v1/runtime/capability-catalog` and only executes a tool when that catalog assigns the runtime tool to the employee and runtime secrets/env are ready.
 - Backend rejects unsupported `runtimeTool` values on `PUT /v1/admin/catalog` so admin assignments cannot drift from runtime-supported tool keys.
 
 ## Stripe catalog (`stripe-factory`)
@@ -89,6 +89,7 @@ npm run dev   # repo root
 |----------|---------|
 | `REDIS_URL` | Redis connection URL |
 | `ADMIN_CATALOG_TOKEN` | Optional shared token required for backend `PUT /v1/admin/catalog` (`X-Admin-Token` header) |
+| `CAPABILITY_CATALOG_READ_TOKEN` | Optional bearer token required for backend `GET /v1/runtime/capability-catalog` (runtime consumer reads) |
 | `ADMIN_ALLOWED_EMAIL` | Required email allowed to establish `/admin` session after Stripe auth completes |
 | `ADMIN_SESSION_TTL_SEC` | Admin session lifetime in seconds (default `259200`) |
 | `APP_BASE_URL` | Public site URL (Stripe success/cancel) |
