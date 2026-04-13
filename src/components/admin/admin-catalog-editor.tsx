@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Pencil, Trash2 } from "lucide-react";
 import skillsSnapshot from "@/data/admin/skills-snapshot.json";
 import teamSnapshot from "@/data/admin/team-snapshot.json";
 import type {
@@ -14,7 +13,6 @@ type LoadState = "idle" | "loading" | "saving" | "error" | "ready";
 
 type EmployeeModalState = { mode: "create" } | { mode: "edit"; index: number } | null;
 type SkillModalState = { mode: "create" } | { mode: "edit"; index: number } | null;
-type DeleteSkillModalState = { index: number } | null;
 type EmployeeDraft = CapabilityCatalogEmployee & { skillIds: string[] };
 type TeamSnapshotEmployee = {
   id: string;
@@ -66,7 +64,7 @@ export function AdminCatalogEditor() {
 
   const [employeeModal, setEmployeeModal] = useState<EmployeeModalState>(null);
   const [skillModal, setSkillModal] = useState<SkillModalState>(null);
-  const [deleteSkillModal, setDeleteSkillModal] = useState<DeleteSkillModalState>(null);
+  const [confirmDeleteSkillInline, setConfirmDeleteSkillInline] = useState(false);
   const [employeeDraft, setEmployeeDraft] = useState<EmployeeDraft>({
     id: "",
     label: "",
@@ -233,6 +231,7 @@ export function AdminCatalogEditor() {
     setRequiredParamsInput("");
     setOptionalParamsInput("");
     setSkillModal({ mode: "create" });
+    setConfirmDeleteSkillInline(false);
   }
 
   function openEditSkillModal(index: number) {
@@ -249,6 +248,7 @@ export function AdminCatalogEditor() {
     setRequiredParamsInput((skill.requiredParams ?? []).join(", "));
     setOptionalParamsInput((skill.optionalParams ?? []).join(", "));
     setSkillModal({ mode: "edit", index });
+    setConfirmDeleteSkillInline(false);
   }
 
   async function saveSkillDraft() {
@@ -308,13 +308,8 @@ export function AdminCatalogEditor() {
     const success = await persistCatalog(nextCatalog, "Skill updated and synced to Redis.");
     if (success) {
       setSkillModal(null);
+      setConfirmDeleteSkillInline(false);
     }
-  }
-
-  function openDeleteSkillModal(index: number) {
-    const skill = catalog.skills[index];
-    if (!skill) return;
-    setDeleteSkillModal({ index });
   }
 
   async function syncCatalogFromSlack() {
@@ -323,7 +318,7 @@ export function AdminCatalogEditor() {
   }
 
   async function confirmDeleteSkill() {
-    const index = deleteSkillModal?.index ?? -1;
+    const index = skillModal?.mode === "edit" ? skillModal.index : -1;
     if (index < 0) return;
     const removed = catalog.skills[index];
     if (!removed) return;
@@ -339,7 +334,8 @@ export function AdminCatalogEditor() {
     };
     const success = await persistCatalog(nextCatalog, "Skill removed and synced to Redis.");
     if (success) {
-      setDeleteSkillModal(null);
+      setSkillModal(null);
+      setConfirmDeleteSkillInline(false);
     }
   }
 
@@ -364,40 +360,39 @@ export function AdminCatalogEditor() {
               <article
                 key={`${employee.id}-${index}`}
                 className="employees-card-motion rounded-xl border border-border bg-card px-3 pb-1.5 pt-3 shadow-sm motion-colors sm:px-4 sm:pb-2 sm:pt-4 md:cursor-pointer md:hover:shadow-md"
+                role="button"
+                tabIndex={0}
+                onClick={() => openEditEmployeeModal(index)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    openEditEmployeeModal(index);
+                  }
+                }}
               >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="space-y-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="text-base font-semibold tracking-tight text-foreground">{employee.label}</h3>
-                      {(catalog.employeeSkillIds[employee.id] ?? []).map((skillId) => (
-                        <span
-                          key={`${employee.id}-${skillId}-desktop`}
-                          className="hidden rounded-full border border-foreground/20 bg-foreground px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-background sm:inline-flex"
-                        >
-                          {skillLabelById.get(skillId) ?? skillId}
-                        </span>
-                      ))}
-                      {(catalog.employeeSkillIds[employee.id] ?? [])[0] ? (
-                        <span className="inline-flex rounded-full border border-foreground/20 bg-foreground px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-background sm:hidden">
-                          {skillLabelById.get((catalog.employeeSkillIds[employee.id] ?? [])[0] ?? "") ??
-                            (catalog.employeeSkillIds[employee.id] ?? [])[0]}
-                        </span>
-                      ) : null}
-                      {(catalog.employeeSkillIds[employee.id] ?? []).length > 1 ? (
-                        <span className="inline-flex rounded-full border border-border bg-background px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground sm:hidden">
-                          +{(catalog.employeeSkillIds[employee.id] ?? []).length - 1}
-                        </span>
-                      ) : null}
-                    </div>
+                <div className="space-y-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="text-base font-semibold tracking-tight text-foreground">{employee.label}</h3>
+                    {(catalog.employeeSkillIds[employee.id] ?? []).map((skillId) => (
+                      <span
+                        key={`${employee.id}-${skillId}-desktop`}
+                        className="hidden rounded-full border border-foreground/20 bg-foreground px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-background sm:inline-flex"
+                      >
+                        {skillLabelById.get(skillId) ?? skillId}
+                      </span>
+                    ))}
+                    {(catalog.employeeSkillIds[employee.id] ?? [])[0] ? (
+                      <span className="inline-flex rounded-full border border-foreground/20 bg-foreground px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-background sm:hidden">
+                        {skillLabelById.get((catalog.employeeSkillIds[employee.id] ?? [])[0] ?? "") ??
+                          (catalog.employeeSkillIds[employee.id] ?? [])[0]}
+                      </span>
+                    ) : null}
+                    {(catalog.employeeSkillIds[employee.id] ?? []).length > 1 ? (
+                      <span className="inline-flex rounded-full border border-border bg-background px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground sm:hidden">
+                        +{(catalog.employeeSkillIds[employee.id] ?? []).length - 1}
+                      </span>
+                    ) : null}
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => openEditEmployeeModal(index)}
-                    aria-label={`Manage skills for ${employee.label}`}
-                    className="rounded-md border border-border px-2 py-1 text-foreground hover:bg-muted"
-                  >
-                    <Pencil size={14} />
-                  </button>
                 </div>
                 <p className="mt-1 text-sm leading-6 text-muted-foreground">{employee.description}</p>
                 <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
@@ -433,43 +428,32 @@ export function AdminCatalogEditor() {
               <article
                 key={`${skill.id}-${index}`}
                 className="employees-card-motion rounded-xl border border-border bg-card px-3 pb-1.5 pt-3 shadow-sm motion-colors sm:px-4 sm:pb-2 sm:pt-4 md:cursor-pointer md:hover:shadow-md"
+                role="button"
+                tabIndex={0}
+                onClick={() => openEditSkillModal(index)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    openEditSkillModal(index);
+                  }
+                }}
               >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="space-y-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="text-base font-semibold tracking-tight text-foreground">{skill.label}</h3>
-                      {(skillEmployeeIdsBySkillId.get(skill.id) ?? [])
-                        .map((employeeId) => memberNameById.get(employeeId))
-                        .filter((name): name is string => Boolean(name))
-                        .map((name) => (
-                          <span
-                            key={`${skill.id}-${name}`}
-                            className="inline-flex rounded-full border border-foreground/20 bg-foreground px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-background"
-                          >
-                            {name}
-                          </span>
-                        ))}
-                    </div>
-                    <p className="text-xs text-muted-foreground">{skill.id}</p>
+                <div className="space-y-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="text-base font-semibold tracking-tight text-foreground">{skill.label}</h3>
+                    {(skillEmployeeIdsBySkillId.get(skill.id) ?? [])
+                      .map((employeeId) => memberNameById.get(employeeId))
+                      .filter((name): name is string => Boolean(name))
+                      .map((name) => (
+                        <span
+                          key={`${skill.id}-${name}`}
+                          className="inline-flex rounded-full border border-foreground/20 bg-foreground px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-background"
+                        >
+                          {name}
+                        </span>
+                      ))}
                   </div>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => openEditSkillModal(index)}
-                      aria-label={`Edit ${skill.label}`}
-                      className="rounded-md border border-border px-2 py-1 text-foreground hover:bg-muted"
-                    >
-                      <Pencil size={14} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => openDeleteSkillModal(index)}
-                      aria-label={`Delete ${skill.label}`}
-                      className="rounded-md border border-border px-2 py-1 text-muted-foreground transition-colors md:hover:border-destructive/50 md:hover:bg-destructive/10 md:hover:text-destructive"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
+                  <p className="text-xs text-muted-foreground">{skill.id}</p>
                 </div>
                 <p className="mt-1 text-sm leading-6 text-muted-foreground">{skill.description}</p>
                 <div className="mt-2 space-y-2 text-xs text-muted-foreground">
@@ -681,9 +665,46 @@ export function AdminCatalogEditor() {
               </label>
             </div>
             <div className="flex justify-end gap-2">
+              {skillModal.mode === "edit" ? (
+                <div className="mr-auto">
+                  {confirmDeleteSkillInline ? (
+                    <div className="flex flex-wrap items-center gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-2 py-1.5">
+                      <span className="text-xs text-destructive">Delete this skill and unassign it from employees?</span>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmDeleteSkillInline(false)}
+                        className="rounded-md border border-border px-2 py-1 text-xs text-foreground hover:bg-muted"
+                        disabled={state === "saving" || state === "loading"}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void confirmDeleteSkill()}
+                        className="rounded-md bg-destructive px-2 py-1 text-xs font-medium text-destructive-foreground hover:opacity-90"
+                        disabled={state === "saving" || state === "loading"}
+                      >
+                        Confirm delete
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setConfirmDeleteSkillInline(true)}
+                      className="rounded-md border border-destructive/50 px-3 py-2 text-sm text-destructive hover:bg-destructive/10"
+                      disabled={state === "saving" || state === "loading"}
+                    >
+                      Delete skill
+                    </button>
+                  )}
+                </div>
+              ) : null}
               <button
                 type="button"
-                onClick={() => setSkillModal(null)}
+                onClick={() => {
+                  setSkillModal(null);
+                  setConfirmDeleteSkillInline(false);
+                }}
                 className="rounded-md border border-border px-3 py-2 text-sm text-foreground hover:bg-muted"
               >
                 Cancel
@@ -695,34 +716,6 @@ export function AdminCatalogEditor() {
                 disabled={state === "saving" || state === "loading"}
               >
                 Save draft
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {deleteSkillModal ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
-          <div className="w-full max-w-md space-y-3 rounded-xl border border-border bg-card p-4">
-            <h3 className="text-base font-semibold text-foreground">Delete skill?</h3>
-            <p className="text-sm text-muted-foreground">
-              This will remove the skill from the catalog and unassign it from any employees currently using it.
-            </p>
-            <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setDeleteSkillModal(null)}
-                className="rounded-md border border-border px-3 py-2 text-sm text-foreground hover:bg-muted"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={confirmDeleteSkill}
-                className="rounded-md bg-destructive px-3 py-2 text-sm font-medium text-destructive-foreground hover:opacity-90"
-                disabled={state === "saving" || state === "loading"}
-              >
-                Delete skill
               </button>
             </div>
           </div>
