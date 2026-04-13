@@ -307,9 +307,9 @@ export function AdminCatalogEditor() {
       optionalParams,
     };
 
-    if (!draft.id || !draft.label || !draft.description || !draft.runtimeTool || draft.requiredParams.length === 0) {
+    if (!draft.id || !draft.label || !draft.description || draft.requiredParams.length === 0) {
       setState("error");
-      setStatusText("Skill id, label, description, runtime tool, and required params are required.");
+      setStatusText("Skill id, label, description, and required params are required.");
       return;
     }
 
@@ -557,21 +557,18 @@ export function AdminCatalogEditor() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
           <div className="w-full max-w-lg space-y-3 rounded-xl border border-border bg-card p-4">
             <h3 className="text-base font-semibold text-foreground">
-              {employeeModal.mode === "create" ? "Add employee" : "Manage employee skills"}
+              {employeeModal.mode === "create" ? "Add employee" : employeeDraft.id}
             </h3>
-            <label className="space-y-1">
-              <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">ID</span>
-              <input
-                value={employeeDraft.id}
-                onChange={(event) => setEmployeeDraft((prev) => ({ ...prev, id: event.target.value }))}
-                readOnly={employeeModal.mode === "edit"}
-                className={
-                  employeeModal.mode === "edit"
-                    ? "w-full rounded-md border border-border bg-muted px-3 py-2 text-sm text-muted-foreground outline-none"
-                    : "w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-foreground/40"
-                }
-              />
-            </label>
+            {employeeModal.mode === "create" ? (
+              <label className="space-y-1">
+                <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">ID</span>
+                <input
+                  value={employeeDraft.id}
+                  onChange={(event) => setEmployeeDraft((prev) => ({ ...prev, id: event.target.value }))}
+                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-foreground/40"
+                />
+              </label>
+            ) : null}
             <label className="space-y-1">
               <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Name</span>
               <input
@@ -662,14 +659,6 @@ export function AdminCatalogEditor() {
                 value={skillDraft.description}
                 onChange={(event) => setSkillDraft((prev) => ({ ...prev, description: event.target.value }))}
                 className="h-24 w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-foreground/40"
-              />
-            </label>
-            <label className="space-y-1">
-              <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Runtime tool</span>
-              <input
-                value={skillDraft.runtimeTool}
-                onChange={(event) => setSkillDraft((prev) => ({ ...prev, runtimeTool: event.target.value }))}
-                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-foreground/40"
               />
             </label>
             <div className="grid gap-3 sm:grid-cols-2">
@@ -931,7 +920,7 @@ function normalizeCatalog(input: CapabilityCatalog): CapabilityCatalog {
       const optional = [...new Set(skill.optionalParams.filter((param) => !requiredSet.has(param)))].sort();
       return { ...skill, requiredParams: required, optionalParams: optional };
     })
-    .filter((skill) => skill.id && skill.label && skill.description && skill.runtimeTool && skill.requiredParams.length > 0);
+    .filter((skill) => skill.id && skill.label && skill.description && skill.requiredParams.length > 0);
 
   const skillIDs = new Set(normalizedSkills.map((skill) => skill.id));
   const nextEmployeeSkillIDs: Record<string, string[]> = {};
@@ -942,13 +931,50 @@ function normalizeCatalog(input: CapabilityCatalog): CapabilityCatalog {
     ].sort();
   }
 
+  const ownersBySkill = new Map<string, string[]>();
+  for (const [employeeID, skillIDs] of Object.entries(nextEmployeeSkillIDs)) {
+    for (const skillID of skillIDs) {
+      const current = ownersBySkill.get(skillID) ?? [];
+      current.push(employeeID);
+      ownersBySkill.set(skillID, current);
+    }
+  }
+  for (const [skillID, owners] of ownersBySkill.entries()) {
+    ownersBySkill.set(skillID, [...new Set(owners)].sort());
+  }
+
+  const normalizedSkillsWithDerivedRuntime = normalizedSkills.map((skill) => ({
+    ...skill,
+    runtimeTool: deriveRuntimeToolValue(skill.runtimeTool, skill.id, ownersBySkill.get(skill.id) ?? []),
+  }));
+
   return {
     coreEmployees: normalizedEmployees,
-    skills: normalizedSkills,
+    skills: normalizedSkillsWithDerivedRuntime,
     employeeSkillIds: nextEmployeeSkillIDs,
     updatedAt: input.updatedAt,
     source: input.source,
   };
+}
+
+function deriveRuntimeToolValue(currentRuntimeTool: string, skillID: string, owners: string[]): string {
+  const normalizedSkillID = normalizeSkillID(skillID);
+  const runtimeTool = (currentRuntimeTool ?? "").trim().toLowerCase();
+  if (owners.length > 0) {
+    return `${owners[0]}-${normalizedSkillID}`;
+  }
+  switch (runtimeTool) {
+    case "joanne_email":
+      return "joanne-write-email";
+    case "joanne_google_docs":
+      return "joanne-write-doc";
+    case "garth_twitter_lookup":
+      return "garth-read-twitter";
+    case "ross_ops":
+      return "ross-ops";
+    default:
+      return runtimeTool;
+  }
 }
 
 

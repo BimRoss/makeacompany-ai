@@ -1,28 +1,26 @@
 package app
 
-import (
-	"strings"
-	"testing"
-)
+import "testing"
 
-func TestValidateCapabilityCatalogRejectsUnsupportedRuntimeTool(t *testing.T) {
+func TestNormalizeCapabilityCatalogMigratesLegacyRuntimeTool(t *testing.T) {
 	catalog := defaultCapabilityCatalog()
-	catalog.Skills[0].RuntimeTool = "not_a_real_tool"
+	catalog.Skills[0].RuntimeTool = "joanne_email"
+	catalog.EmployeeSkillIDs["joanne"] = []string{"write-email"}
 
-	err := validateCapabilityCatalog(catalog)
-	if err == nil {
-		t.Fatal("expected unsupported runtime tool validation error")
+	normalized := normalizeCapabilityCatalog(catalog)
+	if len(normalized.Skills) == 0 {
+		t.Fatal("expected normalized skills")
 	}
-	if !strings.Contains(err.Error(), "unsupported runtimeTool") {
-		t.Fatalf("expected unsupported runtimeTool error, got %v", err)
+	if normalized.Skills[0].RuntimeTool != "joanne-write-email" {
+		t.Fatalf("expected migrated runtime tool joanne-write-email, got %q", normalized.Skills[0].RuntimeTool)
 	}
 }
 
-func TestValidateCapabilityCatalogAllowsSupportedRuntimeTool(t *testing.T) {
+func TestValidateCapabilityCatalogAllowsArbitraryRuntimeTool(t *testing.T) {
 	catalog := defaultCapabilityCatalog()
-	catalog.Skills[0].RuntimeTool = "ross_ops"
+	catalog.Skills[0].RuntimeTool = "custom-tool-name"
 
 	if err := validateCapabilityCatalog(catalog); err != nil {
-		t.Fatalf("expected supported runtime tool to validate, got %v", err)
+		t.Fatalf("expected catalog to validate, got %v", err)
 	}
 }

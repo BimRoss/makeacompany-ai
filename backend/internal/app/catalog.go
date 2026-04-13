@@ -44,11 +44,65 @@ var canonicalEmployeeDescriptions = map[string]string{
 	"tim":    "Calm, tactical, curiosity-first. I bias toward small reversible tests, batching and delegation where they earn their keep, and relationships built over years-not transactional networking. I care about how you learn (meta-learning), how you recover from failure, and how you protect attention when everything screams urgent. Ask better questions; design experiments; say no to protect the few things that matter.",
 }
 
-var supportedCapabilityRuntimeTools = map[string]struct{}{
-	"joanne_email":         {},
-	"joanne_google_docs":   {},
-	"garth_twitter_lookup": {},
-	"ross_ops":             {},
+func derivedRuntimeTool(employeeID, skillID string) string {
+	employeeID = strings.ToLower(strings.TrimSpace(employeeID))
+	skillID = normalizeCatalogSkillID(skillID)
+	if employeeID == "" || skillID == "" {
+		return ""
+	}
+	return employeeID + "-" + skillID
+}
+
+func migrateLegacyRuntimeTool(runtimeTool, skillID string, owners []string) string {
+	runtimeTool = strings.ToLower(strings.TrimSpace(runtimeTool))
+	skillID = normalizeCatalogSkillID(skillID)
+	if len(owners) > 0 {
+		return derivedRuntimeTool(owners[0], skillID)
+	}
+	switch runtimeTool {
+	case "joanne_email":
+		return derivedRuntimeTool("joanne", "write-email")
+	case "joanne_google_docs":
+		return derivedRuntimeTool("joanne", "write-doc")
+	case "garth_twitter_lookup":
+		return derivedRuntimeTool("garth", "read-twitter")
+	case "ross_ops":
+		return derivedRuntimeTool("ross", "ops")
+	default:
+		if runtimeTool != "" {
+			return runtimeTool
+		}
+	}
+	return ""
+}
+
+func ownersBySkillID(employeeSkillIDs map[string][]string) map[string][]string {
+	out := map[string][]string{}
+	seenBySkill := map[string]map[string]struct{}{}
+	for employeeID, skillIDs := range employeeSkillIDs {
+		employeeID = strings.ToLower(strings.TrimSpace(employeeID))
+		if employeeID == "" {
+			continue
+		}
+		for _, skillID := range skillIDs {
+			skillID = normalizeCatalogSkillID(skillID)
+			if skillID == "" || skillID == "read-server" {
+				continue
+			}
+			if seenBySkill[skillID] == nil {
+				seenBySkill[skillID] = map[string]struct{}{}
+			}
+			if _, exists := seenBySkill[skillID][employeeID]; exists {
+				continue
+			}
+			seenBySkill[skillID][employeeID] = struct{}{}
+			out[skillID] = append(out[skillID], employeeID)
+		}
+	}
+	for skillID := range out {
+		sort.Strings(out[skillID])
+	}
+	return out
 }
 
 func defaultCapabilityCatalog() CapabilityCatalog {
@@ -65,7 +119,7 @@ func defaultCapabilityCatalog() CapabilityCatalog {
 				ID:             "write-email",
 				Label:          "Write Email",
 				Description:    "Draft, send, and triage email communication.",
-				RuntimeTool:    "joanne_email",
+				RuntimeTool:    "joanne-write-email",
 				RequiredParams: []string{"intent", "subject", "to"},
 				OptionalParams: []string{"button", "commenters", "editors", "link", "viewers"},
 			},
@@ -73,7 +127,7 @@ func defaultCapabilityCatalog() CapabilityCatalog {
 				ID:             "write-doc",
 				Label:          "Write Doc",
 				Description:    "Create, edit, and organize working docs.",
-				RuntimeTool:    "joanne_google_docs",
+				RuntimeTool:    "joanne-write-doc",
 				RequiredParams: []string{"intent", "title", "type"},
 				OptionalParams: []string{"commenters", "editors", "viewers"},
 			},
@@ -81,7 +135,7 @@ func defaultCapabilityCatalog() CapabilityCatalog {
 				ID:             "read-twitter",
 				Label:          "Read Twitter",
 				Description:    "Discover and search high-impression tweets quickly.",
-				RuntimeTool:    "garth_twitter_lookup",
+				RuntimeTool:    "garth-read-twitter",
 				RequiredParams: []string{"intent", "query"},
 				OptionalParams: []string{"count"},
 			},
@@ -136,6 +190,7 @@ func normalizeCatalogSkillParamName(raw string) string {
 }
 
 func normalizeCapabilityCatalog(c CapabilityCatalog) CapabilityCatalog {
+	ownersBySkill := ownersBySkillID(c.EmployeeSkillIDs)
 	next := CapabilityCatalog{
 		CoreEmployees:    make([]CapabilityCatalogEmployee, 0, len(c.CoreEmployees)),
 		Skills:           make([]CapabilityCatalogSkill, 0, len(c.Skills)),
@@ -197,7 +252,7 @@ func normalizeCapabilityCatalog(c CapabilityCatalog) CapabilityCatalog {
 		skill.OptionalParams = normalizeCatalogParamList(filteredOptional)
 		skill.RequiredParams = normalizeCatalogParamList(required)
 		skill.ID = id
-		skill.RuntimeTool = strings.ToLower(strings.TrimSpace(skill.RuntimeTool))
+		skill.RuntimeTool = migrateLegacyRuntimeTool(skill.RuntimeTool, id, ownersBySkill[id])
 		skill.Label = strings.TrimSpace(skill.Label)
 		skill.Description = strings.TrimSpace(skill.Description)
 		next.Skills = append(next.Skills, skill)
@@ -295,13 +350,6 @@ func validateCapabilityCatalog(c CapabilityCatalog) error {
 		id := strings.TrimSpace(skill.ID)
 		if id == "" || strings.TrimSpace(skill.Label) == "" || strings.TrimSpace(skill.Description) == "" {
 			return fmt.Errorf("invalid skill entry")
-		}
-		if strings.TrimSpace(skill.RuntimeTool) == "" {
-			return fmt.Errorf("skill %s missing runtimeTool", id)
-		}
-		runtimeTool := strings.ToLower(strings.TrimSpace(skill.RuntimeTool))
-		if _, ok := supportedCapabilityRuntimeTools[runtimeTool]; !ok {
-			return fmt.Errorf("skill %s has unsupported runtimeTool %s", id, strings.TrimSpace(skill.RuntimeTool))
 		}
 		if len(skill.RequiredParams) == 0 {
 			return fmt.Errorf("skill %s missing requiredParams", id)

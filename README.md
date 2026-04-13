@@ -38,7 +38,7 @@ Admin catalog editor:
 - `PUT` forwards optional `X-Admin-Token` (backend validates against `ADMIN_CATALOG_TOKEN` when set).
 - Sign-in route: `/admin/login` starts Stripe-backed verification before issuing an HttpOnly admin session cookie.
 - Capability catalog is authoritative for Slack tooling assignments. `employee-factory` reads `GET /v1/runtime/capability-catalog` and only executes a tool when that catalog assigns the runtime tool to the employee and runtime secrets/env are ready.
-- Backend rejects unsupported `runtimeTool` values on `PUT /v1/admin/catalog` so admin assignments cannot drift from runtime-supported tool keys.
+- Backend derives `runtimeTool` from `<employee>-<skill-id>` and migrates legacy values on catalog reads/writes.
 
 ## Stripe catalog (`stripe-factory`)
 
