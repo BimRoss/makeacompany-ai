@@ -73,6 +73,7 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 	s.mux.HandleFunc("/v1/billing/waitlist-stats", s.handleWaitlistStats)
 	s.mux.HandleFunc("/v1/admin/waitlist", s.handleAdminWaitlist)
 	s.mux.HandleFunc("/v1/admin/catalog", s.handleAdminCatalog)
+	s.mux.HandleFunc("/v1/admin/company-channels", s.handleAdminCompanyChannels)
 	s.mux.HandleFunc("/v1/runtime/capability-catalog", s.handleRuntimeCapabilityCatalog)
 	s.mux.HandleFunc("/v1/admin/auth/start", s.handleAdminAuthStart)
 	s.mux.HandleFunc("/v1/admin/auth/finish", s.handleAdminAuthFinish)
@@ -127,6 +128,8 @@ func normalizeMetricRoute(path string) string {
 		return "/v1/admin/waitlist"
 	case path == "/v1/admin/catalog":
 		return "/v1/admin/catalog"
+	case path == "/v1/admin/company-channels":
+		return "/v1/admin/company-channels"
 	case path == "/v1/runtime/capability-catalog":
 		return "/v1/runtime/capability-catalog"
 	case path == "/v1/admin/auth/start":
@@ -433,6 +436,32 @@ func (s *Server) handleAdminCatalog(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
+}
+
+func (s *Server) handleAdminCompanyChannels(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if !s.adminAuthEnabled() {
+		http.Error(w, "admin auth disabled", http.StatusServiceUnavailable)
+		return
+	}
+	if _, err := s.validateAdminSession(r.Context(), tokenFromAuthHeader(r)); err != nil {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+	channels, truncated, err := s.store.ListCompanyChannels(r.Context(), s.cfg.CompanyChannelsRedisKey)
+	if err != nil {
+		s.log.Printf("admin company channels: %v", err)
+		http.Error(w, "company channels error", http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"channels":  channels,
+		"truncated": truncated,
+		"redisKey":  strings.TrimSpace(s.cfg.CompanyChannelsRedisKey),
+	})
 }
 
 func (s *Server) catalogServiceWriteAuthorized(r *http.Request) bool {

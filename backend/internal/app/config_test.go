@@ -12,4 +12,7 @@ func TestLoadConfig_Defaults(t *testing.T) {
 	if c.RedisURL == "" {
 		t.Fatal("expected default redis url")
 	}
+	if c.CompanyChannelsRedisKey != "employee-factory:company_channels" {
+		t.Fatalf("company channels redis key: %q", c.CompanyChannelsRedisKey)
+	}
 }

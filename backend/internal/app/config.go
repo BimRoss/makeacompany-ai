@@ -9,6 +9,7 @@ import (
 type Config struct {
 	Port                        int
 	RedisURL                    string
+	CompanyChannelsRedisKey     string
 	AppBaseURL                  string
 	AdminCatalogToken           string
 	CapabilityCatalogReadToken  string
@@ -35,6 +36,7 @@ func LoadConfig() Config {
 	return Config{
 		Port:                        envInt("PORT", 8080),
 		RedisURL:                    envString("REDIS_URL", "redis://localhost:6379/0"),
+		CompanyChannelsRedisKey:     envString("COMPANY_CHANNELS_REDIS_KEY", "employee-factory:company_channels"),
 		AppBaseURL:                  strings.TrimRight(envString("APP_BASE_URL", "http://localhost:3000"), "/"),
 		AdminCatalogToken:           envFirst("ADMIN_CATALOG_TOKEN", "RANCHER_ADMIN_REPO_TOKEN"),
 		CapabilityCatalogReadToken:  strings.TrimSpace(os.Getenv("CAPABILITY_CATALOG_READ_TOKEN")),

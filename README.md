@@ -38,6 +38,7 @@ Admin catalog editor (**production source of truth**):
 - `PUT` forwards optional `X-Admin-Token` (backend validates against `ADMIN_CATALOG_TOKEN` when set).
 - Sign-in route: `/admin/login` starts Stripe-backed verification before issuing an HttpOnly admin session cookie.
 - Includes an 8-panel service overview Grafana grid (4 columns x 2 rows) for high-level runtime monitoring.
+- Bottom of the page: read-only **Slack channels (Redis)** strip — loads the shared company-channel registry (`employee-factory:company_channels` by default) via `GET /api/admin/company-channels` and shows per-channel metadata as pills.
 - Capability catalog in Redis is authoritative for Slack tooling assignments. `employee-factory` reads `GET /v1/runtime/capability-catalog` and only executes a tool when that catalog assigns the runtime tool to the employee and runtime secrets/env are ready.
 - Backend derives `runtimeTool` from `<employee>-<skill-id>` and migrates legacy values on catalog reads/writes.
 - Optional `revision` / `source` fields are for operator traceability (not tied to CI).

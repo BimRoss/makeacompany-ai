@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"sort"
@@ -25,6 +26,9 @@ const adminSessionKeyPrefix = keyPrefix + ":admin_session:"
 
 // maxWaitlistList caps SCAN/HGETALL work for admin listing (pathological keyspace guard).
 const maxWaitlistList = 500
+
+// maxCompanyChannelsList caps HGETALL company channel registry rows returned to admin UI.
+const maxCompanyChannelsList = 200
 
 const waitlistKeyMatch = keyPrefix + ":waitlist:*"
 
@@ -268,4 +272,78 @@ func (s *Store) DeleteAdminSession(ctx context.Context, token string) error {
 		return nil
 	}
 	return s.rdb.Del(ctx, adminSessionKey(token)).Err()
+}
+
+// CompanyChannel mirrors employee-factory/config.CompanyChannelRuntime JSON for Redis HASH values.
+type CompanyChannel struct {
+	CompanySlug                string   `json:"company_slug"`
+	ChannelID                  string   `json:"channel_id"`
+	DisplayName                string   `json:"display_name,omitempty"`
+	PrimaryOwner               string   `json:"primary_owner,omitempty"`
+	AllowedOperatorIDs         []string `json:"allowed_operator_ids,omitempty"`
+	ThreadsEnabled             bool     `json:"threads_enabled"`
+	GeneralAutoReactionEnabled bool     `json:"general_auto_reaction_enabled"`
+}
+
+func normalizeCompanyChannel(e CompanyChannel, hashField string) CompanyChannel {
+	e.ChannelID = strings.TrimSpace(e.ChannelID)
+	e.CompanySlug = strings.TrimSpace(e.CompanySlug)
+	e.DisplayName = strings.TrimSpace(e.DisplayName)
+	e.PrimaryOwner = strings.TrimSpace(e.PrimaryOwner)
+	for i := range e.AllowedOperatorIDs {
+		e.AllowedOperatorIDs[i] = strings.TrimSpace(e.AllowedOperatorIDs[i])
+	}
+	if e.ChannelID == "" {
+		e.ChannelID = strings.TrimSpace(hashField)
+	}
+	return e
+}
+
+// ListCompanyChannels reads the shared Redis HASH used by employee-factory (field = channel id, value = JSON).
+// Results are sorted by company_slug then channel_id. If more than maxCompanyChannelsList entries exist, truncated is true.
+func (s *Store) ListCompanyChannels(ctx context.Context, hashKey string) ([]CompanyChannel, bool, error) {
+	if s == nil || s.rdb == nil {
+		return nil, false, fmt.Errorf("company channels: nil store")
+	}
+	k := strings.TrimSpace(hashKey)
+	if k == "" {
+		k = "employee-factory:company_channels"
+	}
+	raw, err := s.rdb.HGetAll(ctx, k).Result()
+	if err != nil {
+		return nil, false, err
+	}
+	if len(raw) == 0 {
+		return nil, false, nil
+	}
+	out := make([]CompanyChannel, 0, len(raw))
+	for field, val := range raw {
+		val = strings.TrimSpace(val)
+		if val == "" {
+			continue
+		}
+		var e CompanyChannel
+		if err := json.Unmarshal([]byte(val), &e); err != nil {
+			continue
+		}
+		e = normalizeCompanyChannel(e, field)
+		if e.ChannelID == "" {
+			continue
+		}
+		if e.ChannelID != strings.TrimSpace(field) {
+			continue
+		}
+		out = append(out, e)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].CompanySlug != out[j].CompanySlug {
+			return out[i].CompanySlug < out[j].CompanySlug
+		}
+		return out[i].ChannelID < out[j].ChannelID
+	})
+	truncated := len(out) > maxCompanyChannelsList
+	if truncated {
+		out = out[:maxCompanyChannelsList]
+	}
+	return out, truncated, nil
 }
