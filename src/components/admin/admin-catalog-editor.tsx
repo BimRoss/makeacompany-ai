@@ -970,8 +970,6 @@ function deriveRuntimeToolValue(currentRuntimeTool: string, skillID: string, own
       return "joanne-write-doc";
     case "garth_twitter_lookup":
       return "garth-read-twitter";
-    case "ross_ops":
-      return "ross-ops";
     default:
       return runtimeTool;
   }

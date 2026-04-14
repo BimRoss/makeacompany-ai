@@ -67,8 +67,6 @@ func migrateLegacyRuntimeTool(runtimeTool, skillID string, owners []string) stri
 		return derivedRuntimeTool("joanne", "write-doc")
 	case "garth_twitter_lookup":
 		return derivedRuntimeTool("garth", "read-twitter")
-	case "ross_ops":
-		return derivedRuntimeTool("ross", "ops")
 	default:
 		if runtimeTool != "" {
 			return runtimeTool
@@ -134,6 +132,22 @@ func defaultCapabilityCatalog() CapabilityCatalog {
 				OptionalParams: []string{"commenters", "editors", "viewers"},
 			},
 			{
+				ID:             "read-slack",
+				Label:          "Read Slack",
+				Description:    "List channels and read recent channel messages for onboarding context.",
+				RuntimeTool:    "joanne-read-slack",
+				RequiredParams: []string{"action", "intent"},
+				OptionalParams: []string{"channel", "channel_name", "count", "reason"},
+			},
+			{
+				ID:             "write-slack",
+				Label:          "Write Slack",
+				Description:    "Create channels and invite requesters to channels for onboarding setup.",
+				RuntimeTool:    "joanne-write-slack",
+				RequiredParams: []string{"action", "intent"},
+				OptionalParams: []string{"channel", "channel_name", "is_private", "reason"},
+			},
+			{
 				ID:             "read-twitter",
 				Label:          "Read Twitter",
 				Description:    "Discover and search high-impression tweets quickly.",
@@ -147,7 +161,7 @@ func defaultCapabilityCatalog() CapabilityCatalog {
 			"tim":    {},
 			"ross":   {},
 			"garth":  {"read-twitter"},
-			"joanne": {"write-email", "write-doc"},
+			"joanne": {"read-slack", "write-email", "write-doc", "write-slack"},
 		},
 		UpdatedAt: time.Now().UTC().Format(time.RFC3339),
 		Source:    "default",
@@ -237,6 +251,14 @@ func normalizeCapabilityCatalog(c CapabilityCatalog) CapabilityCatalog {
 			skill.Label = "Write Doc"
 			required = []string{"intent", "title", "type"}
 			optional = []string{"commenters", "editors", "viewers"}
+		case "read-slack":
+			skill.Label = "Read Slack"
+			required = []string{"action", "intent"}
+			optional = []string{"channel", "channel_name", "count", "reason"}
+		case "write-slack":
+			skill.Label = "Write Slack"
+			required = []string{"action", "intent"}
+			optional = []string{"channel", "channel_name", "is_private", "reason"}
 		case "read-twitter":
 			optional = []string{"count"}
 		}
