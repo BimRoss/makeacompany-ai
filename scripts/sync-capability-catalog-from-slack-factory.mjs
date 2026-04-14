@@ -1,3 +1,8 @@
+/**
+ * Optional one-time or manual bootstrap: load skills-catalog.json from a slack-factory checkout
+ * and PUT it to the backend so Redis matches that file. Day-to-day edits use /admin in production.
+ * Not used by GitHub Actions (scheduled sync removed — avoids cross-repo tokens and base-URL secrets).
+ */
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 
