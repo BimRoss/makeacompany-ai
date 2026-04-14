@@ -65,19 +65,48 @@ return 1
 `
 
 type Store struct {
-	rdb *redis.Client
+	rdb                *redis.Client
+	companyChannelsRdb *redis.Client // optional second Redis for shared employee-factory registry; nil = use rdb
 }
 
-func NewStore(redisURL string) (*Store, error) {
+// NewStore opens the primary Redis client. If companyChannelsRedisURL is non-empty and differs from redisURL,
+// a second client is used only for ListCompanyChannels (same pattern as employee-factory vs makeacompany-ai split).
+func NewStore(redisURL, companyChannelsRedisURL string) (*Store, error) {
 	opts, err := redis.ParseURL(redisURL)
 	if err != nil {
 		return nil, fmt.Errorf("parse redis url: %w", err)
 	}
-	return &Store{rdb: redis.NewClient(opts)}, nil
+	primary := redis.NewClient(opts)
+	ccURL := strings.TrimSpace(companyChannelsRedisURL)
+	if ccURL == "" || ccURL == strings.TrimSpace(redisURL) {
+		return &Store{rdb: primary}, nil
+	}
+	ccOpts, err := redis.ParseURL(ccURL)
+	if err != nil {
+		_ = primary.Close()
+		return nil, fmt.Errorf("parse company channels redis url: %w", err)
+	}
+	return &Store{rdb: primary, companyChannelsRdb: redis.NewClient(ccOpts)}, nil
 }
 
 func (s *Store) Close() error {
+	if s == nil {
+		return nil
+	}
+	if s.companyChannelsRdb != nil {
+		_ = s.companyChannelsRdb.Close()
+	}
 	return s.rdb.Close()
+}
+
+func (s *Store) companyChannelsRedis() *redis.Client {
+	if s == nil {
+		return nil
+	}
+	if s.companyChannelsRdb != nil {
+		return s.companyChannelsRdb
+	}
+	return s.rdb
 }
 
 func (s *Store) Ping(ctx context.Context) error {
@@ -302,19 +331,20 @@ func normalizeCompanyChannel(e CompanyChannel, hashField string) CompanyChannel 
 // ListCompanyChannels reads the shared Redis HASH used by employee-factory (field = channel id, value = JSON).
 // Results are sorted by company_slug then channel_id. If more than maxCompanyChannelsList entries exist, truncated is true.
 func (s *Store) ListCompanyChannels(ctx context.Context, hashKey string) ([]CompanyChannel, bool, error) {
-	if s == nil || s.rdb == nil {
+	rdb := s.companyChannelsRedis()
+	if s == nil || rdb == nil {
 		return nil, false, fmt.Errorf("company channels: nil store")
 	}
 	k := strings.TrimSpace(hashKey)
 	if k == "" {
 		k = "employee-factory:company_channels"
 	}
-	raw, err := s.rdb.HGetAll(ctx, k).Result()
+	raw, err := rdb.HGetAll(ctx, k).Result()
 	if err != nil {
 		return nil, false, err
 	}
 	if len(raw) == 0 {
-		return nil, false, nil
+		return []CompanyChannel{}, false, nil
 	}
 	out := make([]CompanyChannel, 0, len(raw))
 	for field, val := range raw {

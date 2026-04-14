@@ -16,7 +16,7 @@ import (
 func main() {
 	logger := log.New(os.Stdout, "", log.LstdFlags)
 	cfg := app.LoadConfig()
-	store, err := app.NewStore(cfg.RedisURL)
+	store, err := app.NewStore(cfg.RedisURL, cfg.CompanyChannelsRedisURL)
 	if err != nil {
 		logger.Fatalf("redis: %v", err)
 	}
