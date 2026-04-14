@@ -7,10 +7,10 @@ import type { CompanyChannel, CompanyChannelsResponse } from "@/lib/admin/compan
 type LoadState = "idle" | "loading" | "error" | "ready";
 
 function channelTitle(ch: CompanyChannel): string {
+  const slug = ch.company_slug?.trim();
+  if (slug) return `#${slug.toLowerCase()}`;
   const dn = ch.display_name?.trim();
   if (dn) return dn;
-  const slug = ch.company_slug?.trim();
-  if (slug) return `#${slug}`;
   return ch.channel_id;
 }
 
@@ -27,7 +27,7 @@ export function AdminCompanyChannelsStrip() {
 
   const load = useCallback(async () => {
     setState("loading");
-    setStatusText("Loading Slack channels from Redis…");
+    setStatusText("Loading companies…");
     try {
       const response = await fetch("/api/admin/company-channels", { cache: "no-store" });
       const payload = (await response.json().catch(() => null)) as CompanyChannelsResponse | null;
@@ -53,14 +53,9 @@ export function AdminCompanyChannelsStrip() {
 
   return (
     <section className="space-y-4 border-t border-border pt-8" aria-labelledby="admin-company-channels-heading">
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 id="admin-company-channels-heading" className="text-lg font-semibold tracking-tight">
-          Slack channels (Redis)
-        </h2>
-        {data?.redisKey ? (
-          <p className="font-mono text-[11px] text-muted-foreground">Key: {data.redisKey}</p>
-        ) : null}
-      </div>
+      <h2 id="admin-company-channels-heading" className="text-lg font-semibold tracking-tight">
+        Companies
+      </h2>
 
       {state === "loading" || state === "idle" ? (
         <p className="text-sm text-muted-foreground">{statusText || "Loading…"}</p>
@@ -88,7 +83,7 @@ export function AdminCompanyChannelsStrip() {
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                   <div>
                     <p className="font-medium leading-tight">{channelTitle(ch)}</p>
-                    {ch.display_name?.trim() ? (
+                    {channelTitle(ch) !== ch.channel_id ? (
                       <p className="mt-0.5 font-mono text-[11px] text-muted-foreground">{ch.channel_id}</p>
                     ) : null}
                   </div>
@@ -99,14 +94,6 @@ export function AdminCompanyChannelsStrip() {
                       {ch.company_slug}
                     </span>
                   ) : null}
-                  {!ch.display_name?.trim() ? (
-                    <span className={pillClassName(false)} title="channel_id">
-                      {ch.channel_id}
-                    </span>
-                  ) : null}
-                  <span className={pillClassName(ch.threads_enabled)}>
-                    {ch.threads_enabled ? "threads on" : "threads off"}
-                  </span>
                   <span className={pillClassName(ch.general_auto_reaction_enabled)}>
                     {ch.general_auto_reaction_enabled ? "reactions on" : "reactions off"}
                   </span>

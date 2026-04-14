@@ -111,13 +111,7 @@ export function AdminOverviewGrafanaGrid() {
   const missing = Math.max(0, EXPECTED_ADMIN_PANELS - cards.length);
 
   return (
-    <section className="space-y-3 rounded-2xl bg-card px-4 pb-4 pt-4 sm:px-5 sm:pb-5">
-      <div className="space-y-1">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Service overview</h2>
-        <p className="text-xs text-muted-foreground">
-          High-level health tiles. Keep each panel to one clear signal with a short legend.
-        </p>
-      </div>
+    <section className="rounded-2xl bg-card px-4 pb-4 pt-4 sm:px-5 sm:pb-5">
       <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-4">
         {cards.map((embed) => (
           <article key={embed.key} className="overflow-hidden rounded-xl border border-border bg-background/60">

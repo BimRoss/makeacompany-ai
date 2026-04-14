@@ -325,6 +325,7 @@ func normalizeCompanyChannel(e CompanyChannel, hashField string) CompanyChannel 
 	if e.ChannelID == "" {
 		e.ChannelID = strings.TrimSpace(hashField)
 	}
+	e.ThreadsEnabled = true
 	return e
 }
 
