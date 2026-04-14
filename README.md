@@ -42,19 +42,15 @@ Admin catalog editor (**production source of truth**):
 - Backend derives `runtimeTool` from `<employee>-<skill-id>` and migrates legacy values on catalog reads/writes.
 - Optional `revision` / `source` fields are for operator traceability (not tied to CI).
 
-**Optional one-time bootstrap** from a local `slack-factory` checkout into Redis via the backend API (same JSON as `skills-catalog.json`):
+**Bootstrap / seed Redis** from `slack-factory/skills-catalog.json` using **kubectl** (does not use the admin HTTP API — that path is for `/admin` UI + Stripe OAuth):
 
 ```bash
-CATALOG_SYNC_BASE_URL="https://makeacompany.ai" \
-CATALOG_SYNC_WRITE_TOKEN="${ADMIN_CATALOG_TOKEN}" \
-SOURCE_REVISION="$(git -C ../slack-factory rev-parse HEAD)" \
-SOURCE_REF="master" \
-SOURCE_REPOSITORY="bimross/slack-factory" \
-SLACK_FACTORY_CATALOG_PATH="../slack-factory/skills-catalog.json" \
-node ./scripts/sync-capability-catalog-from-slack-factory.mjs
+./scripts/seed-capability-catalog-redis-kubectl.sh ../slack-factory/skills-catalog.json
 ```
 
-Use a base URL and token that can reach `PUT /v1/admin/catalog`. There is **no** scheduled GitHub Action for catalog sync.
+Requires `kubectl` against the **admin** cluster and `deploy/makeacompany-ai-redis` in namespace `makeacompany-ai`. See [docs/redis-operations.md](docs/redis-operations.md).
+
+Legacy alternative (calls `PUT /v1/admin/catalog`): `scripts/sync-capability-catalog-from-slack-factory.mjs` — only if you intentionally use the service token path (e.g. local automation). There is **no** scheduled GitHub Action for catalog sync.
 
 ## Stripe catalog (`stripe-factory`)
 

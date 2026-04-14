@@ -12,8 +12,26 @@
 
 ## Keys
 
+- `makeacompany:catalog:capabilities:v1` — JSON capability catalog (`GET`/`PUT` shape matches `slack-factory/skills-catalog.json`; backend normalizes/validates on read). Seed with ops script (kubectl), not the admin HTTP API — admin API is for `/admin` UI and Stripe session flows.
 - `makeacompany:checkout:<stripe_checkout_session_id>` — idempotency marker
 - `makeacompany:waitlist:<email>` — hash of waitlist signup fields
+
+### Seed catalog from slack-factory (kubectl)
+
+From a machine with **`kubectl`** access to the **admin** cluster (`KUBECONFIG` fragment + `--context admin` per BimRoss kubeconfig rules):
+
+```bash
+cd /path/to/makeacompany-ai
+./scripts/seed-capability-catalog-redis-kubectl.sh /path/to/slack-factory/skills-catalog.json
+```
+
+Default first argument: `../slack-factory/skills-catalog.json` relative to the makeacompany-ai repo root. Uses `jq` when installed to set `revision`, `source`, and `updatedAt` on the payload.
+
+Verifies Redis is reachable:
+
+```bash
+kubectl --context admin -n makeacompany-ai exec deploy/makeacompany-ai-redis -- redis-cli STRLEN makeacompany:catalog:capabilities:v1
+```
 
 ## Admin API (PII)
 
