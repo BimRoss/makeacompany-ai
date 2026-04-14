@@ -373,15 +373,6 @@ export function AdminCatalogEditor() {
 
   return (
     <section className="space-y-4 rounded-2xl bg-card px-4 pb-4 pt-0 sm:px-5 sm:pb-5 sm:pt-0">
-      <div className="rounded-xl border border-border bg-muted/25 px-4 py-3 text-sm">
-        <p className="font-medium text-foreground">Capability catalog</p>
-        <p className="mt-1.5 text-muted-foreground">
-          This is the live control plane: saves go to Redis and power{" "}
-          <code className="rounded bg-muted px-1 py-0.5 text-xs">GET /v1/runtime/capability-catalog</code> for
-          Slack agent runtimes. To seed from git once, see the README script that reads{" "}
-          <code className="rounded bg-muted px-1 py-0.5 text-xs">slack-factory/skills-catalog.json</code>.
-        </p>
-      </div>
       <div className="grid gap-4 lg:grid-cols-2">
         <section className="relative space-y-3 rounded-xl bg-background/70 p-3">
           <div className="flex items-center justify-between gap-3">
