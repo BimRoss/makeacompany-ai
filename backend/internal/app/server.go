@@ -74,6 +74,7 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 	s.mux.HandleFunc("/v1/admin/waitlist", s.handleAdminWaitlist)
 	s.mux.HandleFunc("/v1/admin/catalog", s.handleAdminCatalog)
 	s.mux.HandleFunc("/v1/admin/company-channels", s.handleAdminCompanyChannels)
+	s.mux.HandleFunc("GET /v1/admin/channel-knowledge/{channelId}", s.handleAdminChannelKnowledge)
 	s.mux.HandleFunc("/v1/runtime/capability-catalog", s.handleRuntimeCapabilityCatalog)
 	s.mux.HandleFunc("/v1/admin/auth/start", s.handleAdminAuthStart)
 	s.mux.HandleFunc("/v1/admin/auth/finish", s.handleAdminAuthFinish)
@@ -130,6 +131,8 @@ func normalizeMetricRoute(path string) string {
 		return "/v1/admin/catalog"
 	case path == "/v1/admin/company-channels":
 		return "/v1/admin/company-channels"
+	case strings.HasPrefix(path, "/v1/admin/channel-knowledge/"):
+		return "/v1/admin/channel-knowledge/{channelId}"
 	case path == "/v1/runtime/capability-catalog":
 		return "/v1/runtime/capability-catalog"
 	case path == "/v1/admin/auth/start":
@@ -461,6 +464,53 @@ func (s *Server) handleAdminCompanyChannels(w http.ResponseWriter, r *http.Reque
 		"channels":  channels,
 		"truncated": truncated,
 		"redisKey":  strings.TrimSpace(s.cfg.CompanyChannelsRedisKey),
+	})
+}
+
+func validAdminSlackChannelID(id string) bool {
+	id = strings.TrimSpace(id)
+	if len(id) < 8 || len(id) > 24 {
+		return false
+	}
+	for i := 0; i < len(id); i++ {
+		c := id[i]
+		if (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') {
+			continue
+		}
+		return false
+	}
+	switch id[0] {
+	case 'C', 'G':
+		return true
+	default:
+		return false
+	}
+}
+
+func (s *Server) handleAdminChannelKnowledge(w http.ResponseWriter, r *http.Request) {
+	if !s.adminAuthEnabled() {
+		http.Error(w, "admin auth disabled", http.StatusServiceUnavailable)
+		return
+	}
+	if _, err := s.validateAdminSession(r.Context(), tokenFromAuthHeader(r)); err != nil {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+	chID := strings.TrimSpace(r.PathValue("channelId"))
+	if chID == "" || !validAdminSlackChannelID(chID) {
+		http.Error(w, "bad channel id", http.StatusBadRequest)
+		return
+	}
+	md, err := s.store.GetChannelKnowledgeMarkdown(r.Context(), chID)
+	if err != nil {
+		s.log.Printf("admin channel knowledge: %v", err)
+		http.Error(w, "channel knowledge error", http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"channel_id": chID,
+		"markdown":   md,
+		"empty":      strings.TrimSpace(md) == "",
 	})
 }
 
