@@ -24,8 +24,6 @@ const ROLE_MAP = {
   joanne: { lane: "operations", roleTitle: "Head of Executive Operations" },
 };
 
-const DISPLAY_ORDER = ["joanne", "ross", "alex", "tim", "garth"];
-
 function normalizeSkillId(value) {
   return toId(value);
 }
@@ -97,6 +95,16 @@ function getRole(name) {
   return ROLE_MAP[key] ?? { lane: "general", roleTitle: "AI Employee" };
 }
 
+function normalizeCatalogEmployee(raw) {
+  const id = toId(raw?.id);
+  if (!id) return null;
+  return {
+    id,
+    label: String(raw?.label || id),
+    description: String(raw?.description || ""),
+  };
+}
+
 function toId(value) {
   return String(value || "")
     .trim()
@@ -105,7 +113,12 @@ function toId(value) {
     .replace(/^-+|-+$/g, "");
 }
 
-async function readManifest(manifestDirName, employeeSkillIds, knownSkillIds) {
+async function readManifest(
+  manifestDirName,
+  employeeSkillIds,
+  knownSkillIds,
+  employeesById
+) {
   const manifestPath = path.join(manifestsRoot, manifestDirName, "app-manifest.json");
   const raw = await readFile(manifestPath, "utf8");
   const parsed = JSON.parse(raw);
@@ -113,6 +126,7 @@ async function readManifest(manifestDirName, employeeSkillIds, knownSkillIds) {
   const botUser = parsed.features?.bot_user || {};
   const displayName = displayInfo.name || manifestDirName;
   const memberId = toId(displayName) || toId(manifestDirName);
+  const catalogEmployee = employeesById.get(memberId);
   const role = getRole(memberId);
   const configuredSkillIds = employeeSkillIds[memberId] ?? [];
   const unknownSkillIds = configuredSkillIds.filter((id) => !knownSkillIds.has(id));
@@ -123,12 +137,16 @@ async function readManifest(manifestDirName, employeeSkillIds, knownSkillIds) {
 
   return {
     id: memberId,
-    displayName,
-    botDisplayName: botUser.display_name || displayName,
+    displayName: catalogEmployee?.label || displayName,
+    botDisplayName: botUser.display_name || catalogEmployee?.label || displayName,
     lane: role.lane,
     roleTitle: role.roleTitle,
-    shortDescription: displayInfo.description || "AI teammate ready for operator workflows.",
+    shortDescription:
+      catalogEmployee?.description ||
+      displayInfo.description ||
+      "AI teammate ready for operator workflows.",
     longDescription:
+      catalogEmployee?.description ||
       displayInfo.long_description ||
       "AI teammate configured from Slack manifest source of truth.",
     backgroundColor: displayInfo.background_color || "#000000",
@@ -138,9 +156,9 @@ async function readManifest(manifestDirName, employeeSkillIds, knownSkillIds) {
   };
 }
 
-function sortMembers(a, b) {
-  const ai = DISPLAY_ORDER.indexOf(a.id);
-  const bi = DISPLAY_ORDER.indexOf(b.id);
+function sortMembers(a, b, displayOrder) {
+  const ai = displayOrder.indexOf(a.id);
+  const bi = displayOrder.indexOf(b.id);
   if (ai !== -1 || bi !== -1) {
     if (ai === -1) return 1;
     if (bi === -1) return -1;
@@ -151,6 +169,18 @@ function sortMembers(a, b) {
 
 async function main() {
   const { skills, employeeSkillIds } = await readSkillsCatalog();
+  let rawCatalog = {};
+  try {
+    rawCatalog = JSON.parse(await readFile(skillsCatalogPath, "utf8"));
+  } catch {
+    rawCatalog = {};
+  }
+  const catalogEmployees = Array.isArray(rawCatalog?.coreEmployees)
+    ? rawCatalog.coreEmployees.map(normalizeCatalogEmployee).filter(Boolean)
+    : [];
+  const employeesById = new Map(catalogEmployees.map((employee) => [employee.id, employee]));
+  const displayOrder = catalogEmployees.map((employee) => employee.id);
+
   const knownSkillIds = new Set(skills.map((skill) => skill.id));
   const entries = await readdir(manifestsRoot, { withFileTypes: true });
   const manifestDirs = entries
@@ -162,14 +192,19 @@ async function main() {
   for (const dirName of manifestDirs) {
     const manifestPath = path.join(manifestsRoot, dirName, "app-manifest.json");
     try {
-      const member = await readManifest(dirName, employeeSkillIds, knownSkillIds);
+      const member = await readManifest(
+        dirName,
+        employeeSkillIds,
+        knownSkillIds,
+        employeesById
+      );
       members.push(member);
     } catch (error) {
       console.warn(`Skipping ${manifestPath}: ${error.message}`);
     }
   }
 
-  members.sort(sortMembers);
+  members.sort((a, b) => sortMembers(a, b, displayOrder));
 
   const payload = {
     generatedAt: new Date().toISOString(),

@@ -115,10 +115,13 @@ function roleForEmployee(id: string): Pick<TeamMember, "lane" | "roleTitle"> {
   }
 }
 
-function memberSort(a: TeamMember, b: TeamMember): number {
-  const order = ["joanne", "ross", "alex", "tim", "garth"];
-  const ai = order.indexOf(a.id);
-  const bi = order.indexOf(b.id);
+function memberSort(
+  a: TeamMember,
+  b: TeamMember,
+  preferredOrder: string[] = []
+): number {
+  const ai = preferredOrder.indexOf(a.id);
+  const bi = preferredOrder.indexOf(b.id);
   if (ai !== -1 || bi !== -1) {
     if (ai === -1) return 1;
     if (bi === -1) return -1;
@@ -131,6 +134,9 @@ function normalizeCatalogToAdminData(catalog: CapabilityCatalog): {
   members: TeamMember[];
   skills: AdminSkill[];
 } {
+  const preferredOrder = catalog.coreEmployees
+    .map((employee) => String(employee.id || "").trim().toLowerCase())
+    .filter(Boolean);
   const members: TeamMember[] = catalog.coreEmployees.map((employee) => {
     const employeeID = String(employee.id || "").trim().toLowerCase();
     const role = roleForEmployee(employeeID);
@@ -154,7 +160,7 @@ function normalizeCatalogToAdminData(catalog: CapabilityCatalog): {
   members.sort((a, b) => {
     const skillCountDiff = b.skillIds.length - a.skillIds.length;
     if (skillCountDiff !== 0) return skillCountDiff;
-    return memberSort(a, b);
+    return memberSort(a, b, preferredOrder);
   });
 
   const employeeIdsBySkill = new Map<string, string[]>();
