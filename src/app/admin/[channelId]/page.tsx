@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import ReactMarkdown from "react-markdown";
+import { AdminChannelKnowledgeDigest } from "@/components/admin/admin-channel-knowledge-digest";
 import { AdminShell } from "@/components/admin/admin-shell";
 import type { ChannelKnowledgeResponse } from "@/lib/admin/channel-knowledge";
 
@@ -78,11 +78,7 @@ export default function AdminChannelKnowledgePage() {
           </p>
         ) : null}
         {state.kind === "ready" && !state.data.empty ? (
-          <article
-            className="rounded-lg border border-border bg-card px-4 py-5 shadow-sm [&_h1]:mb-3 [&_h1]:text-lg [&_h1]:font-semibold [&_li]:my-1 [&_p]:my-2 [&_strong]:font-semibold [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-6"
-          >
-            <ReactMarkdown>{state.data.markdown}</ReactMarkdown>
-          </article>
+          <AdminChannelKnowledgeDigest key={channelId || "channel"} markdown={state.data.markdown} />
         ) : null}
       </div>
     </AdminShell>
