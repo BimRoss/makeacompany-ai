@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-04-14T00:04:22.351Z",
+  "generatedAt": "2026-04-14T00:26:23.592Z",
   "source": "slack-factory/skills-catalog.json + slack-factory/manifests",
   "skills": [
     {
@@ -14,6 +14,14 @@
       "id": "write-doc",
       "label": "Write Doc",
       "description": "Create, edit, and organize working docs.",
+      "employeeIds": [
+        "joanne"
+      ]
+    },
+    {
+      "id": "slack-onboard",
+      "label": "Slack Onboard",
+      "description": "List channels, read recent channel messages, create onboarding channels, and invite requesters.",
       "employeeIds": [
         "joanne"
       ]

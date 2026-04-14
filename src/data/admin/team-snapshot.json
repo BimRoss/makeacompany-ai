@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-04-14T00:04:22.350Z",
+  "generatedAt": "2026-04-14T00:26:23.592Z",
   "source": "slack-factory/manifests + slack-factory/skills-catalog.json",
   "employees": [
     {
@@ -68,6 +68,7 @@
       "status": "active",
       "sourceManifest": "slack-factory/manifests/joanne/app-manifest.json",
       "skillIds": [
+        "slack-onboard",
         "write-email",
         "write-doc"
       ]
