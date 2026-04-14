@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-04-14T00:26:23.592Z",
+  "generatedAt": "2026-04-14T01:22:29.313Z",
   "source": "slack-factory/skills-catalog.json + slack-factory/manifests",
   "skills": [
     {
@@ -19,9 +19,17 @@
       ]
     },
     {
-      "id": "slack-onboard",
-      "label": "Slack Onboard",
-      "description": "List channels, read recent channel messages, create onboarding channels, and invite requesters.",
+      "id": "read-slack",
+      "label": "Read Slack",
+      "description": "List channels and read recent channel messages for onboarding context.",
+      "employeeIds": [
+        "joanne"
+      ]
+    },
+    {
+      "id": "write-slack",
+      "label": "Write Slack",
+      "description": "Create channels and invite requesters to channels for onboarding setup.",
       "employeeIds": [
         "joanne"
       ]
