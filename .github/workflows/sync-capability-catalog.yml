@@ -27,6 +27,8 @@ jobs:
       - name: Checkout makeacompany-ai
         uses: actions/checkout@v6
 
+      # Token must read this private repo. Fine-grained PAT: add bimross/slack-factory with Contents: Read.
+      # If checkout fails with 403 / "Write access to repository not granted", the secret lacks repo access.
       - name: Checkout slack-factory source
         uses: actions/checkout@v6
         with:
