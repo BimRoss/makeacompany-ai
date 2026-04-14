@@ -380,13 +380,16 @@ func (s *Server) handleAdminWaitlist(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleAdminCatalog(w http.ResponseWriter, r *http.Request) {
-	if !s.adminAuthEnabled() {
-		http.Error(w, "admin auth disabled", http.StatusServiceUnavailable)
-		return
-	}
-	if _, err := s.validateAdminSession(r.Context(), tokenFromAuthHeader(r)); err != nil {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
-		return
+	serviceWriteAuthorized := r.Method == http.MethodPut && s.catalogServiceWriteAuthorized(r)
+	if !serviceWriteAuthorized {
+		if !s.adminAuthEnabled() {
+			http.Error(w, "admin auth disabled", http.StatusServiceUnavailable)
+			return
+		}
+		if _, err := s.validateAdminSession(r.Context(), tokenFromAuthHeader(r)); err != nil {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
 	}
 	switch r.Method {
 	case http.MethodGet:
@@ -399,16 +402,21 @@ func (s *Server) handleAdminCatalog(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, catalog)
 		return
 	case http.MethodPut:
-		if token := strings.TrimSpace(s.cfg.AdminCatalogToken); token != "" {
-			if strings.TrimSpace(r.Header.Get("X-Admin-Token")) != token {
-				http.Error(w, "unauthorized", http.StatusUnauthorized)
-				return
+		if !serviceWriteAuthorized {
+			if token := strings.TrimSpace(s.cfg.AdminCatalogToken); token != "" {
+				if strings.TrimSpace(r.Header.Get("X-Admin-Token")) != token {
+					http.Error(w, "unauthorized", http.StatusUnauthorized)
+					return
+				}
 			}
 		}
 		var catalog CapabilityCatalog
 		if err := json.NewDecoder(r.Body).Decode(&catalog); err != nil {
 			http.Error(w, "invalid json", http.StatusBadRequest)
 			return
+		}
+		if strings.TrimSpace(catalog.Revision) == "" {
+			catalog.Revision = strings.TrimSpace(r.Header.Get("X-Capability-Catalog-Revision"))
 		}
 		if err := s.store.PutCapabilityCatalog(r.Context(), catalog); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
@@ -425,6 +433,18 @@ func (s *Server) handleAdminCatalog(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
+}
+
+func (s *Server) catalogServiceWriteAuthorized(r *http.Request) bool {
+	if r == nil {
+		return false
+	}
+	expected := strings.TrimSpace(s.cfg.AdminCatalogToken)
+	if expected == "" {
+		return false
+	}
+	provided := strings.TrimSpace(r.Header.Get("X-Admin-Token"))
+	return provided != "" && provided == expected
 }
 
 func (s *Server) handleRuntimeCapabilityCatalog(w http.ResponseWriter, r *http.Request) {

@@ -1,0 +1,53 @@
+name: Sync capability catalog from slack-factory
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_ref:
+        description: "slack-factory git ref (branch, tag, or SHA)"
+        required: false
+        default: "master"
+  schedule:
+    - cron: "17 * * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: capability-catalog-sync
+  cancel-in-progress: true
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    env:
+      SOURCE_REPOSITORY: bimross/slack-factory
+      SOURCE_REF: ${{ inputs.source_ref || 'master' }}
+    steps:
+      - name: Checkout makeacompany-ai
+        uses: actions/checkout@v6
+
+      - name: Checkout slack-factory source
+        uses: actions/checkout@v6
+        with:
+          repository: bimross/slack-factory
+          ref: ${{ env.SOURCE_REF }}
+          token: ${{ secrets.RANCHER_ADMIN_REPO_TOKEN }}
+          path: slack-factory
+
+      - name: Resolve source revision
+        id: source
+        run: |
+          echo "sha=$(git -C slack-factory rev-parse HEAD)" >> "${GITHUB_OUTPUT}"
+          echo "ref_name=${SOURCE_REF}" >> "${GITHUB_OUTPUT}"
+
+      - name: Sync runtime catalog into Redis via backend API
+        env:
+          CATALOG_SYNC_BASE_URL: ${{ secrets.CATALOG_SYNC_BASE_URL }}
+          CATALOG_SYNC_WRITE_TOKEN: ${{ secrets.RANCHER_ADMIN_REPO_TOKEN }}
+          CAPABILITY_CATALOG_READ_TOKEN: ${{ secrets.CAPABILITY_CATALOG_READ_TOKEN }}
+          SOURCE_REPOSITORY: ${{ env.SOURCE_REPOSITORY }}
+          SOURCE_REF: ${{ steps.source.outputs.ref_name }}
+          SOURCE_REVISION: ${{ steps.source.outputs.sha }}
+        run: |
+          node ./scripts/sync-capability-catalog-from-slack-factory.mjs

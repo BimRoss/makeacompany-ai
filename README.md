@@ -40,6 +40,19 @@ Admin catalog editor:
 - Includes an 8-panel service overview Grafana grid (4 columns x 2 rows) for high-level runtime monitoring.
 - Capability catalog is authoritative for Slack tooling assignments. `employee-factory` reads `GET /v1/runtime/capability-catalog` and only executes a tool when that catalog assigns the runtime tool to the employee and runtime secrets/env are ready.
 - Backend derives `runtimeTool` from `<employee>-<skill-id>` and migrates legacy values on catalog reads/writes.
+- Catalog payload supports `revision` so CI can verify exact git SHA/tag promoted into Redis runtime state.
+
+Sync capability catalog from local `slack-factory` checkout into runtime Redis via backend API:
+
+```bash
+CATALOG_SYNC_BASE_URL="https://makeacompany.ai" \
+CATALOG_SYNC_WRITE_TOKEN="..." \
+SOURCE_REVISION="$(git -C ../slack-factory rev-parse HEAD)" \
+SOURCE_REF="master" \
+SOURCE_REPOSITORY="bimross/slack-factory" \
+SLACK_FACTORY_CATALOG_PATH="../slack-factory/skills-catalog.json" \
+node ./scripts/sync-capability-catalog-from-slack-factory.mjs
+```
 
 ## Stripe catalog (`stripe-factory`)
 
@@ -143,6 +156,7 @@ Reads repo-root `.env` and applies Secret **`makeacompany-ai-runtime-secrets`** 
 GitHub Actions: [.github/workflows/makeacompany-ai-images.yml](.github/workflows/makeacompany-ai-images.yml)
 
 - On **`v*`** tags: build and push `geeemoney/makeacompany-ai-frontend` and `geeemoney/makeacompany-ai-backend`, then bump image tags in **`bimross/rancher-admin`** (`admin/apps/makeacompany-ai/*.yaml`).
+- Capability catalog sync: [.github/workflows/sync-capability-catalog.yml](.github/workflows/sync-capability-catalog.yml) checks out `bimross/slack-factory` and writes catalog into Redis runtime via backend API, then verifies `revision` through `GET /v1/runtime/capability-catalog`.
 
 ### GA setup contract
 
@@ -171,7 +185,10 @@ For immediate DebugView validation, open:
 |--------|---------|
 | `DOCKERHUB_USERNAME` | Docker Hub login |
 | `DOCKERHUB_TOKEN` | Docker Hub push |
-| `RANCHER_ADMIN_REPO_TOKEN` | PAT with push access to **`bimross/rancher-admin`** (for `gitops-release` only) |
+| `RANCHER_ADMIN_REPO_TOKEN` | PAT with push access to **`bimross/rancher-admin`** (for `gitops-release`) and read access to **`bimross/slack-factory`** (for catalog sync checkout) |
+| `CATALOG_SYNC_BASE_URL` | Backend base URL used by catalog sync workflow (for example `https://makeacompany.ai`) |
+| `CATALOG_SYNC_WRITE_TOKEN` | Optional override write token for `/v1/admin/catalog`; defaults to `RANCHER_ADMIN_REPO_TOKEN` in CI |
+| `CAPABILITY_CATALOG_READ_TOKEN` | Optional runtime read token for post-write verification call |
 
 Add these in the GitHub repo **Settings → Secrets and variables → Actions** before relying on tagged releases.
 

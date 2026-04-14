@@ -14,6 +14,7 @@ import (
 const capabilityCatalogRedisKey = keyPrefix + ":catalog:capabilities:v1"
 
 type CapabilityCatalog struct {
+	Revision         string                      `json:"revision,omitempty"`
 	CoreEmployees    []CapabilityCatalogEmployee `json:"coreEmployees"`
 	Skills           []CapabilityCatalogSkill    `json:"skills"`
 	EmployeeSkillIDs map[string][]string         `json:"employeeSkillIds"`
@@ -107,6 +108,7 @@ func ownersBySkillID(employeeSkillIDs map[string][]string) map[string][]string {
 
 func defaultCapabilityCatalog() CapabilityCatalog {
 	return CapabilityCatalog{
+		Revision: "default",
 		CoreEmployees: []CapabilityCatalogEmployee{
 			{ID: "alex", Label: "Alex", Description: canonicalEmployeeDescriptions["alex"]},
 			{ID: "tim", Label: "Tim", Description: canonicalEmployeeDescriptions["tim"]},
@@ -192,6 +194,7 @@ func normalizeCatalogSkillParamName(raw string) string {
 func normalizeCapabilityCatalog(c CapabilityCatalog) CapabilityCatalog {
 	ownersBySkill := ownersBySkillID(c.EmployeeSkillIDs)
 	next := CapabilityCatalog{
+		Revision:         strings.TrimSpace(c.Revision),
 		CoreEmployees:    make([]CapabilityCatalogEmployee, 0, len(c.CoreEmployees)),
 		Skills:           make([]CapabilityCatalogSkill, 0, len(c.Skills)),
 		EmployeeSkillIDs: map[string][]string{},
