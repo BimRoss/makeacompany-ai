@@ -134,7 +134,7 @@ func defaultCapabilityCatalog() CapabilityCatalog {
 			{
 				ID:             "read-slack",
 				Label:          "Read Slack",
-				Description:    "List channels and read recent channel messages for onboarding context.",
+				Description:    "List channels and read recent channel messages for onboarding context. Runs immediately in Slack (no confirmation).",
 				RuntimeTool:    "joanne-read-slack",
 				RequiredParams: []string{"action", "intent"},
 				OptionalParams: []string{"channel", "channel_name", "count", "reason"},
@@ -142,7 +142,7 @@ func defaultCapabilityCatalog() CapabilityCatalog {
 			{
 				ID:             "write-slack",
 				Label:          "Write Slack",
-				Description:    "Create channels and invite requesters to channels for onboarding setup.",
+				Description:    "Create channels and invite requesters to channels for onboarding setup. Requires explicit Confirm/Cancel before any write.",
 				RuntimeTool:    "joanne-write-slack",
 				RequiredParams: []string{"action", "intent"},
 				OptionalParams: []string{"channel", "channel_name", "is_private", "reason"},
@@ -150,7 +150,7 @@ func defaultCapabilityCatalog() CapabilityCatalog {
 			{
 				ID:             "read-twitter",
 				Label:          "Read Twitter",
-				Description:    "Discover and search high-impression tweets quickly.",
+				Description:    "Discover and search high-impression tweets and trends. Runs immediately in Slack (no confirmation).",
 				RuntimeTool:    "garth-read-twitter",
 				RequiredParams: []string{"intent", "query"},
 				OptionalParams: []string{"count"},

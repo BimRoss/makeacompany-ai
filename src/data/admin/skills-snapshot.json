@@ -21,7 +21,7 @@
     {
       "id": "read-slack",
       "label": "Read Slack",
-      "description": "List channels and read recent channel messages for onboarding context.",
+      "description": "List channels and read recent channel messages for onboarding context. Runs immediately in Slack (no confirmation).",
       "employeeIds": [
         "joanne"
       ]
@@ -29,7 +29,7 @@
     {
       "id": "write-slack",
       "label": "Write Slack",
-      "description": "Create channels and invite requesters to channels for onboarding setup.",
+      "description": "Create channels and invite requesters to channels for onboarding setup. Requires explicit Confirm/Cancel before any write.",
       "employeeIds": [
         "joanne"
       ]
@@ -37,7 +37,7 @@
     {
       "id": "read-twitter",
       "label": "Read Twitter",
-      "description": "Discover and search high-impression tweets quickly.",
+      "description": "Discover and search high-impression tweets and trends. Runs immediately in Slack (no confirmation).",
       "employeeIds": [
         "garth"
       ]
