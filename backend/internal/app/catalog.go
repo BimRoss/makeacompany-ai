@@ -37,6 +37,8 @@ type CapabilityCatalogSkill struct {
 	OptionalParams []string `json:"optionalParams"`
 }
 
+// Default copy for empty Redis / seed only. Admin PUTs store operator-edited text in Redis;
+// normalizeCapabilityCatalog must not replace descriptions from the request body.
 var canonicalEmployeeDescriptions = map[string]string{
 	"alex":   "First-principles business brain: punchy, direct, volume over perfection. I default to leverage and bottlenecks-what actually scales, what's busywork, where the constraint is. Proof beats promises; clear beats clever. I like short pain for long gain, fast decide->do loops, and input from people closest to the outcome you want-not the drama closest to you. Sales-wise: kind (real outcomes), not nice (avoiding truth); fundamentals over clever one-liners.",
 	"garth":  "BimRoss intern energy: curious, earnest, a little shy in a good way. I ask clear questions, admit what I do not know, and hand off to Alex, Tim, or Ross when the thread needs sales, simplification, or automation depth. Grant is CEO-I am here to learn and help without pretending to be the decider.",
@@ -55,12 +57,11 @@ func derivedRuntimeTool(employeeID, skillID string) string {
 }
 
 func migrateLegacyRuntimeTool(runtimeTool, skillID string, owners []string) string {
-	runtimeTool = strings.ToLower(strings.TrimSpace(runtimeTool))
 	skillID = normalizeCatalogSkillID(skillID)
-	if len(owners) > 0 {
-		return derivedRuntimeTool(owners[0], skillID)
-	}
-	switch runtimeTool {
+	rt := strings.ToLower(strings.TrimSpace(runtimeTool))
+
+	// Historical aliases → canonical employee-skill tool names.
+	switch rt {
 	case "joanne_email":
 		return derivedRuntimeTool("joanne", "write-email")
 	case "joanne_google_docs":
@@ -71,10 +72,14 @@ func migrateLegacyRuntimeTool(runtimeTool, skillID string, owners []string) stri
 		return derivedRuntimeTool("garth", "read-trends")
 	case "joanne_read_company":
 		return derivedRuntimeTool("joanne", "read-company")
-	default:
-		if runtimeTool != "" {
-			return runtimeTool
-		}
+	}
+
+	if rt != "" {
+		// Non-legacy explicit tool — keep as configured (admin / Redis source of truth).
+		return rt
+	}
+	if len(owners) > 0 {
+		return derivedRuntimeTool(owners[0], skillID)
 	}
 	return ""
 }
@@ -287,6 +292,99 @@ func normalizeCatalogSkillParamName(raw string) string {
 	}
 }
 
+// builtinSkillDisplayLabel returns default UI labels for known skill ids when the stored label is empty.
+func builtinSkillDisplayLabel(skillID string) string {
+	switch skillID {
+	case "write-email":
+		return "Write Email"
+	case "write-doc":
+		return "Write Doc"
+	case "read-slack":
+		return "Read Slack"
+	case "write-slack":
+		return "Write Slack"
+	case "read-company":
+		return "Read Company"
+	default:
+		return ""
+	}
+}
+
+// builtinSkillParamDefaults returns minimum required and default optional param names for built-in skills.
+// Unknown/custom skills return nil, nil (caller keeps submitted lists only).
+func builtinSkillParamDefaults(skillID string) (minRequired, defaultOptional []string) {
+	switch skillID {
+	case "write-email":
+		return []string{"intent", "subject", "to"}, []string{"button", "commenters", "editors", "link", "viewers"}
+	case "write-doc":
+		return []string{"intent", "title", "type"}, []string{"commenters", "editors", "viewers"}
+	case "read-slack":
+		return []string{"action", "intent"}, []string{"channel", "channel_name", "count", "reason"}
+	case "write-slack":
+		return []string{"action", "intent"}, []string{"channel", "channel_name", "is_private", "reason"}
+	case "read-company":
+		return []string{"intent"}, []string{}
+	case "read-twitter", "read-trends":
+		return nil, []string{"count"}
+	default:
+		return nil, nil
+	}
+}
+
+// mergeSkillParamsWithDefaults unions operator-supplied params with built-in minimums so admin edits extend
+// defaults instead of being replaced by them.
+func mergeSkillParamsWithDefaults(skillID string, required, optional []string) ([]string, []string) {
+	req := normalizeCatalogParamList(mapCatalogParams(required))
+	opt := normalizeCatalogParamList(mapCatalogParams(optional))
+	minReq, defOpt := builtinSkillParamDefaults(skillID)
+	if len(minReq) == 0 && len(defOpt) == 0 {
+		return req, opt
+	}
+
+	seen := map[string]struct{}{}
+	var outReq []string
+	for _, p := range minReq {
+		if _, ok := seen[p]; !ok {
+			seen[p] = struct{}{}
+			outReq = append(outReq, p)
+		}
+	}
+	for _, p := range req {
+		if _, ok := seen[p]; !ok {
+			seen[p] = struct{}{}
+			outReq = append(outReq, p)
+		}
+	}
+	sort.Strings(outReq)
+
+	overlap := map[string]struct{}{}
+	for _, p := range outReq {
+		overlap[p] = struct{}{}
+	}
+	seenOpt := map[string]struct{}{}
+	var outOpt []string
+	for _, p := range defOpt {
+		if _, inR := overlap[p]; inR {
+			continue
+		}
+		if _, ok := seenOpt[p]; !ok {
+			seenOpt[p] = struct{}{}
+			outOpt = append(outOpt, p)
+		}
+	}
+	for _, p := range opt {
+		if _, inR := overlap[p]; inR {
+			continue
+		}
+		if _, ok := seenOpt[p]; !ok {
+			seenOpt[p] = struct{}{}
+			outOpt = append(outOpt, p)
+		}
+	}
+	sort.Strings(outOpt)
+	return outReq, outOpt
+}
+
 func normalizeCapabilityCatalog(c CapabilityCatalog) CapabilityCatalog {
 	ownersBySkill := ownersBySkillID(c.EmployeeSkillIDs)
 	next := CapabilityCatalog{
@@ -303,14 +401,10 @@ func normalizeCapabilityCatalog(c CapabilityCatalog) CapabilityCatalog {
 		if id == "" {
 			continue
 		}
-		description := strings.TrimSpace(employee.Description)
-		if canonical, ok := canonicalEmployeeDescriptions[id]; ok {
-			description = canonical
-		}
 		next.CoreEmployees = append(next.CoreEmployees, CapabilityCatalogEmployee{
 			ID:          id,
 			Label:       strings.TrimSpace(employee.Label),
-			Description: description,
+			Description: strings.TrimSpace(employee.Description),
 		})
 	}
 
@@ -323,50 +417,17 @@ func normalizeCapabilityCatalog(c CapabilityCatalog) CapabilityCatalog {
 		optional := normalizeCatalogParamList(skill.OptionalParams)
 		required = normalizeCatalogParamList(mapCatalogParams(required))
 		optional = normalizeCatalogParamList(mapCatalogParams(optional))
+		required, optional = mergeSkillParamsWithDefaults(id, required, optional)
 
-		switch id {
-		case "write-email":
-			skill.Label = "Write Email"
-			required = []string{"intent", "subject", "to"}
-			optional = []string{"button", "commenters", "editors", "link", "viewers"}
-		case "write-doc":
-			skill.Label = "Write Doc"
-			required = []string{"intent", "title", "type"}
-			optional = []string{"commenters", "editors", "viewers"}
-		case "read-slack":
-			skill.Label = "Read Slack"
-			required = []string{"action", "intent"}
-			optional = []string{"channel", "channel_name", "count", "reason"}
-		case "write-slack":
-			skill.Label = "Write Slack"
-			required = []string{"action", "intent"}
-			optional = []string{"channel", "channel_name", "is_private", "reason"}
-		case "read-company":
-			skill.Label = "Read Company"
-			required = []string{"intent"}
-			optional = []string{}
-		case "read-twitter":
-			optional = []string{"count"}
-		case "read-trends":
-			optional = []string{"count"}
+		lbl := strings.TrimSpace(skill.Label)
+		if lbl == "" {
+			lbl = builtinSkillDisplayLabel(id)
 		}
-
-		overlap := map[string]struct{}{}
-		for _, param := range required {
-			overlap[param] = struct{}{}
-		}
-		filteredOptional := make([]string, 0, len(optional))
-		for _, param := range optional {
-			if _, exists := overlap[param]; exists {
-				continue
-			}
-			filteredOptional = append(filteredOptional, param)
-		}
-		skill.OptionalParams = normalizeCatalogParamList(filteredOptional)
-		skill.RequiredParams = normalizeCatalogParamList(required)
+		skill.Label = lbl
+		skill.RequiredParams = required
+		skill.OptionalParams = optional
 		skill.ID = id
 		skill.RuntimeTool = migrateLegacyRuntimeTool(skill.RuntimeTool, id, ownersBySkill[id])
-		skill.Label = strings.TrimSpace(skill.Label)
 		skill.Description = strings.TrimSpace(skill.Description)
 		next.Skills = append(next.Skills, skill)
 	}

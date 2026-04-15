@@ -2,6 +2,50 @@ package app
 
 import "testing"
 
+func TestNormalizeCapabilityCatalogPreservesEmployeeDescriptions(t *testing.T) {
+	catalog := defaultCapabilityCatalog()
+	custom := "Operator-edited Garth blurb from /admin — must round-trip through Redis."
+	for i := range catalog.CoreEmployees {
+		if catalog.CoreEmployees[i].ID == "garth" {
+			catalog.CoreEmployees[i].Description = custom
+			break
+		}
+	}
+	normalized := normalizeCapabilityCatalog(catalog)
+	var got string
+	for _, e := range normalized.CoreEmployees {
+		if e.ID == "garth" {
+			got = e.Description
+			break
+		}
+	}
+	if got != custom {
+		t.Fatalf("expected garth description preserved, got %q want %q", got, custom)
+	}
+}
+
+func TestNormalizeCapabilityCatalogPreservesSkillLabels(t *testing.T) {
+	catalog := defaultCapabilityCatalog()
+	custom := "Custom Write Email Label"
+	for i := range catalog.Skills {
+		if normalizeCatalogSkillID(catalog.Skills[i].ID) == "write-email" {
+			catalog.Skills[i].Label = custom
+			break
+		}
+	}
+	normalized := normalizeCapabilityCatalog(catalog)
+	var got string
+	for _, s := range normalized.Skills {
+		if normalizeCatalogSkillID(s.ID) == "write-email" {
+			got = s.Label
+			break
+		}
+	}
+	if got != custom {
+		t.Fatalf("expected write-email label preserved, got %q want %q", got, custom)
+	}
+}
+
 func TestNormalizeCapabilityCatalogMigratesLegacyRuntimeTool(t *testing.T) {
 	catalog := defaultCapabilityCatalog()
 	catalog.Skills[0].RuntimeTool = "joanne_email"
@@ -39,9 +83,9 @@ func TestMergeCapabilityCatalogWithDefaultsRestoresNewSkills(t *testing.T) {
 	joanneSkills := []string{"read-slack", "write-email", "write-doc", "write-slack"}
 	garthSkills := []string{"read-twitter"}
 	catalog := CapabilityCatalog{
-		Revision:         "old",
-		CoreEmployees:    def.CoreEmployees,
-		Skills:           slimSkills,
+		Revision:      "old",
+		CoreEmployees: def.CoreEmployees,
+		Skills:        slimSkills,
 		EmployeeSkillIDs: map[string][]string{
 			"alex":   {},
 			"tim":    {},

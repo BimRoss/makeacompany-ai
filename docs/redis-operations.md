@@ -12,7 +12,7 @@
 
 ## Keys
 
-- `makeacompany:catalog:capabilities:v1` — JSON capability catalog (`GET`/`PUT` shape matches `slack-factory/skills-catalog.json`; backend normalizes/validates on read). Seed with ops script (kubectl), not the admin HTTP API — admin API is for `/admin` UI and Stripe session flows.
+- `makeacompany:catalog:capabilities:v1` — JSON capability catalog (`GET`/`PUT` shape matches `slack-factory/skills-catalog.json`; backend normalizes/validates on read). Seed via `./scripts/seed-capability-catalog-redis-kubectl.sh` or edit in `/admin`; Redis is the runtime source of truth after first write.
 - `makeacompany:checkout:<stripe_checkout_session_id>` — idempotency marker
 - `makeacompany:waitlist:<email>` — hash of waitlist signup fields
 
@@ -35,7 +35,7 @@ kubectl --context admin -n makeacompany-ai exec deploy/makeacompany-ai-redis -- 
 
 ## Admin API (PII)
 
-`GET /v1/admin/waitlist` returns waitlist hash rows for the site `/twitter` table. It is **unauthenticated** today and exposes emails and Stripe identifiers. Add auth (or network restriction) before relying on it under broad traffic.
+`GET /v1/admin/waitlist` returns waitlist hash rows (emails, Stripe identifiers). It requires the same **admin session** `Authorization: Bearer …` as other `/v1/admin/*` routes (`adminAuthEnabled`, `validateAdminSession`). Call from a trusted client only.
 
 ## Verify
 

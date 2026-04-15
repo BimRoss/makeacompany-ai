@@ -374,10 +374,18 @@ func (s *Server) handleWaitlistStats(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// handleAdminWaitlist lists waitlist rows from Redis. Unauthenticated — exposes PII; add auth before broad exposure.
+// handleAdminWaitlist lists waitlist rows from Redis (PII). Requires the same admin session as other /v1/admin routes.
 func (s *Server) handleAdminWaitlist(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if !s.adminAuthEnabled() {
+		http.Error(w, "admin auth disabled", http.StatusServiceUnavailable)
+		return
+	}
+	if _, err := s.validateAdminSession(r.Context(), tokenFromAuthHeader(r)); err != nil {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 	users, err := s.store.ListWaitlistUsers(r.Context())
@@ -494,7 +502,7 @@ func (s *Server) handleAdminCompanyChannelGet(w http.ResponseWriter, r *http.Req
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
-		"channel": e,
+		"channel":  e,
 		"redisKey": strings.TrimSpace(s.cfg.CompanyChannelsRedisKey),
 	})
 }
