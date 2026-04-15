@@ -2,10 +2,13 @@ export type CompanyChannel = {
   company_slug: string;
   channel_id: string;
   display_name?: string;
-  /** Slack user IDs allowed as human operators for this channel; empty → runtime uses CEO id. */
+  /** Slack user IDs allowed as human operators for this channel (required for operator behavior once the channel is in the registry). */
   owner_ids?: string[];
   threads_enabled: boolean;
   general_auto_reaction_enabled: boolean;
+  /** When omitted on older rows, treat as false in UI. */
+  out_of_office_enabled?: boolean;
+  passive_banter_enabled?: boolean;
 };
 
 export type CompanyChannelsResponse = {
