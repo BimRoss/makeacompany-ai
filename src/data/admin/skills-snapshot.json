@@ -35,9 +35,25 @@
       ]
     },
     {
+      "id": "read-company",
+      "label": "Read Company",
+      "description": "Summarize this channel from cached Slack history in Redis (hourly digest). Runs immediately in Slack (no confirmation).",
+      "employeeIds": [
+        "joanne"
+      ]
+    },
+    {
       "id": "read-twitter",
       "label": "Read Twitter",
-      "description": "Discover and search high-impression tweets and trends. Runs immediately in Slack (no confirmation).",
+      "description": "Search Twitter by keyword and fetch high-impression tweets (not the platform trend list). Runs immediately in Slack (no confirmation).",
+      "employeeIds": [
+        "garth"
+      ]
+    },
+    {
+      "id": "read-trends",
+      "label": "Read Trends",
+      "description": "Fetch the current Twitter/X trend list (not keyword search). Runs immediately in Slack (no confirmation).",
       "employeeIds": [
         "garth"
       ]

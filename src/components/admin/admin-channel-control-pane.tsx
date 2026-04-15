@@ -14,33 +14,40 @@ type AdminChannelControlPaneProps = {
   onChannelUpdated: (ch: CompanyChannel) => void;
 };
 
-function MetaRow({ label, value }: { label: string; value: string }) {
+/** Read-only registry field: label + value in one pill for consistent scanning. */
+function MetaPill({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:gap-3">
-      <dt className="shrink-0 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{label}</dt>
-      <dd className="min-w-0 break-all font-mono text-sm text-foreground">{value}</dd>
+    <div
+      className="flex max-w-full min-w-0 flex-col gap-0.5 rounded-lg border border-border bg-muted/35 px-3 py-2 text-left shadow-sm sm:max-w-[min(100%,36rem)] sm:flex-row sm:items-baseline sm:gap-2"
+      title={`${label}: ${value}`}
+    >
+      <span className="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}:</span>
+      <span className="min-w-0 break-all font-mono text-xs leading-snug text-foreground">{value}</span>
     </div>
   );
 }
 
-function ReactionToggle({
+function ControlToggle({
   enabled,
   disabled,
   busy,
   onToggle,
+  ariaLabel,
 }: {
   enabled: boolean;
   disabled: boolean;
-  busy: boolean;
+  busy?: boolean;
   onToggle: () => void;
+  ariaLabel: string;
 }) {
   return (
     <button
       type="button"
       role="switch"
       aria-checked={enabled}
-      aria-busy={busy}
-      disabled={disabled || busy}
+      aria-busy={busy ?? false}
+      aria-label={ariaLabel}
+      disabled={disabled || (busy ?? false)}
       onClick={onToggle}
       className={[
         "relative inline-flex h-7 w-12 shrink-0 rounded-full border transition-colors focus-visible:outline focus-visible:ring-2 focus-visible:ring-ring",
@@ -54,7 +61,6 @@ function ReactionToggle({
           enabled ? "translate-x-[1.35rem]" : "translate-x-0.5",
         ].join(" ")}
       />
-      <span className="sr-only">{enabled ? "Disable" : "Enable"} CEO reaction mirror in #general</span>
     </button>
   );
 }
@@ -115,10 +121,8 @@ export function AdminChannelControlPane({
   if (status === "missing" || !channel) {
     return (
       <section className="rounded-lg border border-border bg-card px-4 py-4 shadow-sm">
-        <h2 className="text-base font-semibold tracking-tight">Channel control pane</h2>
-        <p className="mt-2 text-sm text-muted-foreground">
-          This Slack channel id is not in the company registry ({redisKey ?? "employee-factory:company_channels"}). Toggles
-          apply only to registered company channels.
+        <p className="text-sm text-muted-foreground">
+          Not in registry ({redisKey ?? "employee-factory:company_channels"}).
         </p>
         <p className="mt-1 font-mono text-xs text-muted-foreground">{channelId}</p>
       </section>
@@ -127,62 +131,58 @@ export function AdminChannelControlPane({
 
   const title = channelDisplayTitle(channel);
   const operators = channel.allowed_operator_ids ?? [];
+  const operatorsDisplay =
+    operators.length > 0 ? operators.join(", ") : "— (falls back to CEO operator id from runtime)";
 
   return (
-    <section className="rounded-lg border border-border bg-card px-4 py-4 shadow-sm" aria-labelledby="channel-control-heading">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 id="channel-control-heading" className="text-base font-semibold tracking-tight">
-            Channel control pane
-          </h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Registry metadata and runtime flags (stored in Redis; employee-factory picks them up on refresh).
-          </p>
+    <section className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-stretch" aria-label="Channel registry and controls">
+      <div className="rounded-lg border border-border/80 bg-muted/20 p-4 shadow-sm">
+        <div className="flex flex-wrap gap-2">
+          <MetaPill label="Channel" value={title} />
+          <MetaPill label="Channel ID" value={channel.channel_id} />
+          {channel.company_slug?.trim() ? <MetaPill label="Company slug" value={channel.company_slug.trim()} /> : null}
+          {channel.display_name?.trim() ? <MetaPill label="Display name" value={channel.display_name.trim()} /> : null}
+          {channel.primary_owner?.trim() ? <MetaPill label="Primary owner" value={channel.primary_owner.trim()} /> : null}
+          <MetaPill label="Operators" value={operatorsDisplay} />
         </div>
       </div>
 
-      <dl className="mt-3 space-y-2.5 border-t border-border pt-3">
-        <MetaRow label="Channel" value={title} />
-        <MetaRow label="Channel ID" value={channel.channel_id} />
-        {channel.company_slug?.trim() ? <MetaRow label="Company slug" value={channel.company_slug.trim()} /> : null}
-        {channel.display_name?.trim() ? <MetaRow label="Display name" value={channel.display_name.trim()} /> : null}
-        <MetaRow label="Thread routing" value={channel.threads_enabled ? "On (company channel)" : "Off"} />
-        {channel.primary_owner?.trim() ? <MetaRow label="Primary owner" value={channel.primary_owner.trim()} /> : null}
-        <div className="flex flex-col gap-0.5 sm:flex-row sm:items-start sm:gap-3">
-          <dt className="shrink-0 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Operators</dt>
-          <dd className="min-w-0 flex-1">
-            {operators.length > 0 ? (
-              <ul className="space-y-1">
-                {operators.map((id) => (
-                  <li key={id} className="font-mono text-sm">
-                    {id}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <span className="text-sm text-muted-foreground">— (falls back to CEO operator id from runtime)</span>
-            )}
-          </dd>
-        </div>
-        {redisKey?.trim() ? (
-          <MetaRow label="Redis hash" value={redisKey.trim()} />
-        ) : null}
-      </dl>
-
-      <div className="mt-3 border-t border-border pt-3">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="text-sm font-medium leading-tight">CEO reaction mirror (#general)</p>
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              When on, the bot mirrors the CEO&apos;s emoji reactions on bot messages in the main channel.
-            </p>
+      <div className="flex flex-col justify-center rounded-lg border border-border bg-background p-4 shadow-sm">
+        <div className="divide-y divide-border">
+          <div className="flex flex-wrap items-center justify-between gap-3 pb-3">
+            <span className="text-sm font-medium text-foreground">Reaction mirror</span>
+            <ControlToggle
+              enabled={channel.general_auto_reaction_enabled}
+              disabled={false}
+              busy={busy}
+              onToggle={() => void patchReactions(!channel.general_auto_reaction_enabled)}
+              ariaLabel={channel.general_auto_reaction_enabled ? "Turn off reaction mirror" : "Turn on reaction mirror"}
+            />
           </div>
-          <ReactionToggle
-            enabled={channel.general_auto_reaction_enabled}
-            disabled={false}
-            busy={busy}
-            onToggle={() => void patchReactions(!channel.general_auto_reaction_enabled)}
-          />
+          <div className="flex flex-wrap items-center justify-between gap-3 py-3">
+            <div className="min-w-0">
+              <span className="text-sm font-medium text-foreground">Passive Banter</span>
+              <span className="ml-2 text-xs font-normal text-muted-foreground">Coming soon</span>
+            </div>
+            <ControlToggle
+              enabled={false}
+              disabled
+              onToggle={() => {}}
+              ariaLabel="Passive Banter (coming soon)"
+            />
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-3 pt-3">
+            <div className="min-w-0">
+              <span className="text-sm font-medium text-foreground">Out Of Office</span>
+              <span className="ml-2 text-xs font-normal text-muted-foreground">Coming soon</span>
+            </div>
+            <ControlToggle
+              enabled={false}
+              disabled
+              onToggle={() => {}}
+              ariaLabel="Out Of Office (coming soon)"
+            />
+          </div>
         </div>
         {patchError ? <p className="mt-2 text-sm text-destructive">{patchError}</p> : null}
       </div>

@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { AdminChannelControlPane } from "@/components/admin/admin-channel-control-pane";
@@ -111,16 +110,11 @@ export default function AdminChannelKnowledgePage() {
 
   return (
     <AdminShell>
-      <div className="space-y-4">
+      <div className="space-y-4 pt-6 sm:pt-10">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <p className="text-sm text-muted-foreground">
-              <Link href="/admin" className="text-foreground underline-offset-4 hover:underline">
-                ← Admin
-              </Link>
-            </p>
             {pageTitle ? (
-              <h1 className="mt-2 text-xl font-semibold tracking-tight">{pageTitle}</h1>
+              <h1 className="text-xl font-semibold tracking-tight">{pageTitle}</h1>
             ) : null}
           </div>
         </div>

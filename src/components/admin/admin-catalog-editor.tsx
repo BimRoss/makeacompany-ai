@@ -885,10 +885,17 @@ function normalizeCatalog(input: CapabilityCatalog): CapabilityCatalog {
           optionalParams: ["button", "commenters", "editors", "link", "viewers"],
         };
       }
-      if (skill.id === "read-twitter") {
+      if (skill.id === "read-twitter" || skill.id === "read-trends") {
         return {
           ...skill,
           optionalParams: ["count"],
+        };
+      }
+      if (skill.id === "read-company") {
+        return {
+          ...skill,
+          requiredParams: ["intent"],
+          optionalParams: [],
         };
       }
       return skill;
@@ -950,6 +957,10 @@ function deriveRuntimeToolValue(currentRuntimeTool: string, skillID: string, own
       return "joanne-write-doc";
     case "garth_twitter_lookup":
       return "garth-read-twitter";
+    case "garth_twitter_trends":
+      return "garth-read-trends";
+    case "joanne_read_company":
+      return "joanne-read-company";
     default:
       return runtimeTool;
   }

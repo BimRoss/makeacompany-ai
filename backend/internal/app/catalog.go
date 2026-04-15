@@ -67,6 +67,10 @@ func migrateLegacyRuntimeTool(runtimeTool, skillID string, owners []string) stri
 		return derivedRuntimeTool("joanne", "write-doc")
 	case "garth_twitter_lookup":
 		return derivedRuntimeTool("garth", "read-twitter")
+	case "garth_twitter_trends":
+		return derivedRuntimeTool("garth", "read-trends")
+	case "joanne_read_company":
+		return derivedRuntimeTool("joanne", "read-company")
 	default:
 		if runtimeTool != "" {
 			return runtimeTool
@@ -148,11 +152,27 @@ func defaultCapabilityCatalog() CapabilityCatalog {
 				OptionalParams: []string{"channel", "channel_name", "is_private", "reason"},
 			},
 			{
+				ID:             "read-company",
+				Label:          "Read Company",
+				Description:    "Summarize this channel from cached Slack history in Redis (hourly digest). Runs immediately in Slack (no confirmation).",
+				RuntimeTool:    "joanne-read-company",
+				RequiredParams: []string{"intent"},
+				OptionalParams: []string{},
+			},
+			{
 				ID:             "read-twitter",
 				Label:          "Read Twitter",
-				Description:    "Discover and search high-impression tweets and trends. Runs immediately in Slack (no confirmation).",
+				Description:    "Search Twitter by keyword and fetch high-impression tweets (not the platform trend list). Runs immediately in Slack (no confirmation).",
 				RuntimeTool:    "garth-read-twitter",
 				RequiredParams: []string{"intent", "query"},
+				OptionalParams: []string{"count"},
+			},
+			{
+				ID:             "read-trends",
+				Label:          "Read Trends",
+				Description:    "Fetch the current Twitter/X trend list (not keyword search). Runs immediately in Slack (no confirmation).",
+				RuntimeTool:    "garth-read-trends",
+				RequiredParams: []string{"intent"},
 				OptionalParams: []string{"count"},
 			},
 		},
@@ -160,8 +180,8 @@ func defaultCapabilityCatalog() CapabilityCatalog {
 			"alex":   {},
 			"tim":    {},
 			"ross":   {},
-			"garth":  {"read-twitter"},
-			"joanne": {"read-slack", "write-email", "write-doc", "write-slack"},
+			"garth":  {"read-twitter", "read-trends"},
+			"joanne": {"read-company", "read-slack", "write-email", "write-doc", "write-slack"},
 		},
 		UpdatedAt: time.Now().UTC().Format(time.RFC3339),
 		Source:    "default",
@@ -259,7 +279,13 @@ func normalizeCapabilityCatalog(c CapabilityCatalog) CapabilityCatalog {
 			skill.Label = "Write Slack"
 			required = []string{"action", "intent"}
 			optional = []string{"channel", "channel_name", "is_private", "reason"}
+		case "read-company":
+			skill.Label = "Read Company"
+			required = []string{"intent"}
+			optional = []string{}
 		case "read-twitter":
+			optional = []string{"count"}
+		case "read-trends":
 			optional = []string{"count"}
 		}
 
