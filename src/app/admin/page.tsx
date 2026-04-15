@@ -7,8 +7,8 @@ export default function AdminPage() {
   return (
     <AdminShell>
       <AdminOverviewGrafanaGrid />
-      <AdminCatalogEditor />
       <AdminCompanyChannelsStrip />
+      <AdminCatalogEditor />
     </AdminShell>
   );
 }

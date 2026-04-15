@@ -379,6 +379,80 @@ func (s *Store) ListCompanyChannels(ctx context.Context, hashKey string) ([]Comp
 	return out, truncated, nil
 }
 
+// ErrCompanyChannelNotFound is returned when the Redis registry has no JSON for this channel id.
+var ErrCompanyChannelNotFound = errors.New("company channel not found")
+
+func companyChannelsHashKey(hashKey string) string {
+	k := strings.TrimSpace(hashKey)
+	if k == "" {
+		return "employee-factory:company_channels"
+	}
+	return k
+}
+
+// GetCompanyChannel returns one registry entry by Slack channel id (hash field).
+func (s *Store) GetCompanyChannel(ctx context.Context, hashKey, channelID string) (CompanyChannel, error) {
+	rdb := s.companyChannelsRedis()
+	if s == nil || rdb == nil {
+		return CompanyChannel{}, fmt.Errorf("company channels: nil store")
+	}
+	cid := strings.TrimSpace(channelID)
+	if cid == "" {
+		return CompanyChannel{}, fmt.Errorf("company channels: empty channel id")
+	}
+	k := companyChannelsHashKey(hashKey)
+	raw, err := rdb.HGet(ctx, k, cid).Result()
+	if err == redis.Nil {
+		return CompanyChannel{}, ErrCompanyChannelNotFound
+	}
+	if err != nil {
+		return CompanyChannel{}, err
+	}
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return CompanyChannel{}, ErrCompanyChannelNotFound
+	}
+	var e CompanyChannel
+	if err := json.Unmarshal([]byte(raw), &e); err != nil {
+		return CompanyChannel{}, fmt.Errorf("company channels: decode %s: %w", cid, err)
+	}
+	e = normalizeCompanyChannel(e, cid)
+	if e.ChannelID == "" || e.ChannelID != cid {
+		return CompanyChannel{}, fmt.Errorf("company channels: bad record for %s", cid)
+	}
+	return e, nil
+}
+
+// CompanyChannelPatch is a partial update applied on top of the existing Redis JSON.
+type CompanyChannelPatch struct {
+	GeneralAutoReactionEnabled *bool `json:"general_auto_reaction_enabled,omitempty"`
+}
+
+// PatchCompanyChannel merges patch into the stored record and writes it back to the hash.
+func (s *Store) PatchCompanyChannel(ctx context.Context, hashKey, channelID string, patch CompanyChannelPatch) (CompanyChannel, error) {
+	e, err := s.GetCompanyChannel(ctx, hashKey, channelID)
+	if err != nil {
+		return CompanyChannel{}, err
+	}
+	if patch.GeneralAutoReactionEnabled != nil {
+		e.GeneralAutoReactionEnabled = *patch.GeneralAutoReactionEnabled
+	}
+	e = normalizeCompanyChannel(e, e.ChannelID)
+	b, err := json.Marshal(e)
+	if err != nil {
+		return CompanyChannel{}, err
+	}
+	rdb := s.companyChannelsRedis()
+	if s == nil || rdb == nil {
+		return CompanyChannel{}, fmt.Errorf("company channels: nil store")
+	}
+	k := companyChannelsHashKey(hashKey)
+	if err := rdb.HSet(ctx, k, e.ChannelID, string(b)).Err(); err != nil {
+		return CompanyChannel{}, err
+	}
+	return e, nil
+}
+
 const channelKnowledgeRedisKeyFmt = "employee-factory:channel_knowledge:%s:markdown"
 
 // GetChannelKnowledgeMarkdown returns the stored hourly digest markdown for a Slack channel id

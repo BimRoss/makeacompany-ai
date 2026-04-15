@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
+import { AdminChannelControlPane } from "@/components/admin/admin-channel-control-pane";
 import { AdminChannelKnowledgeDigest } from "@/components/admin/admin-channel-knowledge-digest";
 import { AdminShell } from "@/components/admin/admin-shell";
-import { channelDisplayTitle, type CompanyChannelsResponse } from "@/lib/admin/company-channels";
+import { channelDisplayTitle, type CompanyChannel } from "@/lib/admin/company-channels";
 import type { ChannelKnowledgeResponse } from "@/lib/admin/channel-knowledge";
 
 type ViewState =
@@ -13,12 +14,19 @@ type ViewState =
   | { kind: "error"; message: string }
   | { kind: "ready"; data: ChannelKnowledgeResponse };
 
+type ChannelRegistryState =
+  | { kind: "loading" }
+  | { kind: "error"; message: string }
+  | { kind: "missing"; redisKey?: string }
+  | { kind: "ready"; channel: CompanyChannel; redisKey?: string };
+
 export default function AdminChannelKnowledgePage() {
   const params = useParams();
   const rawId = typeof params?.channelId === "string" ? params.channelId : "";
   const channelId = decodeURIComponent(rawId);
 
   const [state, setState] = useState<ViewState>({ kind: "loading" });
+  const [registry, setRegistry] = useState<ChannelRegistryState>({ kind: "loading" });
   const [pageTitle, setPageTitle] = useState<string>("");
 
   useEffect(() => {
@@ -28,21 +36,36 @@ export default function AdminChannelKnowledgePage() {
   const load = useCallback(async () => {
     if (!channelId) {
       setState({ kind: "error", message: "Missing channel id." });
+      setRegistry({ kind: "error", message: "Missing channel id." });
       return;
     }
     setState({ kind: "loading" });
+    setRegistry({ kind: "loading" });
     try {
-      const [knowledgeRes, channelsRes] = await Promise.all([
+      const [knowledgeRes, channelRes] = await Promise.all([
         fetch(`/api/admin/channel-knowledge/${encodeURIComponent(channelId)}`, { cache: "no-store" }),
-        fetch("/api/admin/company-channels", { cache: "no-store" }),
+        fetch(`/api/admin/company-channels/${encodeURIComponent(channelId)}`, { cache: "no-store" }),
       ]);
       const payload = (await knowledgeRes.json().catch(() => null)) as ChannelKnowledgeResponse & { error?: string };
-      const channelsPayload = (await channelsRes.json().catch(() => null)) as CompanyChannelsResponse | null;
+      const channelPayload = (await channelRes.json().catch(() => null)) as
+        | { channel?: CompanyChannel; redisKey?: string; error?: string }
+        | null;
 
-      if (channelsRes.ok && channelsPayload?.channels) {
-        const match = channelsPayload.channels.find((c) => c.channel_id === channelId);
-        setPageTitle(match ? channelDisplayTitle(match) : channelId);
+      if (channelRes.ok && channelPayload?.channel) {
+        setRegistry({
+          kind: "ready",
+          channel: channelPayload.channel,
+          redisKey: channelPayload.redisKey,
+        });
+        setPageTitle(channelDisplayTitle(channelPayload.channel));
+      } else if (channelRes.status === 404) {
+        setRegistry({ kind: "missing", redisKey: channelPayload?.redisKey });
+        setPageTitle(channelId);
       } else {
+        setRegistry({
+          kind: "error",
+          message: channelPayload?.error ?? "Failed to load channel registry.",
+        });
         setPageTitle(channelId);
       }
 
@@ -60,6 +83,7 @@ export default function AdminChannelKnowledgePage() {
       setState({ kind: "ready", data: payload });
     } catch {
       setState({ kind: "error", message: "Failed to load channel knowledge." });
+      setRegistry({ kind: "error", message: "Failed to load channel registry." });
     }
   }, [channelId]);
 
@@ -76,9 +100,18 @@ export default function AdminChannelKnowledgePage() {
     };
   }, [pageTitle]);
 
+  const paneStatus =
+    registry.kind === "loading"
+      ? "loading"
+      : registry.kind === "missing"
+        ? "missing"
+        : registry.kind === "error"
+          ? "error"
+          : "ready";
+
   return (
     <AdminShell>
-      <div className="space-y-6">
+      <div className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-sm text-muted-foreground">
@@ -91,6 +124,21 @@ export default function AdminChannelKnowledgePage() {
             ) : null}
           </div>
         </div>
+
+        <AdminChannelControlPane
+          channelId={channelId}
+          channel={registry.kind === "ready" ? registry.channel : null}
+          status={paneStatus}
+          errorMessage={registry.kind === "error" ? registry.message : undefined}
+          redisKey={registry.kind === "ready" ? registry.redisKey : registry.kind === "missing" ? registry.redisKey : undefined}
+          onChannelUpdated={(ch) => {
+            setRegistry((prev) => {
+              const rk = prev.kind === "ready" ? prev.redisKey : undefined;
+              return { kind: "ready", channel: ch, redisKey: rk };
+            });
+            setPageTitle(channelDisplayTitle(ch));
+          }}
+        />
 
         {state.kind === "loading" ? (
           <p className="text-sm text-muted-foreground">Loading digest from Redis…</p>

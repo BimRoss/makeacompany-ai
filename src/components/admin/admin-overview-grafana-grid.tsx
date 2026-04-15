@@ -111,10 +111,13 @@ export function AdminOverviewGrafanaGrid() {
   const missing = Math.max(0, EXPECTED_ADMIN_PANELS - cards.length);
 
   return (
-    <section className="rounded-2xl bg-card px-4 pb-4 pt-4 sm:px-5 sm:pb-5">
-      <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-4">
+    <section className="rounded-none bg-card px-0 pb-3 pt-3 sm:rounded-2xl sm:pb-4 sm:pt-4">
+      <div className="grid grid-cols-1 gap-1.5 md:grid-cols-2 md:gap-2 xl:grid-cols-4">
         {cards.map((embed) => (
-          <article key={embed.key} className="overflow-hidden rounded-xl border border-border bg-background/60">
+          <article
+            key={embed.key}
+            className="overflow-hidden rounded-none border border-border bg-background/60 sm:rounded-xl"
+          >
             <iframe title={embed.title} src={embed.url} loading="lazy" className="h-48 w-full border-0 bg-card" />
           </article>
         ))}
@@ -123,7 +126,7 @@ export function AdminOverviewGrafanaGrid() {
           return (
             <article
               key={`missing-admin-panel-${index}`}
-              className="flex h-60 items-center justify-center rounded-xl border border-dashed border-border bg-background/60 p-4 text-center"
+              className="flex h-60 items-center justify-center rounded-none border border-dashed border-border bg-background/60 p-4 text-center sm:rounded-xl"
             >
               <div className="space-y-1">
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{suggestionTitle}</p>

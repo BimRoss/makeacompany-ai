@@ -1,0 +1,79 @@
+import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
+
+export const dynamic = "force-dynamic";
+
+const adminSessionCookieName = "mac_admin_session";
+
+function resolveBackendBaseURL(): string {
+  const isKubernetes = Boolean(process.env.KUBERNETES_SERVICE_HOST);
+  const defaultBackendBase = isKubernetes ? "http://makeacompany-ai-backend:8080" : "http://localhost:8080";
+  return (
+    process.env.BACKEND_INTERNAL_API_BASE_URL ??
+    process.env.NEXT_PUBLIC_BACKEND_API_BASE_URL ??
+    defaultBackendBase
+  );
+}
+
+export async function GET(_req: Request, context: { params: Promise<{ channelId: string }> }) {
+  const { channelId } = await context.params;
+  const id = encodeURIComponent((channelId ?? "").trim());
+  if (!id) {
+    return NextResponse.json({ error: "missing channel id" }, { status: 400 });
+  }
+  const cookieStore = await cookies();
+  const token = cookieStore.get(adminSessionCookieName)?.value ?? "";
+  if (!token) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+  const backendURL = `${resolveBackendBaseURL().replace(/\/$/, "")}/v1/admin/company-channels/${id}`;
+  try {
+    const response = await fetch(backendURL, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      cache: "no-store",
+    });
+    const payload = await response.json().catch(() => ({ error: "invalid backend response" }));
+    return NextResponse.json(payload, { status: response.status });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    return NextResponse.json({ error: `company-channel proxy failed: ${message}` }, { status: 502 });
+  }
+}
+
+export async function PATCH(req: Request, context: { params: Promise<{ channelId: string }> }) {
+  const { channelId } = await context.params;
+  const id = encodeURIComponent((channelId ?? "").trim());
+  if (!id) {
+    return NextResponse.json({ error: "missing channel id" }, { status: 400 });
+  }
+  const cookieStore = await cookies();
+  const token = cookieStore.get(adminSessionCookieName)?.value ?? "";
+  if (!token) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+  let body: unknown;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "invalid json" }, { status: 400 });
+  }
+  const backendURL = `${resolveBackendBaseURL().replace(/\/$/, "")}/v1/admin/company-channels/${id}`;
+  try {
+    const response = await fetch(backendURL, {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+      cache: "no-store",
+    });
+    const payload = await response.json().catch(() => ({ error: "invalid backend response" }));
+    return NextResponse.json(payload, { status: response.status });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    return NextResponse.json({ error: `company-channel proxy failed: ${message}` }, { status: 502 });
+  }
+}

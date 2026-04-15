@@ -74,6 +74,8 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 	s.mux.HandleFunc("/v1/admin/waitlist", s.handleAdminWaitlist)
 	s.mux.HandleFunc("/v1/admin/catalog", s.handleAdminCatalog)
 	s.mux.HandleFunc("/v1/admin/company-channels", s.handleAdminCompanyChannels)
+	s.mux.HandleFunc("GET /v1/admin/company-channels/{channelId}", s.handleAdminCompanyChannelGet)
+	s.mux.HandleFunc("PATCH /v1/admin/company-channels/{channelId}", s.handleAdminCompanyChannelPatch)
 	s.mux.HandleFunc("GET /v1/admin/channel-knowledge/{channelId}", s.handleAdminChannelKnowledge)
 	s.mux.HandleFunc("/v1/runtime/capability-catalog", s.handleRuntimeCapabilityCatalog)
 	s.mux.HandleFunc("/v1/admin/auth/start", s.handleAdminAuthStart)
@@ -131,6 +133,8 @@ func normalizeMetricRoute(path string) string {
 		return "/v1/admin/catalog"
 	case path == "/v1/admin/company-channels":
 		return "/v1/admin/company-channels"
+	case strings.HasPrefix(path, "/v1/admin/company-channels/"):
+		return "/v1/admin/company-channels/{channelId}"
 	case strings.HasPrefix(path, "/v1/admin/channel-knowledge/"):
 		return "/v1/admin/channel-knowledge/{channelId}"
 	case path == "/v1/runtime/capability-catalog":
@@ -154,7 +158,7 @@ func (s *Server) withCORS(w http.ResponseWriter, r *http.Request, next http.Hand
 	origin := r.Header.Get("Origin")
 	if origin != "" && (origin == s.cors || strings.HasPrefix(origin, "http://localhost:")) {
 		w.Header().Set("Access-Control-Allow-Origin", origin)
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PATCH, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Stripe-Signature, X-Admin-Token, X-Admin-Session, X-Capability-Catalog-Token, Authorization")
 	}
 	if r.Method == http.MethodOptions {
@@ -464,6 +468,82 @@ func (s *Server) handleAdminCompanyChannels(w http.ResponseWriter, r *http.Reque
 		"channels":  channels,
 		"truncated": truncated,
 		"redisKey":  strings.TrimSpace(s.cfg.CompanyChannelsRedisKey),
+	})
+}
+
+func (s *Server) handleAdminCompanyChannelGet(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if !s.adminAuthEnabled() {
+		http.Error(w, "admin auth disabled", http.StatusServiceUnavailable)
+		return
+	}
+	if _, err := s.validateAdminSession(r.Context(), tokenFromAuthHeader(r)); err != nil {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+	chID := strings.TrimSpace(r.PathValue("channelId"))
+	if chID == "" || !validAdminSlackChannelID(chID) {
+		http.Error(w, "bad channel id", http.StatusBadRequest)
+		return
+	}
+	e, err := s.store.GetCompanyChannel(r.Context(), s.cfg.CompanyChannelsRedisKey, chID)
+	if err != nil {
+		if errors.Is(err, ErrCompanyChannelNotFound) {
+			http.Error(w, "not found", http.StatusNotFound)
+			return
+		}
+		s.log.Printf("admin company channel get: %v", err)
+		http.Error(w, "company channel error", http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"channel": e,
+		"redisKey": strings.TrimSpace(s.cfg.CompanyChannelsRedisKey),
+	})
+}
+
+func (s *Server) handleAdminCompanyChannelPatch(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPatch {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if !s.adminAuthEnabled() {
+		http.Error(w, "admin auth disabled", http.StatusServiceUnavailable)
+		return
+	}
+	if _, err := s.validateAdminSession(r.Context(), tokenFromAuthHeader(r)); err != nil {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+	chID := strings.TrimSpace(r.PathValue("channelId"))
+	if chID == "" || !validAdminSlackChannelID(chID) {
+		http.Error(w, "bad channel id", http.StatusBadRequest)
+		return
+	}
+	var patch CompanyChannelPatch
+	if err := json.NewDecoder(io.LimitReader(r.Body, 1<<20)).Decode(&patch); err != nil {
+		http.Error(w, "invalid json", http.StatusBadRequest)
+		return
+	}
+	if patch.GeneralAutoReactionEnabled == nil {
+		http.Error(w, "no updatable fields", http.StatusBadRequest)
+		return
+	}
+	e, err := s.store.PatchCompanyChannel(r.Context(), s.cfg.CompanyChannelsRedisKey, chID, patch)
+	if err != nil {
+		if errors.Is(err, ErrCompanyChannelNotFound) {
+			http.Error(w, "not found", http.StatusNotFound)
+			return
+		}
+		s.log.Printf("admin company channel patch: %v", err)
+		http.Error(w, "company channel error", http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"channel": e,
 	})
 }
 

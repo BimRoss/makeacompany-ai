@@ -44,8 +44,11 @@ export function AdminCompanyChannelsStrip() {
   }, [load]);
 
   return (
-    <section className="space-y-4 border-t border-border pt-8" aria-labelledby="admin-company-channels-heading">
-      <h2 id="admin-company-channels-heading" className="text-lg font-semibold tracking-tight">
+    <section
+      className="space-y-3 rounded-none bg-card px-0 py-3 sm:rounded-2xl sm:py-4"
+      aria-labelledby="admin-company-channels-heading"
+    >
+      <h2 id="admin-company-channels-heading" className="text-lg font-semibold leading-snug tracking-tight">
         Companies
       </h2>
 
@@ -65,12 +68,12 @@ export function AdminCompanyChannelsStrip() {
       ) : null}
 
       {state === "ready" && data && data.channels.length > 0 ? (
-        <ul className="space-y-3">
+        <ul className="space-y-2">
           {data.channels.map((ch) => (
             <li key={ch.channel_id} className="list-none">
               <Link
                 href={`/admin/${encodeURIComponent(ch.channel_id)}`}
-                className="block rounded-lg border border-border bg-card px-4 py-3 shadow-sm transition-colors hover:bg-muted/40 focus-visible:outline focus-visible:ring-2 focus-visible:ring-ring"
+                className="block rounded-none border border-border bg-card px-4 py-3 shadow-sm transition-colors hover:bg-muted/40 focus-visible:outline focus-visible:ring-2 focus-visible:ring-ring sm:rounded-lg"
               >
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                   <div>

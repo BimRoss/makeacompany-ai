@@ -103,14 +103,6 @@ export function AdminCatalogEditor() {
     [catalog.coreEmployees, catalog.employeeSkillIds]
   );
 
-  async function logout() {
-    try {
-      await fetch("/api/admin/auth/logout", { method: "POST" });
-    } finally {
-      window.location.href = "/admin/login";
-    }
-  }
-
   async function persistCatalog(next: CapabilityCatalog, successMessage: string) {
     setState("saving");
     setStatusText("Saving catalog to Redis...");
@@ -372,9 +364,9 @@ export function AdminCatalogEditor() {
   }
 
   return (
-    <section className="space-y-4 rounded-2xl bg-card px-4 pb-4 pt-0 sm:px-5 sm:pb-5 sm:pt-0">
-      <div className="grid gap-4 lg:grid-cols-2">
-        <section className="relative space-y-3 rounded-xl bg-background/70 p-3">
+    <section className="space-y-3 rounded-none bg-card px-0 pb-3 pt-0 sm:rounded-2xl sm:pb-4 sm:pt-0">
+      <div className="grid gap-3 lg:grid-cols-2">
+        <section className="relative space-y-2 rounded-none bg-background/70 p-0 sm:rounded-xl sm:p-3">
           <div className="flex items-center justify-between gap-3">
             <Link
               href="/employees"
@@ -394,7 +386,7 @@ export function AdminCatalogEditor() {
             {employeesSortedBySkillCount.map(({ employee, index }) => (
               <article
                 key={`${employee.id}-${index}`}
-                className="employees-card-motion rounded-xl border border-border bg-card px-3 pb-1.5 pt-3 shadow-sm motion-colors sm:px-4 sm:pb-2 sm:pt-4 md:cursor-pointer md:hover:shadow-md"
+                className="employees-card-motion rounded-none border border-border bg-card px-3 pb-1.5 pt-3 shadow-sm motion-colors sm:rounded-xl sm:px-4 sm:pb-2 sm:pt-4 md:cursor-pointer md:hover:shadow-md"
                 role="button"
                 tabIndex={0}
                 onClick={() => openEditEmployeeModal(index)}
@@ -445,7 +437,7 @@ export function AdminCatalogEditor() {
           </div>
         </section>
 
-        <section className="relative space-y-3 rounded-xl bg-background/70 p-3">
+        <section className="relative space-y-2 rounded-none bg-background/70 p-0 sm:rounded-xl sm:p-3">
           <div className="flex items-center justify-between gap-3">
             <Link
               href="/skills"
@@ -465,7 +457,7 @@ export function AdminCatalogEditor() {
             {catalog.skills.map((skill, index) => (
               <article
                 key={`${skill.id}-${index}`}
-                className="employees-card-motion rounded-xl border border-border bg-card px-3 pb-1.5 pt-3 shadow-sm motion-colors sm:px-4 sm:pb-2 sm:pt-4 md:cursor-pointer md:hover:shadow-md"
+                className="employees-card-motion rounded-none border border-border bg-card px-3 pb-1.5 pt-3 shadow-sm motion-colors sm:rounded-xl sm:px-4 sm:pb-2 sm:pt-4 md:cursor-pointer md:hover:shadow-md"
                 role="button"
                 tabIndex={0}
                 onClick={() => openEditSkillModal(index)}
@@ -540,18 +532,6 @@ export function AdminCatalogEditor() {
       {statusText ? (
         <p className={state === "error" ? "text-sm text-destructive" : "text-sm text-muted-foreground"}>{statusText}</p>
       ) : null}
-
-      <div className="flex flex-wrap items-end justify-end gap-3">
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => void logout()}
-            className="rounded-md border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
-          >
-            Admin logout
-          </button>
-        </div>
-      </div>
 
       {employeeModal ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
