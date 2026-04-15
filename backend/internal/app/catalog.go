@@ -108,6 +108,68 @@ func ownersBySkillID(employeeSkillIDs map[string][]string) map[string][]string {
 	return out
 }
 
+// mergeCapabilityCatalogWithDefaults appends skill definitions (and default employee assignments
+// for those skills only) that exist in defaultCapabilityCatalog but were missing from the stored
+// catalog. This keeps older Redis snapshots aligned when new skills ship without a manual migration.
+func mergeCapabilityCatalogWithDefaults(c CapabilityCatalog) CapabilityCatalog {
+	def := defaultCapabilityCatalog()
+	originalSkillIDs := map[string]struct{}{}
+	for _, s := range c.Skills {
+		id := normalizeCatalogSkillID(s.ID)
+		if id != "" {
+			originalSkillIDs[id] = struct{}{}
+		}
+	}
+	newSkillIDs := map[string]struct{}{}
+	for _, ds := range def.Skills {
+		id := normalizeCatalogSkillID(ds.ID)
+		if id == "" {
+			continue
+		}
+		if _, ok := originalSkillIDs[id]; !ok {
+			newSkillIDs[id] = struct{}{}
+		}
+	}
+	if len(newSkillIDs) == 0 {
+		return c
+	}
+	for _, ds := range def.Skills {
+		id := normalizeCatalogSkillID(ds.ID)
+		if _, want := newSkillIDs[id]; !want {
+			continue
+		}
+		c.Skills = append(c.Skills, ds)
+	}
+	for empID, defSkills := range def.EmployeeSkillIDs {
+		empID = strings.ToLower(strings.TrimSpace(empID))
+		if empID == "" {
+			continue
+		}
+		cur := c.EmployeeSkillIDs[empID]
+		if cur == nil {
+			cur = []string{}
+		}
+		seen := map[string]struct{}{}
+		for _, s := range cur {
+			seen[normalizeCatalogSkillID(s)] = struct{}{}
+		}
+		for _, s := range defSkills {
+			sid := normalizeCatalogSkillID(s)
+			if _, isNew := newSkillIDs[sid]; !isNew {
+				continue
+			}
+			if _, ok := seen[sid]; ok {
+				continue
+			}
+			cur = append(cur, sid)
+			seen[sid] = struct{}{}
+		}
+		sort.Strings(cur)
+		c.EmployeeSkillIDs[empID] = cur
+	}
+	return c
+}
+
 func defaultCapabilityCatalog() CapabilityCatalog {
 	return CapabilityCatalog{
 		Revision: "default",
@@ -456,6 +518,7 @@ func (s *Store) GetCapabilityCatalog(ctx context.Context) (CapabilityCatalog, er
 	if err := json.Unmarshal(raw, &catalog); err != nil {
 		return CapabilityCatalog{}, fmt.Errorf("decode catalog: %w", err)
 	}
+	catalog = mergeCapabilityCatalogWithDefaults(catalog)
 	catalog = normalizeCapabilityCatalog(catalog)
 	if err := validateCapabilityCatalog(catalog); err != nil {
 		return CapabilityCatalog{}, err

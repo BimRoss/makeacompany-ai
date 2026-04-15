@@ -24,3 +24,63 @@ func TestValidateCapabilityCatalogAllowsArbitraryRuntimeTool(t *testing.T) {
 		t.Fatalf("expected catalog to validate, got %v", err)
 	}
 }
+
+func TestMergeCapabilityCatalogWithDefaultsRestoresNewSkills(t *testing.T) {
+	// Simulate an older Redis payload: fewer skills, narrower employee assignments.
+	def := defaultCapabilityCatalog()
+	var slimSkills []CapabilityCatalogSkill
+	for _, s := range def.Skills {
+		id := normalizeCatalogSkillID(s.ID)
+		if id == "read-company" || id == "read-trends" {
+			continue
+		}
+		slimSkills = append(slimSkills, s)
+	}
+	joanneSkills := []string{"read-slack", "write-email", "write-doc", "write-slack"}
+	garthSkills := []string{"read-twitter"}
+	catalog := CapabilityCatalog{
+		Revision:         "old",
+		CoreEmployees:    def.CoreEmployees,
+		Skills:           slimSkills,
+		EmployeeSkillIDs: map[string][]string{
+			"alex":   {},
+			"tim":    {},
+			"ross":   {},
+			"garth":  garthSkills,
+			"joanne": joanneSkills,
+		},
+	}
+	merged := mergeCapabilityCatalogWithDefaults(catalog)
+	normalized := normalizeCapabilityCatalog(merged)
+	if err := validateCapabilityCatalog(normalized); err != nil {
+		t.Fatalf("expected merged catalog to validate, got %v", err)
+	}
+	hasSkill := func(id string) bool {
+		for _, s := range normalized.Skills {
+			if normalizeCatalogSkillID(s.ID) == id {
+				return true
+			}
+		}
+		return false
+	}
+	if !hasSkill("read-company") || !hasSkill("read-trends") {
+		t.Fatalf("expected merged skills to include read-company and read-trends")
+	}
+	joanne := normalized.EmployeeSkillIDs["joanne"]
+	garth := normalized.EmployeeSkillIDs["garth"]
+	if !containsString(joanne, "read-company") {
+		t.Fatalf("expected joanne to gain read-company, got %#v", joanne)
+	}
+	if !containsString(garth, "read-trends") {
+		t.Fatalf("expected garth to gain read-trends, got %#v", garth)
+	}
+}
+
+func containsString(list []string, want string) bool {
+	for _, s := range list {
+		if normalizeCatalogSkillID(s) == want {
+			return true
+		}
+	}
+	return false
+}
