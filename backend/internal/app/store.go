@@ -260,15 +260,20 @@ func (s *Store) CreateAdminSession(ctx context.Context, token, email string, exp
 		return fmt.Errorf("admin session already expired")
 	}
 	now := time.Now().UTC().Format(time.RFC3339)
-	err := s.rdb.HSet(ctx, adminSessionKey(token), map[string]any{
+	key := adminSessionKey(token)
+	pipe := s.rdb.TxPipeline()
+	pipe.HSet(ctx, key, map[string]any{
 		"email":     email,
 		"createdAt": now,
 		"expiresAt": expiresAt.UTC().Format(time.RFC3339),
-	}).Err()
+	})
+	pipe.Expire(ctx, key, ttl)
+	_, err := pipe.Exec(ctx)
 	if err != nil {
+		_ = s.rdb.Del(ctx, key).Err()
 		return err
 	}
-	return s.rdb.Expire(ctx, adminSessionKey(token), ttl).Err()
+	return nil
 }
 
 func (s *Store) GetAdminSession(ctx context.Context, token string) (AdminSession, error) {
@@ -276,7 +281,8 @@ func (s *Store) GetAdminSession(ctx context.Context, token string) (AdminSession
 	if token == "" {
 		return AdminSession{}, fmt.Errorf("missing admin session token")
 	}
-	vals, err := s.rdb.HGetAll(ctx, adminSessionKey(token)).Result()
+	key := adminSessionKey(token)
+	vals, err := s.rdb.HGetAll(ctx, key).Result()
 	if err != nil {
 		return AdminSession{}, err
 	}
@@ -292,7 +298,52 @@ func (s *Store) GetAdminSession(ctx context.Context, token string) (AdminSession
 	if out.Email == "" {
 		return AdminSession{}, redis.Nil
 	}
+	gone, err := s.repairAdminSessionTTLIfNeeded(ctx, key, out.ExpiresAt)
+	if err != nil {
+		return AdminSession{}, err
+	}
+	if gone {
+		return AdminSession{}, redis.Nil
+	}
 	return out, nil
+}
+
+// repairAdminSessionTTLIfNeeded sets Redis TTL when the hash exists but has no EXPIRE (legacy or failed Expire).
+// If expiresAt is missing, invalid, or in the past, the key is deleted and gone is true.
+// go-redis TTL uses time.Duration(-1) and time.Duration(-2) for Redis -1 / -2 (see DurationCmd.readReply).
+func (s *Store) repairAdminSessionTTLIfNeeded(ctx context.Context, key, expiresAtRFC3339 string) (gone bool, err error) {
+	ttl, err := s.rdb.TTL(ctx, key).Result()
+	if err != nil {
+		return false, err
+	}
+	if ttl != time.Duration(-1) {
+		return false, nil
+	}
+	expiresAtRFC3339 = strings.TrimSpace(expiresAtRFC3339)
+	if expiresAtRFC3339 == "" {
+		if err := s.rdb.Del(ctx, key).Err(); err != nil {
+			return false, err
+		}
+		return true, nil
+	}
+	expiresAt, err := time.Parse(time.RFC3339, expiresAtRFC3339)
+	if err != nil {
+		if err := s.rdb.Del(ctx, key).Err(); err != nil {
+			return false, err
+		}
+		return true, nil
+	}
+	remaining := time.Until(expiresAt.UTC())
+	if remaining <= 0 {
+		if err := s.rdb.Del(ctx, key).Err(); err != nil {
+			return false, err
+		}
+		return true, nil
+	}
+	if err := s.rdb.Expire(ctx, key, remaining).Err(); err != nil {
+		return false, err
+	}
+	return false, nil
 }
 
 func (s *Store) DeleteAdminSession(ctx context.Context, token string) error {
@@ -308,20 +359,49 @@ type CompanyChannel struct {
 	CompanySlug                string   `json:"company_slug"`
 	ChannelID                  string   `json:"channel_id"`
 	DisplayName                string   `json:"display_name,omitempty"`
-	PrimaryOwner               string   `json:"primary_owner,omitempty"`
-	AllowedOperatorIDs         []string `json:"allowed_operator_ids,omitempty"`
+	OwnerIDs                   []string `json:"owner_ids,omitempty"`
+	PrimaryOwner               string   `json:"primary_owner,omitempty"`          // legacy: merged on read
+	AllowedOperatorIDs         []string `json:"allowed_operator_ids,omitempty"` // legacy
 	ThreadsEnabled             bool     `json:"threads_enabled"`
 	GeneralAutoReactionEnabled bool     `json:"general_auto_reaction_enabled"`
+}
+
+func effectiveCompanyChannelOwners(e CompanyChannel) []string {
+	var out []string
+	seen := map[string]bool{}
+	add := func(s string) {
+		s = strings.TrimSpace(s)
+		if s == "" || seen[s] {
+			return
+		}
+		seen[s] = true
+		out = append(out, s)
+	}
+	for _, id := range e.OwnerIDs {
+		add(id)
+	}
+	if len(out) > 0 {
+		return out
+	}
+	for _, id := range e.AllowedOperatorIDs {
+		add(id)
+	}
+	if len(out) > 0 {
+		return out
+	}
+	if po := strings.TrimSpace(e.PrimaryOwner); po != "" {
+		return []string{po}
+	}
+	return nil
 }
 
 func normalizeCompanyChannel(e CompanyChannel, hashField string) CompanyChannel {
 	e.ChannelID = strings.TrimSpace(e.ChannelID)
 	e.CompanySlug = strings.TrimSpace(e.CompanySlug)
 	e.DisplayName = strings.TrimSpace(e.DisplayName)
-	e.PrimaryOwner = strings.TrimSpace(e.PrimaryOwner)
-	for i := range e.AllowedOperatorIDs {
-		e.AllowedOperatorIDs[i] = strings.TrimSpace(e.AllowedOperatorIDs[i])
-	}
+	e.OwnerIDs = effectiveCompanyChannelOwners(e)
+	e.PrimaryOwner = ""
+	e.AllowedOperatorIDs = nil
 	if e.ChannelID == "" {
 		e.ChannelID = strings.TrimSpace(hashField)
 	}

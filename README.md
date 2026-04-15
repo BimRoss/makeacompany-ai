@@ -35,7 +35,7 @@ Admin catalog editor (**production source of truth**):
 
 - Route: `/admin`
 - Proxy endpoint: `GET/PUT /api/admin/catalog` -> backend `GET/PUT /v1/admin/catalog`
-- `PUT` forwards optional `X-Admin-Token` (backend validates against `ADMIN_CATALOG_TOKEN` when set).
+- `PUT` may include `X-Admin-Token` for machine clients when `ADMIN_CATALOG_TOKEN` is set; the admin UI relies on the session cookie only.
 - Sign-in route: `/admin/login` starts Stripe-backed verification before issuing an HttpOnly admin session cookie.
 - Includes an 8-panel service overview Grafana grid (4 columns x 2 rows) for high-level runtime monitoring.
 - Bottom of the page: read-only **Slack channels (Redis)** strip — loads the shared company-channel registry (`employee-factory:company_channels` by default) via `GET /api/admin/company-channels` and shows per-channel metadata as pills.
@@ -102,7 +102,7 @@ npm run dev   # repo root
 | Variable | Purpose |
 |----------|---------|
 | `REDIS_URL` | Redis connection URL |
-| `ADMIN_CATALOG_TOKEN` | Optional shared token required for backend `PUT /v1/admin/catalog` (`X-Admin-Token` header) |
+| `ADMIN_CATALOG_TOKEN` | Optional machine token: `PUT /v1/admin/catalog` with matching `X-Admin-Token` (no browser session). Admin UI uses session cookie only; writes still land in Redis. |
 | `CAPABILITY_CATALOG_READ_TOKEN` | Optional bearer token required for backend `GET /v1/runtime/capability-catalog` (runtime consumer reads) |
 | `ADMIN_ALLOWED_EMAIL` | Required email allowed to establish `/admin` session after Stripe auth completes |
 | `ADMIN_SESSION_TTL_SEC` | Admin session lifetime in seconds (default `259200`) |

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { channelDisplayTitle, type CompanyChannelsResponse } from "@/lib/admin/company-channels";
+import { channelDisplayTitle, type CompanyChannel, type CompanyChannelsResponse } from "@/lib/admin/company-channels";
 
 type LoadState = "idle" | "loading" | "error" | "ready";
 
@@ -10,6 +10,22 @@ function pillClassName(emphasis: boolean): string {
   return emphasis
     ? "inline-flex rounded-full border border-foreground/20 bg-foreground px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-background"
     : "inline-flex rounded-full border border-border bg-background px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground";
+}
+
+function ownersPill(ch: CompanyChannel) {
+  const owners = ch.owner_ids?.filter((id) => id.trim()) ?? [];
+  if (owners.length === 0) {
+    return (
+      <span className={pillClassName(false)} title="No owner_ids; runtime uses CEO Slack user id">
+        owners · none
+      </span>
+    );
+  }
+  return (
+    <span className={pillClassName(false)} title={owners.join(", ")}>
+      {owners.length} owner{owners.length === 1 ? "" : "s"}
+    </span>
+  );
 }
 
 export function AdminCompanyChannelsStrip() {
@@ -92,17 +108,7 @@ export function AdminCompanyChannelsStrip() {
                   <span className={pillClassName(ch.general_auto_reaction_enabled)}>
                     {ch.general_auto_reaction_enabled ? "reactions on" : "reactions off"}
                   </span>
-                  {ch.primary_owner?.trim() ? (
-                    <span className={pillClassName(false)} title="primary_owner">
-                      owner {ch.primary_owner}
-                    </span>
-                  ) : null}
-                  {ch.allowed_operator_ids && ch.allowed_operator_ids.length > 0 ? (
-                    <span className={pillClassName(false)} title="allowed_operator_ids">
-                      {ch.allowed_operator_ids.length} operator
-                      {ch.allowed_operator_ids.length === 1 ? "" : "s"}
-                    </span>
-                  ) : null}
+                  {ownersPill(ch)}
                 </div>
               </Link>
             </li>

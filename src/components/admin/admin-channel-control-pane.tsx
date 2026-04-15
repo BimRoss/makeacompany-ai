@@ -130,9 +130,9 @@ export function AdminChannelControlPane({
   }
 
   const title = channelDisplayTitle(channel);
-  const operators = channel.allowed_operator_ids ?? [];
-  const operatorsDisplay =
-    operators.length > 0 ? operators.join(", ") : "— (falls back to CEO operator id from runtime)";
+  const owners = channel.owner_ids?.map((id) => id.trim()).filter(Boolean) ?? [];
+  const ownersDisplay =
+    owners.length > 0 ? owners.join(", ") : "— (none; runtime uses CEO Slack user id)";
 
   return (
     <section className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-stretch" aria-label="Channel registry and controls">
@@ -142,8 +142,7 @@ export function AdminChannelControlPane({
           <MetaPill label="Channel ID" value={channel.channel_id} />
           {channel.company_slug?.trim() ? <MetaPill label="Company slug" value={channel.company_slug.trim()} /> : null}
           {channel.display_name?.trim() ? <MetaPill label="Display name" value={channel.display_name.trim()} /> : null}
-          {channel.primary_owner?.trim() ? <MetaPill label="Primary owner" value={channel.primary_owner.trim()} /> : null}
-          <MetaPill label="Operators" value={operatorsDisplay} />
+          <MetaPill label="Owners" value={ownersDisplay} />
         </div>
       </div>
 

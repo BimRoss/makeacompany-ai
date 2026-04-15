@@ -40,7 +40,7 @@ func LoadConfig() Config {
 		CompanyChannelsRedisURL:     strings.TrimSpace(os.Getenv("COMPANY_CHANNELS_REDIS_URL")),
 		CompanyChannelsRedisKey:     envString("COMPANY_CHANNELS_REDIS_KEY", "employee-factory:company_channels"),
 		AppBaseURL:                  strings.TrimRight(envString("APP_BASE_URL", "http://localhost:3000"), "/"),
-		AdminCatalogToken:           envFirst("ADMIN_CATALOG_TOKEN", "RANCHER_ADMIN_REPO_TOKEN"),
+		AdminCatalogToken:           strings.TrimSpace(os.Getenv("ADMIN_CATALOG_TOKEN")),
 		CapabilityCatalogReadToken:  strings.TrimSpace(os.Getenv("CAPABILITY_CATALOG_READ_TOKEN")),
 		AdminAllowedEmail:           strings.ToLower(strings.TrimSpace(os.Getenv("ADMIN_ALLOWED_EMAIL"))),
 		AdminSessionTTLSec:          envInt("ADMIN_SESSION_TTL_SEC", 259200),

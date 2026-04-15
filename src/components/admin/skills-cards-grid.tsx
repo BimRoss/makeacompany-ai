@@ -10,7 +10,7 @@ export function SkillsCardsGrid({ skills, members }: SkillsCardsGridProps) {
   const memberNameById = new Map(members.map((member) => [member.id, member.displayName]));
 
   return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+    <div className="grid grid-cols-1 items-start gap-x-4 gap-y-4 sm:grid-cols-2 xl:grid-cols-3">
       {skills.map((skill) => {
         const assignedNames = skill.employeeIds
           .map((employeeId) => memberNameById.get(employeeId))
@@ -19,19 +19,19 @@ export function SkillsCardsGrid({ skills, members }: SkillsCardsGridProps) {
         return (
           <article
             key={skill.id}
-            className="employees-card-motion rounded-xl border border-border bg-card px-3 pb-1.5 pt-3 shadow-sm motion-colors sm:px-4 sm:pb-2 sm:pt-4 md:cursor-pointer md:hover:shadow-md"
+            className="employees-card-motion flex w-full flex-col gap-2.5 rounded-xl border border-border bg-card p-4 shadow-sm motion-colors md:cursor-pointer md:hover:shadow-md"
           >
-            <div className="space-y-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <h2
-                  className={
-                    skill.comingSoon
-                      ? "text-base font-semibold tracking-tight text-foreground opacity-50"
-                      : "text-base font-semibold tracking-tight text-foreground"
-                  }
-                >
-                  {skill.label}
-                </h2>
+            <div className="flex min-w-0 flex-col gap-1.5">
+              <h2
+                className={
+                  skill.comingSoon
+                    ? "text-base font-semibold tracking-tight text-foreground/50"
+                    : "text-base font-semibold tracking-tight text-foreground"
+                }
+              >
+                {skill.label}
+              </h2>
+              <div className="flex flex-wrap gap-1.5">
                 {skill.comingSoon ? (
                   <span className="shrink-0 rounded-full border border-border bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                     Coming soon
@@ -48,17 +48,20 @@ export function SkillsCardsGrid({ skills, members }: SkillsCardsGridProps) {
                   ))
                 )}
               </div>
-              <p className={skill.comingSoon ? "text-xs text-muted-foreground opacity-50" : "text-xs text-muted-foreground"}>
-                {skill.id}
-              </p>
             </div>
 
-            <p className={skill.comingSoon ? "mt-1 text-sm leading-6 text-muted-foreground opacity-50" : "mt-1 text-sm leading-6 text-muted-foreground"}>
+            <p
+              className={
+                skill.comingSoon
+                  ? "text-sm leading-snug text-muted-foreground/80"
+                  : "text-sm leading-snug text-muted-foreground"
+              }
+            >
               {skill.description}
             </p>
 
             {!skill.comingSoon && assignedNames.length === 0 ? (
-              <p className="mt-2 text-xs text-muted-foreground">No employees assigned yet.</p>
+              <p className="text-xs leading-snug text-muted-foreground">No employees assigned yet.</p>
             ) : null}
           </article>
         );

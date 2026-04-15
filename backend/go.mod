@@ -3,6 +3,7 @@ module makeacompany-ai/backend
 go 1.23.0
 
 require (
+	github.com/alicebob/miniredis/v2 v2.35.0
 	github.com/prometheus/client_golang v1.22.0
 	github.com/redis/go-redis/v9 v9.7.0
 	github.com/stripe/stripe-go/v82 v82.5.1
@@ -16,6 +17,7 @@ require (
 	github.com/prometheus/client_model v0.6.1 // indirect
 	github.com/prometheus/common v0.62.0 // indirect
 	github.com/prometheus/procfs v0.15.1 // indirect
+	github.com/yuin/gopher-lua v1.1.1 // indirect
 	golang.org/x/sys v0.30.0 // indirect
 	google.golang.org/protobuf v1.36.5 // indirect
 )

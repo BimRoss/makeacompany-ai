@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type {
-  CapabilityCatalog,
-  CapabilityCatalogEmployee,
-  CapabilityCatalogSkill,
+import {
+  deriveCatalogIdFromLabel,
+  type CapabilityCatalog,
+  type CapabilityCatalogEmployee,
+  type CapabilityCatalogSkill,
 } from "@/lib/admin/catalog";
 
 type LoadState = "idle" | "loading" | "saving" | "error" | "ready";
@@ -158,14 +159,22 @@ export function AdminCatalogEditor() {
   }
 
   async function saveEmployeeDraft() {
-    const draft = normalizeEmployee(employeeDraft);
+    const resolvedId =
+      employeeModal?.mode === "edit" && catalog.coreEmployees[employeeModal.index]
+        ? catalog.coreEmployees[employeeModal.index].id
+        : deriveCatalogIdFromLabel(employeeDraft.label);
+    const resolvedLabel =
+      employeeModal?.mode === "edit" && catalog.coreEmployees[employeeModal.index]
+        ? catalog.coreEmployees[employeeModal.index].label
+        : employeeDraft.label.trim();
+    const draft = normalizeEmployee({ ...employeeDraft, id: resolvedId, label: resolvedLabel });
     if (!draft.id) {
       setStatusText("Employee record is invalid.");
       setState("error");
       return;
     }
     if (!draft.label || !draft.description) {
-      setStatusText("Employee id, name, and description are required.");
+      setStatusText("Name and description are required.");
       setState("error");
       return;
     }
@@ -290,9 +299,19 @@ export function AdminCatalogEditor() {
       return;
     }
 
+    const resolvedId =
+      skillModal?.mode === "edit" && catalog.skills[skillModal.index]
+        ? catalog.skills[skillModal.index].id
+        : normalizeSkillID(deriveCatalogIdFromLabel(skillDraft.label));
+
+    const resolvedLabel =
+      skillModal?.mode === "edit" && catalog.skills[skillModal.index]
+        ? catalog.skills[skillModal.index].label
+        : skillDraft.label.trim();
+
     const draft: CapabilityCatalogSkill = {
-      id: skillDraft.id.trim(),
-      label: skillDraft.label.trim(),
+      id: resolvedId,
+      label: resolvedLabel,
       description: skillDraft.description.trim(),
       runtimeTool: skillDraft.runtimeTool.trim().toLowerCase(),
       requiredParams,
@@ -301,7 +320,7 @@ export function AdminCatalogEditor() {
 
     if (!draft.id || !draft.label || !draft.description || draft.requiredParams.length === 0) {
       setState("error");
-      setStatusText("Skill id, label, description, and required params are required.");
+      setStatusText("Skill label, description, and required params are required.");
       return;
     }
 
@@ -366,7 +385,7 @@ export function AdminCatalogEditor() {
   return (
     <section className="space-y-3 rounded-none bg-card px-0 pb-3 pt-0 sm:rounded-2xl sm:pb-4 sm:pt-0">
       <div className="grid gap-3 lg:grid-cols-2">
-        <section className="relative space-y-2 rounded-none bg-background/70 p-0 sm:rounded-xl sm:p-3">
+        <section className="relative space-y-2 rounded-none bg-background/70 p-0 sm:rounded-xl">
           <div className="flex items-center justify-between gap-3">
             <Link
               href="/employees"
@@ -386,7 +405,7 @@ export function AdminCatalogEditor() {
             {employeesSortedBySkillCount.map(({ employee, index }) => (
               <article
                 key={`${employee.id}-${index}`}
-                className="employees-card-motion rounded-none border border-border bg-card px-3 pb-1.5 pt-3 shadow-sm motion-colors sm:rounded-xl sm:px-4 sm:pb-2 sm:pt-4 md:cursor-pointer md:hover:shadow-md"
+                className="employees-card-motion flex w-full flex-col gap-2.5 rounded-none border border-border bg-card p-4 shadow-sm motion-colors sm:rounded-xl md:cursor-pointer md:hover:shadow-md"
                 role="button"
                 tabIndex={0}
                 onClick={() => openEditEmployeeModal(index)}
@@ -397,9 +416,9 @@ export function AdminCatalogEditor() {
                   }
                 }}
               >
-                <div className="space-y-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="text-base font-semibold tracking-tight text-foreground">{employee.label}</h3>
+                <div className="flex min-w-0 flex-col gap-1.5">
+                  <h3 className="text-base font-semibold tracking-tight text-foreground">{employee.label}</h3>
+                  <div className="flex flex-wrap gap-1.5">
                     {(catalog.employeeSkillIds[employee.id] ?? []).map((skillId) => (
                       <span
                         key={`${employee.id}-${skillId}-desktop`}
@@ -421,8 +440,8 @@ export function AdminCatalogEditor() {
                     ) : null}
                   </div>
                 </div>
-                <p className="mt-1 text-sm leading-6 text-muted-foreground">{employee.description}</p>
-                <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                <p className="text-sm leading-snug text-muted-foreground">{employee.description}</p>
+                <div className="flex flex-wrap items-center gap-2 text-xs leading-snug text-muted-foreground">
                   {(catalog.employeeSkillIds[employee.id] ?? []).length === 0 ? (
                     <span className="text-xs text-muted-foreground">No skills assigned yet.</span>
                   ) : null}
@@ -437,7 +456,7 @@ export function AdminCatalogEditor() {
           </div>
         </section>
 
-        <section className="relative space-y-2 rounded-none bg-background/70 p-0 sm:rounded-xl sm:p-3">
+        <section className="relative space-y-2 rounded-none bg-background/70 p-0 sm:rounded-xl">
           <div className="flex items-center justify-between gap-3">
             <Link
               href="/skills"
@@ -457,7 +476,7 @@ export function AdminCatalogEditor() {
             {catalog.skills.map((skill, index) => (
               <article
                 key={`${skill.id}-${index}`}
-                className="employees-card-motion rounded-none border border-border bg-card px-3 pb-1.5 pt-3 shadow-sm motion-colors sm:rounded-xl sm:px-4 sm:pb-2 sm:pt-4 md:cursor-pointer md:hover:shadow-md"
+                className="employees-card-motion flex w-full flex-col gap-2.5 rounded-none border border-border bg-card p-4 shadow-sm motion-colors sm:rounded-xl md:cursor-pointer md:hover:shadow-md"
                 role="button"
                 tabIndex={0}
                 onClick={() => openEditSkillModal(index)}
@@ -468,9 +487,9 @@ export function AdminCatalogEditor() {
                   }
                 }}
               >
-                <div className="space-y-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="text-base font-semibold tracking-tight text-foreground">{skill.label}</h3>
+                <div className="flex min-w-0 flex-col gap-1.5">
+                  <h3 className="text-base font-semibold tracking-tight text-foreground">{skill.label}</h3>
+                  <div className="flex flex-wrap gap-1.5">
                     {(skillEmployeeIdsBySkillId.get(skill.id) ?? [])
                       .map((employeeId) => memberNameById.get(employeeId))
                       .filter((name): name is string => Boolean(name))
@@ -483,41 +502,36 @@ export function AdminCatalogEditor() {
                         </span>
                       ))}
                   </div>
-                  <p className="text-xs text-muted-foreground">{skill.id}</p>
                 </div>
-                <p className="mt-1 text-sm leading-6 text-muted-foreground">{skill.description}</p>
-                <div className="mt-2 space-y-2 text-xs text-muted-foreground">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="font-medium uppercase tracking-wide text-foreground/80">Required</p>
+                <p className="text-sm leading-snug text-muted-foreground">{skill.description}</p>
+                {skill.requiredParams.length > 0 || skill.optionalParams.length > 0 ? (
+                  <div className="flex flex-col gap-1.5 text-xs text-muted-foreground">
                     {skill.requiredParams.length > 0 ? (
-                      skill.requiredParams.map((param) => (
-                        <span
-                          key={`${skill.id}-required-${param}`}
-                          className="rounded-full border border-border bg-background px-2 py-0.5"
-                        >
-                          {param}
-                        </span>
-                      ))
-                    ) : (
-                      <span className="text-muted-foreground">None</span>
-                    )}
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2 opacity-50">
-                    <p className="font-medium uppercase tracking-wide text-foreground/80">Optional</p>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {skill.requiredParams.map((param) => (
+                          <span
+                            key={`${skill.id}-required-${param}`}
+                            className="rounded-full border border-border bg-background px-2 py-0.5"
+                          >
+                            {param}
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
                     {skill.optionalParams.length > 0 ? (
-                      skill.optionalParams.map((param) => (
-                        <span
-                          key={`${skill.id}-optional-${param}`}
-                          className="rounded-full border border-border bg-background px-2 py-0.5"
-                        >
-                          {param}
-                        </span>
-                      ))
-                    ) : (
-                      <span className="text-muted-foreground">None</span>
-                    )}
+                      <div className="flex flex-wrap items-center gap-1.5 opacity-50">
+                        {skill.optionalParams.map((param) => (
+                          <span
+                            key={`${skill.id}-optional-${param}`}
+                            className="rounded-full border border-border bg-background px-2 py-0.5"
+                          >
+                            {param}
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
                   </div>
-                </div>
+                ) : null}
               </article>
             ))}
             {catalog.skills.length === 0 ? (
@@ -541,22 +555,31 @@ export function AdminCatalogEditor() {
             </h3>
             {employeeModal.mode === "create" ? (
               <label className="space-y-1">
-                <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">ID</span>
+                <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Name</span>
                 <input
-                  value={employeeDraft.id}
-                  onChange={(event) => setEmployeeDraft((prev) => ({ ...prev, id: event.target.value }))}
+                  value={employeeDraft.label}
+                  onChange={(event) => {
+                    const label = event.target.value;
+                    setEmployeeDraft((prev) => ({
+                      ...prev,
+                      label,
+                      id: deriveCatalogIdFromLabel(label),
+                    }));
+                  }}
                   className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-foreground/40"
                 />
               </label>
+            ) : (
+              <div className="space-y-1">
+                <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Name</span>
+                <p className="text-sm font-medium leading-6 text-foreground">{employeeDraft.label}</p>
+              </div>
+            )}
+            {employeeModal.mode === "create" && employeeDraft.id ? (
+              <p className="text-xs text-muted-foreground">
+                Catalog id: <span className="font-mono text-foreground">{employeeDraft.id}</span>
+              </p>
             ) : null}
-            <label className="space-y-1">
-              <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Name</span>
-              <input
-                value={employeeDraft.label}
-                onChange={(event) => setEmployeeDraft((prev) => ({ ...prev, label: event.target.value }))}
-                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-foreground/40"
-              />
-            </label>
             <label className="space-y-1">
               <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Description</span>
               <textarea
@@ -615,24 +638,33 @@ export function AdminCatalogEditor() {
             <h3 className="text-base font-semibold text-foreground">
               {skillModal.mode === "create" ? "Add skill" : skillDraft.id}
             </h3>
-            <div className="grid gap-3 sm:grid-cols-2">
+            {skillModal.mode === "create" ? (
               <label className="space-y-1">
-                <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">ID</span>
-                <input
-                  value={skillDraft.id}
-                  onChange={(event) => setSkillDraft((prev) => ({ ...prev, id: event.target.value }))}
-                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-foreground/40"
-                />
-              </label>
-              <label className="space-y-1">
-                <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Label</span>
+                <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Name</span>
                 <input
                   value={skillDraft.label}
-                  onChange={(event) => setSkillDraft((prev) => ({ ...prev, label: event.target.value }))}
+                  onChange={(event) => {
+                    const label = event.target.value;
+                    setSkillDraft((prev) => ({
+                      ...prev,
+                      label,
+                      id: normalizeSkillID(deriveCatalogIdFromLabel(label)),
+                    }));
+                  }}
                   className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-foreground/40"
                 />
               </label>
-            </div>
+            ) : (
+              <div className="space-y-1">
+                <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Name</span>
+                <p className="text-base font-semibold leading-6 tracking-tight text-foreground">{skillDraft.label}</p>
+              </div>
+            )}
+            {skillModal.mode === "create" && skillDraft.id ? (
+              <p className="text-xs text-muted-foreground">
+                Catalog id: <span className="font-mono text-foreground">{skillDraft.id}</span>
+              </p>
+            ) : null}
             <label className="space-y-1">
               <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Description</span>
               <textarea

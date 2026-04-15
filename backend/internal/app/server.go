@@ -412,14 +412,8 @@ func (s *Server) handleAdminCatalog(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, catalog)
 		return
 	case http.MethodPut:
-		if !serviceWriteAuthorized {
-			if token := strings.TrimSpace(s.cfg.AdminCatalogToken); token != "" {
-				if strings.TrimSpace(r.Header.Get("X-Admin-Token")) != token {
-					http.Error(w, "unauthorized", http.StatusUnauthorized)
-					return
-				}
-			}
-		}
+		// Authorization is already satisfied above: either matching X-Admin-Token
+		// (serviceWriteAuthorized) or a valid admin session. Do not require both.
 		var catalog CapabilityCatalog
 		if err := json.NewDecoder(r.Body).Decode(&catalog); err != nil {
 			http.Error(w, "invalid json", http.StatusBadRequest)

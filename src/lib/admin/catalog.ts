@@ -58,6 +58,15 @@ export type CapabilityCatalog = {
   source?: string;
 };
 
+/** Lowercase kebab-case id from a display name (labels, titles). */
+export function deriveCatalogIdFromLabel(label: string): string {
+  return label
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
 type TeamSnapshot = {
   employees: TeamMember[];
 };
