@@ -7,20 +7,22 @@ import (
 )
 
 type Config struct {
-	Port                        int
-	RedisURL                    string
-	CompanyChannelsRedisURL     string
-	CompanyChannelsRedisKey     string
-	AppBaseURL                  string
-	AdminCatalogToken           string
-	CapabilityCatalogReadToken  string
-	AdminAllowedEmail           string
-	AdminSessionTTLSec          int
-	StripeSecretKey             string
-	StripeWebhookSecretSnapshot string
-	StripeWebhookSecretThin     string
-	StripePriceWaitlistTest     string
-	StripePriceWaitlistLive     string
+	Port                    int
+	RedisURL                string
+	CompanyChannelsRedisURL string
+	CompanyChannelsRedisKey string
+	// CapabilityRoutingEventsRedisKey is the Redis LIST key employee-factory LPUSHes routing observability into (admin debug panel).
+	CapabilityRoutingEventsRedisKey string
+	AppBaseURL                      string
+	AdminCatalogToken               string
+	CapabilityCatalogReadToken      string
+	AdminAllowedEmail               string
+	AdminSessionTTLSec              int
+	StripeSecretKey                 string
+	StripeWebhookSecretSnapshot     string
+	StripeWebhookSecretThin         string
+	StripePriceWaitlistTest         string
+	StripePriceWaitlistLive         string
 }
 
 func LoadConfig() Config {
@@ -35,20 +37,21 @@ func LoadConfig() Config {
 		"STRIPE_WEBHOOK_SECRET_THIN",
 	)
 	return Config{
-		Port:                        envInt("PORT", 8080),
-		RedisURL:                    envString("REDIS_URL", "redis://localhost:6379/0"),
-		CompanyChannelsRedisURL:     strings.TrimSpace(os.Getenv("COMPANY_CHANNELS_REDIS_URL")),
-		CompanyChannelsRedisKey:     envString("COMPANY_CHANNELS_REDIS_KEY", "employee-factory:company_channels"),
-		AppBaseURL:                  strings.TrimRight(envString("APP_BASE_URL", "http://localhost:3000"), "/"),
-		AdminCatalogToken:           strings.TrimSpace(os.Getenv("ADMIN_CATALOG_TOKEN")),
-		CapabilityCatalogReadToken:  strings.TrimSpace(os.Getenv("CAPABILITY_CATALOG_READ_TOKEN")),
-		AdminAllowedEmail:           strings.ToLower(strings.TrimSpace(os.Getenv("ADMIN_ALLOWED_EMAIL"))),
-		AdminSessionTTLSec:          envInt("ADMIN_SESSION_TTL_SEC", 259200),
-		StripeSecretKey:             resolveStripeSecretKey(),
-		StripeWebhookSecretSnapshot: snapshot,
-		StripeWebhookSecretThin:     thin,
-		StripePriceWaitlistTest:     os.Getenv("STRIPE_PRICE_ID_WAITLIST_TEST"),
-		StripePriceWaitlistLive:     os.Getenv("STRIPE_PRICE_ID_WAITLIST_LIVE"),
+		Port:                            envInt("PORT", 8080),
+		RedisURL:                        envString("REDIS_URL", "redis://localhost:6379/0"),
+		CompanyChannelsRedisURL:         strings.TrimSpace(os.Getenv("COMPANY_CHANNELS_REDIS_URL")),
+		CompanyChannelsRedisKey:         envString("COMPANY_CHANNELS_REDIS_KEY", "employee-factory:company_channels"),
+		CapabilityRoutingEventsRedisKey: envString("CAPABILITY_ROUTING_EVENTS_REDIS_KEY", "employee-factory:capability_routing_events"),
+		AppBaseURL:                      strings.TrimRight(envString("APP_BASE_URL", "http://localhost:3000"), "/"),
+		AdminCatalogToken:               strings.TrimSpace(os.Getenv("ADMIN_CATALOG_TOKEN")),
+		CapabilityCatalogReadToken:      strings.TrimSpace(os.Getenv("CAPABILITY_CATALOG_READ_TOKEN")),
+		AdminAllowedEmail:               strings.ToLower(strings.TrimSpace(os.Getenv("ADMIN_ALLOWED_EMAIL"))),
+		AdminSessionTTLSec:              envInt("ADMIN_SESSION_TTL_SEC", 259200),
+		StripeSecretKey:                 resolveStripeSecretKey(),
+		StripeWebhookSecretSnapshot:     snapshot,
+		StripeWebhookSecretThin:         thin,
+		StripePriceWaitlistTest:         os.Getenv("STRIPE_PRICE_ID_WAITLIST_TEST"),
+		StripePriceWaitlistLive:         os.Getenv("STRIPE_PRICE_ID_WAITLIST_LIVE"),
 	}
 }
 

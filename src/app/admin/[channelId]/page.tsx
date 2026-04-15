@@ -3,6 +3,7 @@
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { AdminChannelControlPane } from "@/components/admin/admin-channel-control-pane";
+import { AdminCapabilityRoutingPanel } from "@/components/admin/admin-capability-routing-panel";
 import { AdminChannelKnowledgeDigest } from "@/components/admin/admin-channel-knowledge-digest";
 import { AdminShell } from "@/components/admin/admin-shell";
 import { channelDisplayTitle, type CompanyChannel } from "@/lib/admin/company-channels";
@@ -133,6 +134,8 @@ export default function AdminChannelKnowledgePage() {
             setPageTitle(channelDisplayTitle(ch));
           }}
         />
+
+        <AdminCapabilityRoutingPanel channelId={channelId} />
 
         {state.kind === "loading" ? (
           <p className="text-sm text-muted-foreground">Loading digest from Redis…</p>

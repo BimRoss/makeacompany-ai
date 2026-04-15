@@ -77,6 +77,7 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 	s.mux.HandleFunc("GET /v1/admin/company-channels/{channelId}", s.handleAdminCompanyChannelGet)
 	s.mux.HandleFunc("PATCH /v1/admin/company-channels/{channelId}", s.handleAdminCompanyChannelPatch)
 	s.mux.HandleFunc("GET /v1/admin/channel-knowledge/{channelId}", s.handleAdminChannelKnowledge)
+	s.mux.HandleFunc("GET /v1/admin/capability-routing-events", s.handleAdminCapabilityRoutingEvents)
 	s.mux.HandleFunc("/v1/runtime/capability-catalog", s.handleRuntimeCapabilityCatalog)
 	s.mux.HandleFunc("/v1/admin/auth/start", s.handleAdminAuthStart)
 	s.mux.HandleFunc("/v1/admin/auth/finish", s.handleAdminAuthFinish)
@@ -137,6 +138,8 @@ func normalizeMetricRoute(path string) string {
 		return "/v1/admin/company-channels/{channelId}"
 	case strings.HasPrefix(path, "/v1/admin/channel-knowledge/"):
 		return "/v1/admin/channel-knowledge/{channelId}"
+	case path == "/v1/admin/capability-routing-events":
+		return "/v1/admin/capability-routing-events"
 	case path == "/v1/runtime/capability-catalog":
 		return "/v1/runtime/capability-catalog"
 	case path == "/v1/admin/auth/start":

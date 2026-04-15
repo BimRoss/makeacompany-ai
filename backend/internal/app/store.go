@@ -360,17 +360,17 @@ func (s *Store) DeleteAdminSession(ctx context.Context, token string) error {
 
 // CompanyChannel mirrors employee-factory/config.CompanyChannelRuntime JSON for Redis HASH values.
 type CompanyChannel struct {
-	CompanySlug                string   `json:"company_slug"`
-	ChannelID                  string   `json:"channel_id"`
-	DisplayName                string   `json:"display_name,omitempty"`
-	OwnerIDs                   []string `json:"owner_ids,omitempty"`
-	PrimaryOwner               string   `json:"primary_owner,omitempty"`        // legacy: merged on read
-	AllowedOperatorIDs         []string `json:"allowed_operator_ids,omitempty"` // legacy
-	ThreadsEnabled             bool     `json:"threads_enabled"`
-	GeneralAutoReactionEnabled bool     `json:"general_auto_reaction_enabled"`
-	OutOfOfficeEnabled         bool     `json:"out_of_office_enabled"`
-	PassiveBanterEnabled         bool `json:"passive_banter_enabled"`
-	PassiveBanterIntervalSeconds int  `json:"passive_banter_interval_seconds,omitempty"`
+	CompanySlug                  string   `json:"company_slug"`
+	ChannelID                    string   `json:"channel_id"`
+	DisplayName                  string   `json:"display_name,omitempty"`
+	OwnerIDs                     []string `json:"owner_ids,omitempty"`
+	PrimaryOwner                 string   `json:"primary_owner,omitempty"`        // legacy: merged on read
+	AllowedOperatorIDs           []string `json:"allowed_operator_ids,omitempty"` // legacy
+	ThreadsEnabled               bool     `json:"threads_enabled"`
+	GeneralAutoReactionEnabled   bool     `json:"general_auto_reaction_enabled"`
+	OutOfOfficeEnabled           bool     `json:"out_of_office_enabled"`
+	PassiveBanterEnabled         bool     `json:"passive_banter_enabled"`
+	PassiveBanterIntervalSeconds int      `json:"passive_banter_interval_seconds,omitempty"`
 }
 
 func effectiveCompanyChannelOwners(e CompanyChannel) []string {
@@ -587,4 +587,41 @@ func (s *Store) GetChannelKnowledgeMarkdown(ctx context.Context, channelID strin
 		return "", err
 	}
 	return raw, nil
+}
+
+// ListCapabilityRoutingObsEvents returns recent JSON objects from the shared Redis LIST (newest first from LRANGE).
+// Uses the company-channels Redis client when configured (same host employee-factory LPUSHes to; see COMPANY_CHANNELS_REDIS_URL).
+func (s *Store) ListCapabilityRoutingObsEvents(ctx context.Context, listKey, channelID string, limit int) ([]json.RawMessage, error) {
+	rdb := s.companyChannelsRedis()
+	if s == nil || rdb == nil {
+		return nil, fmt.Errorf("capability routing obs: nil store")
+	}
+	k := strings.TrimSpace(listKey)
+	if k == "" {
+		return nil, fmt.Errorf("capability routing obs: empty list key")
+	}
+	if limit <= 0 || limit > 200 {
+		limit = 50
+	}
+	raws, err := rdb.LRange(ctx, k, 0, int64(limit*5-1)).Result()
+	if err != nil {
+		return nil, err
+	}
+	out := make([]json.RawMessage, 0, limit)
+	chFilter := strings.TrimSpace(channelID)
+	for _, line := range raws {
+		if chFilter != "" {
+			var probe struct {
+				ChannelID string `json:"channel_id"`
+			}
+			if json.Unmarshal([]byte(line), &probe) != nil || probe.ChannelID != chFilter {
+				continue
+			}
+		}
+		out = append(out, json.RawMessage(line))
+		if len(out) >= limit {
+			break
+		}
+	}
+	return out, nil
 }
