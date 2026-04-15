@@ -11,7 +11,6 @@ type GrafanaEmbed = {
   source: "twitter" | "app";
 };
 
-const defaultPanelTitles = ["Activities", "Requests /min", "Tool usage"];
 const defaultTwitterPanelTitles = ["Indexer throughput", "Worker throughput"];
 const defaultAdminPanelTitles = [
   "Request throughput",
@@ -119,8 +118,6 @@ export async function GET() {
       proto
     ) ?? grafanaDashboardUrl;
 
-  const panelIds = parseList(process.env.HEALTH_GRAFANA_PANEL_IDS, ["4", "1", "7"]);
-  const panelTitles = parseList(process.env.HEALTH_GRAFANA_PANEL_TITLES, defaultPanelTitles);
   const twitterPanelIds = parseList(process.env.HEALTH_GRAFANA_TWITTER_PANEL_IDS, ["1", "3"]);
   const twitterPanelTitles = parseList(
     process.env.HEALTH_GRAFANA_TWITTER_PANEL_TITLES,
@@ -131,10 +128,8 @@ export async function GET() {
     process.env.HEALTH_GRAFANA_ADMIN_PANEL_TITLES,
     defaultAdminPanelTitles
   );
-  const grafanaEmbeds = [
-    ...buildGrafanaEmbeds(twitterDashboardUrl, "twitter", twitterPanelIds, twitterPanelTitles),
-    ...buildGrafanaEmbeds(grafanaDashboardUrl, "app", panelIds, panelTitles),
-  ];
+  // `/twitter` uses only these embeds; `/employees` team cards use `adminGrafanaEmbeds` (observability).
+  const grafanaEmbeds = buildGrafanaEmbeds(twitterDashboardUrl, "twitter", twitterPanelIds, twitterPanelTitles);
   const adminGrafanaEmbeds = buildGrafanaEmbeds(grafanaDashboardUrl, "app", adminPanelIds, adminPanelTitles);
 
   try {

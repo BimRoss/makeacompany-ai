@@ -123,11 +123,10 @@ npm run dev   # repo root
 | `STRIPE_WEBHOOK_SECRET` | Optional legacy: used as snapshot secret if snapshot-specific vars are unset |
 | `STRIPE_PRICE_ID_WAITLIST_TEST` | $1 one-time price (test mode) |
 | `STRIPE_PRICE_ID_WAITLIST_LIVE` | $1 one-time price (live mode) |
-| `HEALTH_GRAFANA_DASHBOARD_URL` | App observability dashboard URL used by `/employees` and `/twitter` |
-| `HEALTH_GRAFANA_PANEL_IDS` / `HEALTH_GRAFANA_PANEL_TITLES` | App panel ids/titles for the admin APIs |
-| `HEALTH_GRAFANA_ADMIN_PANEL_IDS` / `HEALTH_GRAFANA_ADMIN_PANEL_TITLES` | `/admin` service overview panels (8 recommended: request throughput, p95 latency, error rate, success vs error, queue depth, worker readiness, tool mix, webhook latency) |
-| `HEALTH_GRAFANA_TWITTER_DASHBOARD_URL` | Twitter dashboard URL for `/twitter` embeds |
-| `HEALTH_GRAFANA_TWITTER_PANEL_IDS` / `HEALTH_GRAFANA_TWITTER_PANEL_TITLES` | Twitter panel ids/titles for `/twitter` embeds |
+| `HEALTH_GRAFANA_DASHBOARD_URL` | App observability dashboard URL for `/admin` Grafana grid and `/employees` team-card metrics (via `HEALTH_GRAFANA_ADMIN_*`) |
+| `HEALTH_GRAFANA_ADMIN_PANEL_IDS` / `HEALTH_GRAFANA_ADMIN_PANEL_TITLES` | `/admin` service overview panels (8 recommended: request throughput, p95 latency, error rate, success vs error, queue depth, worker readiness, tool mix, webhook latency); also drives observability iframes on `/employees` |
+| `HEALTH_GRAFANA_TWITTER_DASHBOARD_URL` | Twitter dashboard URL — **only** source for `/twitter` Grafana iframes |
+| `HEALTH_GRAFANA_TWITTER_PANEL_IDS` / `HEALTH_GRAFANA_TWITTER_PANEL_TITLES` | Twitter panel ids/titles for `/twitter` (no mixed observability panels) |
 | `HEALTH_TWITTER_INDEXER_URL` | Internal twitter-indexer base URL used by backend `/health` and recent-request proxy |
 | `HEALTH_TWITTER_WORKER_URLS` | Comma-separated twitter worker service URLs for backend worker checks |
 | `HEALTH_PROMETHEUS_URL` | Optional Prometheus endpoint used for monitoring status |
