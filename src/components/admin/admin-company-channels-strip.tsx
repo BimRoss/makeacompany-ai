@@ -2,17 +2,9 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import type { CompanyChannel, CompanyChannelsResponse } from "@/lib/admin/company-channels";
+import { channelDisplayTitle, type CompanyChannelsResponse } from "@/lib/admin/company-channels";
 
 type LoadState = "idle" | "loading" | "error" | "ready";
-
-function channelTitle(ch: CompanyChannel): string {
-  const slug = ch.company_slug?.trim();
-  if (slug) return `#${slug.toLowerCase()}`;
-  const dn = ch.display_name?.trim();
-  if (dn) return dn;
-  return ch.channel_id;
-}
 
 function pillClassName(emphasis: boolean): string {
   return emphasis
@@ -82,8 +74,8 @@ export function AdminCompanyChannelsStrip() {
               >
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                   <div>
-                    <p className="font-medium leading-tight">{channelTitle(ch)}</p>
-                    {channelTitle(ch) !== ch.channel_id ? (
+                    <p className="font-medium leading-tight">{channelDisplayTitle(ch)}</p>
+                    {channelDisplayTitle(ch) !== ch.channel_id ? (
                       <p className="mt-0.5 font-mono text-[11px] text-muted-foreground">{ch.channel_id}</p>
                     ) : null}
                   </div>

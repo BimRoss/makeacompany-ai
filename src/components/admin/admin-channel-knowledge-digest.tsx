@@ -67,10 +67,6 @@ export function AdminChannelKnowledgeDigest({ markdown }: AdminChannelKnowledgeD
     return `${header}\n\n${visibleBodyText}`;
   }, [header, visibleBodyText]);
 
-  const hasMoreOlder = visibleStart > 0;
-  const totalBodyLines = bodyLines.length;
-  const visibleCount = totalBodyLines - visibleStart;
-
   useLayoutEffect(() => {
     const el = scrollRef.current;
     const pending = pendingScrollAdjustRef.current;
@@ -107,27 +103,14 @@ export function AdminChannelKnowledgeDigest({ markdown }: AdminChannelKnowledgeD
   }, [visibleStart]);
 
   return (
-    <div className="space-y-2">
-      <p className="text-xs text-muted-foreground">
-        Newest messages at the bottom. Scroll up to load older lines automatically
-        {totalBodyLines > INITIAL_VISIBLE_LINES || visibleStart > 0
-          ? ` (${visibleCount} of ${totalBodyLines} lines visible).`
-          : "."}
-      </p>
-      <div
-        ref={scrollRef}
-        onScroll={onScroll}
-        className="max-h-[min(70vh,52rem)] min-h-[260px] overflow-auto rounded-lg border border-border bg-card px-4 py-5 shadow-sm [&_h1]:mb-3 [&_h1]:text-lg [&_h1]:font-semibold [&_li]:my-1 [&_p]:my-2 [&_strong]:font-semibold [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-6"
-      >
-        {hasMoreOlder ? (
-          <p className="mb-3 border-b border-border pb-2 text-xs text-muted-foreground">Older messages load as you scroll up.</p>
-        ) : totalBodyLines > 0 ? (
-          <p className="mb-3 border-b border-border pb-2 text-xs text-muted-foreground">Start of stored digest</p>
-        ) : null}
-        <article>
-          <ReactMarkdown>{visibleMarkdown}</ReactMarkdown>
-        </article>
-      </div>
+    <div
+      ref={scrollRef}
+      onScroll={onScroll}
+      className="max-h-[min(70vh,52rem)] min-h-[260px] overflow-auto rounded-lg border border-border bg-card px-4 py-5 shadow-sm [&_h1]:mb-3 [&_h1]:text-lg [&_h1]:font-semibold [&_li]:my-1 [&_p]:my-2 [&_strong]:font-semibold [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-6"
+    >
+      <article>
+        <ReactMarkdown>{visibleMarkdown}</ReactMarkdown>
+      </article>
     </div>
   );
 }
