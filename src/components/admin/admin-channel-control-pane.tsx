@@ -14,6 +14,20 @@ type AdminChannelControlPaneProps = {
   onChannelUpdated: (ch: CompanyChannel) => void;
 };
 
+const BANTER_INTERVALS = [
+  { sec: 10, label: "10s" },
+  { sec: 30, label: "30s" },
+  { sec: 60, label: "1m" },
+  { sec: 300, label: "5m" },
+  { sec: 600, label: "10m" },
+] as const;
+
+function snapBanterIntervalSec(sec: number | undefined): number {
+  const s = typeof sec === "number" && Number.isFinite(sec) ? sec : 60;
+  if (BANTER_INTERVALS.some((o) => o.sec === s)) return s;
+  return 60;
+}
+
 /** Read-only registry field: label + value in one pill for consistent scanning. */
 function MetaPill({ label, value }: { label: string; value: string }) {
   return (
@@ -77,7 +91,7 @@ export function AdminChannelControlPane({
   const [busy, setBusy] = useState(false);
 
   const patchChannel = useCallback(
-    async (body: Record<string, boolean>) => {
+    async (body: Record<string, boolean | number>) => {
       if (!channel) return;
       setPatchError(null);
       setBusy(true);
@@ -137,6 +151,7 @@ export function AdminChannelControlPane({
   const reactionsOn = channel.general_auto_reaction_enabled ?? false;
   const banterOn = channel.passive_banter_enabled ?? false;
   const oooOn = channel.out_of_office_enabled ?? false;
+  const banterIntervalSec = snapBanterIntervalSec(channel.passive_banter_interval_seconds);
 
   return (
     <section className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-stretch" aria-label="Channel registry and controls">
@@ -164,13 +179,35 @@ export function AdminChannelControlPane({
           </div>
           <div className="flex flex-wrap items-center justify-between gap-3 py-3">
             <span className="text-sm font-medium text-foreground">Passive Banter</span>
-            <ControlToggle
-              enabled={banterOn}
-              disabled={false}
-              busy={busy}
-              onToggle={() => void patchChannel({ passive_banter_enabled: !banterOn })}
-              ariaLabel={banterOn ? "Turn off passive banter" : "Turn on passive banter"}
-            />
+            <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
+              <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                <span className="whitespace-nowrap">Timing</span>
+                <select
+                  className="rounded-md border border-border bg-background px-2 py-1.5 text-xs font-medium text-foreground shadow-sm focus-visible:outline focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60"
+                  aria-label="Passive banter interval"
+                  disabled={busy}
+                  value={banterIntervalSec}
+                  onChange={(ev) => {
+                    const sec = Number(ev.target.value);
+                    if (!Number.isFinite(sec)) return;
+                    void patchChannel({ passive_banter_interval_seconds: sec });
+                  }}
+                >
+                  {BANTER_INTERVALS.map((opt) => (
+                    <option key={opt.sec} value={opt.sec}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <ControlToggle
+                enabled={banterOn}
+                disabled={false}
+                busy={busy}
+                onToggle={() => void patchChannel({ passive_banter_enabled: !banterOn })}
+                ariaLabel={banterOn ? "Turn off passive banter" : "Turn on passive banter"}
+              />
+            </div>
           </div>
           <div className="flex flex-wrap items-center justify-between gap-3 pt-3">
             <span className="text-sm font-medium text-foreground">Out Of Office</span>

@@ -9,6 +9,8 @@ export type CompanyChannel = {
   /** When omitted on older rows, treat as false in UI. */
   out_of_office_enabled?: boolean;
   passive_banter_enabled?: boolean;
+  /** Cadence in seconds when passive banter is on: 10, 30, 60, 300, or 600. */
+  passive_banter_interval_seconds?: number;
 };
 
 export type CompanyChannelsResponse = {

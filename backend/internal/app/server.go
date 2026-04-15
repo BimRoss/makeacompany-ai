@@ -530,7 +530,7 @@ func (s *Server) handleAdminCompanyChannelPatch(w http.ResponseWriter, r *http.R
 		http.Error(w, "invalid json", http.StatusBadRequest)
 		return
 	}
-	if patch.GeneralAutoReactionEnabled == nil && patch.OutOfOfficeEnabled == nil && patch.PassiveBanterEnabled == nil {
+	if patch.GeneralAutoReactionEnabled == nil && patch.OutOfOfficeEnabled == nil && patch.PassiveBanterEnabled == nil && patch.PassiveBanterIntervalSeconds == nil {
 		http.Error(w, "no updatable fields", http.StatusBadRequest)
 		return
 	}
