@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"sort"
 	"strconv"
 	"strings"
@@ -29,6 +30,9 @@ const maxWaitlistList = 500
 
 // maxCompanyChannelsList caps HGETALL company channel registry rows returned to admin UI.
 const maxCompanyChannelsList = 200
+
+// companyChannelsInvalidatePubSubChannel must match employee-factory/internal/channelregistry.CompanyChannelsInvalidateChannel.
+const companyChannelsInvalidatePubSubChannel = "employee-factory:company_channels:invalidate"
 
 const waitlistKeyMatch = keyPrefix + ":waitlist:*"
 
@@ -554,6 +558,9 @@ func (s *Store) PatchCompanyChannel(ctx context.Context, hashKey, channelID stri
 	k := companyChannelsHashKey(hashKey)
 	if err := rdb.HSet(ctx, k, e.ChannelID, string(b)).Err(); err != nil {
 		return CompanyChannel{}, err
+	}
+	if pubErr := rdb.Publish(ctx, companyChannelsInvalidatePubSubChannel, e.ChannelID).Err(); pubErr != nil {
+		log.Printf("company channels: invalidate publish: %v", pubErr)
 	}
 	return e, nil
 }
