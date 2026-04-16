@@ -203,34 +203,10 @@ func defaultCapabilityCatalog() CapabilityCatalog {
 				OptionalParams: []string{"commenters", "editors", "viewers"},
 			},
 			{
-				ID:             "read-slack-channels",
-				Label:          "Read Slack Channels",
-				Description:    "List Slack channels visible to the bot for onboarding context. Runs immediately in Slack (no confirmation).",
-				RuntimeTool:    "joanne-read-slack-channels",
-				RequiredParams: []string{"action", "intent"},
-				OptionalParams: []string{"reason"},
-			},
-			{
-				ID:             "read-slack-messages",
-				Label:          "Read Slack Messages",
-				Description:    "Read recent messages from a named Slack channel. Runs immediately in Slack (no confirmation).",
-				RuntimeTool:    "joanne-read-slack-messages",
-				RequiredParams: []string{"action", "intent"},
-				OptionalParams: []string{"channel", "channel_name", "count", "reason"},
-			},
-			{
 				ID:             "write-company",
 				Label:          "Write Company",
 				Description:    "Provision a company channel, run onboarding, create channels, and invite members. Requires explicit Confirm/Cancel before any write.",
 				RuntimeTool:    "joanne-write-company",
-				RequiredParams: []string{"action", "intent"},
-				OptionalParams: []string{"channel", "channel_name", "is_private", "reason"},
-			},
-			{
-				ID:             "write-slack",
-				Label:          "Write Slack",
-				Description:    "Slack workspace configuration and preferences (write, update, or change Slack settings). Not for creating a company channel or onboarding—that is Write Company.",
-				RuntimeTool:    "joanne-write-slack",
 				RequiredParams: []string{"action", "intent"},
 				OptionalParams: []string{"channel", "channel_name", "is_private", "reason"},
 			},
@@ -264,7 +240,7 @@ func defaultCapabilityCatalog() CapabilityCatalog {
 			"tim":    {},
 			"ross":   {},
 			"garth":  {"read-twitter", "read-trends"},
-			"joanne": {"read-company", "read-slack-channels", "read-slack-messages", "write-company", "write-email", "write-doc", "write-slack"},
+			"joanne": {"read-company", "write-company", "write-email", "write-doc"},
 		},
 		UpdatedAt: time.Now().UTC().Format(time.RFC3339),
 		Source:    "default",
@@ -277,7 +253,7 @@ func normalizeCatalogSkillID(raw string) string {
 		return "write-doc"
 	}
 	if id == "read-slack" {
-		return "read-slack-channels"
+		return "read-company"
 	}
 	return id
 }
@@ -318,16 +294,14 @@ func builtinSkillDisplayLabel(skillID string) string {
 		return "Write Email"
 	case "write-doc":
 		return "Write Doc"
-	case "read-slack-channels":
-		return "Read Slack Channels"
-	case "read-slack-messages":
-		return "Read Slack Messages"
 	case "write-company":
 		return "Write Company"
-	case "write-slack":
-		return "Write Slack"
 	case "read-company":
 		return "Read Company"
+	case "read-twitter":
+		return "Read Twitter"
+	case "read-trends":
+		return "Read Trends"
 	default:
 		return ""
 	}
@@ -341,11 +315,7 @@ func builtinSkillParamDefaults(skillID string) (minRequired, defaultOptional []s
 		return []string{"intent", "subject", "to"}, []string{"button", "commenters", "editors", "link", "viewers"}
 	case "write-doc":
 		return []string{"intent", "title", "type"}, []string{"commenters", "editors", "viewers"}
-	case "read-slack-channels":
-		return []string{"action", "intent"}, []string{"reason"}
-	case "read-slack-messages":
-		return []string{"action", "intent"}, []string{"channel", "channel_name", "count", "reason"}
-	case "write-company", "write-slack":
+	case "write-company":
 		return []string{"action", "intent"}, []string{"channel", "channel_name", "is_private", "reason"}
 	case "read-company":
 		return []string{"intent"}, []string{}
