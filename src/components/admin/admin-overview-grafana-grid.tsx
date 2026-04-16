@@ -24,14 +24,14 @@ type PreparedEmbed = {
 const EXPECTED_ADMIN_PANELS = 8;
 
 const RECOMMENDED_OVERVIEW_TITLES = [
-  "Request throughput",
+  "Requests /min",
   "P95 latency",
-  "Error rate",
-  "Success vs error",
-  "Queue depth",
-  "Worker readiness",
-  "Tool mix",
-  "Webhook latency",
+  "Inbound events by agent",
+  "Activities",
+  "JetStream publish /s",
+  "Worker orchestrator ingress",
+  "Orchestrator Socket Mode",
+  "Backend HTTP errors/min",
 ];
 
 function asGrafanaEmbedUrl(

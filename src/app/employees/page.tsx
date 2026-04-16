@@ -1,4 +1,5 @@
 import { AdminShell } from "@/components/admin/admin-shell";
+import { AdminServiceNav } from "@/components/admin/admin-service-nav";
 import { TeamCardsGrid } from "@/components/admin/team-cards-grid";
 import { getAdminCatalogData } from "@/lib/admin/catalog";
 
@@ -7,6 +8,7 @@ export default async function EmployeesPage() {
 
   return (
     <AdminShell>
+      <AdminServiceNav />
       <section className="space-y-4">
         {members.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-border bg-card p-8 text-center">

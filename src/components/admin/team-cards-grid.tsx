@@ -22,6 +22,8 @@ type GrafanaEmbed = {
 type HealthPayload = {
   grafanaEmbeds?: GrafanaEmbed[];
   adminGrafanaEmbeds?: GrafanaEmbed[];
+  /** Per-agent Grafana dashboard (MakeACompany “agents”); uses `var-employee` on the dashboard. */
+  agentsGrafanaEmbeds?: GrafanaEmbed[];
 };
 
 type TeamMemberMetricEmbed = {
@@ -30,48 +32,17 @@ type TeamMemberMetricEmbed = {
   url: string;
 };
 
-function selectCanonicalPanels(embeds: GrafanaEmbed[]): GrafanaEmbed[] {
-  const appEmbeds = embeds.filter((embed) => embed.source !== "twitter");
-  const byId = (id: string) => appEmbeds.find((embed) => embed.panelId === id);
-  const byTitle = (pattern: RegExp) =>
-    appEmbeds.find((embed) => pattern.test(embed.title.toLowerCase()));
-
-  const goroutines =
-    byTitle(/activities|go goroutines|goroutine/) ??
-    byId("4");
-  const requestsPerMinute =
-    byTitle(/requests per minute|requests\s*\/min|requests\/min|request/) ??
-    byId("1");
-  const toolUsageBreakdown =
-    byTitle(/tool usage|tools usage|tool breakdown|capability usage|capability breakdown|usage by tool/) ??
-    byId("7") ??
-    byTitle(/events\s*\/min|combined events|events combined|events total/);
-  const p95Latency =
-    byTitle(/p95 latency|latency p95|request latency|response latency|latency/) ??
-    byId("2");
-
-  const selected = [goroutines, requestsPerMinute, toolUsageBreakdown, p95Latency].filter(
-    (panel): panel is GrafanaEmbed => Boolean(panel)
-  );
-
-  const deduped: GrafanaEmbed[] = [];
-  const seen = new Set<string>();
-  for (const panel of selected) {
-    if (seen.has(panel.key)) {
-      continue;
-    }
-    seen.add(panel.key);
-    deduped.push(panel);
-  }
-  return deduped;
+/** Panels 1–4 from the MakeACompany “agents” dashboard (inbound, outbound, orchestrator ingress, goroutines). */
+function selectAgentMetricPanels(embeds: GrafanaEmbed[]): GrafanaEmbed[] {
+  const byId = (id: string) => embeds.find((embed) => embed.panelId === id);
+  return ["1", "2", "3", "4"].map((id) => byId(id)).filter((panel): panel is GrafanaEmbed => Boolean(panel));
 }
 
 function asGrafanaEmbedUrl(
   value?: string | null,
   panelId: string = "1",
   grafanaTheme: "light" | "dark" = "light",
-  agentName?: string,
-  agentId?: string
+  employeeId?: string
 ): string | null {
   if (!value) {
     return null;
@@ -90,11 +61,8 @@ function asGrafanaEmbedUrl(
     url.searchParams.set("refresh", "2m");
     url.searchParams.set("panelId", panelId);
     url.searchParams.set("kiosk", "1");
-    if (agentName) {
-      url.searchParams.set("var-agent", agentName);
-    }
-    if (agentId) {
-      url.searchParams.set("var-agent_id", agentId);
+    if (employeeId) {
+      url.searchParams.set("var-employee", employeeId);
     }
     return url.toString();
   } catch {
@@ -135,15 +103,16 @@ export function TeamCardsGrid({ members, skills }: TeamCardsGridProps) {
     };
   }, []);
 
+  // Employee cards: dedicated “agents” dashboard (per-employee template var), not the mixed /admin overview.
   const allEmbeds = useMemo(
-    () => [...(healthPayload?.grafanaEmbeds ?? []), ...(healthPayload?.adminGrafanaEmbeds ?? [])],
-    [healthPayload?.adminGrafanaEmbeds, healthPayload?.grafanaEmbeds]
+    () => [...(healthPayload?.agentsGrafanaEmbeds ?? healthPayload?.adminGrafanaEmbeds ?? [])],
+    [healthPayload?.adminGrafanaEmbeds, healthPayload?.agentsGrafanaEmbeds]
   );
 
   return (
     <div className="space-y-4">
       {members.map((member) => {
-        const selectedEmbeds = selectCanonicalPanels(allEmbeds);
+        const selectedEmbeds = selectAgentMetricPanels(allEmbeds);
         const metricEmbeds: TeamMemberMetricEmbed[] = selectedEmbeds
           .map((embed) => ({
             key: `${member.id}-${embed.key}`,
@@ -152,7 +121,6 @@ export function TeamCardsGrid({ members, skills }: TeamCardsGridProps) {
               embed.dashboardUrl,
               embed.panelId,
               resolvedTheme === "dark" ? "dark" : "light",
-              member.displayName,
               member.id
             ),
           }))

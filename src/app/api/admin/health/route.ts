@@ -13,35 +13,59 @@ type GrafanaEmbed = {
 
 const defaultTwitterPanelTitles = ["Indexer throughput", "Worker throughput"];
 const defaultAdminPanelTitles = [
-  "Request throughput",
+  "Requests /min",
   "P95 latency",
-  "Error rate",
-  "Success vs error",
-  "Queue depth",
-  "Worker readiness",
-  "Tool mix",
-  "Webhook latency",
+  "Inbound events by agent",
+  "Activities",
+  "JetStream publish /s",
+  "Worker orchestrator ingress",
+  "Orchestrator Socket Mode",
+  "Backend HTTP errors/min",
 ];
 
 const DEFAULT_GRAFANA_DASHBOARD_PATH =
   "/grafana/d/makeacompany-observability/makeacompany-observability?orgId=1";
+const DEFAULT_SLACK_ORCHESTRATOR_PATH =
+  "/grafana/d/makeacompany-slack-orchestrator/makeacompany-slack-orchestrator?orgId=1";
+const DEFAULT_AGENTS_PATH = "/grafana/d/makeacompany-agents/makeacompany-agents?orgId=1";
+
+const defaultSlackOrchestratorPanelTitles = [
+  "Events API acks /s",
+  "JetStream publish /s",
+  "Publish latency p95",
+  "Socket Mode state",
+];
+
+const defaultAgentsPanelTitles = [
+  "Inbound events /min by agent",
+  "Outbound posts /min by agent",
+  "Orchestrator ingress accepted /s",
+  "Go goroutines",
+];
 
 function buildDefaultGrafanaDashboardUrl(requestHost: string | null, requestProto: string | null): string {
+  return buildDefaultGrafanaPathUrl(requestHost, requestProto, DEFAULT_GRAFANA_DASHBOARD_PATH);
+}
+
+function buildDefaultGrafanaPathUrl(
+  requestHost: string | null,
+  requestProto: string | null,
+  pathWithQuery: string
+): string {
   const hostOnly = requestHost?.split(",")[0]?.trim() || "";
   const proto = requestProto?.split(",")[0]?.trim();
   const normalizedProto = proto === "http" || proto === "https" ? proto : "https";
   const hostname = hostOnly.split(":")[0]?.trim().toLowerCase();
 
-  // Local docker/dev does not route /grafana; use production ingress URL.
   if (hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1") {
-    return `https://makeacompany.ai${DEFAULT_GRAFANA_DASHBOARD_PATH}`;
+    return `https://makeacompany.ai${pathWithQuery}`;
   }
 
   if (!hostOnly) {
-    return `https://makeacompany.ai${DEFAULT_GRAFANA_DASHBOARD_PATH}`;
+    return `https://makeacompany.ai${pathWithQuery}`;
   }
 
-  return `${normalizedProto}://${hostOnly}${DEFAULT_GRAFANA_DASHBOARD_PATH}`;
+  return `${normalizedProto}://${hostOnly}${pathWithQuery}`;
 }
 
 function normalizeGrafanaDashboardUrl(
@@ -123,14 +147,38 @@ export async function GET() {
     process.env.HEALTH_GRAFANA_TWITTER_PANEL_TITLES,
     defaultTwitterPanelTitles
   );
-  const adminPanelIds = parseList(process.env.HEALTH_GRAFANA_ADMIN_PANEL_IDS, ["1", "2", "3", "4", "5", "6", "7", "8"]);
+  const adminPanelIds = parseList(process.env.HEALTH_GRAFANA_ADMIN_PANEL_IDS, ["1", "2", "3", "4", "9", "10", "11", "8"]);
   const adminPanelTitles = parseList(
     process.env.HEALTH_GRAFANA_ADMIN_PANEL_TITLES,
     defaultAdminPanelTitles
   );
-  // `/twitter` uses only these embeds; `/employees` team cards use `adminGrafanaEmbeds` (observability).
+
+  const slackOrchestratorConfigured = process.env.HEALTH_GRAFANA_SLACK_ORCHESTRATOR_DASHBOARD_URL?.trim() || null;
+  const slackOrchestratorDashboardUrl =
+    normalizeGrafanaDashboardUrl(slackOrchestratorConfigured, host, proto) ??
+    buildDefaultGrafanaPathUrl(host, proto, DEFAULT_SLACK_ORCHESTRATOR_PATH);
+  const slackOrchestratorPanelIds = parseList(process.env.HEALTH_GRAFANA_SLACK_ORCHESTRATOR_PANEL_IDS, ["1", "2", "3", "4"]);
+  const slackOrchestratorPanelTitles = parseList(
+    process.env.HEALTH_GRAFANA_SLACK_ORCHESTRATOR_PANEL_TITLES,
+    defaultSlackOrchestratorPanelTitles
+  );
+
+  const agentsConfigured = process.env.HEALTH_GRAFANA_AGENTS_DASHBOARD_URL?.trim() || null;
+  const agentsDashboardUrl =
+    normalizeGrafanaDashboardUrl(agentsConfigured, host, proto) ?? buildDefaultGrafanaPathUrl(host, proto, DEFAULT_AGENTS_PATH);
+  const agentsPanelIds = parseList(process.env.HEALTH_GRAFANA_AGENTS_PANEL_IDS, ["1", "2", "3", "4"]);
+  const agentsPanelTitles = parseList(process.env.HEALTH_GRAFANA_AGENTS_PANEL_TITLES, defaultAgentsPanelTitles);
+
+  // `/twitter` uses only these embeds; `/employees` team cards use `adminGrafanaEmbeds` (employee-factory metrics only).
   const grafanaEmbeds = buildGrafanaEmbeds(twitterDashboardUrl, "twitter", twitterPanelIds, twitterPanelTitles);
   const adminGrafanaEmbeds = buildGrafanaEmbeds(grafanaDashboardUrl, "app", adminPanelIds, adminPanelTitles);
+  const slackOrchestratorGrafanaEmbeds = buildGrafanaEmbeds(
+    slackOrchestratorDashboardUrl,
+    "app",
+    slackOrchestratorPanelIds,
+    slackOrchestratorPanelTitles
+  );
+  const agentsGrafanaEmbeds = buildGrafanaEmbeds(agentsDashboardUrl, "app", agentsPanelIds, agentsPanelTitles);
 
   try {
     const [response, recentRequestsResponse] = await Promise.all([
@@ -157,8 +205,12 @@ export async function GET() {
         backendIndexerRequestsURL,
         grafanaDashboardUrl,
         twitterGrafanaDashboardUrl: twitterDashboardUrl,
+        slackOrchestratorGrafanaDashboardUrl: slackOrchestratorDashboardUrl,
+        agentsGrafanaDashboardUrl: agentsDashboardUrl,
         grafanaEmbeds,
         adminGrafanaEmbeds,
+        slackOrchestratorGrafanaEmbeds,
+        agentsGrafanaEmbeds,
       },
       { status: response.ok ? 200 : 502 }
     );
@@ -173,8 +225,12 @@ export async function GET() {
         backendIndexerRequestsURL,
         grafanaDashboardUrl,
         twitterGrafanaDashboardUrl: twitterDashboardUrl,
+        slackOrchestratorGrafanaDashboardUrl: slackOrchestratorDashboardUrl,
+        agentsGrafanaDashboardUrl: agentsDashboardUrl,
         grafanaEmbeds,
         adminGrafanaEmbeds,
+        slackOrchestratorGrafanaEmbeds,
+        agentsGrafanaEmbeds,
       },
       { status: 502 }
     );

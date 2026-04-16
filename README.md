@@ -123,8 +123,12 @@ npm run dev   # repo root
 | `STRIPE_WEBHOOK_SECRET` | Optional legacy: used as snapshot secret if snapshot-specific vars are unset |
 | `STRIPE_PRICE_ID_WAITLIST_TEST` | $1 one-time price (test mode) |
 | `STRIPE_PRICE_ID_WAITLIST_LIVE` | $1 one-time price (live mode) |
-| `HEALTH_GRAFANA_DASHBOARD_URL` | App observability dashboard URL for `/admin` Grafana grid and `/employees` team-card metrics (via `HEALTH_GRAFANA_ADMIN_*`) |
-| `HEALTH_GRAFANA_ADMIN_PANEL_IDS` / `HEALTH_GRAFANA_ADMIN_PANEL_TITLES` | `/admin` service overview panels (8 recommended: request throughput, p95 latency, error rate, success vs error, queue depth, worker readiness, tool mix, webhook latency); also drives observability iframes on `/employees` |
+| `HEALTH_GRAFANA_DASHBOARD_URL` | MakeACompany **Observability** dashboard URL for the `/admin` eight-panel overview grid (via `HEALTH_GRAFANA_ADMIN_*`) |
+| `HEALTH_GRAFANA_ADMIN_PANEL_IDS` / `HEALTH_GRAFANA_ADMIN_PANEL_TITLES` | `/admin` panels (defaults align with backend, agents, orchestrator, and error-rate charts — see `.env.example`) |
+| `HEALTH_GRAFANA_AGENTS_DASHBOARD_URL` | **Agents** dashboard for `/employees` team-card embeds and `/agents` (uses Grafana `var-employee`) |
+| `HEALTH_GRAFANA_AGENTS_PANEL_IDS` / `HEALTH_GRAFANA_AGENTS_PANEL_TITLES` | Panel ids/titles for `/employees` + `/agents` |
+| `HEALTH_GRAFANA_SLACK_ORCHESTRATOR_DASHBOARD_URL` | **Slack orchestrator** dashboard for `/slack-orchestrator` |
+| `HEALTH_GRAFANA_SLACK_ORCHESTRATOR_PANEL_IDS` / `HEALTH_GRAFANA_SLACK_ORCHESTRATOR_PANEL_TITLES` | Panel ids/titles for `/slack-orchestrator` |
 | `HEALTH_GRAFANA_TWITTER_DASHBOARD_URL` | Twitter dashboard URL — **only** source for `/twitter` Grafana iframes |
 | `HEALTH_GRAFANA_TWITTER_PANEL_IDS` / `HEALTH_GRAFANA_TWITTER_PANEL_TITLES` | Twitter panel ids/titles for `/twitter` (no mixed observability panels) |
 | `HEALTH_TWITTER_INDEXER_URL` | Internal twitter-indexer base URL used by backend `/health` and recent-request proxy |

@@ -10,7 +10,7 @@ export function Footer() {
           <p className="text-sm text-muted-foreground">
             &copy; {year} makeacompany.ai. All rights reserved.
           </p>
-          <div className="flex gap-6 text-sm text-muted-foreground">
+          <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-muted-foreground">
             <Link href="/privacy" className="motion-colors hover:text-foreground">
               Privacy
             </Link>
@@ -22,6 +22,18 @@ export function Footer() {
             </a>
             <Link href="/admin" className="motion-colors hover:text-foreground">
               Admin
+            </Link>
+            <Link href="/twitter" className="motion-colors hover:text-foreground">
+              Twitter stack
+            </Link>
+            <Link href="/slack-orchestrator" className="motion-colors hover:text-foreground">
+              Slack orchestrator
+            </Link>
+            <Link href="/agents" className="motion-colors hover:text-foreground">
+              Agents
+            </Link>
+            <Link href="/employees" className="motion-colors hover:text-foreground">
+              Employees
             </Link>
           </div>
         </div>
