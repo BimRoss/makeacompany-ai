@@ -34,7 +34,6 @@ type Payload = {
 
 export function OrchestratorDebugPanel() {
   const [token, setToken] = useState("");
-  const [saved, setSaved] = useState(false);
   const [entries, setEntries] = useState<DecisionEntry[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -47,7 +46,6 @@ export function OrchestratorDebugPanel() {
     const t = sessionStorage.getItem(STORAGE_KEY);
     if (t) {
       setToken(t);
-      setSaved(true);
     }
   }, []);
 
@@ -58,23 +56,27 @@ export function OrchestratorDebugPanel() {
     } else {
       sessionStorage.removeItem(STORAGE_KEY);
     }
-    setSaved(!!t);
   }, [token]);
 
   const fetchDecisions = useCallback(async () => {
     const t = token.trim();
-    if (!t) {
-      setError("Enter the debug token (same as ORCHESTRATOR_DEBUG_TOKEN).");
-      return;
-    }
     setLoading(true);
     setError(null);
     try {
+      const headers: Record<string, string> = {};
+      if (t) {
+        headers.Authorization = `Bearer ${t}`;
+      }
       const res = await fetch("/api/orchestrator-decisions?limit=100", {
-        headers: { Authorization: `Bearer ${t}` },
+        headers,
         cache: "no-store",
       });
       const body = (await res.json()) as Payload & { error?: string; message?: string };
+      if (res.status === 401) {
+        setError("Unauthorized — paste the debug token (or enable ORCHESTRATOR_DEBUG_ALLOW_ANON on server).");
+        setEntries([]);
+        return;
+      }
       if (!res.ok) {
         setError(body.message ?? body.error ?? `HTTP ${res.status}`);
         setEntries([]);
@@ -91,13 +93,10 @@ export function OrchestratorDebugPanel() {
   }, [token]);
 
   useEffect(() => {
-    if (!saved || !token.trim()) {
-      return;
-    }
     void fetchDecisions();
     const id = setInterval(() => void fetchDecisions(), 2500);
     return () => clearInterval(id);
-  }, [saved, token, fetchDecisions]);
+  }, [fetchDecisions]);
 
   const newestFirst = [...entries].reverse();
 
@@ -109,8 +108,8 @@ export function OrchestratorDebugPanel() {
         </h1>
         <p className="mt-2 max-w-2xl text-sm text-[var(--muted-foreground)]">
           Live routing decisions from <code className="rounded bg-[var(--muted)] px-1 py-0.5 text-xs">slack-orchestrator</code>{" "}
-          (trigger, squad targets, dispatch to workers). Token matches server{" "}
-          <code className="rounded bg-[var(--muted)] px-1 py-0.5 text-xs">ORCHESTRATOR_DEBUG_TOKEN</code>; never commit it.
+          (trigger, squad targets, dispatch). With <code className="text-xs">ORCHESTRATOR_DEBUG_ALLOW_ANON=true</code> no token
+          is required; otherwise use the same bearer as <code className="text-xs">ORCHESTRATOR_DEBUG_TOKEN</code> on the orchestrator.
         </p>
       </header>
 
@@ -136,14 +135,13 @@ export function OrchestratorDebugPanel() {
               }}
               className="rounded-[var(--radius)] bg-[var(--primary)] px-4 py-2 text-sm font-medium text-[var(--primary-foreground)] transition hover:opacity-90"
             >
-              Save &amp; refresh
+              Save token &amp; refresh
             </button>
             <button
               type="button"
               onClick={() => {
                 setToken("");
                 sessionStorage.removeItem(STORAGE_KEY);
-                setSaved(false);
                 setEntries([]);
               }}
               className="rounded-[var(--radius)] border border-[var(--border)] px-4 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--muted)]"
