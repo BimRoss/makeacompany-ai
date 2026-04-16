@@ -203,10 +203,18 @@ func defaultCapabilityCatalog() CapabilityCatalog {
 				OptionalParams: []string{"commenters", "editors", "viewers"},
 			},
 			{
-				ID:             "read-slack",
-				Label:          "Read Slack",
-				Description:    "List channels and read recent channel messages for onboarding context. Runs immediately in Slack (no confirmation).",
-				RuntimeTool:    "joanne-read-slack",
+				ID:             "read-slack-channels",
+				Label:          "Read Slack Channels",
+				Description:    "List Slack channels visible to the bot for onboarding context. Runs immediately in Slack (no confirmation).",
+				RuntimeTool:    "joanne-read-slack-channels",
+				RequiredParams: []string{"action", "intent"},
+				OptionalParams: []string{"reason"},
+			},
+			{
+				ID:             "read-slack-messages",
+				Label:          "Read Slack Messages",
+				Description:    "Read recent messages from a named Slack channel. Runs immediately in Slack (no confirmation).",
+				RuntimeTool:    "joanne-read-slack-messages",
 				RequiredParams: []string{"action", "intent"},
 				OptionalParams: []string{"channel", "channel_name", "count", "reason"},
 			},
@@ -256,7 +264,7 @@ func defaultCapabilityCatalog() CapabilityCatalog {
 			"tim":    {},
 			"ross":   {},
 			"garth":  {"read-twitter", "read-trends"},
-			"joanne": {"read-company", "read-slack", "write-company", "write-email", "write-doc", "write-slack"},
+			"joanne": {"read-company", "read-slack-channels", "read-slack-messages", "write-company", "write-email", "write-doc", "write-slack"},
 		},
 		UpdatedAt: time.Now().UTC().Format(time.RFC3339),
 		Source:    "default",
@@ -267,6 +275,9 @@ func normalizeCatalogSkillID(raw string) string {
 	id := strings.TrimSpace(raw)
 	if id == "write-docs" {
 		return "write-doc"
+	}
+	if id == "read-slack" {
+		return "read-slack-channels"
 	}
 	return id
 }
@@ -307,8 +318,10 @@ func builtinSkillDisplayLabel(skillID string) string {
 		return "Write Email"
 	case "write-doc":
 		return "Write Doc"
-	case "read-slack":
-		return "Read Slack"
+	case "read-slack-channels":
+		return "Read Slack Channels"
+	case "read-slack-messages":
+		return "Read Slack Messages"
 	case "write-company":
 		return "Write Company"
 	case "write-slack":
@@ -328,7 +341,9 @@ func builtinSkillParamDefaults(skillID string) (minRequired, defaultOptional []s
 		return []string{"intent", "subject", "to"}, []string{"button", "commenters", "editors", "link", "viewers"}
 	case "write-doc":
 		return []string{"intent", "title", "type"}, []string{"commenters", "editors", "viewers"}
-	case "read-slack":
+	case "read-slack-channels":
+		return []string{"action", "intent"}, []string{"reason"}
+	case "read-slack-messages":
 		return []string{"action", "intent"}, []string{"channel", "channel_name", "count", "reason"}
 	case "write-company", "write-slack":
 		return []string{"action", "intent"}, []string{"channel", "channel_name", "is_private", "reason"}

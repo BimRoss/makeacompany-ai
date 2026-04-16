@@ -19,9 +19,17 @@
       ]
     },
     {
-      "id": "read-slack",
-      "label": "Read Slack",
-      "description": "List channels and read recent channel messages for onboarding context. Runs immediately in Slack (no confirmation).",
+      "id": "read-slack-channels",
+      "label": "Read Slack Channels",
+      "description": "List Slack channels visible to the bot. Runs immediately in Slack (no confirmation).",
+      "employeeIds": [
+        "joanne"
+      ]
+    },
+    {
+      "id": "read-slack-messages",
+      "label": "Read Slack Messages",
+      "description": "Read recent messages from a named Slack channel. Runs immediately in Slack (no confirmation).",
       "employeeIds": [
         "joanne"
       ]
