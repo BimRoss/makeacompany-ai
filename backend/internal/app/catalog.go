@@ -211,9 +211,17 @@ func defaultCapabilityCatalog() CapabilityCatalog {
 				OptionalParams: []string{"channel", "channel_name", "count", "reason"},
 			},
 			{
+				ID:             "write-company",
+				Label:          "Write Company",
+				Description:    "Provision a company channel, run onboarding, create channels, and invite members. Requires explicit Confirm/Cancel before any write.",
+				RuntimeTool:    "joanne-write-company",
+				RequiredParams: []string{"action", "intent"},
+				OptionalParams: []string{"channel", "channel_name", "is_private", "reason"},
+			},
+			{
 				ID:             "write-slack",
 				Label:          "Write Slack",
-				Description:    "Create channels and invite requesters to channels for onboarding setup. Requires explicit Confirm/Cancel before any write.",
+				Description:    "Slack workspace configuration and preferences (write, update, or change Slack settings). Not for creating a company channel or onboarding—that is Write Company.",
 				RuntimeTool:    "joanne-write-slack",
 				RequiredParams: []string{"action", "intent"},
 				OptionalParams: []string{"channel", "channel_name", "is_private", "reason"},
@@ -248,7 +256,7 @@ func defaultCapabilityCatalog() CapabilityCatalog {
 			"tim":    {},
 			"ross":   {},
 			"garth":  {"read-twitter", "read-trends"},
-			"joanne": {"read-company", "read-slack", "write-email", "write-doc", "write-slack"},
+			"joanne": {"read-company", "read-slack", "write-company", "write-email", "write-doc", "write-slack"},
 		},
 		UpdatedAt: time.Now().UTC().Format(time.RFC3339),
 		Source:    "default",
@@ -301,6 +309,8 @@ func builtinSkillDisplayLabel(skillID string) string {
 		return "Write Doc"
 	case "read-slack":
 		return "Read Slack"
+	case "write-company":
+		return "Write Company"
 	case "write-slack":
 		return "Write Slack"
 	case "read-company":
@@ -320,7 +330,7 @@ func builtinSkillParamDefaults(skillID string) (minRequired, defaultOptional []s
 		return []string{"intent", "title", "type"}, []string{"commenters", "editors", "viewers"}
 	case "read-slack":
 		return []string{"action", "intent"}, []string{"channel", "channel_name", "count", "reason"}
-	case "write-slack":
+	case "write-company", "write-slack":
 		return []string{"action", "intent"}, []string{"channel", "channel_name", "is_private", "reason"}
 	case "read-company":
 		return []string{"intent"}, []string{}
