@@ -10,11 +10,9 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-// TestPatchCompanyChannel_PassiveBanterInterval_PublishesInvalidation verifies admin timing changes
-// persist to the shared HASH, normalize to allowed seconds (10/30/60/300/600), and publish the
-// same invalidation message bots use so passive banter picks up the new interval without waiting
-// for the 45s poll (bots still read config on their 10s tickPassiveBanter loop).
-func TestPatchCompanyChannel_PassiveBanterInterval_PublishesInvalidation(t *testing.T) {
+// TestPatchCompanyChannel_GeneralAutoReaction_PublishesInvalidation verifies toggling reactions
+// persists to the shared HASH and publishes the same invalidation message employee-factory bots use.
+func TestPatchCompanyChannel_GeneralAutoReaction_PublishesInvalidation(t *testing.T) {
 	srv, err := miniredis.Run()
 	if err != nil {
 		t.Fatal(err)
@@ -27,7 +25,7 @@ func TestPatchCompanyChannel_PassiveBanterInterval_PublishesInvalidation(t *test
 	ctx := context.Background()
 	hashKey := ""
 	channelID := "C0TESTCH"
-	seed := `{"company_slug":"acme","channel_id":"C0TESTCH","threads_enabled":true,"general_auto_reaction_enabled":false,"out_of_office_enabled":false,"passive_banter_enabled":true,"passive_banter_interval_seconds":60,"owner_ids":["U1"]}`
+	seed := `{"company_slug":"acme","channel_id":"C0TESTCH","threads_enabled":true,"general_auto_reaction_enabled":false,"out_of_office_enabled":false,"owner_ids":["U1"]}`
 	if err := rdb.HSet(ctx, companyChannelsHashKey(hashKey), channelID, seed).Err(); err != nil {
 		t.Fatal(err)
 	}
@@ -38,15 +36,15 @@ func TestPatchCompanyChannel_PassiveBanterInterval_PublishesInvalidation(t *test
 	defer func() { _ = pubsub.Close() }()
 	msgCh := pubsub.Channel()
 
-	ten := 10
+	on := true
 	got, err := store.PatchCompanyChannel(ctx, hashKey, channelID, CompanyChannelPatch{
-		PassiveBanterIntervalSeconds: &ten,
+		GeneralAutoReactionEnabled: &on,
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.PassiveBanterIntervalSeconds != 10 {
-		t.Fatalf("returned interval: got %d want 10", got.PassiveBanterIntervalSeconds)
+	if !got.GeneralAutoReactionEnabled {
+		t.Fatal("expected general_auto_reaction_enabled true")
 	}
 
 	raw, err := rdb.HGet(ctx, companyChannelsHashKey(hashKey), channelID).Result()
@@ -58,8 +56,8 @@ func TestPatchCompanyChannel_PassiveBanterInterval_PublishesInvalidation(t *test
 		t.Fatal(err)
 	}
 	decoded = normalizeCompanyChannel(decoded, channelID)
-	if decoded.PassiveBanterIntervalSeconds != 10 {
-		t.Fatalf("stored interval: got %d want 10", decoded.PassiveBanterIntervalSeconds)
+	if !decoded.GeneralAutoReactionEnabled {
+		t.Fatal("stored: expected general_auto_reaction_enabled true")
 	}
 
 	select {

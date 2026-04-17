@@ -360,17 +360,15 @@ func (s *Store) DeleteAdminSession(ctx context.Context, token string) error {
 
 // CompanyChannel mirrors employee-factory/config.CompanyChannelRuntime JSON for Redis HASH values.
 type CompanyChannel struct {
-	CompanySlug                  string   `json:"company_slug"`
-	ChannelID                    string   `json:"channel_id"`
-	DisplayName                  string   `json:"display_name,omitempty"`
-	OwnerIDs                     []string `json:"owner_ids,omitempty"`
-	PrimaryOwner                 string   `json:"primary_owner,omitempty"`        // legacy: merged on read
-	AllowedOperatorIDs           []string `json:"allowed_operator_ids,omitempty"` // legacy
-	ThreadsEnabled               bool     `json:"threads_enabled"`
-	GeneralAutoReactionEnabled   bool     `json:"general_auto_reaction_enabled"`
-	OutOfOfficeEnabled           bool     `json:"out_of_office_enabled"`
-	PassiveBanterEnabled         bool     `json:"passive_banter_enabled"`
-	PassiveBanterIntervalSeconds int      `json:"passive_banter_interval_seconds,omitempty"`
+	CompanySlug                string   `json:"company_slug"`
+	ChannelID                  string   `json:"channel_id"`
+	DisplayName                string   `json:"display_name,omitempty"`
+	OwnerIDs                   []string `json:"owner_ids,omitempty"`
+	PrimaryOwner               string   `json:"primary_owner,omitempty"`        // legacy: merged on read
+	AllowedOperatorIDs         []string `json:"allowed_operator_ids,omitempty"` // legacy
+	ThreadsEnabled             bool     `json:"threads_enabled"`
+	GeneralAutoReactionEnabled bool     `json:"general_auto_reaction_enabled"`
+	OutOfOfficeEnabled         bool     `json:"out_of_office_enabled"`
 }
 
 func effectiveCompanyChannelOwners(e CompanyChannel) []string {
@@ -413,17 +411,7 @@ func normalizeCompanyChannel(e CompanyChannel, hashField string) CompanyChannel 
 		e.ChannelID = strings.TrimSpace(hashField)
 	}
 	e.ThreadsEnabled = true
-	e.PassiveBanterIntervalSeconds = normalizePassiveBanterIntervalSeconds(e.PassiveBanterIntervalSeconds)
 	return e
-}
-
-func normalizePassiveBanterIntervalSeconds(v int) int {
-	switch v {
-	case 10, 30, 60, 300, 600:
-		return v
-	default:
-		return 60
-	}
 }
 
 // ListCompanyChannels reads the shared Redis HASH used by employee-factory (field = channel id, value = JSON).
@@ -522,10 +510,8 @@ func (s *Store) GetCompanyChannel(ctx context.Context, hashKey, channelID string
 
 // CompanyChannelPatch is a partial update applied on top of the existing Redis JSON.
 type CompanyChannelPatch struct {
-	GeneralAutoReactionEnabled   *bool `json:"general_auto_reaction_enabled,omitempty"`
-	OutOfOfficeEnabled           *bool `json:"out_of_office_enabled,omitempty"`
-	PassiveBanterEnabled         *bool `json:"passive_banter_enabled,omitempty"`
-	PassiveBanterIntervalSeconds *int  `json:"passive_banter_interval_seconds,omitempty"`
+	GeneralAutoReactionEnabled *bool `json:"general_auto_reaction_enabled,omitempty"`
+	OutOfOfficeEnabled         *bool `json:"out_of_office_enabled,omitempty"`
 }
 
 // PatchCompanyChannel merges patch into the stored record and writes it back to the hash.
@@ -539,12 +525,6 @@ func (s *Store) PatchCompanyChannel(ctx context.Context, hashKey, channelID stri
 	}
 	if patch.OutOfOfficeEnabled != nil {
 		e.OutOfOfficeEnabled = *patch.OutOfOfficeEnabled
-	}
-	if patch.PassiveBanterEnabled != nil {
-		e.PassiveBanterEnabled = *patch.PassiveBanterEnabled
-	}
-	if patch.PassiveBanterIntervalSeconds != nil {
-		e.PassiveBanterIntervalSeconds = normalizePassiveBanterIntervalSeconds(*patch.PassiveBanterIntervalSeconds)
 	}
 	e = normalizeCompanyChannel(e, e.ChannelID)
 	b, err := json.Marshal(e)
