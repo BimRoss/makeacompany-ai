@@ -35,6 +35,8 @@ type CapabilityCatalogSkill struct {
 	RuntimeTool    string   `json:"runtimeTool"`
 	RequiredParams []string `json:"requiredParams"`
 	OptionalParams []string `json:"optionalParams"`
+	// Requires names backend dependencies for operator docs and cross-repo alignment (e.g. google_oauth, twitter_indexer).
+	Requires []string `json:"requires,omitempty"`
 }
 
 // Default copy for empty Redis / seed only. Admin PUTs store operator-edited text in Redis;
@@ -193,6 +195,7 @@ func defaultCapabilityCatalog() CapabilityCatalog {
 				RuntimeTool:    "joanne-write-email",
 				RequiredParams: []string{"intent", "subject", "to"},
 				OptionalParams: []string{"button", "commenters", "editors", "link", "viewers"},
+				Requires:       []string{"google_oauth"},
 			},
 			{
 				ID:             "write-doc",
@@ -201,6 +204,7 @@ func defaultCapabilityCatalog() CapabilityCatalog {
 				RuntimeTool:    "joanne-write-doc",
 				RequiredParams: []string{"intent", "title", "type"},
 				OptionalParams: []string{"commenters", "editors", "viewers"},
+				Requires:       []string{"google_oauth"},
 			},
 			{
 				ID:             "write-company",
@@ -209,6 +213,7 @@ func defaultCapabilityCatalog() CapabilityCatalog {
 				RuntimeTool:    "joanne-write-company",
 				RequiredParams: []string{"action", "intent"},
 				OptionalParams: []string{"channel", "channel_name", "is_private", "reason"},
+				Requires:       []string{"slack_workspace"},
 			},
 			{
 				ID:             "read-company",
@@ -217,6 +222,7 @@ func defaultCapabilityCatalog() CapabilityCatalog {
 				RuntimeTool:    "joanne-read-company",
 				RequiredParams: []string{"intent"},
 				OptionalParams: []string{},
+				Requires:       []string{"redis_channel_knowledge"},
 			},
 			{
 				ID:             "read-twitter",
@@ -225,6 +231,7 @@ func defaultCapabilityCatalog() CapabilityCatalog {
 				RuntimeTool:    "garth-read-twitter",
 				RequiredParams: []string{"intent", "query"},
 				OptionalParams: []string{"count"},
+				Requires:       []string{"twitter_indexer"},
 			},
 			{
 				ID:             "read-trends",
@@ -233,6 +240,7 @@ func defaultCapabilityCatalog() CapabilityCatalog {
 				RuntimeTool:    "garth-read-trends",
 				RequiredParams: []string{"intent"},
 				OptionalParams: []string{"count"},
+				Requires:       []string{"twitter_indexer"},
 			},
 		},
 		EmployeeSkillIDs: map[string][]string{
