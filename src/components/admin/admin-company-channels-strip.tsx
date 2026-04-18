@@ -84,22 +84,20 @@ export function AdminCompanyChannelsStrip() {
       ) : null}
 
       {state === "ready" && data && data.channels.length > 0 ? (
-        <ul className="space-y-2">
+        <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {data.channels.map((ch) => (
             <li key={ch.channel_id} className="list-none">
               <Link
-                href={`/admin/${encodeURIComponent(ch.channel_id)}`}
-                className="block rounded-none border border-border bg-card px-4 py-3 shadow-sm transition-colors hover:bg-muted/40 focus-visible:outline focus-visible:ring-2 focus-visible:ring-ring sm:rounded-lg"
+                href={`/admin/company/${encodeURIComponent(ch.channel_id)}`}
+                className="flex h-full flex-col rounded-xl border border-border bg-card p-4 shadow-sm transition-colors hover:bg-muted/40 focus-visible:outline focus-visible:ring-2 focus-visible:ring-ring"
               >
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                  <div>
-                    <p className="font-medium leading-tight">{channelDisplayTitle(ch)}</p>
-                    {channelDisplayTitle(ch) !== ch.channel_id ? (
-                      <p className="mt-0.5 font-mono text-[11px] text-muted-foreground">{ch.channel_id}</p>
-                    ) : null}
-                  </div>
+                <div className="min-h-0 flex-1">
+                  <p className="font-semibold leading-tight">{channelDisplayTitle(ch)}</p>
+                  {channelDisplayTitle(ch) !== ch.channel_id ? (
+                    <p className="mt-1 font-mono text-[11px] text-muted-foreground">{ch.channel_id}</p>
+                  ) : null}
                 </div>
-                <div className="mt-3 flex flex-wrap gap-2">
+                <div className="mt-4 flex flex-wrap gap-2">
                   {ch.company_slug?.trim() ? (
                     <span className={pillClassName(false)} title="company_slug">
                       {ch.company_slug}
