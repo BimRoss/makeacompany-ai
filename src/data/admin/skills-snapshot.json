@@ -1,6 +1,6 @@
 {
   "generatedAt": "2026-04-14T01:22:29.313Z",
-  "source": "slack-factory/skills-catalog.json + slack-factory/manifests",
+  "source": "slack-orchestrator capability contract + slack-factory/manifests",
   "skills": [
     {
       "id": "write-email",

@@ -1,3 +1,7 @@
+/**
+ * Sync `team-snapshot.json` / `skills-snapshot.json`: capability contract from slack-orchestrator;
+ * bot display metadata from slack-factory `manifests/` (see SLACK_FACTORY_PATH).
+ */
 import { readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -13,7 +17,6 @@ const slackFactoryPath = process.env.SLACK_FACTORY_PATH
 
 const manifestsRoot = path.join(slackFactoryPath, "manifests");
 const outputPath = path.join(repoRoot, "src", "data", "admin", "team-snapshot.json");
-const skillsCatalogPath = path.join(slackFactoryPath, "skills-catalog.json");
 const skillsOutputPath = path.join(repoRoot, "src", "data", "admin", "skills-snapshot.json");
 
 const ROLE_MAP = {
@@ -23,6 +26,44 @@ const ROLE_MAP = {
   garth: { lane: "internship", roleTitle: "Head of Interns" },
   joanne: { lane: "operations", roleTitle: "Head of Executive Operations" },
 };
+
+function optionalEnv(name) {
+  return (process.env[name] || "").trim();
+}
+
+/**
+ * Load the same capability JSON as slack-orchestrator embeds on dispatch.
+ * Set ORCHESTRATOR_URL (+ optional ORCHESTRATOR_DEBUG_TOKEN), or CATALOG_JSON_PATH to a file from
+ * `go run ./cmd/catalog-export` in slack-orchestrator.
+ */
+async function loadCapabilityCatalog() {
+  const explicitUrl = optionalEnv("ORCHESTRATOR_CAPABILITY_CATALOG_URL");
+  const base = optionalEnv("ORCHESTRATOR_URL")?.replace(/\/$/, "");
+  const url = explicitUrl || (base ? `${base}/debug/capability-catalog` : "");
+  const filePath = optionalEnv("CATALOG_JSON_PATH");
+
+  if (url) {
+    const headers = {};
+    const tok = optionalEnv("ORCHESTRATOR_DEBUG_TOKEN");
+    if (tok) {
+      headers.Authorization = `Bearer ${tok}`;
+    }
+    const res = await fetch(url, { headers });
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`GET ${url} failed: ${res.status} ${text}`);
+    }
+    return await res.json();
+  }
+  if (filePath) {
+    const raw = await readFile(filePath, "utf8");
+    return JSON.parse(raw);
+  }
+  throw new Error(
+    "Missing capability catalog: set ORCHESTRATOR_URL (and ORCHESTRATOR_DEBUG_TOKEN if required), " +
+      "ORCHESTRATOR_CAPABILITY_CATALOG_URL, or CATALOG_JSON_PATH to JSON from `go run ./cmd/catalog-export` in slack-orchestrator."
+  );
+}
 
 function normalizeSkillId(value) {
   return toId(value);
@@ -41,53 +82,38 @@ function normalizeSkill(raw) {
   };
 }
 
-async function readSkillsCatalog() {
-  const defaults = {
-    skills: [],
-    employeeSkillIds: {},
-  };
+function buildSkillsAndAssignments(parsed) {
+  const catalogSkills = Array.isArray(parsed?.skills) ? parsed.skills : [];
+  const normalizedSkills = [];
+  const seenIds = new Set();
 
-  try {
-    const raw = await readFile(skillsCatalogPath, "utf8");
-    const parsed = JSON.parse(raw);
-    const catalogSkills = Array.isArray(parsed?.skills) ? parsed.skills : [];
-    const normalizedSkills = [];
-    const seenIds = new Set();
-
-    for (const skill of catalogSkills) {
-      const normalized = normalizeSkill(skill);
-      if (!normalized) {
-        continue;
-      }
-      if (seenIds.has(normalized.id)) {
-        continue;
-      }
-      seenIds.add(normalized.id);
-      normalizedSkills.push(normalized);
+  for (const skill of catalogSkills) {
+    const normalized = normalizeSkill(skill);
+    if (!normalized) {
+      continue;
     }
-
-    const employeeSkillIds = {};
-    const rawMapping = parsed?.employeeSkillIds ?? {};
-    for (const [memberId, skillIds] of Object.entries(rawMapping)) {
-      if (!Array.isArray(skillIds)) {
-        continue;
-      }
-      const normalizedMemberId = toId(memberId);
-      if (!normalizedMemberId) {
-        continue;
-      }
-      const normalizedSkillIds = [...new Set(skillIds.map((value) => normalizeSkillId(value)).filter(Boolean))];
-      employeeSkillIds[normalizedMemberId] = normalizedSkillIds;
+    if (seenIds.has(normalized.id)) {
+      continue;
     }
-
-    return {
-      skills: normalizedSkills,
-      employeeSkillIds,
-    };
-  } catch (error) {
-    console.warn(`No skills catalog loaded from ${skillsCatalogPath}: ${error.message}`);
-    return defaults;
+    seenIds.add(normalized.id);
+    normalizedSkills.push(normalized);
   }
+
+  const employeeSkillIds = {};
+  const rawMapping = parsed?.employeeSkillIds ?? {};
+  for (const [memberId, skillIds] of Object.entries(rawMapping)) {
+    if (!Array.isArray(skillIds)) {
+      continue;
+    }
+    const normalizedMemberId = toId(memberId);
+    if (!normalizedMemberId) {
+      continue;
+    }
+    const normalizedSkillIds = [...new Set(skillIds.map((value) => normalizeSkillId(value)).filter(Boolean))];
+    employeeSkillIds[normalizedMemberId] = normalizedSkillIds;
+  }
+
+  return { skills: normalizedSkills, employeeSkillIds };
 }
 
 function getRole(name) {
@@ -168,13 +194,9 @@ function sortMembers(a, b, displayOrder) {
 }
 
 async function main() {
-  const { skills, employeeSkillIds } = await readSkillsCatalog();
-  let rawCatalog = {};
-  try {
-    rawCatalog = JSON.parse(await readFile(skillsCatalogPath, "utf8"));
-  } catch {
-    rawCatalog = {};
-  }
+  const rawCatalog = await loadCapabilityCatalog();
+  const { skills, employeeSkillIds } = buildSkillsAndAssignments(rawCatalog);
+
   const catalogEmployees = Array.isArray(rawCatalog?.coreEmployees)
     ? rawCatalog.coreEmployees.map(normalizeCatalogEmployee).filter(Boolean)
     : [];
@@ -192,12 +214,7 @@ async function main() {
   for (const dirName of manifestDirs) {
     const manifestPath = path.join(manifestsRoot, dirName, "app-manifest.json");
     try {
-      const member = await readManifest(
-        dirName,
-        employeeSkillIds,
-        knownSkillIds,
-        employeesById
-      );
+      const member = await readManifest(dirName, employeeSkillIds, knownSkillIds, employeesById);
       members.push(member);
     } catch (error) {
       console.warn(`Skipping ${manifestPath}: ${error.message}`);
@@ -208,7 +225,7 @@ async function main() {
 
   const payload = {
     generatedAt: new Date().toISOString(),
-    source: "slack-factory/manifests + slack-factory/skills-catalog.json",
+    source: "slack-factory/manifests + slack-orchestrator capability catalog",
     employees: members,
   };
 
@@ -219,7 +236,7 @@ async function main() {
 
   const skillsPayload = {
     generatedAt: new Date().toISOString(),
-    source: "slack-factory/skills-catalog.json + slack-factory/manifests",
+    source: "slack-orchestrator capability catalog + slack-factory/manifests",
     skills: skillsWithEmployees,
   };
 
@@ -231,7 +248,7 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.error("Failed to sync team data from slack-factory manifests.");
+  console.error("Failed to sync team data from slack-factory manifests + orchestrator catalog.");
   console.error(error);
   process.exitCode = 1;
 });

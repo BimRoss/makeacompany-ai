@@ -8,12 +8,21 @@ export default async function EmployeesPage() {
   return (
     <AdminShell>
       <section className="space-y-4">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Employees</h1>
+          <p className="text-sm text-muted-foreground">
+            Read-only. Same runtime capability catalog as{" "}
+            <a className="text-foreground underline underline-offset-4 hover:opacity-90" href="/skills">
+              /skills
+            </a>{" "}
+            (backend + Redis; contract family matches slack-orchestrator). Not editable here.
+          </p>
+        </div>
         {members.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-border bg-card p-8 text-center">
             <p className="text-base font-medium text-foreground">No team cards found yet.</p>
             <p className="mt-2 text-sm text-muted-foreground">
-              Run <code className="rounded bg-muted px-1.5 py-0.5">npm run sync:team</code> to import agents from{" "}
-              <code className="rounded bg-muted px-1.5 py-0.5">slack-factory</code>.
+              When the backend returns the catalog (defaults or Redis), employees appear here automatically.
             </p>
           </div>
         ) : (

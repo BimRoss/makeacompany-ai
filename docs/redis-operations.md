@@ -50,16 +50,16 @@ When the backend uses a second client or the same DB, these prefixes may appear:
 
 **After a gut:** deploy orchestrator + backend + Next; open `/admin` so the Companies strip runs discover, or run `node scripts/company-channels-discover-from-orchestrator.mjs` (see [prod-company-channels-env-checklist.md](prod-company-channels-env-checklist.md)). See root `README.md` for `ORCHESTRATOR_DEBUG_BASE_URL` in compose.
 
-### Seed catalog from slack-factory (kubectl)
+### Seed catalog from slack-orchestrator (kubectl)
 
-From a machine with **`kubectl`** access to the **admin** cluster (`KUBECONFIG` fragment + `--context admin` per BimRoss kubeconfig rules):
+Catalog JSON is **`GET /debug/capability-catalog`** on the orchestrator HTTP server (same payload as embedded NATS `Capabilities`). From a machine with **`kubectl`** access to the **admin** cluster (`KUBECONFIG` fragment + `--context admin` per BimRoss kubeconfig rules), port-forward orchestrator or run it locally, then:
 
 ```bash
 cd /path/to/makeacompany-ai
-./scripts/seed-capability-catalog-redis-kubectl.sh /path/to/slack-factory/skills-catalog.json
+ORCHESTRATOR_URL=http://127.0.0.1:8080 ORCHESTRATOR_DEBUG_TOKEN=… ./scripts/seed-capability-catalog-redis-kubectl.sh
 ```
 
-Default first argument: `../slack-factory/skills-catalog.json` relative to the makeacompany-ai repo root. Uses `jq` when installed to set `revision`, `source`, and `updatedAt` on the payload.
+Uses `jq` when installed to set `revision`, `source`, and `updatedAt` on the payload (`ORCHESTRATOR_GIT_DIR` defaults to `../slack-orchestrator` for `SOURCE_REVISION` git sha).
 
 Verifies Redis is reachable:
 

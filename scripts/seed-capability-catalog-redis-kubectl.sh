@@ -1,12 +1,9 @@
 #!/usr/bin/env bash
-# Seed production Redis with capability catalog JSON (same shape as slack-factory/skills-catalog.json).
-# Uses kubectl exec + redis-cli — does not call the admin HTTP API (reserved for /admin UI + Stripe OAuth).
+# Seed production Redis with the capability catalog JSON from slack-orchestrator (same shape as NATS Capabilities).
+# Fetches GET /debug/capability-catalog — does not use the admin HTTP API (reserved for /admin UI + Stripe OAuth).
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-DEFAULT_CATALOG="${REPO_ROOT}/../slack-factory/skills-catalog.json"
-CATALOG_FILE="${1:-$DEFAULT_CATALOG}"
-
 KUBECONFIG="${KUBECONFIG:-${HOME}/.kube/config/admin.yaml}"
 export KUBECONFIG
 KCTX="${KUBECTL_CONTEXT:-admin}"
@@ -14,27 +11,33 @@ NS="makeacompany-ai"
 DEPLOY="makeacompany-ai-redis"
 KEY="makeacompany:catalog:capabilities:v1"
 
-if [[ ! -f "$CATALOG_FILE" ]]; then
-  echo "Catalog file not found: $CATALOG_FILE" >&2
-  echo "Usage: $0 [path/to/skills-catalog.json]" >&2
-  exit 1
-fi
+ORCHESTRATOR_URL="${ORCHESTRATOR_URL:-http://127.0.0.1:8080}"
+ORCHESTRATOR_URL="${ORCHESTRATOR_URL%/}"
+CATALOG_URL="${ORCHESTRATOR_CAPABILITY_CATALOG_URL:-$ORCHESTRATOR_URL/debug/capability-catalog}"
 
 TMP="$(mktemp)"
 trap 'rm -f "$TMP"' EXIT
 
+curl_args=(-fsS -o "$TMP")
+if [[ -n "${ORCHESTRATOR_DEBUG_TOKEN:-}" ]]; then
+  curl_args+=(-H "Authorization: Bearer ${ORCHESTRATOR_DEBUG_TOKEN}")
+fi
+
+echo "Fetching catalog from ${CATALOG_URL}"
+curl "${curl_args[@]}" "$CATALOG_URL"
+
 if command -v jq >/dev/null 2>&1; then
-  CATALOG_DIR="$(cd "$(dirname "$CATALOG_FILE")" && pwd)"
+  ORCH_DIR="${ORCHESTRATOR_GIT_DIR:-${REPO_ROOT}/../slack-orchestrator}"
   REV="${SOURCE_REVISION:-}"
-  if [[ -z "$REV" ]] && git -C "$CATALOG_DIR" rev-parse HEAD >/dev/null 2>&1; then
-    REV="$(git -C "$CATALOG_DIR" rev-parse HEAD)"
+  if [[ -z "$REV" ]] && git -C "$ORCH_DIR" rev-parse HEAD >/dev/null 2>&1; then
+    REV="$(git -C "$ORCH_DIR" rev-parse HEAD)"
   fi
-  REV="${REV:-manual}"
-  jq --arg rev "$REV" --arg src "bimross/slack-factory+kubectl" --arg ua "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
-    '. + {revision: $rev, source: $src, updatedAt: $ua}' "$CATALOG_FILE" >"$TMP"
+  REV="${REV:-orchestrator}"
+  jq --arg rev "$REV" --arg src "bimross/slack-orchestrator+kubectl" --arg ua "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
+    '. + {revision: $rev, source: $src, updatedAt: $ua}' "$TMP" >"${TMP}.out"
+  mv "${TMP}.out" "$TMP"
 else
-  cp "$CATALOG_FILE" "$TMP"
-  echo "warning: jq not found; seeding raw file without revision/updatedAt metadata" >&2
+  echo "warning: jq not found; seeding raw JSON without revision/updatedAt metadata" >&2
 fi
 
 kubectl --context "$KCTX" -n "$NS" exec -i "deploy/${DEPLOY}" -- redis-cli -x SET "$KEY" <"$TMP"

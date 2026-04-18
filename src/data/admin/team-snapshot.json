@@ -1,6 +1,6 @@
 {
   "generatedAt": "2026-04-14T01:22:29.313Z",
-  "source": "slack-factory/manifests + slack-factory/skills-catalog.json",
+  "source": "slack-factory/manifests + slack-orchestrator capability contract",
   "employees": [
     {
       "id": "alex",

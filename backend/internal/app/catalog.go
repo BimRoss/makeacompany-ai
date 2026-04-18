@@ -193,8 +193,8 @@ func defaultCapabilityCatalog() CapabilityCatalog {
 				Label:          "Write Email",
 				Description:    "Draft, send, and triage email communication.",
 				RuntimeTool:    "joanne-write-email",
-				RequiredParams: []string{"intent", "subject", "to"},
-				OptionalParams: []string{"button", "commenters", "editors", "link", "viewers"},
+				RequiredParams: []string{"intent", "subject"},
+				OptionalParams: []string{"to", "button", "commenters", "editors", "link", "viewers"},
 				Requires:       []string{"google_oauth"},
 			},
 			{

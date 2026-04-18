@@ -23,11 +23,13 @@ Marketing landing page and **$1 Stripe waitlist** for [makeacompany.ai](https://
 - `No data` on a card means that employee has no matching Slack runtime events/posts in the current chart lookback window (default: last hour). Cursor/IDE usage does not affect these counters.
 - Quick checks: confirm the employee bot is running and receiving Slack traffic, then recheck the dashboard window after activity.
 
-Sync team data into this repo:
+Sync team data into this repo (Slack manifests from **slack-factory** + capability assignments from **slack-orchestrator**):
 
 ```bash
-npm run sync:team
+ORCHESTRATOR_URL=http://127.0.0.1:8080 ORCHESTRATOR_DEBUG_TOKEN=… npm run sync:team
 ```
+
+Or offline: `(cd ../slack-orchestrator && go run ./cmd/catalog-export) > /tmp/catalog.json` then `CATALOG_JSON_PATH=/tmp/catalog.json npm run sync:team`.
 
 Generated fallback files:
 
@@ -46,15 +48,15 @@ Admin surface (orchestrator + NATS are the live contract for Slack bots; catalog
 - Backend derives `runtimeTool` from `<employee>-<skill-id>` and migrates legacy values on catalog reads/writes.
 - Optional `revision` / `source` fields are for operator traceability (not tied to CI).
 
-**Bootstrap / seed Redis** from `slack-factory/skills-catalog.json` using **kubectl** (does not use the admin HTTP API — that path is for `/admin` UI + Stripe OAuth):
+**Bootstrap / seed Redis** from **slack-orchestrator** (`GET /debug/capability-catalog`, same JSON as NATS `Capabilities`) using **kubectl** (does not use the admin HTTP API for seeding):
 
 ```bash
-./scripts/seed-capability-catalog-redis-kubectl.sh ../slack-factory/skills-catalog.json
+ORCHESTRATOR_URL=http://127.0.0.1:8080 ORCHESTRATOR_DEBUG_TOKEN=… ./scripts/seed-capability-catalog-redis-kubectl.sh
 ```
 
 Requires `kubectl` against the **admin** cluster and `deploy/makeacompany-ai-redis` in namespace `makeacompany-ai`. See [docs/redis-operations.md](docs/redis-operations.md).
 
-Legacy alternative (calls `PUT /v1/admin/catalog`): `scripts/sync-capability-catalog-from-slack-factory.mjs` — only if you intentionally use the service token path (e.g. local automation). There is **no** scheduled GitHub Action for catalog sync.
+Alternative (calls `PUT /v1/admin/catalog`): `scripts/sync-capability-catalog-from-orchestrator.mjs` — requires `CATALOG_SYNC_BASE_URL`, admin token, and orchestrator reachability. There is **no** scheduled GitHub Action for catalog sync.
 
 ## Stripe catalog (`stripe-factory`)
 

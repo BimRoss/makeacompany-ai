@@ -1,18 +1,19 @@
 import { SkillsCardsGrid } from "@/components/admin/skills-cards-grid";
 import { TeamCardsGrid } from "@/components/admin/team-cards-grid";
-import { comingSoonSkills } from "@/lib/admin/coming-soon-skills";
 import { getAdminCatalogData } from "@/lib/admin/catalog";
 
 export async function OrchestratorCatalogSection() {
-  const { members, skills: configuredSkills } = await getAdminCatalogData();
-  const skills = [...configuredSkills, ...comingSoonSkills];
+  const { members, skills } = await getAdminCatalogData();
 
   return (
     <div className="space-y-10">
       <section id="employees" className="scroll-mt-24 space-y-4">
         <h2 className="text-lg font-semibold tracking-tight">Employees</h2>
         <p className="text-sm text-muted-foreground">
-          Team and skills come from the runtime capability catalog (orchestrator / employee-factory). Read-only here.
+          Read-only runtime capability catalog: backend{" "}
+          <code className="rounded bg-muted px-1.5 py-0.5 text-xs">GET /v1/runtime/capability-catalog</code>{" "}
+          (Redis plus code defaults aligned with slack-orchestrator). Slack uses the contract on dispatch → NATS →
+          employee-factory.
         </p>
         {members.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-border bg-card p-8 text-center">
@@ -22,15 +23,13 @@ export async function OrchestratorCatalogSection() {
             </p>
           </div>
         ) : (
-          <TeamCardsGrid members={members} skills={configuredSkills} />
+          <TeamCardsGrid members={members} skills={skills} />
         )}
       </section>
 
       <section id="skills" className="scroll-mt-24 space-y-4">
         <h2 className="text-lg font-semibold tracking-tight">Skills</h2>
-        <p className="text-sm text-muted-foreground">
-          Configured skills from the runtime catalog; roadmap items are labeled below.
-        </p>
+        <p className="text-sm text-muted-foreground">Configured skills from the same read-only catalog as /skills.</p>
         {skills.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-border bg-card p-8 text-center">
             <p className="text-base font-medium text-foreground">No skills configured yet.</p>
