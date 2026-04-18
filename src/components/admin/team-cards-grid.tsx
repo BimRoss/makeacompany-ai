@@ -132,12 +132,12 @@ export function TeamCardsGrid({ members, skills }: TeamCardsGridProps) {
               />
               {metricEmbeds.length > 0 ? (
                 metricEmbeds.map((embed) => (
-                  <article key={embed.key} className="rounded-xl border border-border/70 bg-background/50 p-2 motion-colors">
-                    <header className="mb-1 px-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                      {embed.title}
-                    </header>
+                  <article
+                    key={embed.key}
+                    className="overflow-hidden rounded-xl border border-border/70 bg-background/50 p-1 motion-colors"
+                  >
                     <iframe
-                      title={`${member.displayName} - ${embed.title}`}
+                      title={`${member.displayName} — ${embed.title}`}
                       src={embed.url}
                       loading="lazy"
                       className="h-44 w-full rounded-md border-0 bg-transparent"

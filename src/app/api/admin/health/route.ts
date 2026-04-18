@@ -37,10 +37,10 @@ const defaultSlackOrchestratorPanelTitles = [
 ];
 
 const defaultAgentsPanelTitles = [
-  "Inbound events /min by agent",
-  "Outbound posts /min by agent",
-  "Orchestrator ingress accepted /s",
-  "Go goroutines",
+  "Inbound events / min",
+  "Outbound events / min",
+  "Orchestrator ingress (accepted) /s",
+  "Activities",
 ];
 
 function buildDefaultGrafanaDashboardUrl(
