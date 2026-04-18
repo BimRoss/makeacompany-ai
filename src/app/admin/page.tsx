@@ -1,16 +1,17 @@
 import { AdminShell } from "@/components/admin/admin-shell";
-import { AdminCatalogEditor } from "@/components/admin/admin-catalog-editor";
-import { AdminCompanyChannelsStrip } from "@/components/admin/admin-company-channels-strip";
-import { AdminOverviewGrafanaGrid } from "@/components/admin/admin-overview-grafana-grid";
-import { AdminServiceNav } from "@/components/admin/admin-service-nav";
+import { ServiceGrafanaDashboard } from "@/components/admin/service-grafana-dashboard";
+import { OrchestratorDebugPanel } from "@/components/orchestrator/orchestrator-debug-panel";
 
 export default function AdminPage() {
   return (
     <AdminShell>
-      <AdminServiceNav />
-      <AdminOverviewGrafanaGrid />
-      <AdminCompanyChannelsStrip />
-      <AdminCatalogEditor />
+      <div className="space-y-10">
+        <ServiceGrafanaDashboard
+          embedsKey="agentsGrafanaEmbeds"
+          gridClassName="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4"
+        />
+        <OrchestratorDebugPanel />
+      </div>
     </AdminShell>
   );
 }

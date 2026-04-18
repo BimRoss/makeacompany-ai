@@ -45,7 +45,7 @@ export function AdminCapabilityRoutingPanel({ channelId }: Props) {
         error?: string;
       } | null;
       if (res.status === 401) {
-        setError("Session expired. Sign in again from the admin home page.");
+        setError("Unauthorized. Ensure BACKEND_INTERNAL_SERVICE_TOKEN is configured for this deployment.");
         setEvents([]);
         return;
       }

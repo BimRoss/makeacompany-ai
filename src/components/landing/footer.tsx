@@ -23,18 +23,6 @@ export function Footer() {
             <Link href="/admin" className="motion-colors hover:text-foreground">
               Admin
             </Link>
-            <Link href="/twitter" className="motion-colors hover:text-foreground">
-              Twitter stack
-            </Link>
-            <Link href="/slack-orchestrator" className="motion-colors hover:text-foreground">
-              Slack orchestrator
-            </Link>
-            <Link href="/agents" className="motion-colors hover:text-foreground">
-              Agents
-            </Link>
-            <Link href="/employees" className="motion-colors hover:text-foreground">
-              Employees
-            </Link>
           </div>
         </div>
       </div>

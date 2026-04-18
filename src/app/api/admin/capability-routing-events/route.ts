@@ -1,23 +1,10 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
+import { resolveBackendBaseURL, resolveBackendBearerToken } from "@/lib/backend-proxy-auth";
 
 export const dynamic = "force-dynamic";
 
-const adminSessionCookieName = "mac_admin_session";
-
-function resolveBackendBaseURL(): string {
-  const isKubernetes = Boolean(process.env.KUBERNETES_SERVICE_HOST);
-  const defaultBackendBase = isKubernetes ? "http://makeacompany-ai-backend:8080" : "http://localhost:8080";
-  return (
-    process.env.BACKEND_INTERNAL_API_BASE_URL ??
-    process.env.NEXT_PUBLIC_BACKEND_API_BASE_URL ??
-    defaultBackendBase
-  );
-}
-
 export async function GET(req: Request) {
-  const cookieStore = await cookies();
-  const token = cookieStore.get(adminSessionCookieName)?.value ?? "";
+  const token = await resolveBackendBearerToken();
   if (!token) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }

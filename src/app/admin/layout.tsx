@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 
 export const metadata: Metadata = {
   title: "Admin",
-  description: "Admin control surface for makeacompany.ai",
+  description: "Aggregate agent metrics and live orchestrator routing decisions",
   alternates: {
     canonical: "/admin",
   },

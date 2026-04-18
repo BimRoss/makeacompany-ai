@@ -19,7 +19,7 @@ Use this file as the primary entry point for agent-friendly discovery.
 ## Optional
 
 - Operator observability (authenticated / internal): [Admin overview](https://makeacompany.ai/admin), [Twitter stack](https://makeacompany.ai/twitter), [Slack orchestrator](https://makeacompany.ai/slack-orchestrator), [Agents](https://makeacompany.ai/agents), [Employees](https://makeacompany.ai/employees) — Grafana embeds for runtime health (not primary product content).
-- Operator-only debug (noindex): [Orchestrator decisions](https://makeacompany.ai/orchestrator) — Slack routing log; requires a shared debug token (not for public indexing).
+- Operator-only debug (noindex): [Admin / routing decisions](https://makeacompany.ai/admin) — Slack routing log; requires a shared debug token (not for public indexing). `/orchestrator` redirects here.
 - [Root sitemap](https://makeacompany.ai/sitemap.xml): Search-engine URL map for canonical page discovery.
 - [Robots policy](https://makeacompany.ai/robots.txt): Crawler access directives.
 - [Full context](https://makeacompany.ai/llms-full.txt): Expanded context for agent ingestion when larger context windows are available.

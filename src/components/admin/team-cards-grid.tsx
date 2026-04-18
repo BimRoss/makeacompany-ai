@@ -32,10 +32,10 @@ type TeamMemberMetricEmbed = {
   url: string;
 };
 
-/** Panels 1–4 from the MakeACompany “agents” dashboard (inbound, outbound, orchestrator ingress, goroutines). */
+/** Panels 1–2 and 4 from the “agents” dashboard: inbound, outbound, goroutines (skip orchestrator ingress / panel 3). */
 function selectAgentMetricPanels(embeds: GrafanaEmbed[]): GrafanaEmbed[] {
   const byId = (id: string) => embeds.find((embed) => embed.panelId === id);
-  return ["1", "2", "3", "4"].map((id) => byId(id)).filter((panel): panel is GrafanaEmbed => Boolean(panel));
+  return ["1", "2", "4"].map((id) => byId(id)).filter((panel): panel is GrafanaEmbed => Boolean(panel));
 }
 
 function asGrafanaEmbedUrl(
@@ -128,7 +128,7 @@ export function TeamCardsGrid({ members, skills }: TeamCardsGridProps) {
 
         return (
           <section key={member.id} className="rounded-2xl border border-border bg-card p-3 sm:p-4">
-            <div className="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(340px,380px)_repeat(4,minmax(0,1fr))]">
+            <div className="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(340px,380px)_repeat(3,minmax(0,1fr))]">
               <TeamMemberCard
                 member={member}
                 skillsById={skillsById}
@@ -149,7 +149,7 @@ export function TeamCardsGrid({ members, skills }: TeamCardsGridProps) {
                   </article>
                 ))
               ) : (
-                <article className="rounded-md border border-dashed border-border px-3 py-2 text-sm text-muted-foreground xl:col-span-4">
+                <article className="rounded-md border border-dashed border-border px-3 py-2 text-sm text-muted-foreground xl:col-span-3">
                   <p>No recent Slack metrics for {member.displayName} in the last hour.</p>
                   <p className="mt-1 text-xs">
                     These charts use `employee-factory` runtime counters (Slack events/posts), not Cursor or IDE activity.

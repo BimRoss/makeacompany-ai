@@ -41,8 +41,9 @@ function asGrafanaEmbedUrl(
 type ServiceGrafanaDashboardProps = {
   /** Key on /api/admin/health JSON (e.g. slackOrchestratorGrafanaEmbeds) */
   embedsKey: "slackOrchestratorGrafanaEmbeds" | "agentsGrafanaEmbeds";
-  title: string;
-  description: string;
+  /** Optional; omit to show only Grafana embeds (panel titles come from Grafana). */
+  title?: string;
+  description?: string;
   gridClassName?: string;
 };
 
@@ -91,22 +92,27 @@ export function ServiceGrafanaDashboard({
     [embeds, resolvedTheme]
   );
 
+  const showPageHeading = Boolean(title?.trim() || description?.trim());
+
   return (
     <section className="space-y-3">
-      <div className="space-y-1 px-0.5">
-        <h1 className="font-display text-xl font-semibold tracking-tight text-foreground">{title}</h1>
-        <p className="text-sm text-muted-foreground">{description}</p>
-      </div>
+      {showPageHeading ? (
+        <div className="space-y-1 px-0.5">
+          {title?.trim() ? (
+            <h1 className="font-display text-xl font-semibold tracking-tight text-foreground">{title}</h1>
+          ) : null}
+          {description?.trim() ? (
+            <p className="text-sm text-muted-foreground">{description}</p>
+          ) : null}
+        </div>
+      ) : null}
       <div className={gridClassName}>
         {cards.map((c) => (
           <article
             key={c.key}
             className="overflow-hidden rounded-xl border border-border bg-background/60 shadow-sm"
           >
-            <header className="border-b border-border/80 bg-muted/30 px-3 py-2">
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{c.title}</p>
-            </header>
-            <iframe title={c.title} src={c.url} loading="lazy" className="h-52 w-full border-0 bg-card md:h-56" />
+            <iframe title={c.title} src={c.url} loading="lazy" className="h-56 w-full border-0 bg-card md:h-60" />
           </article>
         ))}
       </div>

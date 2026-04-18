@@ -3,9 +3,9 @@ import type { ReactNode } from "react";
 
 export const metadata: Metadata = {
   title: "Orchestrator",
-  description: "Slack orchestrator routing decisions (operator debug)",
+  description: "Redirects to /admin (legacy URL)",
   alternates: {
-    canonical: "/orchestrator",
+    canonical: "/admin",
   },
   robots: {
     index: false,
