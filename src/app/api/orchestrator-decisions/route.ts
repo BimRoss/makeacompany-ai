@@ -7,23 +7,10 @@ type OrchestratorPayload = {
   entries: unknown[];
 };
 
-function bearer(req: Request): string | null {
-  const h = req.headers.get("authorization");
-  if (!h?.startsWith("Bearer ")) {
-    return null;
-  }
-  return h.slice("Bearer ".length).trim();
-}
-
-function allowAnonEnv(): boolean {
-  const v = process.env.ORCHESTRATOR_DEBUG_ALLOW_ANON?.trim().toLowerCase();
-  return v === "1" || v === "true" || v === "yes" || v === "on";
-}
-
 /**
  * Proxies to slack-orchestrator GET /debug/decisions.
- * When ORCHESTRATOR_DEBUG_ALLOW_ANON is set, no bearer required (matches orchestrator).
- * Otherwise requires Authorization: Bearer <ORCHESTRATOR_DEBUG_TOKEN>.
+ * Sends `Authorization: Bearer <ORCHESTRATOR_DEBUG_TOKEN>` only when that env is set (optional lockdown).
+ * Otherwise calls unauthenticated — slack-orchestrator defaults to allowing anonymous debug reads.
  */
 export async function GET(req: Request) {
   const base = process.env.ORCHESTRATOR_DEBUG_BASE_URL?.trim().replace(/\/$/, "");
@@ -31,31 +18,14 @@ export async function GET(req: Request) {
     return NextResponse.json(
       {
         error: "not_configured",
-        message: "Set ORCHESTRATOR_DEBUG_BASE_URL (e.g. http://slack-orchestrator.slack-orchestrator.svc.cluster.local:8080).",
-      },
-      { status: 503 },
-    );
-  }
-
-  const anon = allowAnonEnv();
-  const expected = process.env.ORCHESTRATOR_DEBUG_TOKEN?.trim();
-  if (!anon && !expected) {
-    return NextResponse.json(
-      {
-        error: "not_configured",
         message:
-          "Set ORCHESTRATOR_DEBUG_TOKEN, or enable ORCHESTRATOR_DEBUG_ALLOW_ANON=true on frontend and orchestrator.",
+          "Set ORCHESTRATOR_DEBUG_BASE_URL. Local example: kubectl port-forward svc/slack-orchestrator 18081:8080 -n slack-orchestrator then ORCHESTRATOR_DEBUG_BASE_URL=http://127.0.0.1:18081",
       },
       { status: 503 },
     );
   }
 
-  if (!anon) {
-    const token = bearer(req);
-    if (!token || token !== expected) {
-      return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-    }
-  }
+  const serverToken = process.env.ORCHESTRATOR_DEBUG_TOKEN?.trim();
 
   const u = new URL(req.url);
   const limit = u.searchParams.get("limit") ?? "100";
@@ -63,8 +33,8 @@ export async function GET(req: Request) {
   target.searchParams.set("limit", limit);
 
   const headers: HeadersInit = {};
-  if (!anon && expected) {
-    headers.Authorization = `Bearer ${expected}`;
+  if (serverToken) {
+    headers.Authorization = `Bearer ${serverToken}`;
   }
 
   const res = await fetch(target.toString(), {

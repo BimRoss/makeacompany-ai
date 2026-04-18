@@ -65,9 +65,14 @@ services:
     depends_on:
       k8s-backend-forward:
         condition: service_healthy
+      k8s-orchestrator-forward:
+        condition: service_healthy
     environment:
       NEXT_PUBLIC_BACKEND_API_BASE_URL: http://localhost:${PROD_BACKEND_PORT:-18080}
       BACKEND_INTERNAL_API_BASE_URL: http://k8s-backend-forward:8080
+      # Prod cluster slack-orchestrator (same pattern as k8s-backend-forward); override in .env if needed.
+      ORCHESTRATOR_DEBUG_BASE_URL: ${ORCHESTRATOR_DEBUG_BASE_URL:-http://k8s-orchestrator-forward:8080}
+      ORCHESTRATOR_DEBUG_TOKEN: ${ORCHESTRATOR_DEBUG_TOKEN:-}
       NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}
       NEXT_PUBLIC_LINKEDIN_PARTNER_ID: ${NEXT_PUBLIC_LINKEDIN_PARTNER_ID:-}
       NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY_TEST: ${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY_TEST:-${STRIPE_PUBLISHABLE_KEY_TEST:-}}
@@ -114,6 +119,45 @@ services:
           "get",
           "svc",
           "makeacompany-ai-backend",
+          "-o",
+          "name",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 15s
+    restart: unless-stopped
+
+  # kubectl port-forward to prod slack-orchestrator (admin / orchestrator log table).
+  k8s-orchestrator-forward:
+    profiles: ["prod"]
+    image: registry.k8s.io/kubectl:v1.32.2
+    command:
+      - --kubeconfig=/kube/config
+      - --context
+      - ${KUBECONFIG_CONTEXT:-admin}
+      - -n
+      - slack-orchestrator
+      - port-forward
+      - svc/slack-orchestrator
+      - 8080:8080
+      - --address
+      - 0.0.0.0
+    volumes:
+      - ${KUBECONFIG_HOST_PATH:?Set KUBECONFIG_HOST_PATH to your local kubeconfig file}:/kube/config:ro
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "kubectl",
+          "--kubeconfig=/kube/config",
+          "--context",
+          "${KUBECONFIG_CONTEXT:-admin}",
+          "-n",
+          "slack-orchestrator",
+          "get",
+          "svc",
+          "slack-orchestrator",
           "-o",
           "name",
         ]

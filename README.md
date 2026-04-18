@@ -80,8 +80,9 @@ docker compose --profile prod up --build
 
 - Site: http://localhost:3000
 - Prod backend forward: http://localhost:18080
+- **Slack orchestrator** for `/admin` orchestrator log: compose runs `k8s-orchestrator-forward` (kubectl port-forward to `svc/slack-orchestrator` in namespace `slack-orchestrator`). The Next container uses `ORCHESTRATOR_DEBUG_BASE_URL=http://k8s-orchestrator-forward:8080` by default. Optional `ORCHESTRATOR_DEBUG_TOKEN` only if you lock down `GET /debug/decisions` with a bearer on the orchestrator.
 - Required env for this profile: `KUBECONFIG_HOST_PATH` (for example `/Users/grant/.kube/config/admin.yaml`)
-- `frontend-prod` waits for the backend port-forward service to report healthy before startup.
+- `frontend-prod` waits for the backend and orchestrator port-forward services to report healthy before startup.
 
 Quick checks if `/employees` data looks wrong:
 
@@ -111,6 +112,8 @@ npm run dev   # repo root
 | `KUBECONFIG_HOST_PATH` | Local kubeconfig path mounted into compose `k8s-*` port-forward services (used by `--profile prod`) |
 | `KUBECONFIG_CONTEXT` | Kubernetes context for compose `k8s-*` forwards (defaults to `admin`) |
 | `PROD_BACKEND_PORT` | Host port for forwarded `makeacompany-ai-backend` service (defaults to `18080`) |
+| `ORCHESTRATOR_DEBUG_BASE_URL` | Base URL for slack-orchestrator `GET /debug/decisions` (Next.js API proxies here). **`docker compose --profile prod`** defaults to `http://k8s-orchestrator-forward:8080` (in-compose kubectl forward to prod). For plain `npm run dev` on the host, use e.g. `http://127.0.0.1:18081` after manual `kubectl port-forward`. |
+| `ORCHESTRATOR_DEBUG_TOKEN` | Optional server-only bearer sent to slack-orchestrator when set (lock down `GET /debug/decisions`). |
 | `NEXT_PUBLIC_GA_MEASUREMENT_ID` | GA4 stream id injected into frontend at build time |
 | `NEXT_PUBLIC_LINKEDIN_PARTNER_ID` | LinkedIn Insight Tag partner id; frontend injects LinkedIn tracking only in production when set |
 | `STRIPE_SECRET_KEY` | Optional single key (`sk_test_…` or `sk_live_…`) — wins if set |
