@@ -12,12 +12,13 @@ func (s *Server) handleAdminCapabilityRoutingEvents(w http.ResponseWriter, r *ht
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	if !s.adminAuthEnabled() {
-		http.Error(w, "admin auth disabled", http.StatusServiceUnavailable)
-		return
-	}
-	if _, err := s.validateAdminSession(r.Context(), tokenFromAuthHeader(r)); err != nil {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
+	ok, svcUnavail := s.adminReadAuthorized(r)
+	if !ok {
+		if svcUnavail {
+			http.Error(w, "admin auth disabled", http.StatusServiceUnavailable)
+		} else {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+		}
 		return
 	}
 	chID := strings.TrimSpace(r.URL.Query().Get("channelId"))

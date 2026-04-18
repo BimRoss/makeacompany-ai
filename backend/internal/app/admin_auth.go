@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"crypto/rand"
+	"crypto/subtle"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -142,6 +143,71 @@ func (s *Server) handleAdminAuthFinish(w http.ResponseWriter, r *http.Request) {
 		SessionToken: sessionToken,
 		ExpiresAt:    expiresAt.Format(time.RFC3339),
 	})
+}
+
+func constantTimeEqual(a, b string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	return subtle.ConstantTimeCompare([]byte(a), []byte(b)) == 1
+}
+
+// adminReadAuthorized allows read when the Bearer matches BACKEND_INTERNAL_SERVICE_TOKEN, or when
+// Stripe admin is enabled and the Bearer is a valid admin session.
+func (s *Server) adminReadAuthorized(r *http.Request) (ok bool, serviceUnavailable bool) {
+	got := strings.TrimSpace(tokenFromAuthHeader(r))
+	want := strings.TrimSpace(s.cfg.BackendInternalServiceToken)
+	if want != "" && got != "" && constantTimeEqual(got, want) {
+		return true, false
+	}
+	if !s.adminAuthEnabled() {
+		return false, true
+	}
+	if _, err := s.validateAdminSession(r.Context(), got); err != nil {
+		return false, false
+	}
+	return true, false
+}
+
+// companyRegistryReadAuthorized allows:
+//   - Bearer matching BACKEND_INTERNAL_SERVICE_TOKEN, or
+//   - Stripe admin enabled (ADMIN_ALLOWED_EMAIL; sessionless for this route), or
+//   - no service token configured and no Stripe admin (local / trusted network — avoids 503).
+func (s *Server) companyRegistryReadAuthorized(r *http.Request) (ok bool, serviceUnavailable bool) {
+	got := strings.TrimSpace(tokenFromAuthHeader(r))
+	want := strings.TrimSpace(s.cfg.BackendInternalServiceToken)
+	if want != "" && got != "" && constantTimeEqual(got, want) {
+		return true, false
+	}
+	if s.adminAuthEnabled() {
+		return true, false
+	}
+	if want != "" {
+		return false, false
+	}
+	return true, false
+}
+
+// companyChannelPatchAuthorized allows PATCH when:
+//   - Bearer matches BACKEND_INTERNAL_SERVICE_TOKEN, or
+//   - Stripe admin is enabled and Bearer is a valid admin session, or
+//   - no internal token is configured and Stripe admin is not enabled (local dev; same trust as registry reads).
+func (s *Server) companyChannelPatchAuthorized(r *http.Request) (ok bool, serviceUnavailable bool) {
+	got := strings.TrimSpace(tokenFromAuthHeader(r))
+	want := strings.TrimSpace(s.cfg.BackendInternalServiceToken)
+	if want != "" && got != "" && constantTimeEqual(got, want) {
+		return true, false
+	}
+	if s.adminAuthEnabled() {
+		if _, err := s.validateAdminSession(r.Context(), got); err != nil {
+			return false, false
+		}
+		return true, false
+	}
+	if want != "" {
+		return false, false
+	}
+	return true, false
 }
 
 func tokenFromAuthHeader(r *http.Request) string {

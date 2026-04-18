@@ -6,6 +6,8 @@ Marketing landing page and **$1 Stripe waitlist** for [makeacompany.ai](https://
 
 ## Repo layout
 
+- `docs/redis-operations.md` — Redis keys, prod gut vs sacred waitlist data
+- `docs/prod-company-channels-env-checklist.md` — env checklist for Slack-first company registry + optional [`scripts/company-channels-discover-from-orchestrator.mjs`](scripts/company-channels-discover-from-orchestrator.mjs)
 - `backend/` — Go HTTP server: health, `POST /v1/billing/checkout`, `POST /v1/billing/webhook`
 - `src/` — Next.js (App Router) single-page site, `next-themes` light/dark
 - `src/app/employees/` — operator control surface (`/employees`) with Team cards
@@ -31,15 +33,15 @@ Generated fallback files:
 
 - `src/data/admin/team-snapshot.json`
 
-Admin catalog editor (**production source of truth**):
+Admin surface (orchestrator + NATS are the live contract for Slack bots; catalog Redis is for `/employees` / admin APIs and may stay read-only):
 
 - Route: `/admin`
 - Proxy endpoint: `GET/PUT /api/admin/catalog` -> backend `GET/PUT /v1/admin/catalog`
 - `PUT` may include `X-Admin-Token` for machine clients when `ADMIN_CATALOG_TOKEN` is set; the admin UI relies on the session cookie only.
 - Sign-in route: `/admin/login` starts Stripe-backed verification before issuing an HttpOnly admin session cookie.
 - Includes an 8-panel service overview Grafana grid (4 columns x 2 rows) for high-level runtime monitoring.
-- Bottom of the page: read-only **Slack channels (Redis)** strip — loads the shared company-channel registry (`employee-factory:company_channels` by default) via `GET /api/admin/company-channels` and shows per-channel metadata as pills.
-- Capability catalog in Redis is authoritative for Slack tooling assignments. `employee-factory` reads `GET /v1/runtime/capability-catalog` and only executes a tool when that catalog assigns the runtime tool to the employee and runtime secrets/env are ready.
+- Bottom of the page: read-only **Slack channels (Redis)** strip — loads the shared company-channel registry (`employee-factory:company_channels` by default) via `GET /api/admin/company-channels` and shows per-channel metadata as pills. **Slack + discover** repopulates that HASH; see [docs/redis-operations.md](docs/redis-operations.md) for prod reset vs sacred waitlist keys.
+- **Source of truth:** **slack-orchestrator** ships capability JSON on dispatch → NATS → **employee-factory** (runtime gates and skill routing). The Redis key `makeacompany:catalog:capabilities:v1` backs **only** `/employees`, `/skills`, and admin catalog APIs — it can drift from orchestrator; safe to drop for a reset (defaults merge on read). Prefer treating orchestrator as the live contract while `/admin` catalog editing stays read-only.
 - **Read vs write in Slack:** `read-*` skills (for example read Slack, read Twitter) execute immediately; `write-*` skills keep confirm-before-run behavior (Joanne email/docs/Slack writes, and similar).
 - Backend derives `runtimeTool` from `<employee>-<skill-id>` and migrates legacy values on catalog reads/writes.
 - Optional `revision` / `source` fields are for operator traceability (not tied to CI).
@@ -71,7 +73,11 @@ docker compose --profile local up --build
 ```
 
 - Site: http://localhost:3000  
-- API: http://localhost:8080  
+- API: http://localhost:8090 (host port **8090** so **8080** stays free for [slack-orchestrator](https://github.com/BimRoss/slack-orchestrator) in another terminal; bundled Redis publishes on host **6380** so **6379** stays free for [employee-factory](https://github.com/BimRoss/employee-factory) NATS/Redis).  
+- **`/admin` orchestrator log:** with slack-orchestrator running locally and published on `${SLACK_ORCHESTRATOR_PORT:-8080}`, compose sets `ORCHESTRATOR_DEBUG_BASE_URL` to `http://host.docker.internal` on that port. If you change `ORCHESTRATOR_PORT` in the orchestrator compose file, set the same value as `SLACK_ORCHESTRATOR_PORT` in `.env` here.  
+- **Shared employee-factory Redis (`COMPANY_CHANNELS_REDIS_URL`):** the compose backend’s primary `REDIS_URL` targets the **bundled** Redis (host **6380**), which does not contain `employee-factory:*` keys. employee-factory writes `employee-factory:company_channels` and `employee-factory:channel_knowledge:{id}:markdown` on **host :6379**. Set `COMPANY_CHANNELS_REDIS_URL=redis://host.docker.internal:6379/0` in `.env` so `/admin` channel pills and per-channel **Transcript** (digest) match the bots.  
+- **Compose-only overrides:** `COMPOSE_PUBLIC_API_URL` (default `http://localhost:8090`) is what the **browser** uses for the API from the Next container; `COMPOSE_REDIS_URL` is what the **backend container** uses, so a host-oriented `REDIS_URL` in `.env` for `go run` does not break Docker.
+- **Grafana embeds on `/admin`:** with `Host: localhost`, the app does **not** default to production Grafana anymore. To show charts against a cluster or local forward, set `HEALTH_GRAFANA_AGENTS_DASHBOARD_URL` (and related `HEALTH_GRAFANA_*` vars) to your Grafana base URL.
 
 ```bash
 # Frontend dev server + admin-cluster backend via compose-managed kubectl port-forward
@@ -109,11 +115,13 @@ npm run dev   # repo root
 | `ADMIN_SESSION_TTL_SEC` | Admin session lifetime in seconds (default `259200`) |
 | `APP_BASE_URL` | Public site URL (Stripe success/cancel) |
 | `BACKEND_INTERNAL_API_BASE_URL` | Server-side internal backend base for Next route handlers (defaults to localhost locally and service DNS in Kubernetes) |
+| `BACKEND_INTERNAL_SERVICE_TOKEN` | Same secret on Next + Go: Bearer for admin read APIs and `POST /v1/admin/company-channels/discover` (set in prod; see [docs/prod-company-channels-env-checklist.md](docs/prod-company-channels-env-checklist.md)) |
+| `COMPANY_CHANNELS_REDIS_URL` | Optional: Redis URL for `employee-factory:*` keys (defaults to `REDIS_URL`). See [docs/redis-operations.md](docs/redis-operations.md#key-prefix-matrix-quick-reference). |
 | `KUBECONFIG_HOST_PATH` | Local kubeconfig path mounted into compose `k8s-*` port-forward services (used by `--profile prod`) |
 | `KUBECONFIG_CONTEXT` | Kubernetes context for compose `k8s-*` forwards (defaults to `admin`) |
 | `PROD_BACKEND_PORT` | Host port for forwarded `makeacompany-ai-backend` service (defaults to `18080`) |
 | `ORCHESTRATOR_DEBUG_BASE_URL` | Base URL for slack-orchestrator `GET /debug/decisions` (Next.js API proxies here). **`docker compose --profile prod`** defaults to `http://k8s-orchestrator-forward:8080` (in-compose kubectl forward to prod). For plain `npm run dev` on the host, use e.g. `http://127.0.0.1:18081` after manual `kubectl port-forward`. |
-| `ORCHESTRATOR_DEBUG_TOKEN` | Optional server-only bearer sent to slack-orchestrator when set (lock down `GET /debug/decisions`). |
+| `ORCHESTRATOR_DEBUG_TOKEN` | Optional server-only bearer sent to slack-orchestrator when set (lock down `GET /debug/*`). Must match orchestrator `ORCHESTRATOR_DEBUG_TOKEN` when `ORCHESTRATOR_DEBUG_ALLOW_ANON=false`. |
 | `NEXT_PUBLIC_GA_MEASUREMENT_ID` | GA4 stream id injected into frontend at build time |
 | `NEXT_PUBLIC_LINKEDIN_PARTNER_ID` | LinkedIn Insight Tag partner id; frontend injects LinkedIn tracking only in production when set |
 | `STRIPE_SECRET_KEY` | Optional single key (`sk_test_…` or `sk_live_…`) — wins if set |

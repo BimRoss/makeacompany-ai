@@ -93,13 +93,9 @@ export function TeamCardsGrid({ members, skills }: TeamCardsGridProps) {
     };
 
     void load();
-    const intervalID = setInterval(() => {
-      void load();
-    }, 15_000);
 
     return () => {
       cancelled = true;
-      clearInterval(intervalID);
     };
   }, []);
 

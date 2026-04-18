@@ -1,12 +1,17 @@
 # Local full stack: docker compose --profile local up --build
 #
+# Default host ports avoid clashing with sibling stacks run in other terminals:
+# - employee-factory publishes Redis on 6379 and workers on 18081–18085
+# - slack-orchestrator (separate compose) publishes HTTP on 8080 by default
+# So: makeacompany Redis → 6380, API → 8090. Orchestrator debug uses host.docker.internal + SLACK_ORCHESTRATOR_PORT.
+#
 services:
   redis:
     profiles: ["local"]
     image: redis:7-alpine
     command: ["redis-server", "--save", "", "--appendonly", "no"]
     ports:
-      - "${REDIS_PORT:-6379}:6379"
+      - "${REDIS_PORT:-6380}:6379"
     volumes:
       - redis_data:/data
 
@@ -19,12 +24,17 @@ services:
       - ./.env
     environment:
       PORT: "8080"
-      REDIS_URL: redis://redis:6379/0
+      # Use COMPOSE_REDIS_URL so a host-only REDIS_URL in .env (e.g. for go run) does not break the container.
+      # Example shared DB: COMPOSE_REDIS_URL=redis://host.docker.internal:6379/1
+      REDIS_URL: ${COMPOSE_REDIS_URL:-redis://redis:6379/0}
+      # employee-factory:* keys (registry, channel-knowledge digest for /admin Transcript) — set in .env; see .env.example
       APP_BASE_URL: ${APP_BASE_URL:-http://localhost:3000}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       - redis
     ports:
-      - "${BACKEND_PORT:-8080}:8080"
+      - "${BACKEND_PORT:-8090}:8080"
 
   frontend-local:
     profiles: ["local"]
@@ -37,12 +47,20 @@ services:
     depends_on:
       - backend
     environment:
-      NEXT_PUBLIC_BACKEND_API_BASE_URL: ${NEXT_PUBLIC_BACKEND_API_BASE_URL:-http://localhost:8080}
+      # Browser → published API port on host (COMPOSE_PUBLIC_API_URL avoids .env still saying :8080)
+      NEXT_PUBLIC_BACKEND_API_BASE_URL: ${COMPOSE_PUBLIC_API_URL:-http://localhost:8090}
+      # Server-side API routes → backend service on the compose network (not localhost)
+      BACKEND_INTERNAL_API_BASE_URL: http://backend:8080
+      # slack-orchestrator in another terminal: published on host as SLACK_ORCHESTRATOR_PORT (default 8080)
+      ORCHESTRATOR_DEBUG_BASE_URL: ${ORCHESTRATOR_DEBUG_BASE_URL:-http://host.docker.internal:${SLACK_ORCHESTRATOR_PORT:-8080}}
+      ORCHESTRATOR_DEBUG_TOKEN: ${ORCHESTRATOR_DEBUG_TOKEN:-}
       NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}
       NEXT_PUBLIC_LINKEDIN_PARTNER_ID: ${NEXT_PUBLIC_LINKEDIN_PARTNER_ID:-}
       NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY_TEST: ${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY_TEST:-${STRIPE_PUBLISHABLE_KEY_TEST:-}}
       NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY_LIVE: ${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY_LIVE:-${STRIPE_PUBLISHABLE_KEY_LIVE:-}}
       NEXT_TELEMETRY_DISABLED: "1"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       - "${FRONTEND_PORT:-3000}:3000"
     volumes:

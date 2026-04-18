@@ -16,6 +16,7 @@ set -euo pipefail
 #   STRIPE_PRICE_ID_WAITLIST_TEST
 #   STRIPE_PRICE_ID_WAITLIST_LIVE
 #   ADMIN_ALLOWED_EMAIL (enables /v1/admin/auth/* routes when set)
+#   BACKEND_INTERNAL_SERVICE_TOKEN (optional; same value on Next server + Go backend for /v1/admin read APIs)
 #   COOKIE_HEALTH_TOKEN (optional in .env, but preserved from existing runtime secret when present)
 #
 # Optional publishable keys (public; synced into runtime Secret as NEXT_PUBLIC_*):
@@ -162,6 +163,15 @@ if [[ -z "${ADMIN_ALLOWED_EMAIL_EFFECTIVE}" ]]; then
 fi
 if [[ -n "${ADMIN_ALLOWED_EMAIL_EFFECTIVE}" ]]; then
   secret_args+=(--from-literal=ADMIN_ALLOWED_EMAIL="${ADMIN_ALLOWED_EMAIL_EFFECTIVE}")
+fi
+
+# Preserve existing internal read token if local .env does not provide one.
+BACKEND_INTERNAL_SERVICE_TOKEN_EFFECTIVE="${BACKEND_INTERNAL_SERVICE_TOKEN:-}"
+if [[ -z "${BACKEND_INTERNAL_SERVICE_TOKEN_EFFECTIVE}" ]]; then
+  BACKEND_INTERNAL_SERVICE_TOKEN_EFFECTIVE="$(read_existing_secret_key BACKEND_INTERNAL_SERVICE_TOKEN)"
+fi
+if [[ -n "${BACKEND_INTERNAL_SERVICE_TOKEN_EFFECTIVE}" ]]; then
+  secret_args+=(--from-literal=BACKEND_INTERNAL_SERVICE_TOKEN="${BACKEND_INTERNAL_SERVICE_TOKEN_EFFECTIVE}")
 fi
 
 kubectl_app create secret generic "${SECRET_NAME}" \

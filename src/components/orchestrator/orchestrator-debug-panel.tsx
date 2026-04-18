@@ -77,8 +77,6 @@ export function OrchestratorDebugPanel() {
 
   useEffect(() => {
     void fetchDecisions();
-    const id = setInterval(() => void fetchDecisions(), 2500);
-    return () => clearInterval(id);
   }, [fetchDecisions]);
 
   const newestFirst = [...entries].reverse();

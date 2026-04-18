@@ -11,8 +11,6 @@ type AdminChannelControlPaneProps = {
   status: PaneStatus;
   errorMessage?: string;
   redisKey?: string;
-  /** When true, registry toggles are hidden (read-only view). */
-  readOnly?: boolean;
   onChannelUpdated: (ch: CompanyChannel) => void;
 };
 
@@ -73,7 +71,6 @@ export function AdminChannelControlPane({
   status,
   errorMessage,
   redisKey,
-  readOnly = false,
   onChannelUpdated,
 }: AdminChannelControlPaneProps) {
   const [patchError, setPatchError] = useState<string | null>(null);
@@ -81,7 +78,7 @@ export function AdminChannelControlPane({
 
   const patchChannel = useCallback(
     async (body: Record<string, boolean | number>) => {
-      if (readOnly || !channel) return;
+      if (!channel) return;
       setPatchError(null);
       setBusy(true);
       try {
@@ -102,7 +99,7 @@ export function AdminChannelControlPane({
         setBusy(false);
       }
     },
-    [channel, channelId, onChannelUpdated, readOnly],
+    [channel, channelId, onChannelUpdated],
   );
 
   if (status === "loading") {
@@ -138,7 +135,6 @@ export function AdminChannelControlPane({
     owners.length > 0 ? owners.join(", ") : "— (none; add operator Slack user ids—registry channels do not use a global CEO fallback)";
 
   const reactionsOn = channel.general_auto_reaction_enabled ?? false;
-  const oooOn = channel.out_of_office_enabled ?? false;
 
   return (
     <section className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-stretch" aria-label="Channel registry and controls">
@@ -153,41 +149,42 @@ export function AdminChannelControlPane({
       </div>
 
       <div className="flex flex-col justify-center rounded-lg border border-border bg-background p-4 shadow-sm">
-        {readOnly ? (
-          <div className="divide-y divide-border">
-            <div className="flex flex-wrap items-center justify-between gap-3 pb-3">
-              <span className="text-sm font-medium text-foreground">Reactions</span>
-              <span className="text-sm text-muted-foreground">{reactionsOn ? "On" : "Off"}</span>
-            </div>
-            <div className="flex flex-wrap items-center justify-between gap-3 pt-3">
-              <span className="text-sm font-medium text-foreground">Out Of Office</span>
-              <span className="text-sm text-muted-foreground">{oooOn ? "On" : "Off"}</span>
-            </div>
+        <div className="divide-y divide-border">
+          <div className="flex flex-wrap items-center justify-between gap-3 pb-3">
+            <span className="text-sm font-medium text-foreground">Reactions</span>
+            <ControlToggle
+              enabled={reactionsOn}
+              disabled={false}
+              busy={busy}
+              onToggle={() => void patchChannel({ general_auto_reaction_enabled: !reactionsOn })}
+              ariaLabel={reactionsOn ? "Turn off reactions" : "Turn on reactions"}
+            />
           </div>
-        ) : (
-          <div className="divide-y divide-border">
-            <div className="flex flex-wrap items-center justify-between gap-3 pb-3">
-              <span className="text-sm font-medium text-foreground">Reactions</span>
-              <ControlToggle
-                enabled={reactionsOn}
-                disabled={false}
-                busy={busy}
-                onToggle={() => void patchChannel({ general_auto_reaction_enabled: !reactionsOn })}
-                ariaLabel={reactionsOn ? "Turn off reactions" : "Turn on reactions"}
-              />
-            </div>
-            <div className="flex flex-wrap items-center justify-between gap-3 pt-3">
-              <span className="text-sm font-medium text-foreground">Out Of Office</span>
-              <ControlToggle
-                enabled={oooOn}
-                disabled={false}
-                busy={busy}
-                onToggle={() => void patchChannel({ out_of_office_enabled: !oooOn })}
-                ariaLabel={oooOn ? "Turn off out of office" : "Turn on out of office"}
-              />
-            </div>
+          <div className="flex flex-wrap items-center justify-between gap-3 py-3">
+            <p className="min-w-0 text-sm">
+              <span className="font-medium text-foreground">Emotional</span>
+              <span className="text-muted-foreground"> (coming soon)</span>
+            </p>
+            <ControlToggle
+              enabled={false}
+              disabled
+              onToggle={() => {}}
+              ariaLabel="Emotional (coming soon, not configurable yet)"
+            />
           </div>
-        )}
+          <div className="flex flex-wrap items-center justify-between gap-3 pt-3">
+            <p className="min-w-0 text-sm">
+              <span className="font-medium text-foreground">Banter</span>
+              <span className="text-muted-foreground"> (coming soon)</span>
+            </p>
+            <ControlToggle
+              enabled={false}
+              disabled
+              onToggle={() => {}}
+              ariaLabel="Banter (coming soon, not configurable yet)"
+            />
+          </div>
+        </div>
         {patchError ? <p className="mt-2 text-sm text-destructive">{patchError}</p> : null}
       </div>
     </section>

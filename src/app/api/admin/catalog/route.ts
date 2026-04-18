@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { resolveBackendBaseURL, resolveBackendBearerToken } from "@/lib/backend-proxy-auth";
+import { backendProxyAuthHeaders, parseBackendProxyBody, resolveBackendBaseURL } from "@/lib/backend-proxy-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +13,7 @@ export async function GET() {
         headers: { Authorization: `Bearer ${runtimeReadToken}` },
         cache: "no-store",
       });
-      const payload = await response.json().catch(() => ({ error: "invalid backend response" }));
+      const payload = await parseBackendProxyBody(response);
       if (response.ok) {
         return NextResponse.json(payload, { status: 200 });
       }
@@ -22,19 +22,13 @@ export async function GET() {
     }
   }
 
-  const token = await resolveBackendBearerToken();
-  if (!token) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
   const backendURL = `${base}/v1/admin/catalog`;
   try {
     const response = await fetch(backendURL, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
+      headers: await backendProxyAuthHeaders(),
       cache: "no-store",
     });
-    const payload = await response.json().catch(() => ({ error: "invalid backend response" }));
+    const payload = await parseBackendProxyBody(response);
     return NextResponse.json(payload, { status: response.status });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";

@@ -22,3 +22,27 @@ export async function resolveBackendBearerToken(): Promise<string | null> {
   const cookieStore = await cookies();
   return cookieStore.get(adminSessionCookieName)?.value ?? null;
 }
+
+/** Authorization header for Next.js → backend admin proxies (internal token and/or mac_admin_session). */
+export async function backendProxyAuthHeaders(): Promise<HeadersInit> {
+  const token = await resolveBackendBearerToken();
+  if (!token) return {};
+  return { Authorization: `Bearer ${token}` };
+}
+
+/**
+ * Parse a backend response as JSON; many Go handlers use http.Error (plain text) on failure.
+ */
+export async function parseBackendProxyBody(response: Response): Promise<unknown> {
+  const text = await response.text();
+  const trimmed = text.trim();
+  if (!trimmed) {
+    return { error: `empty response (HTTP ${response.status})` };
+  }
+  try {
+    return JSON.parse(trimmed) as unknown;
+  } catch {
+    const line = trimmed.split(/\r?\n/)[0]?.trim() ?? trimmed;
+    return { error: line.slice(0, 4000) };
+  }
+}

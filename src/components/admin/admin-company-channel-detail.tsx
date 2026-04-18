@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { AdminCapabilityRoutingPanel } from "@/components/admin/admin-capability-routing-panel";
 import { AdminChannelControlPane } from "@/components/admin/admin-channel-control-pane";
 import { AdminChannelKnowledgeDigest } from "@/components/admin/admin-channel-knowledge-digest";
 import { channelDisplayTitle, type CompanyChannel } from "@/lib/admin/company-channels";
@@ -88,23 +87,14 @@ export function AdminCompanyChannelDetail({ channelId }: Props) {
 
   return (
     <div className="space-y-8">
-      <div className="flex flex-wrap items-baseline justify-between gap-3">
-        <div>
-          <Link
-            href="/admin"
-            className="text-sm font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-          >
-            ← Admin
-          </Link>
-          <h1 className="mt-2 text-2xl font-semibold tracking-tight">{title}</h1>
-        </div>
-        <button
-          type="button"
-          onClick={() => void load()}
-          className="rounded-md border border-border px-3 py-1.5 text-sm font-medium hover:bg-muted"
+      <div>
+        <Link
+          href="/admin"
+          className="text-sm font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
         >
-          Refresh
-        </button>
+          ← Admin
+        </Link>
+        <h1 className="mt-2 text-2xl font-semibold tracking-tight">{title}</h1>
       </div>
 
       {state === "loading" || state === "idle" ? (
@@ -118,7 +108,6 @@ export function AdminCompanyChannelDetail({ channelId }: Props) {
         status={channelStatus}
         errorMessage={channelError}
         redisKey={redisKey}
-        readOnly
         onChannelUpdated={setChannel}
       />
 
@@ -133,8 +122,6 @@ export function AdminCompanyChannelDetail({ channelId }: Props) {
         </div>
       ) : null}
       {!knowledgeEmpty && markdown.trim() ? <AdminChannelKnowledgeDigest markdown={markdown} /> : null}
-
-      <AdminCapabilityRoutingPanel channelId={channelId} />
     </div>
   );
 }

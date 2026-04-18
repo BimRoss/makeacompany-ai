@@ -74,6 +74,7 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 	s.mux.HandleFunc("/v1/admin/waitlist", s.handleAdminWaitlist)
 	s.mux.HandleFunc("/v1/admin/catalog", s.handleAdminCatalog)
 	s.mux.HandleFunc("/v1/admin/company-channels", s.handleAdminCompanyChannels)
+	s.mux.HandleFunc("POST /v1/admin/company-channels/discover", s.handleAdminCompanyChannelsDiscover)
 	s.mux.HandleFunc("GET /v1/admin/company-channels/{channelId}", s.handleAdminCompanyChannelGet)
 	s.mux.HandleFunc("PATCH /v1/admin/company-channels/{channelId}", s.handleAdminCompanyChannelPatch)
 	s.mux.HandleFunc("GET /v1/admin/channel-knowledge/{channelId}", s.handleAdminChannelKnowledge)
@@ -134,6 +135,8 @@ func normalizeMetricRoute(path string) string {
 		return "/v1/admin/catalog"
 	case path == "/v1/admin/company-channels":
 		return "/v1/admin/company-channels"
+	case path == "/v1/admin/company-channels/discover":
+		return "/v1/admin/company-channels/discover"
 	case strings.HasPrefix(path, "/v1/admin/company-channels/"):
 		return "/v1/admin/company-channels/{channelId}"
 	case strings.HasPrefix(path, "/v1/admin/channel-knowledge/"):
@@ -377,18 +380,19 @@ func (s *Server) handleWaitlistStats(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// handleAdminWaitlist lists waitlist rows from Redis (PII). Requires the same admin session as other /v1/admin routes.
+// handleAdminWaitlist lists waitlist rows from Redis (PII). Allowed with BACKEND_INTERNAL_SERVICE_TOKEN or Stripe admin session.
 func (s *Server) handleAdminWaitlist(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	if !s.adminAuthEnabled() {
-		http.Error(w, "admin auth disabled", http.StatusServiceUnavailable)
-		return
-	}
-	if _, err := s.validateAdminSession(r.Context(), tokenFromAuthHeader(r)); err != nil {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
+	ok, svcUnavail := s.adminReadAuthorized(r)
+	if !ok {
+		if svcUnavail {
+			http.Error(w, "admin auth disabled", http.StatusServiceUnavailable)
+		} else {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+		}
 		return
 	}
 	users, err := s.store.ListWaitlistUsers(r.Context())
@@ -403,13 +407,25 @@ func (s *Server) handleAdminWaitlist(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleAdminCatalog(w http.ResponseWriter, r *http.Request) {
 	serviceWriteAuthorized := r.Method == http.MethodPut && s.catalogServiceWriteAuthorized(r)
 	if !serviceWriteAuthorized {
-		if !s.adminAuthEnabled() {
-			http.Error(w, "admin auth disabled", http.StatusServiceUnavailable)
-			return
-		}
-		if _, err := s.validateAdminSession(r.Context(), tokenFromAuthHeader(r)); err != nil {
-			http.Error(w, "unauthorized", http.StatusUnauthorized)
-			return
+		if r.Method == http.MethodGet {
+			ok, svcUnavail := s.adminReadAuthorized(r)
+			if !ok {
+				if svcUnavail {
+					http.Error(w, "admin auth disabled", http.StatusServiceUnavailable)
+				} else {
+					http.Error(w, "unauthorized", http.StatusUnauthorized)
+				}
+				return
+			}
+		} else {
+			if !s.adminAuthEnabled() {
+				http.Error(w, "admin auth disabled", http.StatusServiceUnavailable)
+				return
+			}
+			if _, err := s.validateAdminSession(r.Context(), tokenFromAuthHeader(r)); err != nil {
+				http.Error(w, "unauthorized", http.StatusUnauthorized)
+				return
+			}
 		}
 	}
 	switch r.Method {
@@ -455,12 +471,13 @@ func (s *Server) handleAdminCompanyChannels(w http.ResponseWriter, r *http.Reque
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	if !s.adminAuthEnabled() {
-		http.Error(w, "admin auth disabled", http.StatusServiceUnavailable)
-		return
-	}
-	if _, err := s.validateAdminSession(r.Context(), tokenFromAuthHeader(r)); err != nil {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
+	ok, svcUnavail := s.companyRegistryReadAuthorized(r)
+	if !ok {
+		if svcUnavail {
+			http.Error(w, "admin auth disabled", http.StatusServiceUnavailable)
+		} else {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+		}
 		return
 	}
 	channels, truncated, err := s.store.ListCompanyChannels(r.Context(), s.cfg.CompanyChannelsRedisKey)
@@ -476,17 +493,74 @@ func (s *Server) handleAdminCompanyChannels(w http.ResponseWriter, r *http.Reque
 	})
 }
 
+func (s *Server) handleAdminCompanyChannelsDiscover(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	ok, svcUnavail := s.companyRegistryReadAuthorized(r)
+	if !ok {
+		if svcUnavail {
+			http.Error(w, "admin auth disabled", http.StatusServiceUnavailable)
+		} else {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+		}
+		return
+	}
+	var body struct {
+		Channels []struct {
+			ChannelID string   `json:"channel_id"`
+			Name      string   `json:"name"`
+			OwnerIDs  []string `json:"owner_ids"`
+		} `json:"channels"`
+	}
+	if err := json.NewDecoder(io.LimitReader(r.Body, 1<<20)).Decode(&body); err != nil {
+		http.Error(w, "invalid json", http.StatusBadRequest)
+		return
+	}
+	var in []DiscoveredChannelInput
+	for _, c := range body.Channels {
+		cid := strings.TrimSpace(c.ChannelID)
+		if cid == "" || !validAdminSlackChannelID(cid) {
+			continue
+		}
+		in = append(in, DiscoveredChannelInput{ChannelID: cid, Name: c.Name, OwnerIDs: c.OwnerIDs})
+	}
+	if len(in) == 0 {
+		writeJSON(w, http.StatusOK, map[string]any{
+			"upserted":       []string{},
+			"upserted_count": 0,
+			"requested":      0,
+			"redisKey":       strings.TrimSpace(s.cfg.CompanyChannelsRedisKey),
+		})
+		return
+	}
+	touched, err := s.store.UpsertDiscoveredCompanyChannels(r.Context(), s.cfg.CompanyChannelsRedisKey, in)
+	if err != nil {
+		s.log.Printf("admin company channels discover: %v", err)
+		http.Error(w, "company channels discover error", http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"upserted":       touched,
+		"upserted_count": len(touched),
+		"requested":      len(in),
+		"redisKey":       strings.TrimSpace(s.cfg.CompanyChannelsRedisKey),
+	})
+}
+
 func (s *Server) handleAdminCompanyChannelGet(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	if !s.adminAuthEnabled() {
-		http.Error(w, "admin auth disabled", http.StatusServiceUnavailable)
-		return
-	}
-	if _, err := s.validateAdminSession(r.Context(), tokenFromAuthHeader(r)); err != nil {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
+	ok, svcUnavail := s.companyRegistryReadAuthorized(r)
+	if !ok {
+		if svcUnavail {
+			http.Error(w, "admin auth disabled", http.StatusServiceUnavailable)
+		} else {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+		}
 		return
 	}
 	chID := strings.TrimSpace(r.PathValue("channelId"))
@@ -515,11 +589,8 @@ func (s *Server) handleAdminCompanyChannelPatch(w http.ResponseWriter, r *http.R
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	if !s.adminAuthEnabled() {
-		http.Error(w, "admin auth disabled", http.StatusServiceUnavailable)
-		return
-	}
-	if _, err := s.validateAdminSession(r.Context(), tokenFromAuthHeader(r)); err != nil {
+	ok, _ := s.companyChannelPatchAuthorized(r)
+	if !ok {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
@@ -573,12 +644,13 @@ func validAdminSlackChannelID(id string) bool {
 }
 
 func (s *Server) handleAdminChannelKnowledge(w http.ResponseWriter, r *http.Request) {
-	if !s.adminAuthEnabled() {
-		http.Error(w, "admin auth disabled", http.StatusServiceUnavailable)
-		return
-	}
-	if _, err := s.validateAdminSession(r.Context(), tokenFromAuthHeader(r)); err != nil {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
+	ok, svcUnavail := s.companyRegistryReadAuthorized(r)
+	if !ok {
+		if svcUnavail {
+			http.Error(w, "admin auth disabled", http.StatusServiceUnavailable)
+		} else {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+		}
 		return
 	}
 	chID := strings.TrimSpace(r.PathValue("channelId"))

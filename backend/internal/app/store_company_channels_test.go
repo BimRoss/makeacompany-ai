@@ -69,3 +69,72 @@ func TestPatchCompanyChannel_GeneralAutoReaction_PublishesInvalidation(t *testin
 		t.Fatal("timeout waiting for invalidation publish")
 	}
 }
+
+func TestUpsertDiscoveredCompanyChannels_MergesDefaults(t *testing.T) {
+	srv, err := miniredis.Run()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer srv.Close()
+
+	rdb := redis.NewClient(&redis.Options{Addr: srv.Addr()})
+	defer rdb.Close()
+
+	ctx := context.Background()
+	hashKey := ""
+	existingID := "C0EXIST1"
+	seed := `{"company_slug":"acme","channel_id":"C0EXIST1","threads_enabled":true,"general_auto_reaction_enabled":false,"out_of_office_enabled":false}`
+	if err := rdb.HSet(ctx, companyChannelsHashKey(hashKey), existingID, seed).Err(); err != nil {
+		t.Fatal(err)
+	}
+
+	store := &Store{rdb: rdb}
+	touched, err := store.UpsertDiscoveredCompanyChannels(ctx, hashKey, []DiscoveredChannelInput{
+		{ChannelID: existingID, Name: "ignored", OwnerIDs: []string{"U1", "U2"}},
+		{ChannelID: "C0NEW12345", Name: "#newco", OwnerIDs: []string{"U9"}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(touched) != 2 {
+		t.Fatalf("touched: got %#v", touched)
+	}
+
+	rawNew, err := rdb.HGet(ctx, companyChannelsHashKey(hashKey), "C0NEW12345").Result()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var decodedNew CompanyChannel
+	if err := json.Unmarshal([]byte(rawNew), &decodedNew); err != nil {
+		t.Fatal(err)
+	}
+	decodedNew = normalizeCompanyChannel(decodedNew, "C0NEW12345")
+	if decodedNew.ChannelID != "C0NEW12345" {
+		t.Fatal("channel_id")
+	}
+	if decodedNew.CompanySlug != "newco" {
+		t.Fatalf("company_slug: got %q", decodedNew.CompanySlug)
+	}
+	if !decodedNew.GeneralAutoReactionEnabled {
+		t.Fatal("expected general_auto_reaction_enabled true for new row")
+	}
+	if len(decodedNew.OwnerIDs) != 1 || decodedNew.OwnerIDs[0] != "U9" {
+		t.Fatalf("owner_ids new: got %#v", decodedNew.OwnerIDs)
+	}
+
+	rawExist, err := rdb.HGet(ctx, companyChannelsHashKey(hashKey), existingID).Result()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var decodedExist CompanyChannel
+	if err := json.Unmarshal([]byte(rawExist), &decodedExist); err != nil {
+		t.Fatal(err)
+	}
+	decodedExist = normalizeCompanyChannel(decodedExist, existingID)
+	if !decodedExist.GeneralAutoReactionEnabled {
+		t.Fatal("expected upsert to turn reactions on for existing row")
+	}
+	if len(decodedExist.OwnerIDs) != 2 {
+		t.Fatalf("owner_ids existing: got %#v", decodedExist.OwnerIDs)
+	}
+}

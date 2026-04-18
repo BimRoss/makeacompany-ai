@@ -250,12 +250,8 @@ export function AdminHealthDashboard() {
       }
     };
     void load();
-    const intervalId = setInterval(() => {
-      void load();
-    }, 15_000);
     return () => {
       cancelled = true;
-      clearInterval(intervalId);
     };
   }, []);
 

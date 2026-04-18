@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -21,6 +22,13 @@ func main() {
 		logger.Fatalf("redis: %v", err)
 	}
 	defer store.Close()
+	primary := strings.TrimSpace(cfg.RedisURL)
+	cc := strings.TrimSpace(cfg.CompanyChannelsRedisURL)
+	if cc != "" && cc != primary {
+		logger.Printf("redis: employee-factory keys (company channels, channel knowledge digest) use COMPANY_CHANNELS_REDIS_URL")
+	} else {
+		logger.Printf("redis: employee-factory keys use primary REDIS_URL (set COMPANY_CHANNELS_REDIS_URL when compose backend must read host :6379)")
+	}
 
 	srv, err := app.NewServer(cfg, logger, store)
 	if err != nil {

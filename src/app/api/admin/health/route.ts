@@ -43,22 +43,30 @@ const defaultAgentsPanelTitles = [
   "Go goroutines",
 ];
 
-function buildDefaultGrafanaDashboardUrl(requestHost: string | null, requestProto: string | null): string {
+function buildDefaultGrafanaDashboardUrl(
+  requestHost: string | null,
+  requestProto: string | null
+): string | null {
   return buildDefaultGrafanaPathUrl(requestHost, requestProto, DEFAULT_GRAFANA_DASHBOARD_PATH);
 }
 
+/**
+ * When no HEALTH_GRAFANA_* URL is set, supplies a dashboard base for Grafana iframes.
+ * Loopback hosts return null so local dev does not embed prod (makeacompany.ai) metrics by default.
+ * Set HEALTH_GRAFANA_*_URL explicitly to a Grafana base URL (e.g. after kubectl port-forward) to see charts locally.
+ */
 function buildDefaultGrafanaPathUrl(
   requestHost: string | null,
   requestProto: string | null,
   pathWithQuery: string
-): string {
+): string | null {
   const hostOnly = requestHost?.split(",")[0]?.trim() || "";
   const proto = requestProto?.split(",")[0]?.trim();
   const normalizedProto = proto === "http" || proto === "https" ? proto : "https";
   const hostname = hostOnly.split(":")[0]?.trim().toLowerCase();
 
   if (hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1") {
-    return `https://makeacompany.ai${pathWithQuery}`;
+    return null;
   }
 
   if (!hostOnly) {

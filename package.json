@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "sync:team": "node scripts/sync-team-from-slack-factory.mjs"
+    "sync:team": "node scripts/sync-team-from-slack-factory.mjs",
+    "discover:company-channels": "node scripts/company-channels-discover-from-orchestrator.mjs"
   },
   "dependencies": {
     "clsx": "^2.1.1",

@@ -17,12 +17,14 @@ type Config struct {
 	AdminCatalogToken               string
 	CapabilityCatalogReadToken      string
 	AdminAllowedEmail               string
-	AdminSessionTTLSec              int
-	StripeSecretKey                 string
-	StripeWebhookSecretSnapshot     string
-	StripeWebhookSecretThin         string
-	StripePriceWaitlistTest         string
-	StripePriceWaitlistLive         string
+	// BackendInternalServiceToken matches Next.js BACKEND_INTERNAL_SERVICE_TOKEN (server-to-server admin reads).
+	BackendInternalServiceToken string
+	AdminSessionTTLSec          int
+	StripeSecretKey             string
+	StripeWebhookSecretSnapshot string
+	StripeWebhookSecretThin     string
+	StripePriceWaitlistTest     string
+	StripePriceWaitlistLive     string
 }
 
 func LoadConfig() Config {
@@ -46,6 +48,7 @@ func LoadConfig() Config {
 		AdminCatalogToken:               strings.TrimSpace(os.Getenv("ADMIN_CATALOG_TOKEN")),
 		CapabilityCatalogReadToken:      strings.TrimSpace(os.Getenv("CAPABILITY_CATALOG_READ_TOKEN")),
 		AdminAllowedEmail:               strings.ToLower(strings.TrimSpace(os.Getenv("ADMIN_ALLOWED_EMAIL"))),
+		BackendInternalServiceToken:     strings.TrimSpace(os.Getenv("BACKEND_INTERNAL_SERVICE_TOKEN")),
 		AdminSessionTTLSec:              envInt("ADMIN_SESSION_TTL_SEC", 259200),
 		StripeSecretKey:                 resolveStripeSecretKey(),
 		StripeWebhookSecretSnapshot:     snapshot,

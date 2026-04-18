@@ -545,6 +545,112 @@ func (s *Store) PatchCompanyChannel(ctx context.Context, hashKey, channelID stri
 	return e, nil
 }
 
+// maxDiscoverChannels caps one-shot Slack → Redis placeholder upserts from the admin UI.
+const maxDiscoverChannels = 200
+
+// DiscoveredChannelInput is a Slack channel from users.conversations plus optional human member ids from conversations.members.
+type DiscoveredChannelInput struct {
+	ChannelID string
+	Name      string
+	OwnerIDs  []string
+}
+
+const maxOwnerIDsPerChannel = 100
+
+// UpsertDiscoveredCompanyChannels merges Slack-derived defaults into Redis: reactions on, optional owner_ids from Slack,
+// display name. Preserves out_of_office when already set; always sets general_auto_reaction_enabled true.
+func (s *Store) UpsertDiscoveredCompanyChannels(ctx context.Context, hashKey string, in []DiscoveredChannelInput) ([]string, error) {
+	rdb := s.companyChannelsRedis()
+	if s == nil || rdb == nil {
+		return nil, fmt.Errorf("company channels: nil store")
+	}
+	k := companyChannelsHashKey(hashKey)
+	var touched []string
+	for i, row := range in {
+		if i >= maxDiscoverChannels {
+			break
+		}
+		cid := strings.TrimSpace(row.ChannelID)
+		if cid == "" {
+			continue
+		}
+		var e CompanyChannel
+		raw, err := rdb.HGet(ctx, k, cid).Result()
+		if err != nil && err != redis.Nil {
+			return touched, err
+		}
+		if err == nil && strings.TrimSpace(raw) != "" {
+			if uerr := json.Unmarshal([]byte(raw), &e); uerr != nil {
+				e = CompanyChannel{}
+			}
+		}
+		e = normalizeCompanyChannel(e, cid)
+		ooo := e.OutOfOfficeEnabled
+		dn := strings.TrimSpace(row.Name)
+		if dn != "" {
+			e.DisplayName = dn
+		}
+		if slug := slugFromSlackChannelDisplayName(row.Name); slug != "" {
+			if strings.TrimSpace(e.CompanySlug) == "" {
+				e.CompanySlug = slug
+			}
+		}
+		e.ChannelID = cid
+		e.ThreadsEnabled = true
+		e.GeneralAutoReactionEnabled = true
+		e.OutOfOfficeEnabled = ooo
+		if len(row.OwnerIDs) > 0 {
+			e.OwnerIDs = dedupeTrimmedIDs(row.OwnerIDs, maxOwnerIDsPerChannel)
+		}
+		e = normalizeCompanyChannel(e, cid)
+		b, err := json.Marshal(e)
+		if err != nil {
+			return touched, err
+		}
+		if err := rdb.HSet(ctx, k, cid, string(b)).Err(); err != nil {
+			return touched, err
+		}
+		if pubErr := rdb.Publish(ctx, companyChannelsInvalidatePubSubChannel, cid).Err(); pubErr != nil {
+			log.Printf("company channels discover: invalidate publish: %v", pubErr)
+		}
+		touched = append(touched, cid)
+	}
+	return touched, nil
+}
+
+func dedupeTrimmedIDs(ids []string, maxN int) []string {
+	seen := make(map[string]struct{})
+	var out []string
+	for _, id := range ids {
+		id = strings.TrimSpace(id)
+		if id == "" {
+			continue
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		out = append(out, id)
+		if len(out) >= maxN {
+			break
+		}
+	}
+	return out
+}
+
+func slugFromSlackChannelDisplayName(name string) string {
+	name = strings.TrimSpace(name)
+	name = strings.TrimPrefix(strings.ToLower(name), "#")
+	name = strings.TrimSpace(name)
+	var b strings.Builder
+	for _, r := range name {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-' {
+			b.WriteRune(r)
+		}
+	}
+	return strings.Trim(b.String(), "-")
+}
+
 const channelKnowledgeRedisKeyFmt = "employee-factory:channel_knowledge:%s:markdown"
 
 // GetChannelKnowledgeMarkdown returns the stored hourly digest markdown for a Slack channel id
