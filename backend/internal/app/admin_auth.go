@@ -169,45 +169,24 @@ func (s *Server) adminReadAuthorized(r *http.Request) (ok bool, serviceUnavailab
 	return true, false
 }
 
-// companyRegistryReadAuthorized allows:
-//   - Bearer matching BACKEND_INTERNAL_SERVICE_TOKEN, or
-//   - Stripe admin enabled (ADMIN_ALLOWED_EMAIL; sessionless for this route), or
-//   - no service token configured and no Stripe admin (local / trusted network — avoids 503).
-func (s *Server) companyRegistryReadAuthorized(r *http.Request) (ok bool, serviceUnavailable bool) {
+// companyChannelsAdminAuthorized gates registry/list/get/discover/patch for company channels.
+// When BACKEND_INTERNAL_SERVICE_TOKEN is set on the backend, requests must send
+// Authorization: Bearer <same token>. When unset (typical local dev), requests are allowed without a bearer.
+func (s *Server) companyChannelsAdminAuthorized(r *http.Request) bool {
 	got := strings.TrimSpace(tokenFromAuthHeader(r))
 	want := strings.TrimSpace(s.cfg.BackendInternalServiceToken)
-	if want != "" && got != "" && constantTimeEqual(got, want) {
-		return true, false
+	if want == "" {
+		return true
 	}
-	if s.adminAuthEnabled() {
-		return true, false
-	}
-	if want != "" {
-		return false, false
-	}
-	return true, false
+	return got != "" && constantTimeEqual(got, want)
 }
 
-// companyChannelPatchAuthorized allows PATCH when:
-//   - Bearer matches BACKEND_INTERNAL_SERVICE_TOKEN, or
-//   - Stripe admin is enabled and Bearer is a valid admin session, or
-//   - no internal token is configured and Stripe admin is not enabled (local dev; same trust as registry reads).
+func (s *Server) companyRegistryReadAuthorized(r *http.Request) (ok bool, serviceUnavailable bool) {
+	return s.companyChannelsAdminAuthorized(r), false
+}
+
 func (s *Server) companyChannelPatchAuthorized(r *http.Request) (ok bool, serviceUnavailable bool) {
-	got := strings.TrimSpace(tokenFromAuthHeader(r))
-	want := strings.TrimSpace(s.cfg.BackendInternalServiceToken)
-	if want != "" && got != "" && constantTimeEqual(got, want) {
-		return true, false
-	}
-	if s.adminAuthEnabled() {
-		if _, err := s.validateAdminSession(r.Context(), got); err != nil {
-			return false, false
-		}
-		return true, false
-	}
-	if want != "" {
-		return false, false
-	}
-	return true, false
+	return s.companyChannelsAdminAuthorized(r), false
 }
 
 func tokenFromAuthHeader(r *http.Request) string {
