@@ -17,7 +17,7 @@ export default async function SkillsPage() {
             </p>
           </div>
         ) : (
-          <SkillsCardsGrid skills={skills} members={members} />
+          <SkillsCardsGrid skills={skills} members={members} showToolParams />
         )}
       </section>
     </AdminShell>

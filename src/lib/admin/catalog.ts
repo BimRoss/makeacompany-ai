@@ -36,6 +36,8 @@ export type AdminSkill = {
   employeeIds: string[];
   requiredParams?: string[];
   optionalParams?: string[];
+  /** Display-only: default values documented for optional params (e.g. create-email). */
+  paramDefaults?: Record<string, string>;
   comingSoon?: boolean;
 };
 
@@ -52,6 +54,7 @@ export type CapabilityCatalogSkill = {
   runtimeTool: string;
   requiredParams: string[];
   optionalParams: string[];
+  paramDefaults?: Record<string, string>;
 };
 
 export type CapabilityCatalog = {
@@ -185,14 +188,24 @@ function normalizeCatalogToAdminData(catalog: CapabilityCatalog): {
     }
   }
 
-  const skills: AdminSkill[] = (catalog.skills ?? []).map((skill) => ({
-    id: String(skill.id || "").trim(),
-    label: String(skill.label || skill.id || "").trim(),
-    description: String(skill.description || "").trim(),
-    employeeIds: employeeIdsBySkill.get(String(skill.id || "").trim()) ?? [],
-    requiredParams: Array.isArray(skill.requiredParams) ? [...skill.requiredParams] : [],
-    optionalParams: Array.isArray(skill.optionalParams) ? [...skill.optionalParams] : [],
-  }));
+  const skills: AdminSkill[] = (catalog.skills ?? []).map((skill) => {
+    const rawDefaults = skill.paramDefaults;
+    const paramDefaults =
+      rawDefaults && typeof rawDefaults === "object" && !Array.isArray(rawDefaults)
+        ? Object.fromEntries(
+            Object.entries(rawDefaults).map(([k, v]) => [String(k).trim(), String(v ?? "").trim()]),
+          )
+        : undefined;
+    return {
+      id: String(skill.id || "").trim(),
+      label: String(skill.label || skill.id || "").trim(),
+      description: String(skill.description || "").trim(),
+      employeeIds: employeeIdsBySkill.get(String(skill.id || "").trim()) ?? [],
+      requiredParams: Array.isArray(skill.requiredParams) ? [...skill.requiredParams] : [],
+      optionalParams: Array.isArray(skill.optionalParams) ? [...skill.optionalParams] : [],
+      ...(paramDefaults && Object.keys(paramDefaults).length > 0 ? { paramDefaults } : {}),
+    };
+  });
 
   return { members, skills };
 }

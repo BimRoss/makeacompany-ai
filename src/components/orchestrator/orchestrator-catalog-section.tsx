@@ -35,7 +35,7 @@ export async function OrchestratorCatalogSection() {
             <p className="text-base font-medium text-foreground">No skills configured yet.</p>
           </div>
         ) : (
-          <SkillsCardsGrid skills={skills} members={members} />
+          <SkillsCardsGrid skills={skills} members={members} showToolParams />
         )}
       </section>
     </div>

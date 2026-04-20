@@ -35,6 +35,8 @@ type CapabilityCatalogSkill struct {
 	RuntimeTool    string   `json:"runtimeTool"`
 	RequiredParams []string `json:"requiredParams"`
 	OptionalParams []string `json:"optionalParams"`
+	// ParamDefaults documents default values for optional params (display; runtime may mirror key defaults).
+	ParamDefaults map[string]string `json:"paramDefaults,omitempty"`
 	// Requires names backend dependencies for operator docs and cross-repo alignment (e.g. google_oauth, twitter_indexer).
 	Requires []string `json:"requires,omitempty"`
 }
@@ -201,34 +203,53 @@ func defaultCapabilityCatalog() CapabilityCatalog {
 				Label:          "Create Email",
 				Description:    "Draft, send, and triage email communication. Requires confirmation before send.",
 				RuntimeTool:    "joanne-create-email",
-				RequiredParams: []string{"intent", "subject"},
-				OptionalParams: []string{"to", "button", "commenters", "editors", "link", "viewers"},
-				Requires:       []string{"google_oauth"},
+				RequiredParams: []string{"intent"},
+				OptionalParams: []string{"subject", "to", "button", "commenters", "editors", "link", "viewers"},
+				ParamDefaults: map[string]string{
+					"subject":    "Note from BimRoss",
+					"to":         "Slack requester's profile email",
+					"button":     "none",
+					"commenters": "none",
+					"editors":    "none",
+					"link":       "none",
+					"viewers":    "none",
+				},
+				Requires: []string{"google_oauth"},
 			},
 			{
 				ID:             "create-doc",
 				Label:          "Create Doc",
 				Description:    "Create, edit, and organize working docs. Requires confirmation before publish.",
 				RuntimeTool:    "joanne-create-doc",
-				RequiredParams: []string{"intent", "title", "type"},
-				OptionalParams: []string{"commenters", "editors", "viewers"},
-				Requires:       []string{"google_oauth"},
+				RequiredParams: []string{"intent"},
+				OptionalParams: []string{"title", "type", "commenters", "editors", "viewers"},
+				ParamDefaults: map[string]string{
+					"title":      "Doc from BimRoss",
+					"type":       "outline",
+					"commenters": "none",
+					"editors":    "none",
+					"viewers":    "none",
+				},
+				Requires: []string{"google_oauth"},
 			},
 			{
 				ID:             "create-company",
 				Label:          "Create Company",
 				Description:    "Provision a company channel, run onboarding, create channels, and invite members. Requires explicit Confirm/Cancel before any write.",
 				RuntimeTool:    "joanne-create-company",
-				RequiredParams: []string{"action", "intent"},
-				OptionalParams: []string{"channel", "channel_name", "is_private", "reason"},
-				Requires:       []string{"slack_workspace"},
+				RequiredParams: []string{"name"},
+				OptionalParams: []string{"founders"},
+				ParamDefaults: map[string]string{
+					"founders": "Message author; add others with @mention",
+				},
+				Requires: []string{"slack_workspace"},
 			},
 			{
 				ID:             "read-company",
 				Label:          "Read Company",
 				Description:    "Summarize this channel from cached Slack history in Redis (hourly digest). Runs immediately in Slack (no confirmation).",
 				RuntimeTool:    "joanne-read-company",
-				RequiredParams: []string{"intent"},
+				RequiredParams: []string{},
 				OptionalParams: []string{},
 				Requires:       []string{"redis_channel_knowledge"},
 			},
@@ -237,7 +258,7 @@ func defaultCapabilityCatalog() CapabilityCatalog {
 				Label:          "Read Skills",
 				Description:    "List team skills from the capability catalog (who has which skills). Runs immediately in Slack (no confirmation).",
 				RuntimeTool:    "joanne-read-skills",
-				RequiredParams: []string{"intent"},
+				RequiredParams: []string{},
 				OptionalParams: []string{},
 			},
 			{
@@ -245,7 +266,7 @@ func defaultCapabilityCatalog() CapabilityCatalog {
 				Label:          "Read Twitter",
 				Description:    "Search Twitter by keyword and fetch high-impression tweets (not the platform trend list). Runs immediately in Slack (no confirmation).",
 				RuntimeTool:    "garth-read-twitter",
-				RequiredParams: []string{"intent", "query"},
+				RequiredParams: []string{"query"},
 				OptionalParams: []string{"count"},
 				Requires:       []string{"twitter_indexer"},
 			},
@@ -254,8 +275,8 @@ func defaultCapabilityCatalog() CapabilityCatalog {
 				Label:          "Read Trends",
 				Description:    "Fetch the current Twitter/X trend list (not keyword search). Runs immediately in Slack (no confirmation).",
 				RuntimeTool:    "garth-read-trends",
-				RequiredParams: []string{"intent"},
-				OptionalParams: []string{"count"},
+				RequiredParams: []string{},
+				OptionalParams: []string{},
 				Requires:       []string{"twitter_indexer"},
 			},
 		},
@@ -331,6 +352,8 @@ func builtinSkillDisplayLabel(skillID string) string {
 		return "Create Slack"
 	case "read-company":
 		return "Read Company"
+	case "read-skills":
+		return "Read Skills"
 	case "read-twitter":
 		return "Read Twitter"
 	case "read-trends":
@@ -340,20 +363,89 @@ func builtinSkillDisplayLabel(skillID string) string {
 	}
 }
 
+func mergeCreateEmailParamDefaultsMap(incoming map[string]string) map[string]string {
+	def := map[string]string{
+		"subject":    "Note from BimRoss",
+		"to":         "Slack requester's profile email",
+		"button":     "none",
+		"commenters": "none",
+		"editors":    "none",
+		"link":       "none",
+		"viewers":    "none",
+	}
+	out := make(map[string]string, len(def)+len(incoming))
+	for k, v := range def {
+		out[k] = v
+	}
+	for k, v := range incoming {
+		k = strings.TrimSpace(k)
+		v = strings.TrimSpace(v)
+		if k == "" {
+			continue
+		}
+		out[k] = v
+	}
+	return out
+}
+
+func mergeCreateDocParamDefaultsMap(incoming map[string]string) map[string]string {
+	def := map[string]string{
+		"title":      "Doc from BimRoss",
+		"type":       "outline",
+		"commenters": "none",
+		"editors":    "none",
+		"viewers":    "none",
+	}
+	out := make(map[string]string, len(def)+len(incoming))
+	for k, v := range def {
+		out[k] = v
+	}
+	for k, v := range incoming {
+		k = strings.TrimSpace(k)
+		v = strings.TrimSpace(v)
+		if k == "" {
+			continue
+		}
+		out[k] = v
+	}
+	return out
+}
+
+func mergeCreateCompanyParamDefaultsMap(incoming map[string]string) map[string]string {
+	def := map[string]string{
+		"founders": "Message author; add others with @mention",
+	}
+	out := make(map[string]string, len(def)+len(incoming))
+	for k, v := range def {
+		out[k] = v
+	}
+	for k, v := range incoming {
+		k = strings.TrimSpace(k)
+		v = strings.TrimSpace(v)
+		if k == "" {
+			continue
+		}
+		out[k] = v
+	}
+	return out
+}
+
 // builtinSkillParamDefaults returns minimum required and default optional param names for built-in skills.
 // Unknown/custom skills return nil, nil (caller keeps submitted lists only).
 func builtinSkillParamDefaults(skillID string) (minRequired, defaultOptional []string) {
 	switch skillID {
 	case "create-email":
-		return []string{"intent", "subject", "to"}, []string{"button", "commenters", "editors", "link", "viewers"}
+		return []string{"intent"}, []string{"subject", "to", "button", "commenters", "editors", "link", "viewers"}
 	case "create-doc":
-		return []string{"intent", "title", "type"}, []string{"commenters", "editors", "viewers"}
+		return []string{"intent"}, []string{"title", "type", "commenters", "editors", "viewers"}
 	case "create-company":
-		return []string{"action", "intent"}, []string{"channel", "channel_name", "is_private", "reason"}
-	case "read-company":
-		return []string{"intent"}, []string{}
-	case "read-twitter", "read-trends":
-		return nil, []string{"count"}
+		return []string{"name"}, []string{"founders"}
+	case "read-company", "read-skills":
+		return nil, nil
+	case "read-twitter":
+		return []string{"query"}, []string{"count"}
+	case "read-trends":
+		return nil, nil
 	default:
 		return nil, nil
 	}
@@ -457,6 +549,15 @@ func normalizeCapabilityCatalog(c CapabilityCatalog) CapabilityCatalog {
 		skill.ID = id
 		skill.RuntimeTool = migrateLegacyRuntimeTool(skill.RuntimeTool, id, ownersBySkill[id])
 		skill.Description = strings.TrimSpace(skill.Description)
+		if id == "create-email" {
+			skill.ParamDefaults = mergeCreateEmailParamDefaultsMap(skill.ParamDefaults)
+		}
+		if id == "create-doc" {
+			skill.ParamDefaults = mergeCreateDocParamDefaultsMap(skill.ParamDefaults)
+		}
+		if id == "create-company" {
+			skill.ParamDefaults = mergeCreateCompanyParamDefaultsMap(skill.ParamDefaults)
+		}
 		next.Skills = append(next.Skills, skill)
 	}
 
@@ -552,9 +653,6 @@ func validateCapabilityCatalog(c CapabilityCatalog) error {
 		id := strings.TrimSpace(skill.ID)
 		if id == "" || strings.TrimSpace(skill.Label) == "" || strings.TrimSpace(skill.Description) == "" {
 			return fmt.Errorf("invalid skill entry")
-		}
-		if len(skill.RequiredParams) == 0 {
-			return fmt.Errorf("skill %s missing requiredParams", id)
 		}
 		required := normalizeCatalogParamList(skill.RequiredParams)
 		optional := normalizeCatalogParamList(skill.OptionalParams)
