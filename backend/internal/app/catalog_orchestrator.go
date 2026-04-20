@@ -10,10 +10,10 @@ import (
 	"time"
 )
 
-// FetchCapabilityCatalogFromOrchestrator performs GET rawURL (typically
-// slack-orchestrator GET /debug/capability-catalog) and decodes the JSON.
-// bearerToken is sent as Authorization: Bearer when non-empty (matches orchestrator debug auth).
-func FetchCapabilityCatalogFromOrchestrator(ctx context.Context, rawURL, bearerToken string) (CapabilityCatalog, error) {
+// FetchCapabilityCatalogFromOrchestrator performs GET rawURL (typically slack-orchestrator
+// GET /debug/capability-catalog) with no auth header — matches orchestrator when debug routes
+// allow anonymous access (default ORCHESTRATOR_DEBUG_ALLOW_ANON).
+func FetchCapabilityCatalogFromOrchestrator(ctx context.Context, rawURL string) (CapabilityCatalog, error) {
 	rawURL = strings.TrimSpace(rawURL)
 	if rawURL == "" {
 		return CapabilityCatalog{}, fmt.Errorf("orchestrator catalog url empty")
@@ -21,9 +21,6 @@ func FetchCapabilityCatalogFromOrchestrator(ctx context.Context, rawURL, bearerT
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
 	if err != nil {
 		return CapabilityCatalog{}, err
-	}
-	if t := strings.TrimSpace(bearerToken); t != "" {
-		req.Header.Set("Authorization", "Bearer "+t)
 	}
 
 	client := &http.Client{Timeout: 15 * time.Second}

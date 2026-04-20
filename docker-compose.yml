@@ -29,10 +29,9 @@ services:
       REDIS_URL: ${COMPOSE_REDIS_URL:-redis://redis:6379/0}
       # employee-factory:* keys (registry, channel-knowledge digest for /admin Transcript) — set in .env; see .env.example
       APP_BASE_URL: ${APP_BASE_URL:-http://localhost:3000}
-      # When set, GET /v1/runtime/capability-catalog proxies slack-orchestrator (live Skills on /admin).
+      # When set, GET /v1/runtime/capability-catalog proxies slack-orchestrator (live Skills on /admin), no auth.
       # Example with orchestrator on host:8080: http://host.docker.internal:8080/debug/capability-catalog
       SLACK_ORCHESTRATOR_CAPABILITY_CATALOG_URL: ${SLACK_ORCHESTRATOR_CAPABILITY_CATALOG_URL:-}
-      SLACK_ORCHESTRATOR_CAPABILITY_CATALOG_TOKEN: ${SLACK_ORCHESTRATOR_CAPABILITY_CATALOG_TOKEN:-${ORCHESTRATOR_DEBUG_TOKEN:-}}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:

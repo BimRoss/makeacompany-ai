@@ -15,15 +15,15 @@ func TestFetchCapabilityCatalogFromOrchestrator_OK(t *testing.T) {
 		if r.Method != http.MethodGet {
 			t.Fatalf("method %s", r.Method)
 		}
-		if auth := r.Header.Get("Authorization"); auth != "Bearer test-token" {
-			t.Fatalf("authorization: %q", auth)
+		if r.Header.Get("Authorization") != "" {
+			t.Fatalf("expected no Authorization header, got %q", r.Header.Get("Authorization"))
 		}
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(sample)
 	}))
 	t.Cleanup(srv.Close)
 
-	got, err := FetchCapabilityCatalogFromOrchestrator(context.Background(), srv.URL, "test-token")
+	got, err := FetchCapabilityCatalogFromOrchestrator(context.Background(), srv.URL)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -42,7 +42,7 @@ func TestFetchCapabilityCatalogFromOrchestrator_Unauthorized(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
-	_, err := FetchCapabilityCatalogFromOrchestrator(context.Background(), srv.URL, "")
+	_, err := FetchCapabilityCatalogFromOrchestrator(context.Background(), srv.URL)
 	if err == nil {
 		t.Fatal("expected error")
 	}

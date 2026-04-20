@@ -19,9 +19,8 @@ type Config struct {
 	// SlackOrchestratorCapabilityCatalogURL, when set, makes GET /v1/runtime/capability-catalog
 	// fetch live JSON from slack-orchestrator (e.g. .../debug/capability-catalog) on every request
 	// instead of Redis-backed storage — keeps /admin Skills in sync with the deployed orchestrator image.
-	SlackOrchestratorCapabilityCatalogURL   string
-	SlackOrchestratorCapabilityCatalogToken string
-	AdminAllowedEmail                       string
+	SlackOrchestratorCapabilityCatalogURL string
+	AdminAllowedEmail                     string
 	// BackendInternalServiceToken matches Next.js BACKEND_INTERNAL_SERVICE_TOKEN (server-to-server admin reads).
 	BackendInternalServiceToken string
 	AdminSessionTTLSec          int
@@ -44,24 +43,23 @@ func LoadConfig() Config {
 		"STRIPE_WEBHOOK_SECRET_THIN",
 	)
 	return Config{
-		Port:                                    envInt("PORT", 8080),
-		RedisURL:                                envString("REDIS_URL", "redis://localhost:6379/0"),
-		CompanyChannelsRedisURL:                 strings.TrimSpace(os.Getenv("COMPANY_CHANNELS_REDIS_URL")),
-		CompanyChannelsRedisKey:                 envString("COMPANY_CHANNELS_REDIS_KEY", "employee-factory:company_channels"),
-		CapabilityRoutingEventsRedisKey:         envString("CAPABILITY_ROUTING_EVENTS_REDIS_KEY", "employee-factory:capability_routing_events"),
-		AppBaseURL:                              strings.TrimRight(envString("APP_BASE_URL", "http://localhost:3000"), "/"),
-		AdminCatalogToken:                       strings.TrimSpace(os.Getenv("ADMIN_CATALOG_TOKEN")),
-		CapabilityCatalogReadToken:              strings.TrimSpace(os.Getenv("CAPABILITY_CATALOG_READ_TOKEN")),
-		SlackOrchestratorCapabilityCatalogURL:   strings.TrimSpace(os.Getenv("SLACK_ORCHESTRATOR_CAPABILITY_CATALOG_URL")),
-		SlackOrchestratorCapabilityCatalogToken: strings.TrimSpace(os.Getenv("SLACK_ORCHESTRATOR_CAPABILITY_CATALOG_TOKEN")),
-		AdminAllowedEmail:                       strings.ToLower(strings.TrimSpace(os.Getenv("ADMIN_ALLOWED_EMAIL"))),
-		BackendInternalServiceToken:             strings.TrimSpace(os.Getenv("BACKEND_INTERNAL_SERVICE_TOKEN")),
-		AdminSessionTTLSec:                      envInt("ADMIN_SESSION_TTL_SEC", 259200),
-		StripeSecretKey:                         resolveStripeSecretKey(),
-		StripeWebhookSecretSnapshot:             snapshot,
-		StripeWebhookSecretThin:                 thin,
-		StripePriceWaitlistTest:                 os.Getenv("STRIPE_PRICE_ID_WAITLIST_TEST"),
-		StripePriceWaitlistLive:                 os.Getenv("STRIPE_PRICE_ID_WAITLIST_LIVE"),
+		Port:                                  envInt("PORT", 8080),
+		RedisURL:                              envString("REDIS_URL", "redis://localhost:6379/0"),
+		CompanyChannelsRedisURL:               strings.TrimSpace(os.Getenv("COMPANY_CHANNELS_REDIS_URL")),
+		CompanyChannelsRedisKey:               envString("COMPANY_CHANNELS_REDIS_KEY", "employee-factory:company_channels"),
+		CapabilityRoutingEventsRedisKey:       envString("CAPABILITY_ROUTING_EVENTS_REDIS_KEY", "employee-factory:capability_routing_events"),
+		AppBaseURL:                            strings.TrimRight(envString("APP_BASE_URL", "http://localhost:3000"), "/"),
+		AdminCatalogToken:                     strings.TrimSpace(os.Getenv("ADMIN_CATALOG_TOKEN")),
+		CapabilityCatalogReadToken:            strings.TrimSpace(os.Getenv("CAPABILITY_CATALOG_READ_TOKEN")),
+		SlackOrchestratorCapabilityCatalogURL: strings.TrimSpace(os.Getenv("SLACK_ORCHESTRATOR_CAPABILITY_CATALOG_URL")),
+		AdminAllowedEmail:                     strings.ToLower(strings.TrimSpace(os.Getenv("ADMIN_ALLOWED_EMAIL"))),
+		BackendInternalServiceToken:           strings.TrimSpace(os.Getenv("BACKEND_INTERNAL_SERVICE_TOKEN")),
+		AdminSessionTTLSec:                    envInt("ADMIN_SESSION_TTL_SEC", 259200),
+		StripeSecretKey:                       resolveStripeSecretKey(),
+		StripeWebhookSecretSnapshot:           snapshot,
+		StripeWebhookSecretThin:               thin,
+		StripePriceWaitlistTest:               os.Getenv("STRIPE_PRICE_ID_WAITLIST_TEST"),
+		StripePriceWaitlistLive:               os.Getenv("STRIPE_PRICE_ID_WAITLIST_LIVE"),
 	}
 }
 

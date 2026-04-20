@@ -697,11 +697,7 @@ func (s *Server) handleRuntimeCapabilityCatalog(w http.ResponseWriter, r *http.R
 		}
 	}
 	if orchURL := strings.TrimSpace(s.cfg.SlackOrchestratorCapabilityCatalogURL); orchURL != "" {
-		cat, err := FetchCapabilityCatalogFromOrchestrator(
-			r.Context(),
-			orchURL,
-			s.cfg.SlackOrchestratorCapabilityCatalogToken,
-		)
+		cat, err := FetchCapabilityCatalogFromOrchestrator(r.Context(), orchURL)
 		if err != nil {
 			s.log.Printf("runtime capability catalog: orchestrator fetch failed, using redis: %v", err)
 		} else {
