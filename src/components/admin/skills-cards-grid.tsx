@@ -53,8 +53,8 @@ export function SkillsCardsGrid({ skills, members }: SkillsCardsGridProps) {
             <p
               className={
                 skill.comingSoon
-                  ? "text-sm leading-snug text-muted-foreground/80"
-                  : "text-sm leading-snug text-muted-foreground"
+                  ? "line-clamp-2 text-sm leading-snug text-muted-foreground/80"
+                  : "line-clamp-2 text-sm leading-snug text-muted-foreground"
               }
             >
               {skill.description}
