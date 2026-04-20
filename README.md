@@ -44,7 +44,7 @@ Admin surface (orchestrator + NATS are the live contract for Slack bots; catalog
 - Includes an 8-panel service overview Grafana grid (4 columns x 2 rows) for high-level runtime monitoring.
 - Bottom of the page: read-only **Slack channels (Redis)** strip — loads the shared company-channel registry (`employee-factory:company_channels` by default) via `GET /api/admin/company-channels` and shows per-channel metadata as pills. **Slack + discover** repopulates that HASH; see [docs/redis-operations.md](docs/redis-operations.md) for prod reset vs sacred waitlist keys.
 - **Source of truth:** **slack-orchestrator** ships capability JSON on dispatch → NATS → **employee-factory** (runtime gates and skill routing). The Redis key `makeacompany:catalog:capabilities:v1` backs **only** `/employees`, `/skills`, and admin catalog APIs — it can drift from orchestrator; safe to drop for a reset (defaults merge on read). Prefer treating orchestrator as the live contract while `/admin` catalog editing stays read-only.
-- **Read vs write in Slack:** `read-*` skills (for example read Slack, read Twitter) execute immediately; `write-*` skills keep confirm-before-run behavior (Joanne email/docs/Slack writes, and similar).
+- **Read vs create in Slack:** `read-*` skills (for example read Slack, read Twitter) execute immediately; `create-*` skills keep confirm-before-run behavior (Joanne email/docs/Slack channel creates, and similar).
 - Backend derives `runtimeTool` from `<employee>-<skill-id>` and migrates legacy values on catalog reads/writes.
 - Optional `revision` / `source` fields are for operator traceability (not tied to CI).
 

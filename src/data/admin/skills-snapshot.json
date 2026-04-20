@@ -3,16 +3,16 @@
   "source": "slack-orchestrator capability contract + slack-factory/manifests",
   "skills": [
     {
-      "id": "write-email",
-      "label": "Write Email",
+      "id": "create-email",
+      "label": "Create Email",
       "description": "Draft, send, and triage email communication.",
       "employeeIds": [
         "joanne"
       ]
     },
     {
-      "id": "write-doc",
-      "label": "Write Doc",
+      "id": "create-doc",
+      "label": "Create Doc",
       "description": "Create, edit, and organize working docs.",
       "employeeIds": [
         "joanne"
@@ -35,8 +35,8 @@
       ]
     },
     {
-      "id": "write-slack",
-      "label": "Write Slack",
+      "id": "create-slack",
+      "label": "Create Slack",
       "description": "Create channels and invite requesters to channels for onboarding setup. Requires explicit Confirm/Cancel before any write.",
       "employeeIds": [
         "joanne"

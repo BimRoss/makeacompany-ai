@@ -72,9 +72,9 @@
         "read-company",
         "read-slack-channels",
         "read-slack-messages",
-        "write-email",
-        "write-doc",
-        "write-slack"
+        "create-email",
+        "create-doc",
+        "create-slack"
       ]
     }
   ]

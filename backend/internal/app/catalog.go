@@ -65,9 +65,17 @@ func migrateLegacyRuntimeTool(runtimeTool, skillID string, owners []string) stri
 	// Historical aliases → canonical employee-skill tool names.
 	switch rt {
 	case "joanne_email":
-		return derivedRuntimeTool("joanne", "write-email")
+		return derivedRuntimeTool("joanne", "create-email")
 	case "joanne_google_docs":
-		return derivedRuntimeTool("joanne", "write-doc")
+		return derivedRuntimeTool("joanne", "create-doc")
+	case "joanne-write-email":
+		return derivedRuntimeTool("joanne", "create-email")
+	case "joanne-write-doc":
+		return derivedRuntimeTool("joanne", "create-doc")
+	case "joanne-write-company":
+		return derivedRuntimeTool("joanne", "create-company")
+	case "joanne-write-slack":
+		return derivedRuntimeTool("joanne", "create-slack")
 	case "garth_twitter_lookup":
 		return derivedRuntimeTool("garth", "read-twitter")
 	case "garth_twitter_trends":
@@ -189,28 +197,28 @@ func defaultCapabilityCatalog() CapabilityCatalog {
 		},
 		Skills: []CapabilityCatalogSkill{
 			{
-				ID:             "write-email",
-				Label:          "Write Email",
-				Description:    "Draft, send, and triage email communication.",
-				RuntimeTool:    "joanne-write-email",
+				ID:             "create-email",
+				Label:          "Create Email",
+				Description:    "Draft, send, and triage email communication. Requires confirmation before send.",
+				RuntimeTool:    "joanne-create-email",
 				RequiredParams: []string{"intent", "subject"},
 				OptionalParams: []string{"to", "button", "commenters", "editors", "link", "viewers"},
 				Requires:       []string{"google_oauth"},
 			},
 			{
-				ID:             "write-doc",
-				Label:          "Write Doc",
-				Description:    "Create, edit, and organize working docs.",
-				RuntimeTool:    "joanne-write-doc",
+				ID:             "create-doc",
+				Label:          "Create Doc",
+				Description:    "Create, edit, and organize working docs. Requires confirmation before publish.",
+				RuntimeTool:    "joanne-create-doc",
 				RequiredParams: []string{"intent", "title", "type"},
 				OptionalParams: []string{"commenters", "editors", "viewers"},
 				Requires:       []string{"google_oauth"},
 			},
 			{
-				ID:             "write-company",
-				Label:          "Write Company",
+				ID:             "create-company",
+				Label:          "Create Company",
 				Description:    "Provision a company channel, run onboarding, create channels, and invite members. Requires explicit Confirm/Cancel before any write.",
-				RuntimeTool:    "joanne-write-company",
+				RuntimeTool:    "joanne-create-company",
 				RequiredParams: []string{"action", "intent"},
 				OptionalParams: []string{"channel", "channel_name", "is_private", "reason"},
 				Requires:       []string{"slack_workspace"},
@@ -256,7 +264,7 @@ func defaultCapabilityCatalog() CapabilityCatalog {
 			"tim":    {},
 			"ross":   {},
 			"garth":  {"read-twitter", "read-trends"},
-			"joanne": {"read-company", "read-skills", "write-company", "write-email", "write-doc"},
+			"joanne": {"read-company", "read-skills", "create-company", "create-email", "create-doc"},
 		},
 		UpdatedAt: time.Now().UTC().Format(time.RFC3339),
 		Source:    "default",
@@ -265,13 +273,20 @@ func defaultCapabilityCatalog() CapabilityCatalog {
 
 func normalizeCatalogSkillID(raw string) string {
 	id := strings.TrimSpace(raw)
-	if id == "write-docs" {
-		return "write-doc"
-	}
-	if id == "read-slack" {
+	switch id {
+	case "write-docs", "write-doc", "create-docs":
+		return "create-doc"
+	case "slack-onboard", "write-company":
+		return "create-company"
+	case "write-email":
+		return "create-email"
+	case "write-slack":
+		return "create-slack"
+	case "read-slack":
 		return "read-company"
+	default:
+		return id
 	}
-	return id
 }
 
 func normalizeCatalogSkillParamName(raw string) string {
@@ -306,12 +321,14 @@ func normalizeCatalogSkillParamName(raw string) string {
 // builtinSkillDisplayLabel returns default UI labels for known skill ids when the stored label is empty.
 func builtinSkillDisplayLabel(skillID string) string {
 	switch skillID {
-	case "write-email":
-		return "Write Email"
-	case "write-doc":
-		return "Write Doc"
-	case "write-company":
-		return "Write Company"
+	case "create-email":
+		return "Create Email"
+	case "create-doc":
+		return "Create Doc"
+	case "create-company":
+		return "Create Company"
+	case "create-slack":
+		return "Create Slack"
 	case "read-company":
 		return "Read Company"
 	case "read-twitter":
@@ -327,11 +344,11 @@ func builtinSkillDisplayLabel(skillID string) string {
 // Unknown/custom skills return nil, nil (caller keeps submitted lists only).
 func builtinSkillParamDefaults(skillID string) (minRequired, defaultOptional []string) {
 	switch skillID {
-	case "write-email":
+	case "create-email":
 		return []string{"intent", "subject", "to"}, []string{"button", "commenters", "editors", "link", "viewers"}
-	case "write-doc":
+	case "create-doc":
 		return []string{"intent", "title", "type"}, []string{"commenters", "editors", "viewers"}
-	case "write-company":
+	case "create-company":
 		return []string{"action", "intent"}, []string{"channel", "channel_name", "is_private", "reason"}
 	case "read-company":
 		return []string{"intent"}, []string{}

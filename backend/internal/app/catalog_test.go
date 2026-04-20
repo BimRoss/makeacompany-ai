@@ -28,7 +28,7 @@ func TestNormalizeCapabilityCatalogPreservesSkillLabels(t *testing.T) {
 	catalog := defaultCapabilityCatalog()
 	custom := "Custom Write Email Label"
 	for i := range catalog.Skills {
-		if normalizeCatalogSkillID(catalog.Skills[i].ID) == "write-email" {
+		if normalizeCatalogSkillID(catalog.Skills[i].ID) == "create-email" {
 			catalog.Skills[i].Label = custom
 			break
 		}
@@ -36,27 +36,27 @@ func TestNormalizeCapabilityCatalogPreservesSkillLabels(t *testing.T) {
 	normalized := normalizeCapabilityCatalog(catalog)
 	var got string
 	for _, s := range normalized.Skills {
-		if normalizeCatalogSkillID(s.ID) == "write-email" {
+		if normalizeCatalogSkillID(s.ID) == "create-email" {
 			got = s.Label
 			break
 		}
 	}
 	if got != custom {
-		t.Fatalf("expected write-email label preserved, got %q want %q", got, custom)
+		t.Fatalf("expected create-email label preserved, got %q want %q", got, custom)
 	}
 }
 
 func TestNormalizeCapabilityCatalogMigratesLegacyRuntimeTool(t *testing.T) {
 	catalog := defaultCapabilityCatalog()
 	catalog.Skills[0].RuntimeTool = "joanne_email"
-	catalog.EmployeeSkillIDs["joanne"] = []string{"write-email"}
+	catalog.EmployeeSkillIDs["joanne"] = []string{"create-email"}
 
 	normalized := normalizeCapabilityCatalog(catalog)
 	if len(normalized.Skills) == 0 {
 		t.Fatal("expected normalized skills")
 	}
-	if normalized.Skills[0].RuntimeTool != "joanne-write-email" {
-		t.Fatalf("expected migrated runtime tool joanne-write-email, got %q", normalized.Skills[0].RuntimeTool)
+	if normalized.Skills[0].RuntimeTool != "joanne-create-email" {
+		t.Fatalf("expected migrated runtime tool joanne-create-email, got %q", normalized.Skills[0].RuntimeTool)
 	}
 }
 
@@ -80,7 +80,7 @@ func TestMergeCapabilityCatalogWithDefaultsRestoresNewSkills(t *testing.T) {
 		}
 		slimSkills = append(slimSkills, s)
 	}
-	joanneSkills := []string{"read-slack", "write-email", "write-doc", "write-slack"}
+	joanneSkills := []string{"read-slack", "create-email", "create-doc", "create-slack"}
 	garthSkills := []string{"read-twitter"}
 	catalog := CapabilityCatalog{
 		Revision:      "old",
