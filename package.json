@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "sync:team": "node scripts/sync-team-from-orchestrator.mjs",
+    "sync:catalog": "node scripts/sync-capability-catalog-from-orchestrator.mjs",
     "discover:company-channels": "node scripts/company-channels-discover-from-orchestrator.mjs"
   },
   "dependencies": {
