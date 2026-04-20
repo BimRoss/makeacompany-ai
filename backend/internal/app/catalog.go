@@ -225,6 +225,14 @@ func defaultCapabilityCatalog() CapabilityCatalog {
 				Requires:       []string{"redis_channel_knowledge"},
 			},
 			{
+				ID:             "read-skills",
+				Label:          "Read Skills",
+				Description:    "List team skills from the capability catalog (who has which skills). Runs immediately in Slack (no confirmation).",
+				RuntimeTool:    "joanne-read-skills",
+				RequiredParams: []string{"intent"},
+				OptionalParams: []string{},
+			},
+			{
 				ID:             "read-twitter",
 				Label:          "Read Twitter",
 				Description:    "Search Twitter by keyword and fetch high-impression tweets (not the platform trend list). Runs immediately in Slack (no confirmation).",
@@ -248,7 +256,7 @@ func defaultCapabilityCatalog() CapabilityCatalog {
 			"tim":    {},
 			"ross":   {},
 			"garth":  {"read-twitter", "read-trends"},
-			"joanne": {"read-company", "write-company", "write-email", "write-doc"},
+			"joanne": {"read-company", "read-skills", "write-company", "write-email", "write-doc"},
 		},
 		UpdatedAt: time.Now().UTC().Format(time.RFC3339),
 		Source:    "default",

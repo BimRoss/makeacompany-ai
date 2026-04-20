@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-04-14T01:22:29.313Z",
+  "generatedAt": "2026-04-20T00:00:00.000Z",
   "source": "slack-orchestrator capability contract + slack-factory/manifests",
   "skills": [
     {
@@ -46,6 +46,14 @@
       "id": "read-company",
       "label": "Read Company",
       "description": "Summarize this channel from cached Slack history in Redis (hourly digest). Runs immediately in Slack (no confirmation).",
+      "employeeIds": [
+        "joanne"
+      ]
+    },
+    {
+      "id": "read-skills",
+      "label": "Read Skills",
+      "description": "List team skills from the capability catalog (who has which skills). Runs immediately in Slack (no confirmation).",
       "employeeIds": [
         "joanne"
       ]
