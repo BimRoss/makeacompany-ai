@@ -1,7 +1,8 @@
 // Public /employees and /skills use getAdminCatalogData(): fetch backend GET /v1/runtime/capability-catalog
-// (optional CAPABILITY_CATALOG_READ_TOKEN), else /v1/admin/catalog, else JSON snapshots. The backend merges
-// Redis (makeacompany:catalog:capabilities:v1) with code defaults (same capability shape as slack-orchestrator).
-// Display-only here; Slack bots consume the contract from orchestrator dispatch, not this Redis key.
+// (optional CAPABILITY_CATALOG_READ_TOKEN), else /v1/admin/catalog, else JSON snapshots.
+// When the backend has SLACK_ORCHESTRATOR_CAPABILITY_CATALOG_URL set, that route returns live JSON from
+// slack-orchestrator /debug/capability-catalog on every request (no Redis drift for admin Skills).
+// Otherwise the backend serves Redis + code defaults (same JSON shape).
 import skillsSnapshot from "@/data/admin/skills-snapshot.json";
 import teamSnapshot from "@/data/admin/team-snapshot.json";
 
