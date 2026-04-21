@@ -23,7 +23,7 @@ func TestDefaultCapabilityCatalogMatchesCanonicalSkillIDs(t *testing.T) {
 	for _, id := range canonicalDefaultSkillIDs {
 		want[id] = struct{}{}
 	}
-	def := defaultCapabilityCatalog()
+	def := testCatalogFixture()
 	var gotIDs []string
 	for _, s := range def.Skills {
 		id := normalizeCatalogSkillID(s.ID)

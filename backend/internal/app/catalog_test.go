@@ -3,7 +3,7 @@ package app
 import "testing"
 
 func TestNormalizeCapabilityCatalogPreservesEmployeeDescriptions(t *testing.T) {
-	catalog := defaultCapabilityCatalog()
+	catalog := testCatalogFixture()
 	custom := "Operator-edited Garth blurb from /admin — must round-trip through Redis."
 	for i := range catalog.CoreEmployees {
 		if catalog.CoreEmployees[i].ID == "garth" {
@@ -25,7 +25,7 @@ func TestNormalizeCapabilityCatalogPreservesEmployeeDescriptions(t *testing.T) {
 }
 
 func TestNormalizeCapabilityCatalogPreservesSkillLabels(t *testing.T) {
-	catalog := defaultCapabilityCatalog()
+	catalog := testCatalogFixture()
 	custom := "Custom Write Email Label"
 	for i := range catalog.Skills {
 		if normalizeCatalogSkillID(catalog.Skills[i].ID) == "create-email" {
@@ -46,22 +46,31 @@ func TestNormalizeCapabilityCatalogPreservesSkillLabels(t *testing.T) {
 	}
 }
 
-func TestNormalizeCapabilityCatalogMigratesLegacyRuntimeTool(t *testing.T) {
-	catalog := defaultCapabilityCatalog()
-	catalog.Skills[0].RuntimeTool = "joanne_email"
+func TestNormalizeCapabilityCatalogDerivesEmptyRuntimeTool(t *testing.T) {
+	catalog := testCatalogFixture()
+	for i := range catalog.Skills {
+		if normalizeCatalogSkillID(catalog.Skills[i].ID) == "create-email" {
+			catalog.Skills[i].RuntimeTool = ""
+			break
+		}
+	}
 	catalog.EmployeeSkillIDs["joanne"] = []string{"create-email"}
 
 	normalized := normalizeCapabilityCatalog(catalog)
-	if len(normalized.Skills) == 0 {
-		t.Fatal("expected normalized skills")
+	var got string
+	for _, s := range normalized.Skills {
+		if normalizeCatalogSkillID(s.ID) == "create-email" {
+			got = s.RuntimeTool
+			break
+		}
 	}
-	if normalized.Skills[0].RuntimeTool != "joanne-create-email" {
-		t.Fatalf("expected migrated runtime tool joanne-create-email, got %q", normalized.Skills[0].RuntimeTool)
+	if got != "joanne-create-email" {
+		t.Fatalf("expected derived runtime tool joanne-create-email, got %q", got)
 	}
 }
 
 func TestValidateCapabilityCatalogAllowsArbitraryRuntimeTool(t *testing.T) {
-	catalog := defaultCapabilityCatalog()
+	catalog := testCatalogFixture()
 	catalog.Skills[0].RuntimeTool = "custom-tool-name"
 
 	if err := validateCapabilityCatalog(catalog); err != nil {
@@ -71,7 +80,7 @@ func TestValidateCapabilityCatalogAllowsArbitraryRuntimeTool(t *testing.T) {
 
 func TestMergeCapabilityCatalogWithDefaultsRestoresNewSkills(t *testing.T) {
 	// Simulate an older Redis payload: fewer skills, narrower employee assignments.
-	def := defaultCapabilityCatalog()
+	def := testCatalogFixture()
 	var slimSkills []CapabilityCatalogSkill
 	for _, s := range def.Skills {
 		id := normalizeCatalogSkillID(s.ID)
@@ -80,7 +89,7 @@ func TestMergeCapabilityCatalogWithDefaultsRestoresNewSkills(t *testing.T) {
 		}
 		slimSkills = append(slimSkills, s)
 	}
-	joanneSkills := []string{"read-slack", "create-email", "create-doc", "create-slack"}
+	joanneSkills := []string{"read-company", "create-email", "create-doc", "create-slack"}
 	garthSkills := []string{"read-twitter"}
 	catalog := CapabilityCatalog{
 		Revision:      "old",
@@ -94,7 +103,7 @@ func TestMergeCapabilityCatalogWithDefaultsRestoresNewSkills(t *testing.T) {
 			"joanne": joanneSkills,
 		},
 	}
-	merged := mergeCapabilityCatalogWithDefaults(catalog)
+	merged := mergeCapabilityCatalogWithDefaults(catalog, def)
 	normalized := normalizeCapabilityCatalog(merged)
 	if err := validateCapabilityCatalog(normalized); err != nil {
 		t.Fatalf("expected merged catalog to validate, got %v", err)

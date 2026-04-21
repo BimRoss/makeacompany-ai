@@ -16,9 +16,9 @@ type Config struct {
 	AppBaseURL                      string
 	AdminCatalogToken               string
 	CapabilityCatalogReadToken      string
-	// SlackOrchestratorCapabilityCatalogURL, when set, makes GET /v1/runtime/capability-catalog
-	// fetch live JSON from slack-orchestrator (e.g. .../debug/capability-catalog) on every request
-	// instead of Redis-backed storage — keeps /admin Skills in sync with the deployed orchestrator image.
+	// SlackOrchestratorCapabilityCatalogURL, when set: GET /v1/runtime/capability-catalog prefers live JSON from
+	// slack-orchestrator (e.g. .../debug/capability-catalog); missing Redis catalog key seeds from it; GET /v1/admin/catalog
+	// merges in new skills from a cached orchestrator fetch so older Redis snapshots stay aligned.
 	SlackOrchestratorCapabilityCatalogURL string
 	AdminAllowedEmail                     string
 	// BackendInternalServiceToken matches Next.js BACKEND_INTERNAL_SERVICE_TOKEN (server-to-server admin reads).

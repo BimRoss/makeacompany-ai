@@ -41,16 +41,6 @@ type CapabilityCatalogSkill struct {
 	Requires []string `json:"requires,omitempty"`
 }
 
-// Default copy for empty Redis / seed only. Admin PUTs store operator-edited text in Redis;
-// normalizeCapabilityCatalog must not replace descriptions from the request body.
-var canonicalEmployeeDescriptions = map[string]string{
-	"alex":   "First-principles business brain: punchy, direct, volume over perfection. I default to leverage and bottlenecks-what actually scales, what's busywork, where the constraint is. Proof beats promises; clear beats clever. I like short pain for long gain, fast decide->do loops, and input from people closest to the outcome you want-not the drama closest to you. Sales-wise: kind (real outcomes), not nice (avoiding truth); fundamentals over clever one-liners.",
-	"garth":  "BimRoss intern energy: curious, earnest, a little shy in a good way. I ask clear questions, admit what I do not know, and hand off to Alex, Tim, or Ross when the thread needs sales, simplification, or automation depth. Grant is CEO-I am here to learn and help without pretending to be the decider.",
-	"joanne": "Executive-operations partner lens: calm, practical, and execution-first. I focus on anticipation, prioritization, healthy boundaries, and high-discretion support. I use AI to speed drafts and repetitive tasks, but keep human judgment for context, voice, and relationship-aware decisions.",
-	"ross":   "BimRoss default brain on Slack: senior partner for shipping-Go, Next.js, Docker/K8s, GitOps-with Bob Ross ease. Talent is a pursued interest; we don't pretend mistakes vanish in prod, but we iterate without shame, own the canvas (your repo, your world), and keep proof over promises. Warm tone, direct truth, low theater. Escalates security and incentive issues per policy-not 'happy accidents.'",
-	"tim":    "Calm, tactical, curiosity-first. I bias toward small reversible tests, batching and delegation where they earn their keep, and relationships built over years-not transactional networking. I care about how you learn (meta-learning), how you recover from failure, and how you protect attention when everything screams urgent. Ask better questions; design experiments; say no to protect the few things that matter.",
-}
-
 func derivedRuntimeTool(employeeID, skillID string) string {
 	employeeID = strings.ToLower(strings.TrimSpace(employeeID))
 	skillID = normalizeCatalogSkillID(skillID)
@@ -60,34 +50,12 @@ func derivedRuntimeTool(employeeID, skillID string) string {
 	return employeeID + "-" + skillID
 }
 
-func migrateLegacyRuntimeTool(runtimeTool, skillID string, owners []string) string {
+// resolveRuntimeTool returns the catalog runtimeTool: explicit non-empty value (canonical names
+// from slack-orchestrator / admin), or employee-skill derived from skill owners when empty.
+func resolveRuntimeTool(runtimeTool, skillID string, owners []string) string {
 	skillID = normalizeCatalogSkillID(skillID)
 	rt := strings.ToLower(strings.TrimSpace(runtimeTool))
-
-	// Historical aliases → canonical employee-skill tool names.
-	switch rt {
-	case "joanne_email":
-		return derivedRuntimeTool("joanne", "create-email")
-	case "joanne_google_docs":
-		return derivedRuntimeTool("joanne", "create-doc")
-	case "joanne-write-email":
-		return derivedRuntimeTool("joanne", "create-email")
-	case "joanne-write-doc":
-		return derivedRuntimeTool("joanne", "create-doc")
-	case "joanne-write-company":
-		return derivedRuntimeTool("joanne", "create-company")
-	case "joanne-write-slack":
-		return derivedRuntimeTool("joanne", "create-slack")
-	case "garth_twitter_lookup":
-		return derivedRuntimeTool("garth", "read-twitter")
-	case "garth_twitter_trends":
-		return derivedRuntimeTool("garth", "read-trends")
-	case "joanne_read_company":
-		return derivedRuntimeTool("joanne", "read-company")
-	}
-
 	if rt != "" {
-		// Non-legacy explicit tool — keep as configured (admin / Redis source of truth).
 		return rt
 	}
 	if len(owners) > 0 {
@@ -126,10 +94,10 @@ func ownersBySkillID(employeeSkillIDs map[string][]string) map[string][]string {
 }
 
 // mergeCapabilityCatalogWithDefaults appends skill definitions (and default employee assignments
-// for those skills only) that exist in defaultCapabilityCatalog but were missing from the stored
-// catalog. This keeps older Redis snapshots aligned when new skills ship without a manual migration.
-func mergeCapabilityCatalogWithDefaults(c CapabilityCatalog) CapabilityCatalog {
-	def := defaultCapabilityCatalog()
+// for those skills only) that exist in def but were missing from the stored catalog. When the
+// backend is configured with SLACK_ORCHESTRATOR_CAPABILITY_CATALOG_URL, def is a cached fetch
+// from slack-orchestrator so older Redis snapshots pick up new skills without a manual migration.
+func mergeCapabilityCatalogWithDefaults(c CapabilityCatalog, def CapabilityCatalog) CapabilityCatalog {
 	originalSkillIDs := map[string]struct{}{}
 	for _, s := range c.Skills {
 		id := normalizeCatalogSkillID(s.ID)
@@ -187,168 +155,14 @@ func mergeCapabilityCatalogWithDefaults(c CapabilityCatalog) CapabilityCatalog {
 	return c
 }
 
-func defaultCapabilityCatalog() CapabilityCatalog {
-	return CapabilityCatalog{
-		Revision: "default",
-		CoreEmployees: []CapabilityCatalogEmployee{
-			{ID: "alex", Label: "Alex", Description: canonicalEmployeeDescriptions["alex"]},
-			{ID: "tim", Label: "Tim", Description: canonicalEmployeeDescriptions["tim"]},
-			{ID: "ross", Label: "Ross", Description: canonicalEmployeeDescriptions["ross"]},
-			{ID: "garth", Label: "Garth", Description: canonicalEmployeeDescriptions["garth"]},
-			{ID: "joanne", Label: "Joanne", Description: canonicalEmployeeDescriptions["joanne"]},
-		},
-		Skills: []CapabilityCatalogSkill{
-			{
-				ID:             "create-email",
-				Label:          "Create Email",
-				Description:    "Draft, send, and triage email communication. Requires confirmation before send.",
-				RuntimeTool:    "joanne-create-email",
-				RequiredParams: []string{"intent"},
-				OptionalParams: []string{"subject", "to", "button", "commenters", "editors", "link", "viewers"},
-				ParamDefaults: map[string]string{
-					"subject":    "Note from BimRoss",
-					"to":         "Slack requester's profile email",
-					"button":     "none",
-					"commenters": "none",
-					"editors":    "none",
-					"link":       "none",
-					"viewers":    "none",
-				},
-				Requires: []string{"google_oauth"},
-			},
-			{
-				ID:             "create-doc",
-				Label:          "Create Doc",
-				Description:    "Create, edit, and organize working docs. Requires confirmation before publish.",
-				RuntimeTool:    "joanne-create-doc",
-				RequiredParams: []string{"intent"},
-				OptionalParams: []string{"title", "type", "commenters", "editors", "viewers"},
-				ParamDefaults: map[string]string{
-					"title":      "Doc from BimRoss",
-					"type":       "outline",
-					"commenters": "none",
-					"editors":    "none",
-					"viewers":    "none",
-				},
-				Requires: []string{"google_oauth"},
-			},
-			{
-				ID:             "create-company",
-				Label:          "Create Company",
-				Description:    "Provision a company channel, run onboarding, create channels, and invite members. Requires explicit Confirm/Cancel before any write.",
-				RuntimeTool:    "joanne-create-company",
-				RequiredParams: []string{"name"},
-				OptionalParams: []string{"founders"},
-				ParamDefaults: map[string]string{
-					"founders": "Message author; add others with @mention",
-				},
-				Requires: []string{"slack_workspace"},
-			},
-			{
-				ID:             "delete-company",
-				Label:          "Delete Company",
-				Description:    "Archive a company Slack channel and remove app-owned Redis data for that workspace. Requires explicit Confirm/Cancel before any write.",
-				RuntimeTool:    "joanne-delete-company",
-				RequiredParams: []string{},
-				OptionalParams: []string{"channel"},
-				ParamDefaults: map[string]string{
-					"channel": "Current channel, or #name / channel link",
-				},
-				Requires: []string{"slack_workspace"},
-			},
-			{
-				ID:             "read-company",
-				Label:          "Read Company",
-				Description:    "Summarize this channel from cached Slack history in Redis (hourly digest). Runs immediately in Slack (no confirmation).",
-				RuntimeTool:    "joanne-read-company",
-				RequiredParams: []string{},
-				OptionalParams: []string{},
-				Requires:       []string{"redis_channel_knowledge"},
-			},
-			{
-				ID:             "read-skills",
-				Label:          "Read Skills",
-				Description:    "List team skills from the capability catalog (who has which skills). Runs immediately in Slack (no confirmation).",
-				RuntimeTool:    "joanne-read-skills",
-				RequiredParams: []string{},
-				OptionalParams: []string{},
-			},
-			{
-				ID:             "read-twitter",
-				Label:          "Read Twitter",
-				Description:    "Search Twitter by keyword and fetch high-impression tweets (not the platform trend list). Runs immediately in Slack (no confirmation).",
-				RuntimeTool:    "garth-read-twitter",
-				RequiredParams: []string{"query"},
-				OptionalParams: []string{"count"},
-				Requires:       []string{"twitter_indexer"},
-			},
-			{
-				ID:             "read-trends",
-				Label:          "Read Trends",
-				Description:    "Fetch the current Twitter/X trend list (not keyword search). Runs immediately in Slack (no confirmation).",
-				RuntimeTool:    "garth-read-trends",
-				RequiredParams: []string{},
-				OptionalParams: []string{},
-				Requires:       []string{"twitter_indexer"},
-			},
-		},
-		EmployeeSkillIDs: map[string][]string{
-			"alex":   {},
-			"tim":    {},
-			"ross":   {},
-			"garth":  {"read-twitter", "read-trends"},
-			"joanne": {"read-company", "read-skills", "create-company", "delete-company", "create-email", "create-doc"},
-		},
-		UpdatedAt: time.Now().UTC().Format(time.RFC3339),
-		Source:    "default",
-	}
-}
-
+// normalizeCatalogSkillID trims skill IDs. Canonical IDs come from the slack-orchestrator
+// capability contract (DefaultCapabilityContractV1); this backend does not remap legacy aliases.
 func normalizeCatalogSkillID(raw string) string {
-	id := strings.TrimSpace(raw)
-	switch id {
-	case "write-docs", "write-doc", "create-docs":
-		return "create-doc"
-	case "slack-onboard", "write-company":
-		return "create-company"
-	case "write-email":
-		return "create-email"
-	case "write-slack":
-		return "create-slack"
-	case "read-slack":
-		return "read-company"
-	default:
-		return id
-	}
+	return strings.TrimSpace(raw)
 }
 
 func normalizeCatalogSkillParamName(raw string) string {
-	value := strings.TrimSpace(raw)
-	if value == "" {
-		return ""
-	}
-	switch value {
-	case "additionalCommenters":
-		return "commenters"
-	case "additionalEditors":
-		return "editors"
-	case "additionalViewers":
-		return "viewers"
-	case "ctaText", "cta_text":
-		return "button"
-	case "ctaUrl", "ctaURL", "cta_url":
-		return "link"
-	case "bodyText":
-		return "intent"
-	case "docType":
-		return "type"
-	case "maxResults":
-		return "count"
-	case "bodyInstruction", "goal", "lengthTarget", "tableRequest", "deadline", "tone", "timeRange", "sortBy":
-		return ""
-	default:
-		return value
-	}
+	return strings.TrimSpace(raw)
 }
 
 // builtinSkillDisplayLabel returns default UI labels for known skill ids when the stored label is empty.
@@ -582,7 +396,7 @@ func normalizeCapabilityCatalog(c CapabilityCatalog) CapabilityCatalog {
 		skill.RequiredParams = required
 		skill.OptionalParams = optional
 		skill.ID = id
-		skill.RuntimeTool = migrateLegacyRuntimeTool(skill.RuntimeTool, id, ownersBySkill[id])
+		skill.RuntimeTool = resolveRuntimeTool(skill.RuntimeTool, id, ownersBySkill[id])
 		skill.Description = strings.TrimSpace(skill.Description)
 		if id == "create-email" {
 			skill.ParamDefaults = mergeCreateEmailParamDefaultsMap(skill.ParamDefaults)
@@ -728,7 +542,19 @@ func validateCapabilityCatalog(c CapabilityCatalog) error {
 func (s *Store) GetCapabilityCatalog(ctx context.Context) (CapabilityCatalog, error) {
 	raw, err := s.rdb.Get(ctx, capabilityCatalogRedisKey).Bytes()
 	if err == redis.Nil {
-		catalog := defaultCapabilityCatalog()
+		url := strings.TrimSpace(s.orchestratorCatalogURL)
+		if url == "" {
+			return CapabilityCatalog{}, fmt.Errorf("capability catalog: redis key missing; set SLACK_ORCHESTRATOR_CAPABILITY_CATALOG_URL to seed from slack-orchestrator or PUT /v1/admin/catalog")
+		}
+		catalog, err := FetchCapabilityCatalogFromOrchestrator(ctx, url)
+		if err != nil {
+			return CapabilityCatalog{}, fmt.Errorf("capability catalog seed from orchestrator: %w", err)
+		}
+		catalog = mergeCapabilityCatalogWithDefaults(catalog, CapabilityCatalog{})
+		catalog = normalizeCapabilityCatalog(catalog)
+		if err := validateCapabilityCatalog(catalog); err != nil {
+			return CapabilityCatalog{}, fmt.Errorf("capability catalog seed invalid: %w", err)
+		}
 		catalog.Source = "redis_seed"
 		body, marshalErr := json.Marshal(catalog)
 		if marshalErr == nil {
@@ -743,7 +569,8 @@ func (s *Store) GetCapabilityCatalog(ctx context.Context) (CapabilityCatalog, er
 	if err := json.Unmarshal(raw, &catalog); err != nil {
 		return CapabilityCatalog{}, fmt.Errorf("decode catalog: %w", err)
 	}
-	catalog = mergeCapabilityCatalogWithDefaults(catalog)
+	baseline := s.orchestratorMergeBaseline(ctx)
+	catalog = mergeCapabilityCatalogWithDefaults(catalog, baseline)
 	catalog = normalizeCapabilityCatalog(catalog)
 	if err := validateCapabilityCatalog(catalog); err != nil {
 		return CapabilityCatalog{}, err

@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -69,28 +70,66 @@ return 1
 `
 
 type Store struct {
-	rdb                *redis.Client
-	companyChannelsRdb *redis.Client // optional second Redis for shared employee-factory registry; nil = use rdb
+	rdb                    *redis.Client
+	companyChannelsRdb     *redis.Client // optional second Redis for shared employee-factory registry; nil = use rdb
+	orchestratorCatalogURL string        // SLACK_ORCHESTRATOR_CAPABILITY_CATALOG_URL — seed empty Redis + merge baseline
+
+	baselineMu     sync.Mutex
+	baselineMerge  CapabilityCatalog
+	baselineExpiry time.Time
 }
+
+const orchestratorCatalogBaselineTTL = 2 * time.Minute
 
 // NewStore opens the primary Redis client. If companyChannelsRedisURL is non-empty and differs from redisURL,
 // a second client is used only for ListCompanyChannels (same pattern as employee-factory vs makeacompany-ai split).
-func NewStore(redisURL, companyChannelsRedisURL string) (*Store, error) {
+func NewStore(redisURL, companyChannelsRedisURL, orchestratorCatalogURL string) (*Store, error) {
 	opts, err := redis.ParseURL(redisURL)
 	if err != nil {
 		return nil, fmt.Errorf("parse redis url: %w", err)
 	}
 	primary := redis.NewClient(opts)
+	orchURL := strings.TrimSpace(orchestratorCatalogURL)
+	st := &Store{rdb: primary, orchestratorCatalogURL: orchURL}
 	ccURL := strings.TrimSpace(companyChannelsRedisURL)
 	if ccURL == "" || ccURL == strings.TrimSpace(redisURL) {
-		return &Store{rdb: primary}, nil
+		return st, nil
 	}
 	ccOpts, err := redis.ParseURL(ccURL)
 	if err != nil {
 		_ = primary.Close()
 		return nil, fmt.Errorf("parse company channels redis url: %w", err)
 	}
-	return &Store{rdb: primary, companyChannelsRdb: redis.NewClient(ccOpts)}, nil
+	st.companyChannelsRdb = redis.NewClient(ccOpts)
+	return st, nil
+}
+
+// orchestratorMergeBaseline returns a cached catalog from slack-orchestrator for
+// mergeCapabilityCatalogWithDefaults. Empty if URL unset. On fetch error, returns the last
+// successful baseline when available.
+func (s *Store) orchestratorMergeBaseline(ctx context.Context) CapabilityCatalog {
+	if s == nil {
+		return CapabilityCatalog{}
+	}
+	url := strings.TrimSpace(s.orchestratorCatalogURL)
+	if url == "" {
+		return CapabilityCatalog{}
+	}
+	s.baselineMu.Lock()
+	defer s.baselineMu.Unlock()
+	if len(s.baselineMerge.Skills) > 0 && time.Now().Before(s.baselineExpiry) {
+		return s.baselineMerge
+	}
+	cat, err := FetchCapabilityCatalogFromOrchestrator(ctx, url)
+	if err != nil {
+		if len(s.baselineMerge.Skills) > 0 {
+			return s.baselineMerge
+		}
+		return CapabilityCatalog{}
+	}
+	s.baselineMerge = cat
+	s.baselineExpiry = time.Now().Add(orchestratorCatalogBaselineTTL)
+	return cat
 }
 
 func (s *Store) Close() error {
