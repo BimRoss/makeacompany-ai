@@ -152,7 +152,7 @@ export function AdminChannelControlPane({
       <div className="flex flex-col justify-center rounded-lg border border-border bg-background p-4 shadow-sm">
         <div className="divide-y divide-border">
           <div className="flex flex-wrap items-center justify-between gap-3 pb-3">
-            <span className="text-sm font-medium text-foreground">General</span>
+            <span className="text-sm font-medium text-foreground">General Responses</span>
             <ControlToggle
               enabled={generalOn}
               disabled={false}
@@ -162,13 +162,13 @@ export function AdminChannelControlPane({
             />
           </div>
           <div className="flex flex-wrap items-center justify-between gap-3 py-3">
-            <span className="text-sm font-medium text-foreground">Reactions</span>
+            <span className="text-sm font-medium text-foreground">Reaction Mirroring</span>
             <ControlToggle
               enabled={reactionsOn}
               disabled={false}
               busy={busy}
               onToggle={() => void patchChannel({ general_auto_reaction_enabled: !reactionsOn })}
-              ariaLabel={reactionsOn ? "Turn off reactions" : "Turn on reactions"}
+              ariaLabel={reactionsOn ? "Turn off reaction mirroring" : "Turn on reaction mirroring"}
             />
           </div>
           <div className="flex flex-wrap items-center justify-between gap-3 py-3">
