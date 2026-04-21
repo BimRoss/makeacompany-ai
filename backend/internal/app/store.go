@@ -601,8 +601,9 @@ type DiscoveredChannelInput struct {
 
 const maxOwnerIDsPerChannel = 100
 
-// UpsertDiscoveredCompanyChannels merges Slack-derived defaults into Redis: reactions on, optional owner_ids from Slack,
-// display name. Preserves out_of_office and general_responses_muted when already set; always sets general_auto_reaction_enabled true.
+// UpsertDiscoveredCompanyChannels merges Slack-derived defaults into Redis: optional owner_ids from Slack,
+// display name, company slug. Preserves out_of_office, general_responses_muted, and general_auto_reaction_enabled
+// when a JSON row already exists (operator toggles). New rows default general_auto_reaction_enabled to true.
 func (s *Store) UpsertDiscoveredCompanyChannels(ctx context.Context, hashKey string, in []DiscoveredChannelInput) ([]string, error) {
 	rdb := s.companyChannelsRedis()
 	if s == nil || rdb == nil {
@@ -619,6 +620,8 @@ func (s *Store) UpsertDiscoveredCompanyChannels(ctx context.Context, hashKey str
 			continue
 		}
 		var e CompanyChannel
+		var hadStoredRow bool
+		var prevGeneralAutoReaction bool
 		raw, err := rdb.HGet(ctx, k, cid).Result()
 		if err != nil && err != redis.Nil {
 			return touched, err
@@ -626,6 +629,9 @@ func (s *Store) UpsertDiscoveredCompanyChannels(ctx context.Context, hashKey str
 		if err == nil && strings.TrimSpace(raw) != "" {
 			if uerr := json.Unmarshal([]byte(raw), &e); uerr != nil {
 				e = CompanyChannel{}
+			} else {
+				hadStoredRow = true
+				prevGeneralAutoReaction = e.GeneralAutoReactionEnabled
 			}
 		}
 		e = normalizeCompanyChannel(e, cid)
@@ -642,7 +648,11 @@ func (s *Store) UpsertDiscoveredCompanyChannels(ctx context.Context, hashKey str
 		}
 		e.ChannelID = cid
 		e.ThreadsEnabled = true
-		e.GeneralAutoReactionEnabled = true
+		if hadStoredRow {
+			e.GeneralAutoReactionEnabled = prevGeneralAutoReaction
+		} else {
+			e.GeneralAutoReactionEnabled = true
+		}
 		e.OutOfOfficeEnabled = ooo
 		e.GeneralResponsesMuted = grm
 		if len(row.OwnerIDs) > 0 {

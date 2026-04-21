@@ -57,7 +57,6 @@ function needsRegistryPolicySync(row: MergedRow): boolean {
   if (!row.registry) return true;
   const owners = row.registry.owner_ids?.filter((id) => id.trim()) ?? [];
   if (owners.length === 0) return true;
-  if (!row.registry.general_auto_reaction_enabled) return true;
   return false;
 }
 

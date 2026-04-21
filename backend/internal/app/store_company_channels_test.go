@@ -131,8 +131,8 @@ func TestUpsertDiscoveredCompanyChannels_MergesDefaults(t *testing.T) {
 		t.Fatal(err)
 	}
 	decodedExist = normalizeCompanyChannel(decodedExist, existingID)
-	if !decodedExist.GeneralAutoReactionEnabled {
-		t.Fatal("expected upsert to turn reactions on for existing row")
+	if decodedExist.GeneralAutoReactionEnabled {
+		t.Fatal("expected upsert to preserve general_auto_reaction_enabled for existing row")
 	}
 	if len(decodedExist.OwnerIDs) != 2 {
 		t.Fatalf("owner_ids existing: got %#v", decodedExist.OwnerIDs)
