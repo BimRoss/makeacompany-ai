@@ -32,10 +32,20 @@ type TeamMemberMetricEmbed = {
   url: string;
 };
 
-/** Panel 1 from the “agents” dashboard: selected agent’s goroutines (panel 2 is squad-wide; not repeated per card). */
+/**
+ * Per-employee iframe: the agents-dashboard panel whose series respect `var-employee` (goroutines).
+ * Prefer matching the panel title so HEALTH_GRAFANA_AGENTS_PANEL_IDS order can change in Grafana.
+ */
 function selectAgentMetricPanels(embeds: GrafanaEmbed[]): GrafanaEmbed[] {
+  const goroutines = embeds.find((embed) => /goroutine/i.test(embed.title));
+  if (goroutines) {
+    return [goroutines];
+  }
   const byId = (id: string) => embeds.find((embed) => embed.panelId === id);
-  return ["1"].map((id) => byId(id)).filter((panel): panel is GrafanaEmbed => Boolean(panel));
+  return ["2", "1"]
+    .map((id) => byId(id))
+    .filter((panel): panel is GrafanaEmbed => Boolean(panel))
+    .slice(0, 1);
 }
 
 function asGrafanaEmbedUrl(
@@ -146,9 +156,9 @@ export function TeamCardsGrid({ members, skills }: TeamCardsGridProps) {
                 ))
               ) : (
                 <article className="rounded-md border border-dashed border-border px-3 py-2 text-sm text-muted-foreground xl:col-span-1">
-                  <p>No Grafana activities chart for {member.displayName}.</p>
+                  <p>No Grafana goroutines chart for {member.displayName}.</p>
                   <p className="mt-1 text-xs">
-                    Configure <code className="text-xs">HEALTH_GRAFANA_AGENTS_*</code> so panel 1 (per-agent goroutines) can load.
+                    Configure <code className="text-xs">HEALTH_GRAFANA_AGENTS_*</code> with a per-employee goroutines panel (title or panel id in the agents dashboard list).
                   </p>
                 </article>
               )}

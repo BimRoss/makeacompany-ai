@@ -172,7 +172,7 @@ export async function GET() {
   const agentsPanelIds = parseList(process.env.HEALTH_GRAFANA_AGENTS_PANEL_IDS, ["1", "2"]);
   const agentsPanelTitles = parseList(process.env.HEALTH_GRAFANA_AGENTS_PANEL_TITLES, defaultAgentsPanelTitles);
 
-  // `/twitter` uses only these embeds; `/employees` team cards use `adminGrafanaEmbeds` (employee-factory metrics only).
+  // `/twitter` uses `grafanaEmbeds`; `/employees` team cards prefer `agentsGrafanaEmbeds` (per-employee goroutines).
   const grafanaEmbeds = buildGrafanaEmbeds(twitterDashboardUrl, "twitter", twitterPanelIds, twitterPanelTitles);
   const adminGrafanaEmbeds = buildGrafanaEmbeds(grafanaDashboardUrl, "app", adminPanelIds, adminPanelTitles);
   const slackOrchestratorGrafanaEmbeds = buildGrafanaEmbeds(

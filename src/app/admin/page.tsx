@@ -1,7 +1,6 @@
 import { AdminCompanyChannelsStrip } from "@/components/admin/admin-company-channels-strip";
 import { AdminShell } from "@/components/admin/admin-shell";
 import { SkillsCardsGrid } from "@/components/admin/skills-cards-grid";
-import { ServiceGrafanaDashboard } from "@/components/admin/service-grafana-dashboard";
 import { OrchestratorDebugPanel } from "@/components/orchestrator/orchestrator-debug-panel";
 import { getAdminCatalogData } from "@/lib/admin/catalog";
 
@@ -11,10 +10,6 @@ export default async function AdminPage() {
   return (
     <AdminShell>
       <div className="space-y-10">
-        <ServiceGrafanaDashboard
-          embedsKey="agentsGrafanaEmbeds"
-          gridClassName="grid grid-cols-1 gap-2 lg:grid-cols-2"
-        />
         <AdminCompanyChannelsStrip />
         <section className="space-y-4" aria-labelledby="admin-skills-heading">
           <h2 id="admin-skills-heading" className="text-lg font-semibold leading-snug tracking-tight">
