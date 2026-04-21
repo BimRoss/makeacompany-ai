@@ -11,6 +11,7 @@ var canonicalDefaultSkillIDs = []string{
 	"create-company",
 	"create-doc",
 	"create-email",
+	"delete-company",
 	"read-company",
 	"read-skills",
 	"read-trends",

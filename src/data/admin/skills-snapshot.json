@@ -19,6 +19,14 @@
       ]
     },
     {
+      "id": "delete-company",
+      "label": "Delete Company",
+      "description": "Archive a company Slack channel and remove app-owned Redis data for that workspace. Requires confirmation before writes.",
+      "employeeIds": [
+        "joanne"
+      ]
+    },
+    {
       "id": "read-slack-channels",
       "label": "Read Slack Channels",
       "description": "List Slack channels visible to the bot. Runs immediately in Slack (no confirmation).",
