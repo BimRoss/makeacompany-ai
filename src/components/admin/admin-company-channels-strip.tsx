@@ -341,6 +341,9 @@ export function AdminCompanyChannelsStrip() {
                           {row.registry.company_slug}
                         </span>
                       ) : null}
+                      <span className={pillClassName(!row.registry.general_responses_muted)}>
+                        {!row.registry.general_responses_muted ? "general on" : "general off"}
+                      </span>
                       <span className={pillClassName(row.registry.general_auto_reaction_enabled)}>
                         {row.registry.general_auto_reaction_enabled ? "reactions on" : "reactions off"}
                       </span>

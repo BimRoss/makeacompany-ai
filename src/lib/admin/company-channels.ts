@@ -6,6 +6,8 @@ export type CompanyChannel = {
   owner_ids?: string[];
   threads_enabled: boolean;
   general_auto_reaction_enabled: boolean;
+  /** When true, plain-channel thumbs + random thread reply are off. Omitted/false = General on (default). */
+  general_responses_muted?: boolean;
   /** When omitted on older rows, treat as false in UI. */
   out_of_office_enabled?: boolean;
 };

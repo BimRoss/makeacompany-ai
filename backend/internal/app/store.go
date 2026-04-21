@@ -407,6 +407,7 @@ type CompanyChannel struct {
 	AllowedOperatorIDs         []string `json:"allowed_operator_ids,omitempty"` // legacy
 	ThreadsEnabled             bool     `json:"threads_enabled"`
 	GeneralAutoReactionEnabled bool     `json:"general_auto_reaction_enabled"`
+	GeneralResponsesMuted      bool     `json:"general_responses_muted,omitempty"`
 	OutOfOfficeEnabled         bool     `json:"out_of_office_enabled"`
 }
 
@@ -550,6 +551,7 @@ func (s *Store) GetCompanyChannel(ctx context.Context, hashKey, channelID string
 // CompanyChannelPatch is a partial update applied on top of the existing Redis JSON.
 type CompanyChannelPatch struct {
 	GeneralAutoReactionEnabled *bool `json:"general_auto_reaction_enabled,omitempty"`
+	GeneralResponsesMuted      *bool `json:"general_responses_muted,omitempty"`
 	OutOfOfficeEnabled         *bool `json:"out_of_office_enabled,omitempty"`
 }
 
@@ -561,6 +563,9 @@ func (s *Store) PatchCompanyChannel(ctx context.Context, hashKey, channelID stri
 	}
 	if patch.GeneralAutoReactionEnabled != nil {
 		e.GeneralAutoReactionEnabled = *patch.GeneralAutoReactionEnabled
+	}
+	if patch.GeneralResponsesMuted != nil {
+		e.GeneralResponsesMuted = *patch.GeneralResponsesMuted
 	}
 	if patch.OutOfOfficeEnabled != nil {
 		e.OutOfOfficeEnabled = *patch.OutOfOfficeEnabled
@@ -597,7 +602,7 @@ type DiscoveredChannelInput struct {
 const maxOwnerIDsPerChannel = 100
 
 // UpsertDiscoveredCompanyChannels merges Slack-derived defaults into Redis: reactions on, optional owner_ids from Slack,
-// display name. Preserves out_of_office when already set; always sets general_auto_reaction_enabled true.
+// display name. Preserves out_of_office and general_responses_muted when already set; always sets general_auto_reaction_enabled true.
 func (s *Store) UpsertDiscoveredCompanyChannels(ctx context.Context, hashKey string, in []DiscoveredChannelInput) ([]string, error) {
 	rdb := s.companyChannelsRedis()
 	if s == nil || rdb == nil {
@@ -625,6 +630,7 @@ func (s *Store) UpsertDiscoveredCompanyChannels(ctx context.Context, hashKey str
 		}
 		e = normalizeCompanyChannel(e, cid)
 		ooo := e.OutOfOfficeEnabled
+		grm := e.GeneralResponsesMuted
 		dn := strings.TrimSpace(row.Name)
 		if dn != "" {
 			e.DisplayName = dn
@@ -638,6 +644,7 @@ func (s *Store) UpsertDiscoveredCompanyChannels(ctx context.Context, hashKey str
 		e.ThreadsEnabled = true
 		e.GeneralAutoReactionEnabled = true
 		e.OutOfOfficeEnabled = ooo
+		e.GeneralResponsesMuted = grm
 		if len(row.OwnerIDs) > 0 {
 			e.OwnerIDs = dedupeTrimmedIDs(row.OwnerIDs, maxOwnerIDsPerChannel)
 		}

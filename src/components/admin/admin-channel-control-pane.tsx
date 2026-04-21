@@ -135,6 +135,7 @@ export function AdminChannelControlPane({
     owners.length > 0 ? owners.join(", ") : "— (none; add operator Slack user ids—registry channels do not use a global CEO fallback)";
 
   const reactionsOn = channel.general_auto_reaction_enabled ?? false;
+  const generalOn = !channel.general_responses_muted;
 
   return (
     <section className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-stretch" aria-label="Channel registry and controls">
@@ -151,6 +152,16 @@ export function AdminChannelControlPane({
       <div className="flex flex-col justify-center rounded-lg border border-border bg-background p-4 shadow-sm">
         <div className="divide-y divide-border">
           <div className="flex flex-wrap items-center justify-between gap-3 pb-3">
+            <span className="text-sm font-medium text-foreground">General</span>
+            <ControlToggle
+              enabled={generalOn}
+              disabled={false}
+              busy={busy}
+              onToggle={() => void patchChannel({ general_responses_muted: generalOn })}
+              ariaLabel={generalOn ? "Turn off general responses" : "Turn on general responses"}
+            />
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-3 py-3">
             <span className="text-sm font-medium text-foreground">Reactions</span>
             <ControlToggle
               enabled={reactionsOn}
