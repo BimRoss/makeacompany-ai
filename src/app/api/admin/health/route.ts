@@ -36,12 +36,7 @@ const defaultSlackOrchestratorPanelTitles = [
   "Socket Mode state",
 ];
 
-const defaultAgentsPanelTitles = [
-  "Inbound events / min",
-  "Outbound events / min",
-  "Orchestrator ingress (accepted) /s",
-  "Activities",
-];
+const defaultAgentsPanelTitles = ["Activities", "All agents (goroutines)"];
 
 function buildDefaultGrafanaDashboardUrl(
   requestHost: string | null,
@@ -174,7 +169,7 @@ export async function GET() {
   const agentsConfigured = process.env.HEALTH_GRAFANA_AGENTS_DASHBOARD_URL?.trim() || null;
   const agentsDashboardUrl =
     normalizeGrafanaDashboardUrl(agentsConfigured, host, proto) ?? buildDefaultGrafanaPathUrl(host, proto, DEFAULT_AGENTS_PATH);
-  const agentsPanelIds = parseList(process.env.HEALTH_GRAFANA_AGENTS_PANEL_IDS, ["1", "2", "3", "4"]);
+  const agentsPanelIds = parseList(process.env.HEALTH_GRAFANA_AGENTS_PANEL_IDS, ["1", "2"]);
   const agentsPanelTitles = parseList(process.env.HEALTH_GRAFANA_AGENTS_PANEL_TITLES, defaultAgentsPanelTitles);
 
   // `/twitter` uses only these embeds; `/employees` team cards use `adminGrafanaEmbeds` (employee-factory metrics only).

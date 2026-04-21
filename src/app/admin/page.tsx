@@ -13,7 +13,7 @@ export default async function AdminPage() {
       <div className="space-y-10">
         <ServiceGrafanaDashboard
           embedsKey="agentsGrafanaEmbeds"
-          gridClassName="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4"
+          gridClassName="grid grid-cols-1 gap-2 lg:grid-cols-2"
         />
         <AdminCompanyChannelsStrip />
         <section className="space-y-4" aria-labelledby="admin-skills-heading">
