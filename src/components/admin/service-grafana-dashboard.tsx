@@ -45,6 +45,8 @@ type ServiceGrafanaDashboardProps = {
   title?: string;
   description?: string;
   gridClassName?: string;
+  /** When set, only matching panels are rendered (e.g. “All agents” on `/admin`). */
+  embedFilter?: (embed: GrafanaEmbed) => boolean;
 };
 
 export function ServiceGrafanaDashboard({
@@ -52,6 +54,7 @@ export function ServiceGrafanaDashboard({
   title,
   description,
   gridClassName = "grid grid-cols-1 gap-2 md:grid-cols-2",
+  embedFilter,
 }: ServiceGrafanaDashboardProps) {
   const { resolvedTheme } = useTheme();
   const [embeds, setEmbeds] = useState<GrafanaEmbed[]>([]);
@@ -78,16 +81,21 @@ export function ServiceGrafanaDashboard({
     };
   }, [embedsKey]);
 
+  const filteredEmbeds = useMemo(
+    () => (embedFilter ? embeds.filter(embedFilter) : embeds),
+    [embeds, embedFilter]
+  );
+
   const cards = useMemo(
     () =>
-      embeds
+      filteredEmbeds
         .map((embed) => ({
           key: embed.key,
           title: embed.title,
           url: asGrafanaEmbedUrl(embed.dashboardUrl, embed.panelId, resolvedTheme === "dark" ? "dark" : "light"),
         }))
         .filter((c): c is typeof c & { url: string } => Boolean(c.url)),
-    [embeds, resolvedTheme]
+    [filteredEmbeds, resolvedTheme]
   );
 
   const showPageHeading = Boolean(title?.trim() || description?.trim());

@@ -33,19 +33,18 @@ type TeamMemberMetricEmbed = {
 };
 
 /**
- * Per-employee iframe: the agents-dashboard panel whose series respect `var-employee` (goroutines).
- * Prefer matching the panel title so HEALTH_GRAFANA_AGENTS_PANEL_IDS order can change in Grafana.
+ * Per-employee iframe: the agents-dashboard **Activities** panel uses `agent_id="$employee"` and
+ * respects `var-employee` on the embed URL. Do not use **All agents (goroutines)** here — that panel
+ * intentionally plots every agent at once.
  */
 function selectAgentMetricPanels(embeds: GrafanaEmbed[]): GrafanaEmbed[] {
-  const goroutines = embeds.find((embed) => /goroutine/i.test(embed.title));
-  if (goroutines) {
-    return [goroutines];
+  const activities = embeds.find((embed) => /^activities$/i.test(embed.title.trim()));
+  if (activities) {
+    return [activities];
   }
   const byId = (id: string) => embeds.find((embed) => embed.panelId === id);
-  return ["2", "1"]
-    .map((id) => byId(id))
-    .filter((panel): panel is GrafanaEmbed => Boolean(panel))
-    .slice(0, 1);
+  const fallback = byId("1");
+  return fallback ? [fallback] : [];
 }
 
 function asGrafanaEmbedUrl(
@@ -109,11 +108,8 @@ export function TeamCardsGrid({ members, skills }: TeamCardsGridProps) {
     };
   }, []);
 
-  // Employee cards: dedicated “agents” dashboard (per-employee template var), not the mixed /admin overview.
-  const allEmbeds = useMemo(
-    () => [...(healthPayload?.agentsGrafanaEmbeds ?? healthPayload?.adminGrafanaEmbeds ?? [])],
-    [healthPayload?.adminGrafanaEmbeds, healthPayload?.agentsGrafanaEmbeds]
-  );
+  // Employee cards: only the agents dashboard (var-employee). Do not fall back to adminGrafanaEmbeds — panel ids/titles differ.
+  const allEmbeds = useMemo(() => healthPayload?.agentsGrafanaEmbeds ?? [], [healthPayload?.agentsGrafanaEmbeds]);
 
   return (
     <div className="space-y-4">
