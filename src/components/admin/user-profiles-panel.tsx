@@ -227,11 +227,15 @@ export function UserProfilesPanel() {
                     <td className="px-3 py-2 font-mono text-xs">
                       <span className="inline-flex items-center gap-1.5">
                         {hasSlackMatch ? (
-                          <Link2
-                            className="h-3.5 w-3.5 shrink-0 text-primary"
-                            aria-label="Email matches a Slack workspace user"
+                          <span
+                            className="inline-flex shrink-0"
                             title="Email matches a Slack workspace user"
-                          />
+                          >
+                            <Link2
+                              className="h-3.5 w-3.5 text-primary"
+                              aria-label="Email matches a Slack workspace user"
+                            />
+                          </span>
                         ) : null}
                         {short(w.email, 48)}
                       </span>
@@ -326,11 +330,15 @@ export function UserProfilesPanel() {
                     <td className="px-3 py-2 font-mono text-xs">
                       <span className="inline-flex items-center gap-1.5">
                         {hasStripeMatch ? (
-                          <Link2
-                            className="h-3.5 w-3.5 shrink-0 text-primary"
-                            aria-label="Email matches a Stripe checkout user"
+                          <span
+                            className="inline-flex shrink-0"
                             title="Email matches a Stripe checkout user"
-                          />
+                          >
+                            <Link2
+                              className="h-3.5 w-3.5 text-primary"
+                              aria-label="Email matches a Stripe checkout user"
+                            />
+                          </span>
                         ) : null}
                         {short(u.email || "—", 48)}
                       </span>
