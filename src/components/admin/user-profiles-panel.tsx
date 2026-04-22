@@ -1,6 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { Link2 } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+
+function normalizeEmail(email: string): string | null {
+  const t = (email ?? "").trim().toLowerCase();
+  return t.length > 0 ? t : null;
+}
 
 type StripeWaitlistPurchaserRow = {
   email: string;
@@ -84,7 +90,6 @@ export function UserProfilesPanel() {
   const [stripeLoading, setStripeLoading] = useState(false);
 
   const [slackUsers, setSlackUsers] = useState<SlackWorkspaceUserRow[]>([]);
-  const [slackMeta, setSlackMeta] = useState<{ source?: string; fetchedAt?: string | null; snapshotNote?: string }>({});
   const [slackError, setSlackError] = useState<string | null>(null);
   const [slackLoading, setSlackLoading] = useState(false);
 
@@ -123,15 +128,12 @@ export function UserProfilesPanel() {
       if (!res.ok) {
         setSlackError(body.message ?? body.error ?? `HTTP ${res.status}`);
         setSlackUsers([]);
-        setSlackMeta({});
         return;
       }
       setSlackUsers(Array.isArray(body.users) ? body.users : []);
-      setSlackMeta({ source: body.source, fetchedAt: body.fetchedAt ?? null, snapshotNote: body.snapshotNote });
     } catch (e) {
       setSlackError(e instanceof Error ? e.message : "fetch failed");
       setSlackUsers([]);
-      setSlackMeta({});
     } finally {
       setSlackLoading(false);
     }
@@ -148,6 +150,24 @@ export function UserProfilesPanel() {
   useEffect(() => {
     void refreshSlackSnapshot();
   }, [refreshSlackSnapshot]);
+
+  const slackEmailSet = useMemo(() => {
+    const s = new Set<string>();
+    for (const u of slackUsers) {
+      const n = normalizeEmail(u.email);
+      if (n) s.add(n);
+    }
+    return s;
+  }, [slackUsers]);
+
+  const stripeEmailSet = useMemo(() => {
+    const s = new Set<string>();
+    for (const w of stripePurchasers) {
+      const n = normalizeEmail(w.email);
+      if (n) s.add(n);
+    }
+    return s;
+  }, [stripePurchasers]);
 
   return (
     <div className="space-y-10">
@@ -199,9 +219,23 @@ export function UserProfilesPanel() {
                 </tr>
               </thead>
               <tbody>
-                {stripePurchasers.map((w) => (
+                {stripePurchasers.map((w) => {
+                  const stripeEmailNorm = normalizeEmail(w.email);
+                  const hasSlackMatch = stripeEmailNorm !== null && slackEmailSet.has(stripeEmailNorm);
+                  return (
                   <tr key={`${w.email}:${w.stripeSessionId}`} className="border-b border-border/80 last:border-0">
-                    <td className="px-3 py-2 font-mono text-xs">{short(w.email, 48)}</td>
+                    <td className="px-3 py-2 font-mono text-xs">
+                      <span className="inline-flex items-center gap-1.5">
+                        {hasSlackMatch ? (
+                          <Link2
+                            className="h-3.5 w-3.5 shrink-0 text-primary"
+                            aria-label="Email matches a Slack workspace user"
+                            title="Email matches a Slack workspace user"
+                          />
+                        ) : null}
+                        {short(w.email, 48)}
+                      </span>
+                    </td>
                     <td className="px-3 py-2 text-xs">{short(w.paymentStatus, 20)}</td>
                     <td className="px-3 py-2 text-xs text-muted-foreground">
                       {w.amountTotal && w.amountTotal !== "0" ? formatStripeAmount(w.amountTotal, w.currency) : "—"}
@@ -221,7 +255,8 @@ export function UserProfilesPanel() {
                     <td className="px-3 py-2 font-mono text-xs">{short(w.stripeSessionId, 20)}</td>
                     <td className="px-3 py-2 text-xs text-muted-foreground">{short(w.checkoutCreated, 24)}</td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -250,15 +285,6 @@ export function UserProfilesPanel() {
           </button>
         </div>
       </div>
-
-      {slackMeta.fetchedAt || slackMeta.snapshotNote ? (
-        <p className="text-xs text-muted-foreground">
-          {slackUsers.length} row{slackUsers.length === 1 ? "" : "s"}
-          {slackMeta.source ? ` · source ${slackMeta.source}` : ""}
-          {slackMeta.fetchedAt ? ` · last fetch ${slackMeta.fetchedAt}` : ""}
-          {slackMeta.snapshotNote ? ` — ${slackMeta.snapshotNote}` : ""}
-        </p>
-      ) : null}
 
       {slackError ? (
         <p className="rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive" role="alert">
@@ -289,19 +315,34 @@ export function UserProfilesPanel() {
                 </tr>
               </thead>
               <tbody>
-                {slackUsers.map((u) => (
+                {slackUsers.map((u) => {
+                  const slackEmailNorm = normalizeEmail(u.email);
+                  const hasStripeMatch = slackEmailNorm !== null && stripeEmailSet.has(slackEmailNorm);
+                  return (
                   <tr key={u.slackUserId} className="border-b border-border/80 last:border-0">
                     <td className="px-3 py-2 text-xs">
                       {short((u.realName || u.displayName || u.username || "—").trim(), 40)}
                     </td>
-                    <td className="px-3 py-2 font-mono text-xs">{short(u.email || "—", 48)}</td>
+                    <td className="px-3 py-2 font-mono text-xs">
+                      <span className="inline-flex items-center gap-1.5">
+                        {hasStripeMatch ? (
+                          <Link2
+                            className="h-3.5 w-3.5 shrink-0 text-primary"
+                            aria-label="Email matches a Stripe checkout user"
+                            title="Email matches a Stripe checkout user"
+                          />
+                        ) : null}
+                        {short(u.email || "—", 48)}
+                      </span>
+                    </td>
                     <td className="px-3 py-2 font-mono text-xs">{short(u.username, 28)}</td>
                     <td className="px-3 py-2 font-mono text-xs">{short(u.slackUserId, 16)}</td>
                     <td className="px-3 py-2 font-mono text-xs">{short(u.teamId, 14)}</td>
                     <td className="px-3 py-2 text-xs">{u.isBot ? "yes" : "—"}</td>
                     <td className="px-3 py-2 text-xs">{u.isDeleted ? "yes" : "—"}</td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>

@@ -45,8 +45,13 @@ function ownersPill(ch: CompanyChannel) {
     );
   }
   return (
-    <span className={pillClassName(false)} title={owners.join(", ")}>
-      {owners.length} human{owners.length === 1 ? "" : "s"} in channel
+    <span
+      className={pillClassName(false)}
+      title={`Owner Slack IDs: ${owners.join(
+        ", ",
+      )}. Count is owners stored at company creation or discover sync, not total humans in the channel.`}
+    >
+      {owners.length} owner{owners.length === 1 ? "" : "s"}
     </span>
   );
 }
