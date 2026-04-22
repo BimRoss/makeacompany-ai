@@ -88,6 +88,30 @@ func (s *Store) UpsertUserProfileSlackID(ctx context.Context, email, slackUserID
 	return err
 }
 
+// SyncSlackUserIndexFromWorkspaceUsers writes makeacompany:user_by_slack:<id> and profile slack fields
+// for each non-bot, non-deleted member with a visible email (Slack users.list). This aligns the Redis
+// index used by employee-factory (Joanne email default recipient) with the admin Slack Users snapshot.
+func (s *Store) SyncSlackUserIndexFromWorkspaceUsers(ctx context.Context, users []SlackWorkspaceUser) (synced int, err error) {
+	if s == nil {
+		return 0, fmt.Errorf("nil store")
+	}
+	for _, u := range users {
+		if u.IsBot || u.IsDeleted {
+			continue
+		}
+		sid := strings.TrimSpace(u.SlackUserID)
+		em := normalizeProfileEmail(strings.TrimSpace(u.Email))
+		if sid == "" || em == "" || !strings.Contains(em, "@") {
+			continue
+		}
+		if err := s.UpsertUserProfileSlackID(ctx, em, sid); err != nil {
+			return synced, fmt.Errorf("upsert slack index for %s: %w", sid, err)
+		}
+		synced++
+	}
+	return synced, nil
+}
+
 // UserProfileRow is one combined profile for admin UI and integrations.
 type UserProfileRow struct {
 	Email                       string `json:"email"`

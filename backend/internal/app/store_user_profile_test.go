@@ -46,3 +46,36 @@ func TestUserProfile_LinkedAndList(t *testing.T) {
 		t.Fatalf("lookup email=%q tier=%q", em, tier)
 	}
 }
+
+func TestSyncSlackUserIndexFromWorkspaceUsers(t *testing.T) {
+	srv, err := miniredis.Run()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer srv.Close()
+	rdb := redis.NewClient(&redis.Options{Addr: srv.Addr()})
+	defer rdb.Close()
+	ctx := context.Background()
+	st := &Store{rdb: rdb}
+
+	users := []SlackWorkspaceUser{
+		{SlackUserID: "UBOT", TeamID: "T1", Username: "bot", Email: "bot@x.com", IsBot: true},
+		{SlackUserID: "UDEL", TeamID: "T1", Username: "gone", Email: "gone@x.com", IsDeleted: true},
+		{SlackUserID: "UNOEM", TeamID: "T1", Username: "noem", Email: ""},
+		{SlackUserID: "UHUMAN", TeamID: "T1", Username: "pat", Email: "Pat@Example.com", IsBot: false},
+	}
+	n, err := st.SyncSlackUserIndexFromWorkspaceUsers(ctx, users)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n != 1 {
+		t.Fatalf("synced: %d", n)
+	}
+	em, _, err := st.UserProfileTierBySlackUser(ctx, "UHUMAN")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if em != "pat@example.com" {
+		t.Fatalf("email: %q", em)
+	}
+}

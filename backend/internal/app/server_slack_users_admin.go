@@ -7,6 +7,13 @@ import (
 	"time"
 )
 
+func errStringOrNil(err error) any {
+	if err == nil {
+		return nil
+	}
+	return err.Error()
+}
+
 // handleInternalRefreshSlackUsersSnapshot rebuilds the Redis snapshot from Slack (BACKEND_INTERNAL_SERVICE_TOKEN only).
 func (s *Server) handleInternalRefreshSlackUsersSnapshot(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
@@ -37,11 +44,17 @@ func (s *Server) handleInternalRefreshSlackUsersSnapshot(w http.ResponseWriter, 
 		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
 		return
 	}
+	synced, syncErr := s.store.SyncSlackUserIndexFromWorkspaceUsers(r.Context(), users)
+	if syncErr != nil {
+		s.log.Printf("sync slack user index from workspace users: %v", syncErr)
+	}
 	fetchedAt := time.Now().UTC().Format(time.RFC3339)
 	writeJSON(w, http.StatusOK, map[string]any{
-		"ok":        true,
-		"rowCount":  len(users),
-		"fetchedAt": fetchedAt,
+		"ok":                  true,
+		"rowCount":            len(users),
+		"slackEmailIndexSync": synced,
+		"syncError":           errStringOrNil(syncErr),
+		"fetchedAt":           fetchedAt,
 	})
 }
 
