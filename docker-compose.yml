@@ -1,13 +1,15 @@
 # Local full stack: docker compose --profile local up --build
 #
-# Prereq: cp .env.example .env.dev && fill secrets. Containers load
-#   ${MAKEACOMPANY_AI_ENV_FILE:-.env.dev} (same idea as slack-orchestrator's SLACK_ORCHESTRATOR_ENV_FILE).
+# Prereq: cp .env.example .env.dev && fill secrets. Local profile services load
+#   ${MAKEACOMPANY_AI_ENV_FILE:-.env.dev}; frontend-prod loads ${MAKEACOMPANY_AI_ENV_FILE:-.env.prod}.
 # Optional: MAKEACOMPANY_AI_ENV_FILE=.env.prod for prod-like compose. Host Next/go that only read ./.env:
 #   ./scripts/use-env.sh dev|prod → symlink .env → .env.dev|.env.prod
 #
-# Compose interpolates the whole file before profiles apply. KUBECONFIG_HOST_PATH defaults to /dev/null
-# so --profile local works without a root .env; for --profile prod set a real kubeconfig (in shell, root .env,
-#   docker compose --env-file .env.prod, or use-env.sh prod so .env carries it).
+# Compose interpolates the whole file before profiles apply. KUBECONFIG_HOST_PATH defaults to
+# ${HOME}/.kube/config/admin.yaml (BimRoss layout) so `docker compose --profile prod` works without a root
+# .env; override with KUBECONFIG_HOST_PATH=/dev/null if you must parse prod services on a machine with no
+# kube fragment. For prod Next env + Stripe keys together, prefer `npm run docker:prod` / --env-file .env.prod.
+# frontend-prod defaults env_file to .env.prod when MAKEACOMPANY_AI_ENV_FILE is unset (local → .env.dev).
 #
 # Default host ports avoid clashing with sibling stacks run in other terminals:
 # - employee-factory publishes Redis on 6379 and workers on 18081–18085
@@ -91,7 +93,7 @@ services:
       dockerfile: deploy/docker/frontend.Dockerfile
       target: development
     env_file:
-      - ${MAKEACOMPANY_AI_ENV_FILE:-.env.dev}
+      - ${MAKEACOMPANY_AI_ENV_FILE:-.env.prod}
     depends_on:
       k8s-backend-forward:
         condition: service_healthy
@@ -136,7 +138,7 @@ services:
       - --address
       - 0.0.0.0
     volumes:
-      - ${KUBECONFIG_HOST_PATH:-/dev/null}:/kube/config:ro
+      - ${KUBECONFIG_HOST_PATH:-${HOME}/.kube/config/admin.yaml}:/kube/config:ro
     ports:
       - "${PROD_BACKEND_PORT:-18080}:8080"
     healthcheck:
@@ -177,7 +179,7 @@ services:
       - --address
       - 0.0.0.0
     volumes:
-      - ${KUBECONFIG_HOST_PATH:-/dev/null}:/kube/config:ro
+      - ${KUBECONFIG_HOST_PATH:-${HOME}/.kube/config/admin.yaml}:/kube/config:ro
     healthcheck:
       test:
         [
@@ -216,7 +218,7 @@ services:
       - --address
       - 0.0.0.0
     volumes:
-      - ${KUBECONFIG_HOST_PATH:-/dev/null}:/kube/config:ro
+      - ${KUBECONFIG_HOST_PATH:-${HOME}/.kube/config/admin.yaml}:/kube/config:ro
     ports:
       - "${PROD_GRAFANA_HOST_PORT:-13000}:3000"
     healthcheck:

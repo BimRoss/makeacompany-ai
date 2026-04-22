@@ -68,7 +68,7 @@ Alternative (calls `PUT /v1/admin/catalog`): `scripts/sync-capability-catalog-fr
 
 ## Local development
 
-Copy `.env.example` to **`.env.dev`** (gitignored), set Stripe **test** keys and **`STRIPE_PRICE_ID_WAITLIST`**. **`docker compose`** loads **`${MAKEACOMPANY_AI_ENV_FILE:-.env.dev}`** into services (same pattern as slack-orchestrator’s **`SLACK_ORCHESTRATOR_ENV_FILE`**). For host **`npm run dev`** / **`go run`**, many tools only read **`./.env`**: run **`./scripts/use-env.sh dev`** to symlink **`.env` → `.env.dev`**. Production-only values live in **`.env.prod`**; use that file with **`./scripts/update-rancher-secrets.sh`** to push runtime secrets to the admin cluster—do not symlink prod for day-to-day dev. Prod-like compose: **`MAKEACOMPANY_AI_ENV_FILE=.env.prod docker compose --profile prod up --build`** (and ensure **`KUBECONFIG_HOST_PATH`** is set for real kubectl forwards—export it, put it in a root **`.env`** for interpolation, or pass **`docker compose --env-file .env.prod`**).
+Copy `.env.example` to **`.env.dev`** (gitignored), set Stripe **test** keys and **`STRIPE_PRICE_ID_WAITLIST`**. **`docker compose --profile local`** loads **`${MAKEACOMPANY_AI_ENV_FILE:-.env.dev}`** into **`backend`** / **`frontend-local`** (same pattern as slack-orchestrator’s **`SLACK_ORCHESTRATOR_ENV_FILE`**). **`frontend-prod`** uses **`${MAKEACOMPANY_AI_ENV_FILE:-.env.prod}`** when unset so prod profile lines up with **`.env.prod`** without an extra export. For host **`npm run dev`** / **`go run`**, many tools only read **`./.env`**: run **`./scripts/use-env.sh dev`** to symlink **`.env` → `.env.dev`**. Production-only values live in **`.env.prod`**; use that file with **`./scripts/update-rancher-secrets.sh`** to push runtime secrets to the admin cluster—do not symlink prod for day-to-day dev. Prod-like compose: **`npm run docker:prod -- up --build`** (runs **`docker compose --env-file .env.prod --profile prod …`**, so **`KUBECONFIG_*`** in **`.env.prod`** applies to kubectl forwards and **`frontend-prod`** defaults to **`.env.prod`** when **`MAKEACOMPANY_AI_ENV_FILE`** is unset). Equivalents: **`./scripts/docker-prod-up.sh up --build`**, or **`docker compose --env-file .env.prod --profile prod up --build`** if you prefer not to use the script.
 
 ```bash
 # Redis + API + Next (hot reload for frontend)
@@ -84,20 +84,20 @@ docker compose --profile local up --build
 
 ```bash
 # Frontend dev server + admin-cluster backend via compose-managed kubectl port-forward
-docker compose --profile prod up --build
+npm run docker:prod -- up --build
 ```
 
 - Site: http://localhost:3000
 - Prod backend forward: http://localhost:18080
-- **Grafana** for `/admin` overview iframes: compose runs **`k8s-grafana-forward`** (`kubectl port-forward` to `svc/makeacompany-ai-grafana` in namespace `makeacompany-ai`, published on host **`${PROD_GRAFANA_HOST_PORT:-13000}`**). `frontend-prod` sets **`HEALTH_GRAFANA_LOCAL_BASE_URL`** to match so loopback gets real panel URLs. Override with `HEALTH_GRAFANA_LOCAL_BASE_URL` or `HEALTH_GRAFANA_DASHBOARD_URL` in **`.env.dev`** (or your compose env file) if needed.
+- **Grafana** for `/admin` overview iframes: compose runs **`k8s-grafana-forward`** (`kubectl port-forward` to `svc/makeacompany-ai-grafana` in namespace `makeacompany-ai`, published on host **`${PROD_GRAFANA_HOST_PORT:-13000}`**). `frontend-prod` sets **`HEALTH_GRAFANA_LOCAL_BASE_URL`** to match so loopback gets real panel URLs. Override with `HEALTH_GRAFANA_LOCAL_BASE_URL` or `HEALTH_GRAFANA_DASHBOARD_URL` in **`.env.prod`** (or pass a different compose **`--env-file`**) if needed.
 - **Slack orchestrator** for `/admin` orchestrator log: compose runs `k8s-orchestrator-forward` (kubectl port-forward to `svc/slack-orchestrator` in namespace `slack-orchestrator`). The Next container uses `ORCHESTRATOR_DEBUG_BASE_URL=http://k8s-orchestrator-forward:8080` by default. Optional `ORCHESTRATOR_DEBUG_TOKEN` only if you lock down `GET /debug/decisions` with a bearer on the orchestrator.
-- **`KUBECONFIG_HOST_PATH`:** must be a real kubeconfig on the host for **`kubectl` port-forward** (for example **`/Users/you/.kube/config/admin.yaml`**). Compose interpolates the whole file before profiles apply, so set it via **shell export**, a project **`.env`** used for substitution, **`docker compose --env-file .env.prod`**, or keep it inside **`.env.dev`** / **`.env.prod`** together with **`use-env.sh`** / **`--env-file`** so interpolation sees it. (The compose file defaults the mount to **`/dev/null`** only so **`--profile local`** parses without a root **`.env`**.)
+- **`KUBECONFIG_HOST_PATH` / `KUBECONFIG_CONTEXT`:** resolve at compose **parse** time for **`k8s-*`** volume mounts. If unset, compose defaults **`KUBECONFIG_HOST_PATH`** to **`${HOME}/.kube/config/admin.yaml`** (BimRoss); set **`KUBECONFIG_HOST_PATH=/dev/null`** only if you need to parse the file on a host with no kube fragment. **`npm run docker:prod`** still passes **`--env-file .env.prod`** so Stripe keys and optional kube overrides live in one place.
 - `frontend-prod` waits for the backend, orchestrator, and Grafana port-forward services to report healthy before startup.
 
 Quick checks if `/employees` data looks wrong:
 
 ```bash
-docker compose --profile prod ps
+npm run docker:prod -- ps
 curl -sf http://localhost:18080/health >/dev/null && echo "backend forward OK"
 ```
 
@@ -120,11 +120,11 @@ npm run dev   # repo root
 | `BACKEND_INTERNAL_API_BASE_URL` | Server-side internal backend base for Next route handlers (defaults to localhost locally and service DNS in Kubernetes) |
 | `BACKEND_INTERNAL_SERVICE_TOKEN` | Same secret on Next + Go: Bearer for admin read APIs and `POST /v1/admin/company-channels/discover` (set in prod; see [docs/prod-company-channels-env-checklist.md](docs/prod-company-channels-env-checklist.md)) |
 | `COMPANY_CHANNELS_REDIS_URL` | Optional: Redis URL for `employee-factory:*` keys (defaults to `REDIS_URL`). See [docs/redis-operations.md](docs/redis-operations.md#key-prefix-matrix-quick-reference). |
-| `MAKEACOMPANY_AI_ENV_FILE` | Env file path for compose **`env_file`** (default **`.env.dev`**; set to **`.env.prod`** for prod-like local compose) |
-| `KUBECONFIG_HOST_PATH` | Host kubeconfig path mounted into compose **`k8s-*`** port-forward services (**`--profile prod`**); must be real (not left at compose default) for forwards to work |
+| `MAKEACOMPANY_AI_ENV_FILE` | Override path for compose **`env_file`**. When unset: **`--profile local`** services use **`.env.dev`**; **`frontend-prod`** uses **`.env.prod`**. Set explicitly to force one file for both (e.g. **`.env.dev`** while hitting prod k8s forwards). |
+| `KUBECONFIG_HOST_PATH` | Host kubeconfig path for **`k8s-*`** forwards; defaults to **`${HOME}/.kube/config/admin.yaml`**. Override in **`.env.prod`** / **`--env-file`** if your fragment lives elsewhere. |
 | `KUBECONFIG_CONTEXT` | Kubernetes context for compose `k8s-*` forwards (defaults to `admin`) |
 | `PROD_BACKEND_PORT` | Host port for forwarded `makeacompany-ai-backend` service (defaults to `18080`) |
-| `ORCHESTRATOR_DEBUG_BASE_URL` | Base URL for slack-orchestrator `GET /debug/decisions` (Next.js API proxies here). **`docker compose --profile prod`** defaults to `http://k8s-orchestrator-forward:8080` (in-compose kubectl forward to prod). For plain `npm run dev` on the host, use e.g. `http://127.0.0.1:18081` after manual `kubectl port-forward`. |
+| `ORCHESTRATOR_DEBUG_BASE_URL` | Base URL for slack-orchestrator `GET /debug/decisions` (Next.js API proxies here). **`--profile prod`** defaults to `http://k8s-orchestrator-forward:8080` (in-compose kubectl forward to prod). For plain `npm run dev` on the host, use e.g. `http://127.0.0.1:18081` after manual `kubectl port-forward`. |
 | `ORCHESTRATOR_DEBUG_TOKEN` | Optional server-only bearer sent to slack-orchestrator when set (lock down `GET /debug/*`). Must match orchestrator `ORCHESTRATOR_DEBUG_TOKEN` when `ORCHESTRATOR_DEBUG_ALLOW_ANON=false`. |
 | `NEXT_PUBLIC_GA_MEASUREMENT_ID` | GA4 stream id injected into frontend at build time |
 | `NEXT_PUBLIC_LINKEDIN_PARTNER_ID` | LinkedIn Insight Tag partner id; frontend injects LinkedIn tracking only in production when set |

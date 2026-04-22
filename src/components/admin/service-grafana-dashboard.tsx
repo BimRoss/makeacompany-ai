@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTheme } from "next-themes";
 
+import { isBrowserLoopbackHost } from "@/lib/admin/browser-loopback";
+
 type GrafanaEmbed = {
   key: string;
   panelId: string;
@@ -57,9 +59,12 @@ export function ServiceGrafanaDashboard({
   embedFilter,
 }: ServiceGrafanaDashboardProps) {
   const { resolvedTheme } = useTheme();
+  const [loopback, setLoopback] = useState<boolean | null>(null);
   const [embeds, setEmbeds] = useState<GrafanaEmbed[]>([]);
+  const [healthFetched, setHealthFetched] = useState(false);
 
   useEffect(() => {
+    setLoopback(isBrowserLoopbackHost());
     let cancelled = false;
     const load = async () => {
       try {
@@ -72,6 +77,10 @@ export function ServiceGrafanaDashboard({
       } catch {
         if (!cancelled) {
           setEmbeds([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setHealthFetched(true);
         }
       }
     };
@@ -99,6 +108,38 @@ export function ServiceGrafanaDashboard({
   );
 
   const showPageHeading = Boolean(title?.trim() || description?.trim());
+
+  if (loopback === null) {
+    return null;
+  }
+
+  if (loopback && !healthFetched) {
+    return null;
+  }
+
+  if (loopback && healthFetched && cards.length === 0) {
+    return null;
+  }
+
+  if (!healthFetched) {
+    return (
+      <section className="space-y-3">
+        {showPageHeading ? (
+          <div className="space-y-1 px-0.5">
+            {title?.trim() ? (
+              <h1 className="font-display text-xl font-semibold tracking-tight text-foreground">{title}</h1>
+            ) : null}
+            {description?.trim() ? (
+              <p className="text-sm text-muted-foreground">{description}</p>
+            ) : null}
+          </div>
+        ) : null}
+        <p className="rounded-lg border border-dashed border-border px-3 py-6 text-center text-sm text-muted-foreground">
+          Loading observability panels…
+        </p>
+      </section>
+    );
+  }
 
   return (
     <section className="space-y-3">

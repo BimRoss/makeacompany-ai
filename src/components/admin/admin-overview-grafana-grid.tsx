@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTheme } from "next-themes";
 
+import { isBrowserLoopbackHost } from "@/lib/admin/browser-loopback";
+
 type GrafanaEmbed = {
   key: string;
   panelId: string;
@@ -64,9 +66,12 @@ function asGrafanaEmbedUrl(
 
 export function AdminOverviewGrafanaGrid() {
   const { resolvedTheme } = useTheme();
+  const [loopback, setLoopback] = useState<boolean | null>(null);
   const [embeds, setEmbeds] = useState<GrafanaEmbed[]>([]);
+  const [healthFetched, setHealthFetched] = useState(false);
 
   useEffect(() => {
+    setLoopback(isBrowserLoopbackHost());
     let cancelled = false;
 
     const load = async () => {
@@ -79,6 +84,10 @@ export function AdminOverviewGrafanaGrid() {
       } catch {
         if (!cancelled) {
           setEmbeds([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setHealthFetched(true);
         }
       }
     };
@@ -104,7 +113,31 @@ export function AdminOverviewGrafanaGrid() {
     [embeds, resolvedTheme]
   );
 
+  if (loopback === null) {
+    return null;
+  }
+
   const missing = Math.max(0, EXPECTED_ADMIN_PANELS - cards.length);
+
+  if (loopback && healthFetched && cards.length === 0) {
+    return null;
+  }
+
+  if (loopback && !healthFetched) {
+    return null;
+  }
+
+  if (!healthFetched) {
+    return (
+      <section className="rounded-none bg-card px-0 pb-3 pt-3 sm:rounded-2xl sm:pb-4 sm:pt-4">
+        <div className="flex min-h-[12rem] items-center justify-center rounded-none border border-dashed border-border bg-background/40 px-4 py-8 text-center sm:rounded-xl">
+          <p className="text-sm text-muted-foreground">Loading observability panels…</p>
+        </div>
+      </section>
+    );
+  }
+
+  const showPerSlotPlaceholders = cards.length > 0 && missing > 0;
 
   return (
     <section className="rounded-none bg-card px-0 pb-3 pt-3 sm:rounded-2xl sm:pb-4 sm:pt-4">
@@ -117,25 +150,36 @@ export function AdminOverviewGrafanaGrid() {
             <iframe title={embed.title} src={embed.url} loading="lazy" className="h-48 w-full border-0 bg-card" />
           </article>
         ))}
-        {Array.from({ length: missing }).map((_, index) => {
-          const suggestionTitle = RECOMMENDED_OVERVIEW_TITLES[cards.length + index] ?? `Panel ${cards.length + index + 1}`;
-          return (
-            <article
-              key={`missing-admin-panel-${index}`}
-              className="flex h-60 items-center justify-center rounded-none border border-dashed border-border bg-background/60 p-4 text-center sm:rounded-xl"
-            >
-              <div className="space-y-1">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{suggestionTitle}</p>
-                <p className="text-xs text-muted-foreground">
-                  Set <code className="text-[11px]">HEALTH_GRAFANA_LOCAL_BASE_URL</code> (e.g.{" "}
-                  <code className="text-[11px]">http://127.0.0.1:13000</code> with Grafana port-forward) or{" "}
-                  <code className="text-[11px]">HEALTH_GRAFANA_DASHBOARD_URL</code>. Panel ids default from the server when a
-                  dashboard base exists.
-                </p>
-              </div>
-            </article>
-          );
-        })}
+        {showPerSlotPlaceholders
+          ? Array.from({ length: missing }).map((_, index) => {
+              const suggestionTitle =
+                RECOMMENDED_OVERVIEW_TITLES[cards.length + index] ?? `Panel ${cards.length + index + 1}`;
+              return (
+                <article
+                  key={`missing-admin-panel-${index}`}
+                  className="flex h-60 items-center justify-center rounded-none border border-dashed border-border bg-background/60 p-4 text-center sm:rounded-xl"
+                >
+                  <div className="space-y-1">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{suggestionTitle}</p>
+                    <p className="text-xs text-muted-foreground">
+                      Set <code className="text-[11px]">HEALTH_GRAFANA_LOCAL_BASE_URL</code> (e.g.{" "}
+                      <code className="text-[11px]">http://127.0.0.1:13000</code> with Grafana port-forward) or{" "}
+                      <code className="text-[11px]">HEALTH_GRAFANA_DASHBOARD_URL</code>. Panel ids default from the server when a
+                      dashboard base exists.
+                    </p>
+                  </div>
+                </article>
+              );
+            })
+          : null}
+        {!loopback && cards.length === 0 ? (
+          <article className="col-span-full flex min-h-[12rem] flex-col items-center justify-center gap-2 rounded-none border border-dashed border-border bg-background/40 px-4 py-8 text-center sm:rounded-xl">
+            <p className="max-w-xl text-sm text-muted-foreground">
+              No Grafana panels resolved for this host. Set <code className="text-[11px]">HEALTH_GRAFANA_DASHBOARD_URL</code> or
+              the matching <code className="text-[11px]">HEALTH_GRAFANA_*</code> env vars and reload.
+            </p>
+          </article>
+        ) : null}
       </div>
     </section>
   );
