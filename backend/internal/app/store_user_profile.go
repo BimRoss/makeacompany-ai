@@ -112,6 +112,25 @@ func (s *Store) SyncSlackUserIndexFromWorkspaceUsers(ctx context.Context, users 
 	return synced, nil
 }
 
+// UpsertUserProfilesFromStripeWaitlistPurchasers merges each paid waitlist row into makeacompany:user_profile:<email>.
+// Call after Stripe snapshot/live fetches so profile hashes match checkout without relying only on webhooks.
+func (s *Store) UpsertUserProfilesFromStripeWaitlistPurchasers(ctx context.Context, purchasers []StripeWaitlistPurchaser) (n int, err error) {
+	if s == nil {
+		return 0, fmt.Errorf("nil store")
+	}
+	for _, p := range purchasers {
+		email := normalizeProfileEmail(strings.TrimSpace(p.Email))
+		if email == "" {
+			continue
+		}
+		if err := s.UpsertUserProfileAfterWaitlist(ctx, email, strings.TrimSpace(p.StripeCustomer), strings.TrimSpace(p.StripeSessionID), strings.TrimSpace(p.PaymentStatus)); err != nil {
+			return n, fmt.Errorf("waitlist profile %s: %w", email, err)
+		}
+		n++
+	}
+	return n, nil
+}
+
 // UserProfileRow is one combined profile for admin UI and integrations.
 type UserProfileRow struct {
 	Email                       string `json:"email"`

@@ -1,10 +1,12 @@
 import { cookies } from "next/headers";
+import { NextResponse } from "next/server";
 
 const adminSessionCookieName = "mac_admin_session";
 
 export function resolveBackendBaseURL(): string {
   const isKubernetes = Boolean(process.env.KUBERNETES_SERVICE_HOST);
-  const defaultBackendBase = isKubernetes ? "http://makeacompany-ai-backend:8080" : "http://localhost:8080";
+  // Default host port matches docker-compose BACKEND_PORT (8090), not slack-orchestrator (8080).
+  const defaultBackendBase = isKubernetes ? "http://makeacompany-ai-backend:8080" : "http://localhost:8090";
   return (
     process.env.BACKEND_INTERNAL_API_BASE_URL ??
     process.env.NEXT_PUBLIC_BACKEND_API_BASE_URL ??
@@ -45,4 +47,14 @@ export async function parseBackendProxyBody(response: Response): Promise<unknown
     const line = trimmed.split(/\r?\n/)[0]?.trim() ?? trimmed;
     return { error: line.slice(0, 4000) };
   }
+}
+
+const adminNoStoreHeaders = {
+  "Cache-Control": "private, no-store, no-cache, must-revalidate, max-age=0",
+  Pragma: "no-cache",
+} as const;
+
+/** JSON from admin API proxies — never cache (avoids stale empty snapshot after a live refresh). */
+export function adminProxyNextJson(body: unknown, status: number) {
+  return NextResponse.json(body, { status, headers: adminNoStoreHeaders });
 }

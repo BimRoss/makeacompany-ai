@@ -51,12 +51,18 @@ func (s *Server) handleInternalRefreshStripeWaitlistSnapshot(w http.ResponseWrit
 		http.Error(w, "redis error", http.StatusInternalServerError)
 		return
 	}
+	profN, profErr := s.store.UpsertUserProfilesFromStripeWaitlistPurchasers(r.Context(), purchasers)
+	if profErr != nil {
+		s.log.Printf("refresh stripe waitlist profile upserts: %v", profErr)
+	}
 	fetchedAt := time.Now().UTC().Format(time.RFC3339)
 	writeJSON(w, http.StatusOK, map[string]any{
-		"ok":        true,
-		"rowCount":  len(purchasers),
-		"priceId":   priceID,
-		"fetchedAt": fetchedAt,
+		"ok":                 true,
+		"rowCount":           len(purchasers),
+		"priceId":            priceID,
+		"fetchedAt":          fetchedAt,
+		"profileUpserts":     profN,
+		"profileUpsertError": errStringOrNil(profErr),
 	})
 }
 
@@ -78,34 +84,49 @@ func (s *Server) handleAdminStripeWaitlistPurchasers(w http.ResponseWriter, r *h
 	live := strings.EqualFold(strings.TrimSpace(r.URL.Query().Get("source")), "live")
 	if live {
 		if strings.TrimSpace(s.cfg.StripeSecretKey) == "" {
-			writeJSON(w, http.StatusBadRequest, map[string]any{"error": "stripe is not configured"})
+			writeJSONNoStore(w, http.StatusBadRequest, map[string]any{"error": "stripe is not configured"})
 			return
 		}
 		priceID, err := s.waitlistPriceID()
 		if err != nil {
-			writeJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
+			writeJSONNoStore(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
 			return
 		}
 		purchasers, err := FetchStripeWaitlistPurchasers(r.Context(), priceID)
 		if err != nil {
 			s.log.Printf("admin stripe waitlist live: %v", err)
-			writeJSON(w, http.StatusBadGateway, map[string]any{"error": err.Error()})
+			writeJSONNoStore(w, http.StatusBadGateway, map[string]any{"error": err.Error()})
 			return
 		}
-		writeJSON(w, http.StatusOK, map[string]any{
+		resp := map[string]any{
 			"source":       "live",
 			"fetchedAt":    time.Now().UTC().Format(time.RFC3339),
 			"priceId":      priceID,
 			"purchasers":   purchasers,
-			"snapshotNote": "Queried Stripe API on this request (not written to Redis).",
-		})
+			"snapshotNote": "Queried Stripe API; snapshot and user_profile hashes written to Redis (same data paths as internal refresh).",
+		}
+		if blob, mErr := MarshalStripeWaitlistSnapshot(priceID, purchasers); mErr != nil {
+			s.log.Printf("admin stripe waitlist live marshal: %v", mErr)
+			resp["redisSaveError"] = mErr.Error()
+		} else if svErr := s.store.SaveStripeWaitlistSnapshot(r.Context(), blob); svErr != nil {
+			s.log.Printf("admin stripe waitlist live save snapshot: %v", svErr)
+			resp["redisSaveError"] = svErr.Error()
+		} else {
+			profN, profErr := s.store.UpsertUserProfilesFromStripeWaitlistPurchasers(r.Context(), purchasers)
+			resp["profileUpserts"] = profN
+			resp["profileUpsertError"] = errStringOrNil(profErr)
+			if profErr != nil {
+				s.log.Printf("admin stripe waitlist live profile upserts: %v", profErr)
+			}
+		}
+		writeJSONNoStore(w, http.StatusOK, resp)
 		return
 	}
 
 	raw, err := s.store.GetStripeWaitlistSnapshotBytes(r.Context())
 	if err != nil {
 		if errors.Is(err, ErrStripeWaitlistSnapshotMissing) {
-			writeJSON(w, http.StatusOK, map[string]any{
+			writeJSONNoStore(w, http.StatusOK, map[string]any{
 				"source":       "snapshot",
 				"fetchedAt":    nil,
 				"priceId":      nil,
@@ -124,7 +145,7 @@ func (s *Server) handleAdminStripeWaitlistPurchasers(w http.ResponseWriter, r *h
 		http.Error(w, "corrupt snapshot", http.StatusInternalServerError)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{
+	writeJSONNoStore(w, http.StatusOK, map[string]any{
 		"source":       "snapshot",
 		"fetchedAt":    env.FetchedAt,
 		"priceId":      env.PriceID,

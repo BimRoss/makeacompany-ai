@@ -42,6 +42,13 @@ func init() {
 	prometheus.MustRegister(httpRequestsTotal, httpRequestDuration)
 }
 
+func errStringOrNil(err error) any {
+	if err == nil {
+		return nil
+	}
+	return err.Error()
+}
+
 type Server struct {
 	cfg    Config
 	log    *log.Logger
@@ -971,4 +978,12 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(v)
+}
+
+// writeJSONNoStore sets Cache-Control so browsers and intermediaries do not reuse a stale empty
+// snapshot response for GET /v1/admin/... after a live refresh wrote new data to Redis.
+func writeJSONNoStore(w http.ResponseWriter, status int, v any) {
+	w.Header().Set("Cache-Control", "private, no-store, no-cache, must-revalidate, max-age=0")
+	w.Header().Set("Pragma", "no-cache")
+	writeJSON(w, status, v)
 }

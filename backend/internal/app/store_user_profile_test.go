@@ -79,3 +79,34 @@ func TestSyncSlackUserIndexFromWorkspaceUsers(t *testing.T) {
 		t.Fatalf("email: %q", em)
 	}
 }
+
+func TestUpsertUserProfilesFromStripeWaitlistPurchasers(t *testing.T) {
+	srv, err := miniredis.Run()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer srv.Close()
+	rdb := redis.NewClient(&redis.Options{Addr: srv.Addr()})
+	defer rdb.Close()
+	ctx := context.Background()
+	st := &Store{rdb: rdb}
+
+	purchasers := []StripeWaitlistPurchaser{
+		{Email: "  Buyer@Example.com ", StripeCustomer: "cus_x", StripeSessionID: "cs_y", PaymentStatus: "paid"},
+		{Email: "", PaymentStatus: "paid"},
+	}
+	n, err := st.UpsertUserProfilesFromStripeWaitlistPurchasers(ctx, purchasers)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n != 1 {
+		t.Fatalf("upserts: %d", n)
+	}
+	rows, err := st.ListUserProfiles(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != 1 || rows[0].Email != "buyer@example.com" {
+		t.Fatalf("rows: %+v", rows)
+	}
+}

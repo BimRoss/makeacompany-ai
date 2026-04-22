@@ -7,13 +7,6 @@ import (
 	"time"
 )
 
-func errStringOrNil(err error) any {
-	if err == nil {
-		return nil
-	}
-	return err.Error()
-}
-
 // handleInternalRefreshSlackUsersSnapshot rebuilds the Redis snapshot from Slack (BACKEND_INTERNAL_SERVICE_TOKEN only).
 func (s *Server) handleInternalRefreshSlackUsersSnapshot(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
@@ -76,28 +69,43 @@ func (s *Server) handleAdminSlackWorkspaceUsers(w http.ResponseWriter, r *http.R
 	live := strings.EqualFold(strings.TrimSpace(r.URL.Query().Get("source")), "live")
 	if live {
 		if strings.TrimSpace(s.cfg.SlackBotToken) == "" {
-			writeJSON(w, http.StatusBadRequest, map[string]any{"error": "slack bot token is not configured (SLACK_BOT_TOKEN, same as slack-orchestrator)"})
+			writeJSONNoStore(w, http.StatusBadRequest, map[string]any{"error": "slack bot token is not configured (SLACK_BOT_TOKEN, same as slack-orchestrator)"})
 			return
 		}
 		users, err := FetchSlackWorkspaceUsers(r.Context(), s.cfg.SlackBotToken)
 		if err != nil {
 			s.log.Printf("admin slack users live: %v", err)
-			writeJSON(w, http.StatusBadGateway, map[string]any{"error": err.Error()})
+			writeJSONNoStore(w, http.StatusBadGateway, map[string]any{"error": err.Error()})
 			return
 		}
-		writeJSON(w, http.StatusOK, map[string]any{
+		resp := map[string]any{
 			"source":       "live",
 			"fetchedAt":    time.Now().UTC().Format(time.RFC3339),
 			"users":        users,
-			"snapshotNote": "Queried Slack users.list on this request (not written to Redis).",
-		})
+			"snapshotNote": "Queried Slack users.list; snapshot and slack→email index written to Redis (same as internal refresh).",
+		}
+		if blob, mErr := MarshalSlackUsersSnapshot(users); mErr != nil {
+			s.log.Printf("admin slack users live marshal snapshot: %v", mErr)
+			resp["redisSaveError"] = mErr.Error()
+		} else if svErr := s.store.SaveSlackUsersSnapshot(r.Context(), blob); svErr != nil {
+			s.log.Printf("admin slack users live save snapshot: %v", svErr)
+			resp["redisSaveError"] = svErr.Error()
+		} else {
+			synced, syncErr := s.store.SyncSlackUserIndexFromWorkspaceUsers(r.Context(), users)
+			resp["slackEmailIndexSync"] = synced
+			resp["syncError"] = errStringOrNil(syncErr)
+			if syncErr != nil {
+				s.log.Printf("admin slack users live sync index: %v", syncErr)
+			}
+		}
+		writeJSONNoStore(w, http.StatusOK, resp)
 		return
 	}
 
 	raw, err := s.store.GetSlackUsersSnapshotBytes(r.Context())
 	if err != nil {
 		if errors.Is(err, ErrSlackUsersSnapshotMissing) {
-			writeJSON(w, http.StatusOK, map[string]any{
+			writeJSONNoStore(w, http.StatusOK, map[string]any{
 				"source":       "snapshot",
 				"fetchedAt":    nil,
 				"users":        []SlackWorkspaceUser{},
@@ -106,16 +114,16 @@ func (s *Server) handleAdminSlackWorkspaceUsers(w http.ResponseWriter, r *http.R
 			return
 		}
 		s.log.Printf("admin slack users snapshot get: %v", err)
-		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+		writeJSONNoStore(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
 		return
 	}
 	env, err := ParseSlackUsersSnapshotEnvelope(raw)
 	if err != nil {
 		s.log.Printf("admin slack users snapshot parse: %v", err)
-		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+		writeJSONNoStore(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{
+	writeJSONNoStore(w, http.StatusOK, map[string]any{
 		"source":       "snapshot",
 		"fetchedAt":    env.FetchedAt,
 		"users":        env.Users,

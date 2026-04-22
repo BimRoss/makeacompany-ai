@@ -24,6 +24,8 @@ type StripePurchasersPayload = {
   purchasers?: StripeWaitlistPurchaserRow[];
   error?: string;
   message?: string;
+  redisSaveError?: string;
+  profileUpsertError?: string;
 };
 
 type SlackWorkspaceUserRow = {
@@ -44,6 +46,8 @@ type SlackUsersPayload = {
   snapshotNote?: string;
   error?: string;
   message?: string;
+  redisSaveError?: string;
+  syncError?: string;
 };
 
 function short(s: string, max: number) {
@@ -83,30 +87,45 @@ function formatStripeAmount(minorUnits: string, currency: string): string {
   }
 }
 
-/** Stripe checkout customers + Slack workspace members (Redis hourly snapshots or live queries). */
+/** Stripe checkout customers + Slack workspace members. Load shows Redis snapshots; Refresh pulls live APIs and writes Redis (profiles + slack index). */
 export function UserProfilesPanel() {
   const [stripePurchasers, setStripePurchasers] = useState<StripeWaitlistPurchaserRow[]>([]);
   const [stripeError, setStripeError] = useState<string | null>(null);
   const [stripeLoading, setStripeLoading] = useState(false);
+  const [stripeWriteWarn, setStripeWriteWarn] = useState<string | null>(null);
 
   const [slackUsers, setSlackUsers] = useState<SlackWorkspaceUserRow[]>([]);
   const [slackError, setSlackError] = useState<string | null>(null);
   const [slackLoading, setSlackLoading] = useState(false);
+  const [slackWriteWarn, setSlackWriteWarn] = useState<string | null>(null);
 
   const fetchStripePurchasers = useCallback(async (live: boolean) => {
     setStripeLoading(true);
     setStripeError(null);
+    if (!live) setStripeWriteWarn(null);
     try {
       const qs = live ? "?source=live" : "";
       const res = await fetch(`/api/admin/stripe-waitlist-purchasers${qs}`, { cache: "no-store" });
       const body = (await res.json()) as StripePurchasersPayload;
       if (!res.ok) {
+        setStripeWriteWarn(null);
         setStripeError(body.message ?? body.error ?? `HTTP ${res.status}`);
         setStripePurchasers([]);
         return;
       }
       setStripePurchasers(Array.isArray(body.purchasers) ? body.purchasers : []);
+      if (live) {
+        const parts: string[] = [];
+        if (typeof body.redisSaveError === "string")
+          parts.push(`Snapshot not saved to Redis: ${body.redisSaveError} (full page reload will look empty).`);
+        if (typeof body.profileUpsertError === "string" && body.profileUpsertError)
+          parts.push(`Profile merge: ${body.profileUpsertError}`);
+        setStripeWriteWarn(parts.length > 0 ? parts.join(" ") : null);
+      } else {
+        setStripeWriteWarn(null);
+      }
     } catch (e) {
+      setStripeWriteWarn(null);
       setStripeError(e instanceof Error ? e.message : "fetch failed");
       setStripePurchasers([]);
     } finally {
@@ -114,24 +133,33 @@ export function UserProfilesPanel() {
     }
   }, []);
 
-  const refreshSnapshot = useCallback(async () => {
-    await fetchStripePurchasers(false);
-  }, [fetchStripePurchasers]);
-
   const fetchSlackUsers = useCallback(async (live: boolean) => {
     setSlackLoading(true);
     setSlackError(null);
+    if (!live) setSlackWriteWarn(null);
     try {
       const qs = live ? "?source=live" : "";
       const res = await fetch(`/api/admin/slack-workspace-users${qs}`, { cache: "no-store" });
       const body = (await res.json()) as SlackUsersPayload;
       if (!res.ok) {
+        setSlackWriteWarn(null);
         setSlackError(body.message ?? body.error ?? `HTTP ${res.status}`);
         setSlackUsers([]);
         return;
       }
       setSlackUsers(Array.isArray(body.users) ? body.users : []);
+      if (live) {
+        const parts: string[] = [];
+        if (typeof body.redisSaveError === "string")
+          parts.push(`Snapshot not saved to Redis: ${body.redisSaveError} (full page reload will look empty).`);
+        if (typeof body.syncError === "string" && body.syncError)
+          parts.push(`Slack→email index: ${body.syncError}`);
+        setSlackWriteWarn(parts.length > 0 ? parts.join(" ") : null);
+      } else {
+        setSlackWriteWarn(null);
+      }
     } catch (e) {
+      setSlackWriteWarn(null);
       setSlackError(e instanceof Error ? e.message : "fetch failed");
       setSlackUsers([]);
     } finally {
@@ -139,17 +167,13 @@ export function UserProfilesPanel() {
     }
   }, []);
 
-  const refreshSlackSnapshot = useCallback(async () => {
-    await fetchSlackUsers(false);
+  useEffect(() => {
+    void fetchStripePurchasers(false);
+  }, [fetchStripePurchasers]);
+
+  useEffect(() => {
+    void fetchSlackUsers(false);
   }, [fetchSlackUsers]);
-
-  useEffect(() => {
-    void refreshSnapshot();
-  }, [refreshSnapshot]);
-
-  useEffect(() => {
-    void refreshSlackSnapshot();
-  }, [refreshSlackSnapshot]);
 
   const slackEmailSet = useMemo(() => {
     const s = new Set<string>();
@@ -176,23 +200,14 @@ export function UserProfilesPanel() {
           Stripe Users{" "}
           <span className="font-normal text-muted-foreground tabular-nums">({stripePurchasers.length})</span>
         </h2>
-        <div className="flex flex-wrap items-center gap-3">
-          <button
-            type="button"
-            onClick={() => void refreshSnapshot()}
-            className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/60"
-          >
-            Refresh
-          </button>
-          <button
-            type="button"
-            disabled={stripeLoading}
-            onClick={() => void fetchStripePurchasers(true)}
-            className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/60 disabled:opacity-50"
-          >
-            Query Stripe live
-          </button>
-        </div>
+        <button
+          type="button"
+          disabled={stripeLoading}
+          onClick={() => void fetchStripePurchasers(true)}
+          className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/60 disabled:opacity-50"
+        >
+          Refresh
+        </button>
       </div>
 
       {stripeError ? (
@@ -200,10 +215,17 @@ export function UserProfilesPanel() {
           {stripeError}
         </p>
       ) : null}
+      {stripeWriteWarn ? (
+        <p className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-950 dark:text-amber-100" role="status">
+          {stripeWriteWarn}
+        </p>
+      ) : null}
 
       <section className="space-y-3" aria-label="Stripe users">
         {stripePurchasers.length === 0 && !stripeError && !stripeLoading ? (
-          <p className="text-sm text-muted-foreground">No rows yet. Use Refresh or Query Stripe live.</p>
+          <p className="text-sm text-muted-foreground">
+            No snapshot in Redis yet. Use Refresh to pull from Stripe and write Redis (this page load only reads Redis).
+          </p>
         ) : null}
         {stripePurchasers.length > 0 ? (
           <div className="overflow-x-auto rounded-xl border border-border">
@@ -271,23 +293,14 @@ export function UserProfilesPanel() {
         <h2 className="font-display text-xl font-semibold tracking-tight text-foreground">
           Slack Users <span className="font-normal text-muted-foreground tabular-nums">({slackUsers.length})</span>
         </h2>
-        <div className="flex flex-wrap items-center gap-3">
-          <button
-            type="button"
-            onClick={() => void refreshSlackSnapshot()}
-            className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/60"
-          >
-            Refresh
-          </button>
-          <button
-            type="button"
-            disabled={slackLoading}
-            onClick={() => void fetchSlackUsers(true)}
-            className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/60 disabled:opacity-50"
-          >
-            Query Slack live
-          </button>
-        </div>
+        <button
+          type="button"
+          disabled={slackLoading}
+          onClick={() => void fetchSlackUsers(true)}
+          className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/60 disabled:opacity-50"
+        >
+          Refresh
+        </button>
       </div>
 
       {slackError ? (
@@ -295,13 +308,19 @@ export function UserProfilesPanel() {
           {slackError}
         </p>
       ) : null}
+      {slackWriteWarn ? (
+        <p className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-950 dark:text-amber-100" role="status">
+          {slackWriteWarn}
+        </p>
+      ) : null}
 
       <section className="space-y-3" aria-label="Slack users">
         {slackUsers.length === 0 && !slackError && !slackLoading ? (
           <p className="text-sm text-muted-foreground">
-            No rows yet. Use Refresh or Query Slack live (set <span className="font-mono">SLACK_BOT_TOKEN</span> on the
-            backend — same as slack-orchestrator; copy from <span className="font-mono">.env.dev</span> or{" "}
-            <span className="font-mono">.env.prod</span> there).
+            No snapshot in Redis yet. Use Refresh to pull from Slack and write Redis (needs{" "}
+            <span className="font-mono">SLACK_BOT_TOKEN</span> — same as slack-orchestrator; copy from{" "}
+            <span className="font-mono">.env.dev</span> or <span className="font-mono">.env.prod</span> there). This page
+            load only reads Redis.
           </p>
         ) : null}
         {slackUsers.length > 0 ? (

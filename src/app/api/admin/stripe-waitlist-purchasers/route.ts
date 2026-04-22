@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
-import { backendProxyAuthHeaders, parseBackendProxyBody, resolveBackendBaseURL } from "@/lib/backend-proxy-auth";
+import { NextRequest } from "next/server";
+import { adminProxyNextJson, backendProxyAuthHeaders, parseBackendProxyBody, resolveBackendBaseURL } from "@/lib/backend-proxy-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -13,9 +13,9 @@ export async function GET(request: NextRequest) {
       cache: "no-store",
     });
     const payload = await parseBackendProxyBody(response);
-    return NextResponse.json(payload, { status: response.status });
+    return adminProxyNextJson(payload, response.status);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
-    return NextResponse.json({ error: `stripe-waitlist-purchasers proxy failed: ${message}` }, { status: 502 });
+    return adminProxyNextJson({ error: `stripe-waitlist-purchasers proxy failed: ${message}` }, 502);
   }
 }

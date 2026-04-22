@@ -11,10 +11,10 @@ import (
 // Redis key for hourly CronJob + admin UI: JSON from Slack users.list.
 const slackUsersSnapshotKey = keyPrefix + ":admin:slack_users_snapshot"
 
-// Slack users snapshot TTL: slightly longer than hourly cron so a missed run still has data.
-const slackUsersSnapshotTTL = 90 * time.Minute
+// SaveSlackUsersSnapshot stores JSON from refresh (PII when emails present). TTL 0 = no Redis expiry;
+// the blob is replaced on the next refresh/cron (admin reload reads the same key employee-factory expects).
+const slackUsersSnapshotTTL = time.Duration(0)
 
-// SaveSlackUsersSnapshot stores JSON from refresh (PII when emails present).
 func (s *Store) SaveSlackUsersSnapshot(ctx context.Context, jsonBlob []byte) error {
 	if s == nil {
 		return errors.New("nil store")
@@ -22,7 +22,7 @@ func (s *Store) SaveSlackUsersSnapshot(ctx context.Context, jsonBlob []byte) err
 	return s.rdb.Set(ctx, slackUsersSnapshotKey, jsonBlob, slackUsersSnapshotTTL).Err()
 }
 
-// GetSlackUsersSnapshot returns raw JSON or redis.Nil if missing/expired.
+// GetSlackUsersSnapshot returns raw JSON or redis.Nil if missing.
 func (s *Store) GetSlackUsersSnapshot(ctx context.Context) (string, error) {
 	if s == nil {
 		return "", errors.New("nil store")

@@ -11,8 +11,8 @@ import (
 // Redis key for hourly CronJob + admin UI: JSON blob of paid waitlist purchasers from Stripe API.
 const stripeWaitlistSnapshotKey = keyPrefix + ":admin:stripe_waitlist_snapshot"
 
-// Stripe waitlist snapshot TTL: slightly longer than hourly cron so a missed run still has data.
-const stripeWaitlistSnapshotTTL = 90 * time.Minute
+// TTL 0 = no Redis expiry; blob is replaced on the next refresh/cron.
+const stripeWaitlistSnapshotTTL = time.Duration(0)
 
 // SaveStripeWaitlistSnapshot stores JSON from refreshStripeWaitlistSnapshot (PII).
 func (s *Store) SaveStripeWaitlistSnapshot(ctx context.Context, jsonBlob []byte) error {
