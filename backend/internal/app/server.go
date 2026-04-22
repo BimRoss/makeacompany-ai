@@ -73,8 +73,10 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 	s.mux.HandleFunc("/v1/billing/waitlist-stats", s.handleWaitlistStats)
 	s.mux.HandleFunc("/v1/admin/waitlist", s.handleAdminWaitlist)
 	s.mux.HandleFunc("/v1/admin/stripe-waitlist-purchasers", s.handleAdminStripeWaitlistPurchasers)
+	s.mux.HandleFunc("/v1/admin/slack-workspace-users", s.handleAdminSlackWorkspaceUsers)
 	s.mux.HandleFunc("/v1/admin/user-profiles", s.handleAdminUserProfiles)
 	s.mux.HandleFunc("/v1/internal/refresh-stripe-waitlist-snapshot", s.handleInternalRefreshStripeWaitlistSnapshot)
+	s.mux.HandleFunc("/v1/internal/refresh-slack-users-snapshot", s.handleInternalRefreshSlackUsersSnapshot)
 	s.mux.HandleFunc("/v1/admin/catalog", s.handleAdminCatalog)
 	s.mux.HandleFunc("/v1/admin/company-channels", s.handleAdminCompanyChannels)
 	s.mux.HandleFunc("POST /v1/admin/company-channels/discover", s.handleAdminCompanyChannelsDiscover)
@@ -136,10 +138,14 @@ func normalizeMetricRoute(path string) string {
 		return "/v1/admin/waitlist"
 	case path == "/v1/admin/stripe-waitlist-purchasers":
 		return "/v1/admin/stripe-waitlist-purchasers"
+	case path == "/v1/admin/slack-workspace-users":
+		return "/v1/admin/slack-workspace-users"
 	case path == "/v1/admin/user-profiles":
 		return "/v1/admin/user-profiles"
 	case path == "/v1/internal/refresh-stripe-waitlist-snapshot":
 		return "/v1/internal/refresh-stripe-waitlist-snapshot"
+	case path == "/v1/internal/refresh-slack-users-snapshot":
+		return "/v1/internal/refresh-slack-users-snapshot"
 	case path == "/v1/admin/catalog":
 		return "/v1/admin/catalog"
 	case path == "/v1/admin/company-channels":

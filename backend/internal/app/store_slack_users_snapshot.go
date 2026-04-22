@@ -1,0 +1,46 @@
+package app
+
+import (
+	"context"
+	"errors"
+	"time"
+
+	"github.com/redis/go-redis/v9"
+)
+
+// Redis key for hourly CronJob + admin UI: JSON from Slack users.list.
+const slackUsersSnapshotKey = keyPrefix + ":admin:slack_users_snapshot"
+
+// Slack users snapshot TTL: slightly longer than hourly cron so a missed run still has data.
+const slackUsersSnapshotTTL = 90 * time.Minute
+
+// SaveSlackUsersSnapshot stores JSON from refresh (PII when emails present).
+func (s *Store) SaveSlackUsersSnapshot(ctx context.Context, jsonBlob []byte) error {
+	if s == nil {
+		return errors.New("nil store")
+	}
+	return s.rdb.Set(ctx, slackUsersSnapshotKey, jsonBlob, slackUsersSnapshotTTL).Err()
+}
+
+// GetSlackUsersSnapshot returns raw JSON or redis.Nil if missing/expired.
+func (s *Store) GetSlackUsersSnapshot(ctx context.Context) (string, error) {
+	if s == nil {
+		return "", errors.New("nil store")
+	}
+	return s.rdb.Get(ctx, slackUsersSnapshotKey).Result()
+}
+
+// ErrSlackUsersSnapshotMissing is returned when no snapshot exists yet.
+var ErrSlackUsersSnapshotMissing = errors.New("slack users snapshot missing")
+
+// GetSlackUsersSnapshotBytes returns snapshot bytes or ErrSlackUsersSnapshotMissing.
+func (s *Store) GetSlackUsersSnapshotBytes(ctx context.Context) ([]byte, error) {
+	raw, err := s.GetSlackUsersSnapshot(ctx)
+	if err == redis.Nil {
+		return nil, ErrSlackUsersSnapshotMissing
+	}
+	if err != nil {
+		return nil, err
+	}
+	return []byte(raw), nil
+}
