@@ -2,7 +2,8 @@
 set -euo pipefail
 
 # Push this app's Stripe (and related) runtime secrets to the admin Kubernetes cluster.
-# Sources repo-root .env (or ENV_FILE). Creates/updates Secret makeacompany-ai-runtime-secrets.
+# Sources repo-root .env.prod (if present), else .env, unless ENV_FILE is set.
+# Creates/updates Secret makeacompany-ai-runtime-secrets.
 #
 # By default also copies dockerhub-pull from namespace subnet-signal (fallback: bimross-web)
 # so private geeemoney/* images can pull — same pattern as rancher-admin/scripts/sync-makeacompany-ai-pull-secret.sh.
@@ -26,6 +27,9 @@ set -euo pipefail
 #   ./scripts/update-rancher-secrets.sh
 #   ENV_FILE=/path/.env ./scripts/update-rancher-secrets.sh
 #
+# If ENV_FILE is unset and ${ROOT}/.env.prod exists, it is used (production cluster sync);
+# otherwise ${ROOT}/.env.
+#
 # Kube: if KUBECONFIG is unset, uses ~/.kube/config/admin.yaml or grant-admin.yaml when present.
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -39,7 +43,13 @@ if [[ -z "${KUBECONFIG:-}" ]]; then
   done
 fi
 
-ENV_FILE="${ENV_FILE:-${ROOT}/.env}"
+if [[ -z "${ENV_FILE:-}" ]]; then
+  if [[ -f "${ROOT}/.env.prod" ]]; then
+    ENV_FILE="${ROOT}/.env.prod"
+  else
+    ENV_FILE="${ROOT}/.env"
+  fi
+fi
 NAMESPACE="${NAMESPACE:-makeacompany-ai}"
 SECRET_NAME="${SECRET_NAME:-makeacompany-ai-runtime-secrets}"
 SYNC_PULL_SECRET="${SYNC_PULL_SECRET:-true}"
