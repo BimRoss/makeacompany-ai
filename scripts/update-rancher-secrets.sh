@@ -15,7 +15,6 @@ set -euo pipefail
 #   STRIPE_WEBHOOK_SECRET (required)
 #   STRIPE_PRICE_ID_WAITLIST
 #   STRIPE_PUBLISHABLE_KEY and/or NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY (optional; both written when either is set)
-#   ADMIN_ALLOWED_EMAIL (enables /v1/admin/auth/* routes when set)
 #   BACKEND_INTERNAL_SERVICE_TOKEN (optional; same value on Next server + Go backend for /v1/admin read APIs)
 #   COOKIE_HEALTH_TOKEN (optional in .env, but preserved from existing runtime secret when present)
 #
@@ -135,15 +134,6 @@ if [[ -z "${COOKIE_HEALTH_TOKEN_EFFECTIVE}" ]]; then
 fi
 if [[ -n "${COOKIE_HEALTH_TOKEN_EFFECTIVE}" ]]; then
   secret_args+=(--from-literal=COOKIE_HEALTH_TOKEN="${COOKIE_HEALTH_TOKEN_EFFECTIVE}")
-fi
-
-# Preserve existing admin email if local .env does not provide one.
-ADMIN_ALLOWED_EMAIL_EFFECTIVE="${ADMIN_ALLOWED_EMAIL:-}"
-if [[ -z "${ADMIN_ALLOWED_EMAIL_EFFECTIVE}" ]]; then
-  ADMIN_ALLOWED_EMAIL_EFFECTIVE="$(read_existing_secret_key ADMIN_ALLOWED_EMAIL)"
-fi
-if [[ -n "${ADMIN_ALLOWED_EMAIL_EFFECTIVE}" ]]; then
-  secret_args+=(--from-literal=ADMIN_ALLOWED_EMAIL="${ADMIN_ALLOWED_EMAIL_EFFECTIVE}")
 fi
 
 # Preserve existing internal read token if local .env does not provide one.

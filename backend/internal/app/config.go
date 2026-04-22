@@ -6,6 +6,10 @@ import (
 	"strings"
 )
 
+// adminAllowedEmail is the only address that can complete Stripe Checkout admin auth (setup mode).
+// Intentionally not configurable via env so dev and prod stay aligned.
+const adminAllowedEmail = "grant@bimross.com"
+
 type Config struct {
 	Port                    int
 	RedisURL                string
@@ -41,7 +45,7 @@ func LoadConfig() Config {
 		AdminCatalogToken:                     strings.TrimSpace(os.Getenv("ADMIN_CATALOG_TOKEN")),
 		CapabilityCatalogReadToken:            strings.TrimSpace(os.Getenv("CAPABILITY_CATALOG_READ_TOKEN")),
 		SlackOrchestratorCapabilityCatalogURL: strings.TrimSpace(os.Getenv("SLACK_ORCHESTRATOR_CAPABILITY_CATALOG_URL")),
-		AdminAllowedEmail:                     strings.ToLower(strings.TrimSpace(os.Getenv("ADMIN_ALLOWED_EMAIL"))),
+		AdminAllowedEmail:                     adminAllowedEmail,
 		BackendInternalServiceToken:           strings.TrimSpace(os.Getenv("BACKEND_INTERNAL_SERVICE_TOKEN")),
 		AdminSessionTTLSec:                    envInt("ADMIN_SESSION_TTL_SEC", 259200),
 		StripeSecretKey:                       strings.TrimSpace(os.Getenv("STRIPE_SECRET_KEY")),
