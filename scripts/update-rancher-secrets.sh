@@ -3,6 +3,7 @@ set -euo pipefail
 
 # Push this app's Stripe (and related) runtime secrets to the admin Kubernetes cluster.
 # Sources repo-root .env.prod (if present), else .env, unless ENV_FILE is set.
+# Do not point this at .env.dev — production cluster secrets belong in .env.prod.
 # Creates/updates Secret makeacompany-ai-runtime-secrets.
 #
 # By default also copies dockerhub-pull from namespace subnet-signal (fallback: bimross-web)

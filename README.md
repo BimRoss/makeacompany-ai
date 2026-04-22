@@ -68,7 +68,7 @@ Alternative (calls `PUT /v1/admin/catalog`): `scripts/sync-capability-catalog-fr
 
 ## Local development
 
-Copy `.env.example` to `.env` and set Stripe test keys and price ids.
+Copy `.env.example` to **`.env.dev`** (gitignored), set Stripe **test** keys and price ids, then **`./scripts/use-env.sh dev`** so **`./.env`** symlinks to **`.env.dev`** (Docker Compose and local tools load `./.env`). If you already have a plain **`.env`**, rename it to **`.env.dev`** and run **`use-env.sh dev`**. Production-only values live in **`.env.prod`**; use that file with **`./scripts/update-rancher-secrets.sh`** to push runtime secrets to the admin cluster—do not symlink prod for day-to-day dev.
 
 ```bash
 # Redis + API + Next (hot reload for frontend)
@@ -77,9 +77,9 @@ docker compose --profile local up --build
 
 - Site: http://localhost:3000  
 - API: http://localhost:8090 (host port **8090** so **8080** stays free for [slack-orchestrator](https://github.com/BimRoss/slack-orchestrator) in another terminal; bundled Redis publishes on host **6380** so **6379** stays free for [employee-factory](https://github.com/BimRoss/employee-factory) NATS/Redis).  
-- **`/admin` orchestrator log:** with slack-orchestrator running locally and published on `${SLACK_ORCHESTRATOR_PORT:-8080}`, compose sets `ORCHESTRATOR_DEBUG_BASE_URL` to `http://host.docker.internal` on that port. If you change `ORCHESTRATOR_PORT` in the orchestrator compose file, set the same value as `SLACK_ORCHESTRATOR_PORT` in `.env` here.  
-- **Shared employee-factory Redis (`COMPANY_CHANNELS_REDIS_URL`):** the compose backend’s primary `REDIS_URL` targets the **bundled** Redis (host **6380**), which does not contain `employee-factory:*` keys. employee-factory writes `employee-factory:company_channels` and `employee-factory:channel_knowledge:{id}:markdown` on **host :6379**. Set `COMPANY_CHANNELS_REDIS_URL=redis://host.docker.internal:6379/0` in `.env` so `/admin` channel pills and per-channel **Transcript** (digest) match the bots.  
-- **Compose-only overrides:** `COMPOSE_PUBLIC_API_URL` (default `http://localhost:8090`) is what the **browser** uses for the API from the Next container; `COMPOSE_REDIS_URL` is what the **backend container** uses, so a host-oriented `REDIS_URL` in `.env` for `go run` does not break Docker.
+- **`/admin` orchestrator log:** with slack-orchestrator running locally and published on `${SLACK_ORCHESTRATOR_PORT:-8080}`, compose sets `ORCHESTRATOR_DEBUG_BASE_URL` to `http://host.docker.internal` on that port. If you change `ORCHESTRATOR_PORT` in the orchestrator compose file, set the same value as `SLACK_ORCHESTRATOR_PORT` in **`.env.dev`** (or your active `./.env` symlink).  
+- **Shared employee-factory Redis (`COMPANY_CHANNELS_REDIS_URL`):** the compose backend’s primary `REDIS_URL` targets the **bundled** Redis (host **6380**), which does not contain `employee-factory:*` keys. employee-factory writes `employee-factory:company_channels` and `employee-factory:channel_knowledge:{id}:markdown` on **host :6379**. Set `COMPANY_CHANNELS_REDIS_URL=redis://host.docker.internal:6379/0` in **`.env.dev`** so `/admin` channel pills and per-channel **Transcript** (digest) match the bots.  
+- **Compose-only overrides:** `COMPOSE_PUBLIC_API_URL` (default `http://localhost:8090`) is what the **browser** uses for the API from the Next container; `COMPOSE_REDIS_URL` is what the **backend container** uses, so a host-oriented `REDIS_URL` in **`.env.dev`** for `go run` does not break Docker.
 - **Grafana embeds on `/admin`:** with `Host: localhost`, the app does **not** default to production Grafana anymore. To show charts against a cluster or local forward, set `HEALTH_GRAFANA_AGENTS_DASHBOARD_URL` (and related `HEALTH_GRAFANA_*` vars) to your Grafana base URL.
 
 ```bash
@@ -166,7 +166,7 @@ From a machine with `kubectl` access to the **admin** cluster:
 ./scripts/update-rancher-secrets.sh
 ```
 
-Reads repo-root `.env` and applies Secret **`makeacompany-ai-runtime-secrets`** in namespace **`makeacompany-ai`** (Stripe runtime keys + price + webhook keys). It always writes an effective `STRIPE_SECRET_KEY`, preferring live when split keys are present. If `STRIPE_PUBLISHABLE_KEY_*` or `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY_*` are set, it also writes **`NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY_TEST`** / **`NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY_LIVE`** into the same runtime Secret so frontend/backend can consume them via `envFrom.secretRef`. Catalog price ids often originate in **[stripe-factory](https://github.com/BimRoss/stripe-factory)**; you can also run **`stripe-factory/scripts/update-rancher-secrets.sh`** from that repo if your Stripe material lives there.
+Reads repo-root **`.env.prod`** when present (else **`.env`**) and applies Secret **`makeacompany-ai-runtime-secrets`** in namespace **`makeacompany-ai`** (Stripe runtime keys + price + webhook keys). It always writes an effective `STRIPE_SECRET_KEY`, preferring live when split keys are present. If `STRIPE_PUBLISHABLE_KEY_*` or `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY_*` are set, it also writes **`NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY_TEST`** / **`NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY_LIVE`** into the same runtime Secret so frontend/backend can consume them via `envFrom.secretRef`. Catalog price ids often originate in **[stripe-factory](https://github.com/BimRoss/stripe-factory)**. Prefer **`makeacompany-ai/scripts/update-rancher-secrets.sh`** with a full **`.env.prod`**; the narrower **`stripe-factory/scripts/update-rancher-secrets.sh`** omits admin keys—see that script’s header.
 
 ## CI/CD
 

@@ -1,5 +1,8 @@
 # Local full stack: docker compose --profile local up --build
 #
+# Prereq: cp .env.example .env.dev && fill secrets, then ./scripts/use-env.sh dev
+# (links `.env` → `.env.dev`; services use env_file: ./.env).
+#
 # Default host ports avoid clashing with sibling stacks run in other terminals:
 # - employee-factory publishes Redis on 6379 and workers on 18081–18085
 # - slack-orchestrator (separate compose) publishes HTTP on 8080 by default
