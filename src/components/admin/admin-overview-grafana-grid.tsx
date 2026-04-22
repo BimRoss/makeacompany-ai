@@ -127,7 +127,10 @@ export function AdminOverviewGrafanaGrid() {
               <div className="space-y-1">
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{suggestionTitle}</p>
                 <p className="text-xs text-muted-foreground">
-                  Configure `HEALTH_GRAFANA_ADMIN_PANEL_IDS` and `HEALTH_GRAFANA_ADMIN_PANEL_TITLES`.
+                  Set <code className="text-[11px]">HEALTH_GRAFANA_LOCAL_BASE_URL</code> (e.g.{" "}
+                  <code className="text-[11px]">http://127.0.0.1:13000</code> with Grafana port-forward) or{" "}
+                  <code className="text-[11px]">HEALTH_GRAFANA_DASHBOARD_URL</code>. Panel ids default from the server when a
+                  dashboard base exists.
                 </p>
               </div>
             </article>

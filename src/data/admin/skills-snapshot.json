@@ -1,6 +1,6 @@
 {
   "generatedAt": "2026-04-22T00:00:00.000Z",
-  "source": "slack-orchestrator internal/inbound.DefaultCapabilityContractV1 (+ admin-only Slack skills with empty param lists)",
+  "source": "slack-orchestrator internal/inbound.DefaultCapabilityContractV1 (offline fallback; live local uses GET /debug/capability-catalog)",
   "skills": [
     {
       "id": "create-email",
@@ -55,30 +55,6 @@
       "paramDefaults": {
         "channel": "Current channel, or #name / channel link"
       }
-    },
-    {
-      "id": "read-slack-channels",
-      "label": "Read Slack Channels",
-      "description": "List Slack channels visible to the bot. Runs immediately in Slack (no confirmation).",
-      "employeeIds": ["joanne"],
-      "requiredParams": [],
-      "optionalParams": []
-    },
-    {
-      "id": "read-slack-messages",
-      "label": "Read Slack Messages",
-      "description": "Read recent messages from a named Slack channel. Runs immediately in Slack (no confirmation).",
-      "employeeIds": ["joanne"],
-      "requiredParams": [],
-      "optionalParams": []
-    },
-    {
-      "id": "create-slack",
-      "label": "Create Slack",
-      "description": "Create channels and invite requesters to channels for onboarding setup. Requires explicit Confirm/Cancel before any write.",
-      "employeeIds": ["joanne"],
-      "requiredParams": [],
-      "optionalParams": []
     },
     {
       "id": "read-company",

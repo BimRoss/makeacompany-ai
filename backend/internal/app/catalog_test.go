@@ -89,7 +89,7 @@ func TestMergeCapabilityCatalogWithDefaultsRestoresNewSkills(t *testing.T) {
 		}
 		slimSkills = append(slimSkills, s)
 	}
-	joanneSkills := []string{"read-company", "create-email", "create-doc", "create-slack"}
+	joanneSkills := []string{"read-company", "create-email", "create-doc", "read-skills"}
 	garthSkills := []string{"read-twitter"}
 	catalog := CapabilityCatalog{
 		Revision:      "old",

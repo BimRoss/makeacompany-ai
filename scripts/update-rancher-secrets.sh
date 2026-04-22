@@ -11,18 +11,13 @@ set -euo pipefail
 # Set SYNC_PULL_SECRET=false to skip.
 #
 # Keys (must match backend internal/app/config.go and docker-compose / .env.example):
-#   Effective API key: explicit STRIPE_SECRET_KEY, else STRIPE_SECRET_KEY_LIVE,
-#   else STRIPE_SECRET_KEY_TEST, else STRIPE_API_KEY_TEST
-#   STRIPE_WEBHOOK_SECRET_SNAPSHOT_TEST / STRIPE_WEBHOOK_SECRET_THIN_TEST (preferred), or
-#   STRIPE_WEBHOOK_SECRET_SNAPSHOT / STRIPE_WEBHOOK_SECRET_THIN, or STRIPE_WEBHOOK_SECRET (legacy snapshot)
-#   STRIPE_PRICE_ID_WAITLIST_TEST
-#   STRIPE_PRICE_ID_WAITLIST_LIVE
+#   STRIPE_SECRET_KEY
+#   STRIPE_WEBHOOK_SECRET (required)
+#   STRIPE_PRICE_ID_WAITLIST
+#   STRIPE_PUBLISHABLE_KEY and/or NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY (optional; both written when either is set)
 #   ADMIN_ALLOWED_EMAIL (enables /v1/admin/auth/* routes when set)
 #   BACKEND_INTERNAL_SERVICE_TOKEN (optional; same value on Next server + Go backend for /v1/admin read APIs)
 #   COOKIE_HEALTH_TOKEN (optional in .env, but preserved from existing runtime secret when present)
-#
-# Optional publishable keys (public; synced into runtime Secret as NEXT_PUBLIC_*):
-#   STRIPE_PUBLISHABLE_KEY_TEST / STRIPE_PUBLISHABLE_KEY_LIVE or NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY_*
 #
 # Usage:
 #   ./scripts/update-rancher-secrets.sh
@@ -97,38 +92,24 @@ set -a
 source "${ENV_FILE}"
 set +a
 
-STRIPE_SECRET_EFFECTIVE="${STRIPE_SECRET_KEY:-${STRIPE_SECRET_KEY_LIVE:-${STRIPE_SECRET_KEY_TEST:-${STRIPE_API_KEY_TEST:-}}}}"
+if [[ -z "${STRIPE_SECRET_KEY:-}" ]]; then
+  echo "need STRIPE_SECRET_KEY in ${ENV_FILE}" >&2
+  exit 1
+fi
 
-if [[ -z "${STRIPE_SECRET_EFFECTIVE}" ]]; then
-  echo "need at least one of STRIPE_SECRET_KEY, STRIPE_SECRET_KEY_TEST, STRIPE_SECRET_KEY_LIVE, STRIPE_API_KEY_TEST in ${ENV_FILE}" >&2
+if [[ -z "${STRIPE_WEBHOOK_SECRET:-}" ]]; then
+  echo "need STRIPE_WEBHOOK_SECRET in ${ENV_FILE}" >&2
   exit 1
 fi
-SNAP="${STRIPE_WEBHOOK_SECRET_SNAPSHOT_TEST:-${STRIPE_WEBHOOK_SECRET_SNAPSHOT:-${STRIPE_WEBHOOK_SECRET:-}}}"
-THIN="${STRIPE_WEBHOOK_SECRET_THIN_TEST:-${STRIPE_WEBHOOK_SECRET_THIN:-}}"
-if [[ -z "${SNAP}" && -z "${THIN}" ]]; then
-  echo "need STRIPE_WEBHOOK_SECRET_*_TEST (or SNAPSHOT/THIN / legacy STRIPE_WEBHOOK_SECRET) in ${ENV_FILE}" >&2
-  exit 1
-fi
-if [[ -z "${STRIPE_PRICE_ID_WAITLIST_TEST:-}" ]]; then
-  echo "need STRIPE_PRICE_ID_WAITLIST_TEST in ${ENV_FILE}" >&2
-  exit 1
-fi
-if [[ -z "${STRIPE_PRICE_ID_WAITLIST_LIVE:-}" ]]; then
-  echo "need STRIPE_PRICE_ID_WAITLIST_LIVE in ${ENV_FILE}" >&2
+
+if [[ -z "${STRIPE_PRICE_ID_WAITLIST:-}" ]]; then
+  echo "need STRIPE_PRICE_ID_WAITLIST in ${ENV_FILE}" >&2
   exit 1
 fi
 
 if [[ "${SYNC_PULL_SECRET}" == "true" ]]; then
   sync_pull_secret_from_subnet_signal
 fi
-
-append_literal_if_set() {
-  local key="$1"
-  local val="${!key:-}"
-  if [[ -n "${val}" ]]; then
-    secret_args+=(--from-literal="${key}=${val}")
-  fi
-}
 
 read_existing_secret_key() {
   local key="$1"
@@ -137,25 +118,14 @@ read_existing_secret_key() {
 }
 
 secret_args=(--namespace "${NAMESPACE}")
-secret_args+=(--from-literal=STRIPE_SECRET_KEY="${STRIPE_SECRET_EFFECTIVE}")
-append_literal_if_set STRIPE_PRICE_ID_WAITLIST_TEST
-append_literal_if_set STRIPE_PRICE_ID_WAITLIST_LIVE
-NPU_TEST="${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY_TEST:-${STRIPE_PUBLISHABLE_KEY_TEST:-}}"
-NPU_LIVE="${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY_LIVE:-${STRIPE_PUBLISHABLE_KEY_LIVE:-}}"
-if [[ -n "${NPU_TEST}" ]]; then
-  secret_args+=(--from-literal=NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY_TEST="${NPU_TEST}")
-fi
-if [[ -n "${NPU_LIVE}" ]]; then
-  secret_args+=(--from-literal=NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY_LIVE="${NPU_LIVE}")
-fi
-if [[ -n "${SNAP}" ]]; then
-  secret_args+=(--from-literal=STRIPE_WEBHOOK_SECRET_SNAPSHOT_TEST="${SNAP}")
-  secret_args+=(--from-literal=STRIPE_WEBHOOK_SECRET_SNAPSHOT="${SNAP}")
-  secret_args+=(--from-literal=STRIPE_WEBHOOK_SECRET="${SNAP}")
-fi
-if [[ -n "${THIN}" ]]; then
-  secret_args+=(--from-literal=STRIPE_WEBHOOK_SECRET_THIN_TEST="${THIN}")
-  secret_args+=(--from-literal=STRIPE_WEBHOOK_SECRET_THIN="${THIN}")
+secret_args+=(--from-literal=STRIPE_SECRET_KEY="${STRIPE_SECRET_KEY}")
+secret_args+=(--from-literal=STRIPE_PRICE_ID_WAITLIST="${STRIPE_PRICE_ID_WAITLIST}")
+secret_args+=(--from-literal=STRIPE_WEBHOOK_SECRET="${STRIPE_WEBHOOK_SECRET}")
+
+NPU="${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY:-${STRIPE_PUBLISHABLE_KEY:-}}"
+if [[ -n "${NPU}" ]]; then
+  secret_args+=(--from-literal=NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY="${NPU}")
+  secret_args+=(--from-literal=STRIPE_PUBLISHABLE_KEY="${NPU}")
 fi
 
 # Preserve existing cookie token if local .env does not provide one.

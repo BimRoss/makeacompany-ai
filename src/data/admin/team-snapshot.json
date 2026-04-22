@@ -70,11 +70,11 @@
       "sourceManifest": "slack-factory/manifests/joanne/app-manifest.json",
       "skillIds": [
         "read-company",
-        "read-slack-channels",
-        "read-slack-messages",
+        "read-skills",
+        "create-company",
+        "delete-company",
         "create-email",
-        "create-doc",
-        "create-slack"
+        "create-doc"
       ]
     }
   ]

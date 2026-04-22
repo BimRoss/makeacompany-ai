@@ -42,7 +42,7 @@ curl -sS -X POST "${BACKEND_API_BASE_URL}/v1/admin/company-channels/discover" \
 After envs are correct, run:
 
 ```bash
-# With `.env` → `.env.dev` (./scripts/use-env.sh dev) or vars exported:
+# With `.env` → `.env.dev` (./scripts/use-env.sh dev), `source .env.dev`, or vars exported:
 node scripts/company-channels-discover-from-orchestrator.mjs
 ```
 

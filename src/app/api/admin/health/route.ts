@@ -47,9 +47,27 @@ function buildDefaultGrafanaDashboardUrl(
 
 /**
  * When no HEALTH_GRAFANA_* URL is set, supplies a dashboard base for Grafana iframes.
- * Loopback hosts return null so local dev does not embed prod (makeacompany.ai) metrics by default.
- * Set HEALTH_GRAFANA_*_URL explicitly to a Grafana base URL (e.g. after kubectl port-forward) to see charts locally.
+ * Loopback hosts return null unless HEALTH_GRAFANA_LOCAL_BASE_URL is set (origin only, e.g.
+ * http://127.0.0.1:13000 after kubectl port-forward or docker compose k8s-grafana-forward).
+ * That avoids embedding prod metrics by accident while still allowing local forwards without
+ * pasting full HEALTH_GRAFANA_DASHBOARD_URL paths.
  */
+function loopbackGrafanaOrigin(): string | null {
+  const raw = process.env.HEALTH_GRAFANA_LOCAL_BASE_URL?.trim();
+  if (!raw) {
+    return null;
+  }
+  try {
+    const u = new URL(raw);
+    if (u.protocol !== "http:" && u.protocol !== "https:") {
+      return null;
+    }
+    return u.origin;
+  } catch {
+    return null;
+  }
+}
+
 function buildDefaultGrafanaPathUrl(
   requestHost: string | null,
   requestProto: string | null,
@@ -61,7 +79,15 @@ function buildDefaultGrafanaPathUrl(
   const hostname = hostOnly.split(":")[0]?.trim().toLowerCase();
 
   if (hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1") {
-    return null;
+    const origin = loopbackGrafanaOrigin();
+    if (!origin) {
+      return null;
+    }
+    try {
+      return new URL(pathWithQuery, origin).toString();
+    } catch {
+      return null;
+    }
   }
 
   if (!hostOnly) {

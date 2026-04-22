@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Link .env -> .env.dev or .env.prod so Next/docker compose and tools that read ./.env see the right file.
+# Link .env -> .env.dev or .env.prod so host Next.js / go run and other tools that read ./.env see the right file.
+# Docker Compose defaults to .env.dev via MAKEACOMPANY_AI_ENV_FILE (see docker-compose.yml); this script is optional for compose.
 # Usage: ./scripts/use-env.sh dev|prod
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -8,7 +9,7 @@ cd "$ROOT"
 usage() {
 	echo "Usage: ${0##*/} dev|prod" >&2
 	echo "Creates symlink .env -> .env.dev or .env.prod (both gitignored)." >&2
-	echo "Use dev for local compose / npm run dev; prod is for operators who symlink before rare local prod-like runs." >&2
+	echo "Use dev for npm run dev / go run; prod for host tools against prod secrets. Compose uses .env.dev unless MAKEACOMPANY_AI_ENV_FILE is set." >&2
 	exit 1
 }
 

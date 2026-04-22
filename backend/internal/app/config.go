@@ -25,23 +25,12 @@ type Config struct {
 	BackendInternalServiceToken string
 	AdminSessionTTLSec          int
 	StripeSecretKey             string
-	StripeWebhookSecretSnapshot string
-	StripeWebhookSecretThin     string
-	StripePriceWaitlistTest     string
-	StripePriceWaitlistLive     string
+	StripeWebhookSecret         string
+	// StripePriceWaitlist is the waitlist checkout price for this deployment (test or live); see STRIPE_PRICE_ID_WAITLIST.
+	StripePriceWaitlist string
 }
 
 func LoadConfig() Config {
-	// Webhook signing secrets: prefer *_TEST for clarity; aliases match stripe-factory / older env files.
-	snapshot := envFirst(
-		"STRIPE_WEBHOOK_SECRET_SNAPSHOT_TEST",
-		"STRIPE_WEBHOOK_SECRET_SNAPSHOT",
-		"STRIPE_WEBHOOK_SECRET",
-	)
-	thin := envFirst(
-		"STRIPE_WEBHOOK_SECRET_THIN_TEST",
-		"STRIPE_WEBHOOK_SECRET_THIN",
-	)
 	return Config{
 		Port:                                  envInt("PORT", 8080),
 		RedisURL:                              envString("REDIS_URL", "redis://localhost:6379/0"),
@@ -55,36 +44,10 @@ func LoadConfig() Config {
 		AdminAllowedEmail:                     strings.ToLower(strings.TrimSpace(os.Getenv("ADMIN_ALLOWED_EMAIL"))),
 		BackendInternalServiceToken:           strings.TrimSpace(os.Getenv("BACKEND_INTERNAL_SERVICE_TOKEN")),
 		AdminSessionTTLSec:                    envInt("ADMIN_SESSION_TTL_SEC", 259200),
-		StripeSecretKey:                       resolveStripeSecretKey(),
-		StripeWebhookSecretSnapshot:           snapshot,
-		StripeWebhookSecretThin:               thin,
-		StripePriceWaitlistTest:               os.Getenv("STRIPE_PRICE_ID_WAITLIST_TEST"),
-		StripePriceWaitlistLive:               os.Getenv("STRIPE_PRICE_ID_WAITLIST_LIVE"),
+		StripeSecretKey:                       strings.TrimSpace(os.Getenv("STRIPE_SECRET_KEY")),
+		StripeWebhookSecret:                   strings.TrimSpace(os.Getenv("STRIPE_WEBHOOK_SECRET")),
+		StripePriceWaitlist:                   strings.TrimSpace(os.Getenv("STRIPE_PRICE_ID_WAITLIST")),
 	}
-}
-
-// resolveStripeSecretKey picks one API secret for stripe-go:
-// 1) explicit STRIPE_SECRET_KEY
-// 2) STRIPE_SECRET_KEY_LIVE (prefer live when split keys are both present)
-// 3) STRIPE_SECRET_KEY_TEST (local/dev fallback)
-// 4) STRIPE_API_KEY_TEST (stripe-factory alias)
-func resolveStripeSecretKey() string {
-	return envFirst(
-		"STRIPE_SECRET_KEY",
-		"STRIPE_SECRET_KEY_LIVE",
-		"STRIPE_SECRET_KEY_TEST",
-		"STRIPE_API_KEY_TEST",
-	)
-}
-
-// envFirst returns the first non-empty trimmed env value for the given keys.
-func envFirst(keys ...string) string {
-	for _, k := range keys {
-		if v := strings.TrimSpace(os.Getenv(k)); v != "" {
-			return v
-		}
-	}
-	return ""
 }
 
 func envString(key, fallback string) string {

@@ -61,14 +61,14 @@ Alternative (calls `PUT /v1/admin/catalog`): `scripts/sync-capability-catalog-fr
 
 ## Stripe catalog (`stripe-factory`)
 
-**Products and prices** for this app are defined in **[bimross/stripe-factory](https://github.com/BimRoss/stripe-factory)** (Terraform: test vs live). After `terraform apply`, copy the output **`makeacompany_waitlist_price_id`** into `STRIPE_PRICE_ID_WAITLIST_TEST` / `STRIPE_PRICE_ID_WAITLIST_LIVE` here or in cluster secrets.
+**Products and prices** for this app are defined in **[bimross/stripe-factory](https://github.com/BimRoss/stripe-factory)** (Terraform: test vs live). After `terraform apply`, copy the output **`makeacompany_waitlist_price_id`** into **`STRIPE_PRICE_ID_WAITLIST`** in **`.env.dev`** (test) and **`.env.prod`** (live), or into cluster secrets via **`scripts/update-rancher-secrets.sh`**.
 
 - Webhook events: `webhooks/makeacompany-ai.events.txt` in that repo.
 - Local webhooks: Stripe CLI — see **`stripe-factory` → `docs/LOCAL.md`**.
 
 ## Local development
 
-Copy `.env.example` to **`.env.dev`** (gitignored), set Stripe **test** keys and price ids, then **`./scripts/use-env.sh dev`** so **`./.env`** symlinks to **`.env.dev`** (Docker Compose and local tools load `./.env`). If you already have a plain **`.env`**, rename it to **`.env.dev`** and run **`use-env.sh dev`**. Production-only values live in **`.env.prod`**; use that file with **`./scripts/update-rancher-secrets.sh`** to push runtime secrets to the admin cluster—do not symlink prod for day-to-day dev.
+Copy `.env.example` to **`.env.dev`** (gitignored), set Stripe **test** keys and **`STRIPE_PRICE_ID_WAITLIST`**. **`docker compose`** loads **`${MAKEACOMPANY_AI_ENV_FILE:-.env.dev}`** into services (same pattern as slack-orchestrator’s **`SLACK_ORCHESTRATOR_ENV_FILE`**). For host **`npm run dev`** / **`go run`**, many tools only read **`./.env`**: run **`./scripts/use-env.sh dev`** to symlink **`.env` → `.env.dev`**. Production-only values live in **`.env.prod`**; use that file with **`./scripts/update-rancher-secrets.sh`** to push runtime secrets to the admin cluster—do not symlink prod for day-to-day dev. Prod-like compose: **`MAKEACOMPANY_AI_ENV_FILE=.env.prod docker compose --profile prod up --build`** (and ensure **`KUBECONFIG_HOST_PATH`** is set for real kubectl forwards—export it, put it in a root **`.env`** for interpolation, or pass **`docker compose --env-file .env.prod`**).
 
 ```bash
 # Redis + API + Next (hot reload for frontend)
@@ -77,10 +77,10 @@ docker compose --profile local up --build
 
 - Site: http://localhost:3000  
 - API: http://localhost:8090 (host port **8090** so **8080** stays free for [slack-orchestrator](https://github.com/BimRoss/slack-orchestrator) in another terminal; bundled Redis publishes on host **6380** so **6379** stays free for [employee-factory](https://github.com/BimRoss/employee-factory) NATS/Redis).  
-- **`/admin` orchestrator log:** with slack-orchestrator running locally and published on `${SLACK_ORCHESTRATOR_PORT:-8080}`, compose sets `ORCHESTRATOR_DEBUG_BASE_URL` to `http://host.docker.internal` on that port. If you change `ORCHESTRATOR_PORT` in the orchestrator compose file, set the same value as `SLACK_ORCHESTRATOR_PORT` in **`.env.dev`** (or your active `./.env` symlink).  
+- **`/admin` orchestrator log:** with slack-orchestrator running locally and published on `${SLACK_ORCHESTRATOR_PORT:-8080}`, compose sets `ORCHESTRATOR_DEBUG_BASE_URL` to `http://host.docker.internal` on that port. If you change `ORCHESTRATOR_PORT` in the orchestrator compose file, set the same value as `SLACK_ORCHESTRATOR_PORT` in **`.env.dev`** (or whatever **`MAKEACOMPANY_AI_ENV_FILE`** points at).  
 - **Shared employee-factory Redis (`COMPANY_CHANNELS_REDIS_URL`):** the compose backend’s primary `REDIS_URL` targets the **bundled** Redis (host **6380**), which does not contain `employee-factory:*` keys. employee-factory writes `employee-factory:company_channels` and `employee-factory:channel_knowledge:{id}:markdown` on **host :6379**. Set `COMPANY_CHANNELS_REDIS_URL=redis://host.docker.internal:6379/0` in **`.env.dev`** so `/admin` channel pills and per-channel **Transcript** (digest) match the bots.  
 - **Compose-only overrides:** `COMPOSE_PUBLIC_API_URL` (default `http://localhost:8090`) is what the **browser** uses for the API from the Next container; `COMPOSE_REDIS_URL` is what the **backend container** uses, so a host-oriented `REDIS_URL` in **`.env.dev`** for `go run` does not break Docker.
-- **Grafana embeds on `/admin`:** with `Host: localhost`, the app does **not** default to production Grafana anymore. To show charts against a cluster or local forward, set `HEALTH_GRAFANA_AGENTS_DASHBOARD_URL` (and related `HEALTH_GRAFANA_*` vars) to your Grafana base URL.
+- **Grafana embeds on `/admin`:** with `Host: localhost`, the app does **not** default to production Grafana. Set **`HEALTH_GRAFANA_LOCAL_BASE_URL`** to the origin you port-forward (e.g. `http://127.0.0.1:13000`); the server appends the default `/grafana/d/...` paths. Or set full **`HEALTH_GRAFANA_DASHBOARD_URL`** / other `HEALTH_GRAFANA_*` URLs. The **`prod`** compose profile also runs **`k8s-grafana-forward`** and defaults `HEALTH_GRAFANA_LOCAL_BASE_URL` to `http://127.0.0.1:${PROD_GRAFANA_HOST_PORT:-13000}` so the eight-panel grid works without pasting dashboard URLs.
 
 ```bash
 # Frontend dev server + admin-cluster backend via compose-managed kubectl port-forward
@@ -89,9 +89,10 @@ docker compose --profile prod up --build
 
 - Site: http://localhost:3000
 - Prod backend forward: http://localhost:18080
+- **Grafana** for `/admin` overview iframes: compose runs **`k8s-grafana-forward`** (`kubectl port-forward` to `svc/makeacompany-ai-grafana` in namespace `makeacompany-ai`, published on host **`${PROD_GRAFANA_HOST_PORT:-13000}`**). `frontend-prod` sets **`HEALTH_GRAFANA_LOCAL_BASE_URL`** to match so loopback gets real panel URLs. Override with `HEALTH_GRAFANA_LOCAL_BASE_URL` or `HEALTH_GRAFANA_DASHBOARD_URL` in **`.env.dev`** (or your compose env file) if needed.
 - **Slack orchestrator** for `/admin` orchestrator log: compose runs `k8s-orchestrator-forward` (kubectl port-forward to `svc/slack-orchestrator` in namespace `slack-orchestrator`). The Next container uses `ORCHESTRATOR_DEBUG_BASE_URL=http://k8s-orchestrator-forward:8080` by default. Optional `ORCHESTRATOR_DEBUG_TOKEN` only if you lock down `GET /debug/decisions` with a bearer on the orchestrator.
-- Required env for this profile: `KUBECONFIG_HOST_PATH` (for example `/Users/grant/.kube/config/admin.yaml`)
-- `frontend-prod` waits for the backend and orchestrator port-forward services to report healthy before startup.
+- **`KUBECONFIG_HOST_PATH`:** must be a real kubeconfig on the host for **`kubectl` port-forward** (for example **`/Users/you/.kube/config/admin.yaml`**). Compose interpolates the whole file before profiles apply, so set it via **shell export**, a project **`.env`** used for substitution, **`docker compose --env-file .env.prod`**, or keep it inside **`.env.dev`** / **`.env.prod`** together with **`use-env.sh`** / **`--env-file`** so interpolation sees it. (The compose file defaults the mount to **`/dev/null`** only so **`--profile local`** parses without a root **`.env`**.)
+- `frontend-prod` waits for the backend, orchestrator, and Grafana port-forward services to report healthy before startup.
 
 Quick checks if `/employees` data looks wrong:
 
@@ -120,23 +121,18 @@ npm run dev   # repo root
 | `BACKEND_INTERNAL_API_BASE_URL` | Server-side internal backend base for Next route handlers (defaults to localhost locally and service DNS in Kubernetes) |
 | `BACKEND_INTERNAL_SERVICE_TOKEN` | Same secret on Next + Go: Bearer for admin read APIs and `POST /v1/admin/company-channels/discover` (set in prod; see [docs/prod-company-channels-env-checklist.md](docs/prod-company-channels-env-checklist.md)) |
 | `COMPANY_CHANNELS_REDIS_URL` | Optional: Redis URL for `employee-factory:*` keys (defaults to `REDIS_URL`). See [docs/redis-operations.md](docs/redis-operations.md#key-prefix-matrix-quick-reference). |
-| `KUBECONFIG_HOST_PATH` | Local kubeconfig path mounted into compose `k8s-*` port-forward services (used by `--profile prod`) |
+| `MAKEACOMPANY_AI_ENV_FILE` | Env file path for compose **`env_file`** (default **`.env.dev`**; set to **`.env.prod`** for prod-like local compose) |
+| `KUBECONFIG_HOST_PATH` | Host kubeconfig path mounted into compose **`k8s-*`** port-forward services (**`--profile prod`**); must be real (not left at compose default) for forwards to work |
 | `KUBECONFIG_CONTEXT` | Kubernetes context for compose `k8s-*` forwards (defaults to `admin`) |
 | `PROD_BACKEND_PORT` | Host port for forwarded `makeacompany-ai-backend` service (defaults to `18080`) |
 | `ORCHESTRATOR_DEBUG_BASE_URL` | Base URL for slack-orchestrator `GET /debug/decisions` (Next.js API proxies here). **`docker compose --profile prod`** defaults to `http://k8s-orchestrator-forward:8080` (in-compose kubectl forward to prod). For plain `npm run dev` on the host, use e.g. `http://127.0.0.1:18081` after manual `kubectl port-forward`. |
 | `ORCHESTRATOR_DEBUG_TOKEN` | Optional server-only bearer sent to slack-orchestrator when set (lock down `GET /debug/*`). Must match orchestrator `ORCHESTRATOR_DEBUG_TOKEN` when `ORCHESTRATOR_DEBUG_ALLOW_ANON=false`. |
 | `NEXT_PUBLIC_GA_MEASUREMENT_ID` | GA4 stream id injected into frontend at build time |
 | `NEXT_PUBLIC_LINKEDIN_PARTNER_ID` | LinkedIn Insight Tag partner id; frontend injects LinkedIn tracking only in production when set |
-| `STRIPE_SECRET_KEY` | Optional single key (`sk_test_…` or `sk_live_…`) — wins if set |
-| `STRIPE_SECRET_KEY_TEST` / `STRIPE_SECRET_KEY_LIVE` | Split keys; backend picks the **first non-empty** in order: `STRIPE_SECRET_KEY`, `STRIPE_SECRET_KEY_LIVE`, `STRIPE_SECRET_KEY_TEST`, `STRIPE_API_KEY_TEST` |
-| `STRIPE_API_KEY_TEST` | Optional alias (e.g. stripe-factory) for a test secret key |
-| `STRIPE_PUBLISHABLE_KEY_*` / `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY_*` | Public keys for Stripe.js; compose maps `STRIPE_PUBLISHABLE_KEY_*` → `NEXT_PUBLIC_*` for the frontend container |
-| `STRIPE_WEBHOOK_SECRET_SNAPSHOT_TEST` | Test-mode signing secret for **snapshot** webhook destination (`whsec_…`) |
-| `STRIPE_WEBHOOK_SECRET_THIN_TEST` | Test-mode signing secret for **thin** webhook destination (same URL path, different `whsec`) |
-| `STRIPE_WEBHOOK_SECRET_SNAPSHOT` / `STRIPE_WEBHOOK_SECRET_THIN` | Optional aliases if you omit the `_TEST` suffix |
-| `STRIPE_WEBHOOK_SECRET` | Optional legacy: used as snapshot secret if snapshot-specific vars are unset |
-| `STRIPE_PRICE_ID_WAITLIST_TEST` | $1 one-time price (test mode) |
-| `STRIPE_PRICE_ID_WAITLIST_LIVE` | $1 one-time price (live mode) |
+| `STRIPE_SECRET_KEY` | API secret for this environment (`sk_test_…` in **`.env.dev`**, `sk_live_…` in **`.env.prod`**) |
+| `STRIPE_PUBLISHABLE_KEY` / `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Public key; compose and **`update-rancher-secrets.sh`** set **`NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`** (and `STRIPE_PUBLISHABLE_KEY` in the cluster secret) from either name |
+| `STRIPE_WEBHOOK_SECRET` | Signing secret for Stripe webhooks to this backend (`whsec_…`) |
+| `STRIPE_PRICE_ID_WAITLIST` | Waitlist Stripe `price_…` id for this file (test in **`.env.dev`**, live in **`.env.prod`**) |
 | `HEALTH_GRAFANA_DASHBOARD_URL` | MakeACompany **Observability** dashboard URL for the `/admin` eight-panel overview grid (via `HEALTH_GRAFANA_ADMIN_*`) |
 | `HEALTH_GRAFANA_ADMIN_PANEL_IDS` / `HEALTH_GRAFANA_ADMIN_PANEL_TITLES` | `/admin` panels (defaults align with backend, agents, orchestrator, and error-rate charts — see `.env.example`) |
 | `HEALTH_GRAFANA_AGENTS_DASHBOARD_URL` | **Agents** dashboard for `/employees` team-card embeds and `/agents` (uses Grafana `var-employee`) |
@@ -152,11 +148,11 @@ npm run dev   # repo root
 | `HEALTH_COOKIE_STALE_AFTER_MINUTES` | Max age before cookie health payload is marked stale |
 | `COOKIE_HEALTH_TOKEN` | Shared auth token for `POST /api/internal/cookie-health` |
 
-**Webhook URL (POST):** `{backend origin}/v1/billing/webhook` — e.g. ngrok `https://YOUR_SUBDOMAIN.ngrok-free.dev/v1/billing/webhook` forwarding to `localhost:8080`. Snapshot and thin destinations can share this path; each destination still has its own signing secret.
+**Webhook URL (POST):** `{backend origin}/v1/billing/webhook` — e.g. ngrok `https://YOUR_SUBDOMAIN.ngrok-free.dev/v1/billing/webhook` forwarding to `localhost:8080`. Configure a single endpoint in Stripe Dashboard; use **`STRIPE_WEBHOOK_SECRET`** from that destination.
 
-Checkout selects test vs live **price** from the **effective** API secret’s prefix (`sk_live_` uses live price id). For **production**, prefer `STRIPE_SECRET_KEY` (live) or `STRIPE_SECRET_KEY_LIVE`.
+Checkout and admin Stripe reads use **`STRIPE_PRICE_ID_WAITLIST`** together with **`STRIPE_SECRET_KEY`** for the same environment (test vs live is determined by which **`.env.*`** file you use, not by inferring from the secret prefix).
 
-**`NEXT_PUBLIC_*` in Kubernetes:** GA + site defaults come from ConfigMap **`makeacompany-ai-config`**; Stripe publishable keys now come from Secret **`makeacompany-ai-runtime-secrets`**. Client-bundled `NEXT_PUBLIC_*` in a production **Docker** image are fixed at **`npm run build`** unless you add build-args in CI; set publishable keys in the image build when the frontend starts using Stripe.js in the browser. The same build-time rule applies to `NEXT_PUBLIC_LINKEDIN_PARTNER_ID` for LinkedIn Insight in production.
+**`NEXT_PUBLIC_*` in Kubernetes:** GA + site defaults come from ConfigMap **`makeacompany-ai-config`**; Stripe publishable keys come from Secret **`makeacompany-ai-runtime-secrets`** as **`NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`** (and `STRIPE_PUBLISHABLE_KEY`). Client-bundled `NEXT_PUBLIC_*` in a production **Docker** image are fixed at **`npm run build`** unless you add build-args in CI; set publishable keys in the image build when the frontend starts using Stripe.js in the browser. The same build-time rule applies to `NEXT_PUBLIC_LINKEDIN_PARTNER_ID` for LinkedIn Insight in production.
 
 ### Admin cluster (runtime Secret)
 
@@ -166,7 +162,7 @@ From a machine with `kubectl` access to the **admin** cluster:
 ./scripts/update-rancher-secrets.sh
 ```
 
-Reads repo-root **`.env.prod`** when present (else **`.env`**) and applies Secret **`makeacompany-ai-runtime-secrets`** in namespace **`makeacompany-ai`** (Stripe runtime keys + price + webhook keys). It always writes an effective `STRIPE_SECRET_KEY`, preferring live when split keys are present. If `STRIPE_PUBLISHABLE_KEY_*` or `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY_*` are set, it also writes **`NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY_TEST`** / **`NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY_LIVE`** into the same runtime Secret so frontend/backend can consume them via `envFrom.secretRef`. Catalog price ids often originate in **[stripe-factory](https://github.com/BimRoss/stripe-factory)**. Prefer **`makeacompany-ai/scripts/update-rancher-secrets.sh`** with a full **`.env.prod`**; the narrower **`stripe-factory/scripts/update-rancher-secrets.sh`** omits admin keys—see that script’s header.
+Reads repo-root **`.env.prod`** when present (else **`.env`**) and applies Secret **`makeacompany-ai-runtime-secrets`** in namespace **`makeacompany-ai`**: **`STRIPE_SECRET_KEY`**, **`STRIPE_PRICE_ID_WAITLIST`**, **`STRIPE_WEBHOOK_SECRET`**, plus **`STRIPE_PUBLISHABLE_KEY`** / **`NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`** when set. Catalog price ids often originate in **[stripe-factory](https://github.com/BimRoss/stripe-factory)**. Prefer **`makeacompany-ai/scripts/update-rancher-secrets.sh`** with a full **`.env.prod`**; the narrower **`stripe-factory/scripts/update-rancher-secrets.sh`** omits admin keys—see that script’s header.
 
 ## CI/CD
 
@@ -214,7 +210,7 @@ Manifests: `rancher-admin/admin/apps/makeacompany-ai/`
 
 - Workloads run on node **`makeacompany`**; Redis backup volume on **`website`** (same pattern as Subnet Signal).
 - Ensure host paths exist on nodes before binding PVs (e.g. `/var/lib/makeacompany-ai/redis-data` on `makeacompany`).
-- Create a **`makeacompany-ai-runtime-secrets`** Secret (or SealedSecret) with the Stripe keys in the env table (at minimum one API secret, webhook signing secrets, and both waitlist price ids) — referenced by the backend Deployment (`envFrom`).
+- Create a **`makeacompany-ai-runtime-secrets`** Secret (or SealedSecret) with the Stripe keys in the env table (at minimum API secret, webhook signing secret, and waitlist price id) — referenced by the backend Deployment (`envFrom`).
 
 ## Docs
 

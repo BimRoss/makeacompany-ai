@@ -72,7 +72,9 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 	s.mux.HandleFunc("/v1/billing/webhook", s.handleWebhook)
 	s.mux.HandleFunc("/v1/billing/waitlist-stats", s.handleWaitlistStats)
 	s.mux.HandleFunc("/v1/admin/waitlist", s.handleAdminWaitlist)
+	s.mux.HandleFunc("/v1/admin/stripe-waitlist-purchasers", s.handleAdminStripeWaitlistPurchasers)
 	s.mux.HandleFunc("/v1/admin/user-profiles", s.handleAdminUserProfiles)
+	s.mux.HandleFunc("/v1/internal/refresh-stripe-waitlist-snapshot", s.handleInternalRefreshStripeWaitlistSnapshot)
 	s.mux.HandleFunc("/v1/admin/catalog", s.handleAdminCatalog)
 	s.mux.HandleFunc("/v1/admin/company-channels", s.handleAdminCompanyChannels)
 	s.mux.HandleFunc("POST /v1/admin/company-channels/discover", s.handleAdminCompanyChannelsDiscover)
@@ -132,8 +134,12 @@ func normalizeMetricRoute(path string) string {
 		return "/v1/billing/waitlist-stats"
 	case path == "/v1/admin/waitlist":
 		return "/v1/admin/waitlist"
+	case path == "/v1/admin/stripe-waitlist-purchasers":
+		return "/v1/admin/stripe-waitlist-purchasers"
 	case path == "/v1/admin/user-profiles":
 		return "/v1/admin/user-profiles"
+	case path == "/v1/internal/refresh-stripe-waitlist-snapshot":
+		return "/v1/internal/refresh-stripe-waitlist-snapshot"
 	case path == "/v1/admin/catalog":
 		return "/v1/admin/catalog"
 	case path == "/v1/admin/company-channels":
@@ -305,6 +311,8 @@ func (s *Server) handleCheckout(w http.ResponseWriter, r *http.Request) {
 		Mode:       stripe.String(string(stripe.CheckoutSessionModePayment)),
 		SuccessURL: stripe.String(successURL),
 		CancelURL:  stripe.String(cancelURL),
+		// Always create a Stripe Customer on completion so admin + webhooks get cus_… (not guest-only sessions).
+		CustomerCreation: stripe.String(string(stripe.CheckoutSessionCustomerCreationAlways)),
 		LineItems: []*stripe.CheckoutSessionLineItemParams{
 			{Price: stripe.String(priceID), Quantity: stripe.Int64(1)},
 		},
@@ -322,45 +330,25 @@ func (s *Server) handleCheckout(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) waitlistPriceID() (string, error) {
-	key := s.cfg.StripeSecretKey
-	live := strings.TrimSpace(s.cfg.StripePriceWaitlistLive)
-	test := strings.TrimSpace(s.cfg.StripePriceWaitlistTest)
-	if strings.HasPrefix(key, "sk_live_") {
-		if live == "" {
-			return "", fmt.Errorf("STRIPE_PRICE_ID_WAITLIST_LIVE is not set")
-		}
-		if !strings.HasPrefix(live, "price_") {
-			return "", fmt.Errorf("STRIPE_PRICE_ID_WAITLIST_LIVE must be a Stripe price_ id")
-		}
-		return live, nil
+	id := strings.TrimSpace(s.cfg.StripePriceWaitlist)
+	if id == "" {
+		return "", fmt.Errorf("STRIPE_PRICE_ID_WAITLIST is not set")
 	}
-	if test == "" {
-		return "", fmt.Errorf("STRIPE_PRICE_ID_WAITLIST_TEST is not set")
+	if !strings.HasPrefix(id, "price_") {
+		return "", fmt.Errorf("STRIPE_PRICE_ID_WAITLIST must be a Stripe price_ id")
 	}
-	if !strings.HasPrefix(test, "price_") {
-		return "", fmt.Errorf("STRIPE_PRICE_ID_WAITLIST_TEST must be a Stripe price_ id")
-	}
-	return test, nil
-}
-
-func (s *Server) webhookSigningSecrets() []string {
-	var out []string
-	if s.cfg.StripeWebhookSecretSnapshot != "" {
-		out = append(out, s.cfg.StripeWebhookSecretSnapshot)
-	}
-	if s.cfg.StripeWebhookSecretThin != "" {
-		out = append(out, s.cfg.StripeWebhookSecretThin)
-	}
-	return out
+	return id, nil
 }
 
 func (s *Server) verifyStripeSignature(body []byte, sig string) (secret string, err error) {
-	for _, sec := range s.webhookSigningSecrets() {
-		if err := stripewebhook.ValidatePayloadWithTolerance(body, sig, sec, stripewebhook.DefaultTolerance); err == nil {
-			return sec, nil
-		}
+	sec := s.cfg.StripeWebhookSecret
+	if sec == "" {
+		return "", errors.New("stripe webhook secret not configured")
 	}
-	return "", errors.New("no matching signature")
+	if err := stripewebhook.ValidatePayloadWithTolerance(body, sig, sec, stripewebhook.DefaultTolerance); err != nil {
+		return "", err
+	}
+	return sec, nil
 }
 
 func (s *Server) handleWaitlistStats(w http.ResponseWriter, r *http.Request) {
@@ -422,15 +410,30 @@ func (s *Server) handleAdminUserProfiles(w http.ResponseWriter, r *http.Request)
 		}
 		return
 	}
+	waitlistUsers, err := s.store.ListWaitlistUsers(r.Context())
+	if err != nil {
+		s.log.Printf("admin user-profiles waitlist: %v", err)
+		http.Error(w, "list error", http.StatusInternalServerError)
+		return
+	}
 	profiles, err := s.store.ListUserProfiles(r.Context())
 	if err != nil {
 		s.log.Printf("admin user-profiles: %v", err)
 		http.Error(w, "list error", http.StatusInternalServerError)
 		return
 	}
+	slackProfiles := make([]UserProfileRow, 0, len(profiles))
+	for _, p := range profiles {
+		if strings.TrimSpace(p.SlackUserID) != "" {
+			slackProfiles = append(slackProfiles, p)
+		}
+	}
 	writeJSON(w, http.StatusOK, map[string]any{
-		"profiles": profiles,
-		"limit":    maxUserProfileList,
+		"waitlistUsers": waitlistUsers,
+		"waitlistLimit": maxWaitlistList,
+		"slackProfiles": slackProfiles,
+		"profiles":      profiles,
+		"limit":         maxUserProfileList,
 	})
 }
 
@@ -824,7 +827,7 @@ func (s *Server) handleWebhook(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	if len(s.webhookSigningSecrets()) == 0 {
+	if s.cfg.StripeWebhookSecret == "" {
 		http.Error(w, "webhook not configured", http.StatusBadRequest)
 		return
 	}

@@ -1,12 +1,19 @@
 # Local full stack: docker compose --profile local up --build
 #
-# Prereq: cp .env.example .env.dev && fill secrets, then ./scripts/use-env.sh dev
-# (links `.env` → `.env.dev`; services use env_file: ./.env).
+# Prereq: cp .env.example .env.dev && fill secrets. Containers load
+#   ${MAKEACOMPANY_AI_ENV_FILE:-.env.dev} (same idea as slack-orchestrator's SLACK_ORCHESTRATOR_ENV_FILE).
+# Optional: MAKEACOMPANY_AI_ENV_FILE=.env.prod for prod-like compose. Host Next/go that only read ./.env:
+#   ./scripts/use-env.sh dev|prod → symlink .env → .env.dev|.env.prod
+#
+# Compose interpolates the whole file before profiles apply. KUBECONFIG_HOST_PATH defaults to /dev/null
+# so --profile local works without a root .env; for --profile prod set a real kubeconfig (in shell, root .env,
+#   docker compose --env-file .env.prod, or use-env.sh prod so .env carries it).
 #
 # Default host ports avoid clashing with sibling stacks run in other terminals:
 # - employee-factory publishes Redis on 6379 and workers on 18081–18085
 # - slack-orchestrator (separate compose) publishes HTTP on 8080 by default
 # So: makeacompany Redis → 6380, API → 8090. Orchestrator debug uses host.docker.internal + SLACK_ORCHESTRATOR_PORT.
+# Profile prod: Grafana forward publishes host ${PROD_GRAFANA_HOST_PORT:-13000} → svc/makeacompany-ai-grafana:3000 (see k8s-grafana-forward).
 #
 services:
   redis:
@@ -24,17 +31,17 @@ services:
       context: .
       dockerfile: deploy/docker/backend.Dockerfile
     env_file:
-      - ./.env
+      - ${MAKEACOMPANY_AI_ENV_FILE:-.env.dev}
     environment:
       PORT: "8080"
-      # Use COMPOSE_REDIS_URL so a host-only REDIS_URL in .env (e.g. for go run) does not break the container.
+      # Use COMPOSE_REDIS_URL so a host-only REDIS_URL in .env.dev (e.g. for go run) does not break the container.
       # Example shared DB: COMPOSE_REDIS_URL=redis://host.docker.internal:6379/1
       REDIS_URL: ${COMPOSE_REDIS_URL:-redis://redis:6379/0}
-      # employee-factory:* keys (registry, channel-knowledge digest for /admin Transcript) — set in .env; see .env.example
+      # employee-factory:* keys (registry, channel-knowledge digest for /admin Transcript) — set in env file; see .env.example
       APP_BASE_URL: ${APP_BASE_URL:-http://localhost:3000}
       # When set, GET /v1/runtime/capability-catalog proxies slack-orchestrator (live Skills on /admin), no auth.
-      # Example with orchestrator on host:8080: http://host.docker.internal:8080/debug/capability-catalog
-      SLACK_ORCHESTRATOR_CAPABILITY_CATALOG_URL: ${SLACK_ORCHESTRATOR_CAPABILITY_CATALOG_URL:-}
+      # Default matches ORCHESTRATOR_DEBUG: orchestrator on host SLACK_ORCHESTRATOR_PORT (8080). Override with '' to disable.
+      SLACK_ORCHESTRATOR_CAPABILITY_CATALOG_URL: ${SLACK_ORCHESTRATOR_CAPABILITY_CATALOG_URL:-http://host.docker.internal:${SLACK_ORCHESTRATOR_PORT:-8080}/debug/capability-catalog}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
@@ -49,11 +56,11 @@ services:
       dockerfile: deploy/docker/frontend.Dockerfile
       target: development
     env_file:
-      - ./.env
+      - ${MAKEACOMPANY_AI_ENV_FILE:-.env.dev}
     depends_on:
       - backend
     environment:
-      # Browser → published API port on host (COMPOSE_PUBLIC_API_URL avoids .env still saying :8080)
+      # Browser → published API port on host (COMPOSE_PUBLIC_API_URL avoids .env.dev still saying :8080)
       NEXT_PUBLIC_BACKEND_API_BASE_URL: ${COMPOSE_PUBLIC_API_URL:-http://localhost:8090}
       # Server-side API routes → backend service on the compose network (not localhost)
       BACKEND_INTERNAL_API_BASE_URL: http://backend:8080
@@ -62,8 +69,7 @@ services:
       ORCHESTRATOR_DEBUG_TOKEN: ${ORCHESTRATOR_DEBUG_TOKEN:-}
       NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}
       NEXT_PUBLIC_LINKEDIN_PARTNER_ID: ${NEXT_PUBLIC_LINKEDIN_PARTNER_ID:-}
-      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY_TEST: ${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY_TEST:-${STRIPE_PUBLISHABLE_KEY_TEST:-}}
-      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY_LIVE: ${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY_LIVE:-${STRIPE_PUBLISHABLE_KEY_LIVE:-}}
+      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY:-${STRIPE_PUBLISHABLE_KEY:-}}
       NEXT_TELEMETRY_DISABLED: "1"
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -85,22 +91,25 @@ services:
       dockerfile: deploy/docker/frontend.Dockerfile
       target: development
     env_file:
-      - ./.env
+      - ${MAKEACOMPANY_AI_ENV_FILE:-.env.dev}
     depends_on:
       k8s-backend-forward:
         condition: service_healthy
       k8s-orchestrator-forward:
         condition: service_healthy
+      k8s-grafana-forward:
+        condition: service_healthy
     environment:
       NEXT_PUBLIC_BACKEND_API_BASE_URL: http://localhost:${PROD_BACKEND_PORT:-18080}
       BACKEND_INTERNAL_API_BASE_URL: http://k8s-backend-forward:8080
-      # Prod cluster slack-orchestrator (same pattern as k8s-backend-forward); override in .env if needed.
+      # Prod cluster slack-orchestrator (same pattern as k8s-backend-forward); override in env file if needed.
       ORCHESTRATOR_DEBUG_BASE_URL: ${ORCHESTRATOR_DEBUG_BASE_URL:-http://k8s-orchestrator-forward:8080}
       ORCHESTRATOR_DEBUG_TOKEN: ${ORCHESTRATOR_DEBUG_TOKEN:-}
+      # Browser loads iframes from host; must match published PROD_GRAFANA_HOST_PORT (see k8s-grafana-forward).
+      HEALTH_GRAFANA_LOCAL_BASE_URL: ${HEALTH_GRAFANA_LOCAL_BASE_URL:-http://127.0.0.1:${PROD_GRAFANA_HOST_PORT:-13000}}
       NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}
       NEXT_PUBLIC_LINKEDIN_PARTNER_ID: ${NEXT_PUBLIC_LINKEDIN_PARTNER_ID:-}
-      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY_TEST: ${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY_TEST:-${STRIPE_PUBLISHABLE_KEY_TEST:-}}
-      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY_LIVE: ${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY_LIVE:-${STRIPE_PUBLISHABLE_KEY_LIVE:-}}
+      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY:-${STRIPE_PUBLISHABLE_KEY:-}}
       NEXT_TELEMETRY_DISABLED: "1"
     ports:
       - "${FRONTEND_PORT:-3000}:3000"
@@ -127,7 +136,7 @@ services:
       - --address
       - 0.0.0.0
     volumes:
-      - ${KUBECONFIG_HOST_PATH:?Set KUBECONFIG_HOST_PATH to your local kubeconfig file}:/kube/config:ro
+      - ${KUBECONFIG_HOST_PATH:-/dev/null}:/kube/config:ro
     ports:
       - "${PROD_BACKEND_PORT:-18080}:8080"
     healthcheck:
@@ -168,7 +177,7 @@ services:
       - --address
       - 0.0.0.0
     volumes:
-      - ${KUBECONFIG_HOST_PATH:?Set KUBECONFIG_HOST_PATH to your local kubeconfig file}:/kube/config:ro
+      - ${KUBECONFIG_HOST_PATH:-/dev/null}:/kube/config:ro
     healthcheck:
       test:
         [
@@ -182,6 +191,47 @@ services:
           "get",
           "svc",
           "slack-orchestrator",
+          "-o",
+          "name",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 15s
+    restart: unless-stopped
+
+  # kubectl port-forward to prod makeacompany-ai Grafana (same stack as ingress /grafana).
+  k8s-grafana-forward:
+    profiles: ["prod"]
+    image: registry.k8s.io/kubectl:v1.32.2
+    command:
+      - --kubeconfig=/kube/config
+      - --context
+      - ${KUBECONFIG_CONTEXT:-admin}
+      - -n
+      - makeacompany-ai
+      - port-forward
+      - svc/makeacompany-ai-grafana
+      - 3000:3000
+      - --address
+      - 0.0.0.0
+    volumes:
+      - ${KUBECONFIG_HOST_PATH:-/dev/null}:/kube/config:ro
+    ports:
+      - "${PROD_GRAFANA_HOST_PORT:-13000}:3000"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "kubectl",
+          "--kubeconfig=/kube/config",
+          "--context",
+          "${KUBECONFIG_CONTEXT:-admin}",
+          "-n",
+          "makeacompany-ai",
+          "get",
+          "svc",
+          "makeacompany-ai-grafana",
           "-o",
           "name",
         ]
