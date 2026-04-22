@@ -32,9 +32,8 @@ type Config struct {
 	StripeWebhookSecret         string
 	// StripePriceWaitlist is the waitlist checkout price for this deployment (test or live); see STRIPE_PRICE_ID_WAITLIST.
 	StripePriceWaitlist string
-	// SlackWorkspaceUsersBotToken is a bot token with users:read and users:read.email (same workspace as
-	// slack-orchestrator in each environment: test/dev token in .env.dev, live workspace in .env.prod).
-	SlackWorkspaceUsersBotToken string
+	// SlackBotToken is the same env as slack-orchestrator: SLACK_BOT_TOKEN (users:read + users:read.email for admin users.list).
+	SlackBotToken string
 }
 
 func LoadConfig() Config {
@@ -54,7 +53,7 @@ func LoadConfig() Config {
 		StripeSecretKey:                       strings.TrimSpace(os.Getenv("STRIPE_SECRET_KEY")),
 		StripeWebhookSecret:                   strings.TrimSpace(os.Getenv("STRIPE_WEBHOOK_SECRET")),
 		StripePriceWaitlist:                   strings.TrimSpace(os.Getenv("STRIPE_PRICE_ID_WAITLIST")),
-		SlackWorkspaceUsersBotToken:           strings.TrimSpace(os.Getenv("SLACK_WORKSPACE_USERS_BOT_TOKEN")),
+		SlackBotToken:                         strings.TrimSpace(os.Getenv("SLACK_BOT_TOKEN")),
 	}
 }
 

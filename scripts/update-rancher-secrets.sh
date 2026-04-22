@@ -10,13 +10,13 @@ set -euo pipefail
 # so private geeemoney/* images can pull — same pattern as rancher-admin/scripts/sync-makeacompany-ai-pull-secret.sh.
 # Set SYNC_PULL_SECRET=false to skip.
 #
-# Keys (must match backend internal/app/config.go and docker-compose / .env.example):
+# Keys (must match backend internal/app/config.go, docker-compose, .env.example, and slack-orchestrator for SLACK_BOT_TOKEN):
 #   STRIPE_SECRET_KEY
 #   STRIPE_WEBHOOK_SECRET (required)
 #   STRIPE_PRICE_ID_WAITLIST
 #   STRIPE_PUBLISHABLE_KEY and/or NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY (optional; both written when either is set)
 #   BACKEND_INTERNAL_SERVICE_TOKEN (optional; same value on Next server + Go backend for /v1/admin read APIs)
-#   SLACK_WORKSPACE_USERS_BOT_TOKEN (optional; orchestrator-class bot with users:read,users:read.email for /admin Slack Users)
+#   SLACK_BOT_TOKEN (optional; same as slack-orchestrator .env for /admin Slack Users users.list)
 #   COOKIE_HEALTH_TOKEN (optional in .env, but preserved from existing runtime secret when present)
 #
 # Usage:
@@ -146,13 +146,17 @@ if [[ -n "${BACKEND_INTERNAL_SERVICE_TOKEN_EFFECTIVE}" ]]; then
   secret_args+=(--from-literal=BACKEND_INTERNAL_SERVICE_TOKEN="${BACKEND_INTERNAL_SERVICE_TOKEN_EFFECTIVE}")
 fi
 
-# Optional Slack workspace listing token (preserve from cluster when not in .env.prod).
-SLACK_WORKSPACE_USERS_BOT_TOKEN_EFFECTIVE="${SLACK_WORKSPACE_USERS_BOT_TOKEN:-}"
-if [[ -z "${SLACK_WORKSPACE_USERS_BOT_TOKEN_EFFECTIVE}" ]]; then
-  SLACK_WORKSPACE_USERS_BOT_TOKEN_EFFECTIVE="$(read_existing_secret_key SLACK_WORKSPACE_USERS_BOT_TOKEN)"
+# Optional Slack bot token (same key as slack-orchestrator; preserve from cluster when not in .env.prod).
+SLACK_BOT_TOKEN_EFFECTIVE="${SLACK_BOT_TOKEN:-}"
+if [[ -z "${SLACK_BOT_TOKEN_EFFECTIVE}" ]]; then
+  SLACK_BOT_TOKEN_EFFECTIVE="$(read_existing_secret_key SLACK_BOT_TOKEN)"
 fi
-if [[ -n "${SLACK_WORKSPACE_USERS_BOT_TOKEN_EFFECTIVE}" ]]; then
-  secret_args+=(--from-literal=SLACK_WORKSPACE_USERS_BOT_TOKEN="${SLACK_WORKSPACE_USERS_BOT_TOKEN_EFFECTIVE}")
+# One-time: migrate former makeacompany-only key into SLACK_BOT_TOKEN on the next secret apply.
+if [[ -z "${SLACK_BOT_TOKEN_EFFECTIVE}" ]]; then
+  SLACK_BOT_TOKEN_EFFECTIVE="$(read_existing_secret_key SLACK_WORKSPACE_USERS_BOT_TOKEN)"
+fi
+if [[ -n "${SLACK_BOT_TOKEN_EFFECTIVE}" ]]; then
+  secret_args+=(--from-literal=SLACK_BOT_TOKEN="${SLACK_BOT_TOKEN_EFFECTIVE}")
 fi
 
 kubectl_app create secret generic "${SECRET_NAME}" \

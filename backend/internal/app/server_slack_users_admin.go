@@ -17,11 +17,11 @@ func (s *Server) handleInternalRefreshSlackUsersSnapshot(w http.ResponseWriter, 
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
-	if strings.TrimSpace(s.cfg.SlackWorkspaceUsersBotToken) == "" {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "slack workspace users token is not configured (SLACK_WORKSPACE_USERS_BOT_TOKEN)"})
+	if strings.TrimSpace(s.cfg.SlackBotToken) == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "slack bot token is not configured (SLACK_BOT_TOKEN, same as slack-orchestrator)"})
 		return
 	}
-	users, err := FetchSlackWorkspaceUsers(r.Context(), s.cfg.SlackWorkspaceUsersBotToken)
+	users, err := FetchSlackWorkspaceUsers(r.Context(), s.cfg.SlackBotToken)
 	if err != nil {
 		s.log.Printf("refresh slack users snapshot: %v", err)
 		writeJSON(w, http.StatusBadGateway, map[string]any{"error": err.Error()})
@@ -34,7 +34,7 @@ func (s *Server) handleInternalRefreshSlackUsersSnapshot(w http.ResponseWriter, 
 	}
 	if err := s.store.SaveSlackUsersSnapshot(r.Context(), blob); err != nil {
 		s.log.Printf("save slack users snapshot: %v", err)
-		http.Error(w, "redis error", http.StatusInternalServerError)
+		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
 		return
 	}
 	fetchedAt := time.Now().UTC().Format(time.RFC3339)
@@ -62,11 +62,11 @@ func (s *Server) handleAdminSlackWorkspaceUsers(w http.ResponseWriter, r *http.R
 	}
 	live := strings.EqualFold(strings.TrimSpace(r.URL.Query().Get("source")), "live")
 	if live {
-		if strings.TrimSpace(s.cfg.SlackWorkspaceUsersBotToken) == "" {
-			writeJSON(w, http.StatusBadRequest, map[string]any{"error": "slack workspace users token is not configured (SLACK_WORKSPACE_USERS_BOT_TOKEN)"})
+		if strings.TrimSpace(s.cfg.SlackBotToken) == "" {
+			writeJSON(w, http.StatusBadRequest, map[string]any{"error": "slack bot token is not configured (SLACK_BOT_TOKEN, same as slack-orchestrator)"})
 			return
 		}
-		users, err := FetchSlackWorkspaceUsers(r.Context(), s.cfg.SlackWorkspaceUsersBotToken)
+		users, err := FetchSlackWorkspaceUsers(r.Context(), s.cfg.SlackBotToken)
 		if err != nil {
 			s.log.Printf("admin slack users live: %v", err)
 			writeJSON(w, http.StatusBadGateway, map[string]any{"error": err.Error()})
@@ -93,13 +93,13 @@ func (s *Server) handleAdminSlackWorkspaceUsers(w http.ResponseWriter, r *http.R
 			return
 		}
 		s.log.Printf("admin slack users snapshot get: %v", err)
-		http.Error(w, "redis error", http.StatusInternalServerError)
+		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
 		return
 	}
 	env, err := ParseSlackUsersSnapshotEnvelope(raw)
 	if err != nil {
 		s.log.Printf("admin slack users snapshot parse: %v", err)
-		http.Error(w, "corrupt snapshot", http.StatusInternalServerError)
+		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{

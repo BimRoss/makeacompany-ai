@@ -269,8 +269,9 @@ export function UserProfilesPanel() {
       <section className="space-y-3" aria-label="Slack users">
         {slackUsers.length === 0 && !slackError && !slackLoading ? (
           <p className="text-sm text-muted-foreground">
-            No rows yet. Use Refresh or Query Slack live (set SLACK_WORKSPACE_USERS_BOT_TOKEN on the backend — dev workspace
-            in <span className="font-mono">.env.dev</span>, prod in <span className="font-mono">.env.prod</span>).
+            No rows yet. Use Refresh or Query Slack live (set <span className="font-mono">SLACK_BOT_TOKEN</span> on the
+            backend — same as slack-orchestrator; copy from <span className="font-mono">.env.dev</span> or{" "}
+            <span className="font-mono">.env.prod</span> there).
           </p>
         ) : null}
         {slackUsers.length > 0 ? (
