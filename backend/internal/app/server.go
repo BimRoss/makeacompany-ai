@@ -72,6 +72,7 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 	s.mux.HandleFunc("/v1/billing/webhook", s.handleWebhook)
 	s.mux.HandleFunc("/v1/billing/waitlist-stats", s.handleWaitlistStats)
 	s.mux.HandleFunc("/v1/admin/waitlist", s.handleAdminWaitlist)
+	s.mux.HandleFunc("/v1/admin/user-profiles", s.handleAdminUserProfiles)
 	s.mux.HandleFunc("/v1/admin/catalog", s.handleAdminCatalog)
 	s.mux.HandleFunc("/v1/admin/company-channels", s.handleAdminCompanyChannels)
 	s.mux.HandleFunc("POST /v1/admin/company-channels/discover", s.handleAdminCompanyChannelsDiscover)
@@ -131,6 +132,8 @@ func normalizeMetricRoute(path string) string {
 		return "/v1/billing/waitlist-stats"
 	case path == "/v1/admin/waitlist":
 		return "/v1/admin/waitlist"
+	case path == "/v1/admin/user-profiles":
+		return "/v1/admin/user-profiles"
 	case path == "/v1/admin/catalog":
 		return "/v1/admin/catalog"
 	case path == "/v1/admin/company-channels":
@@ -402,6 +405,33 @@ func (s *Server) handleAdminWaitlist(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"users": users})
+}
+
+// handleAdminUserProfiles lists combined Redis user profiles (PII). Same auth as waitlist.
+func (s *Server) handleAdminUserProfiles(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	ok, svcUnavail := s.adminReadAuthorized(r)
+	if !ok {
+		if svcUnavail {
+			http.Error(w, "admin auth disabled", http.StatusServiceUnavailable)
+		} else {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+		}
+		return
+	}
+	profiles, err := s.store.ListUserProfiles(r.Context())
+	if err != nil {
+		s.log.Printf("admin user-profiles: %v", err)
+		http.Error(w, "list error", http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"profiles": profiles,
+		"limit":    maxUserProfileList,
+	})
 }
 
 func (s *Server) handleAdminCatalog(w http.ResponseWriter, r *http.Request) {
@@ -828,17 +858,31 @@ func (s *Server) handleWebhook(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "invalid event", http.StatusBadRequest)
 			return
 		}
-		if event.Type != stripe.EventTypeCheckoutSessionCompleted {
+		switch event.Type {
+		case stripe.EventTypeCheckoutSessionCompleted:
+			var sess stripe.CheckoutSession
+			if err := json.Unmarshal(event.Data.Raw, &sess); err != nil {
+				s.log.Printf("webhook unmarshal session: %v", err)
+				http.Error(w, "bad payload", http.StatusBadRequest)
+				return
+			}
+			s.completeWaitlistFromSession(w, &sess)
+		case stripe.EventTypeCustomerSubscriptionUpdated, stripe.EventTypeCustomerSubscriptionDeleted:
+			var sub stripe.Subscription
+			if err := json.Unmarshal(event.Data.Raw, &sub); err != nil {
+				s.log.Printf("webhook unmarshal subscription: %v", err)
+				http.Error(w, "bad payload", http.StatusBadRequest)
+				return
+			}
+			if err := s.syncUserProfileFromStripeSubscription(r.Context(), &sub, event.Data.Raw); err != nil {
+				s.log.Printf("webhook subscription profile sync: %v", err)
+				writeJSON(w, http.StatusOK, map[string]any{"received": true, "profileSyncError": err.Error()})
+				return
+			}
+			writeJSON(w, http.StatusOK, map[string]any{"received": true})
+		default:
 			writeJSON(w, http.StatusOK, map[string]any{"received": true, "ignored": string(event.Type)})
-			return
 		}
-		var sess stripe.CheckoutSession
-		if err := json.Unmarshal(event.Data.Raw, &sess); err != nil {
-			s.log.Printf("webhook unmarshal session: %v", err)
-			http.Error(w, "bad payload", http.StatusBadRequest)
-			return
-		}
-		s.completeWaitlistFromSession(w, &sess)
 
 	case "v2.core.event":
 		// Thin payload: fetch full Checkout Session by related_object.id (see Stripe thin events docs).

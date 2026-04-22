@@ -1,86 +1,116 @@
 {
-  "generatedAt": "2026-04-20T00:00:00.000Z",
-  "source": "slack-orchestrator capability contract + slack-factory/manifests",
+  "generatedAt": "2026-04-22T00:00:00.000Z",
+  "source": "slack-orchestrator internal/inbound.DefaultCapabilityContractV1 (+ admin-only Slack skills with empty param lists)",
   "skills": [
     {
       "id": "create-email",
       "label": "Create Email",
-      "description": "Draft, send, and triage email communication.",
-      "employeeIds": [
-        "joanne"
-      ]
+      "description": "Draft, send, and triage email communication. Requires confirmation before send.",
+      "employeeIds": ["joanne"],
+      "requiredParams": ["intent"],
+      "optionalParams": ["subject", "to", "button", "commenters", "editors", "link", "viewers"],
+      "paramDefaults": {
+        "subject": "Note from BimRoss",
+        "to": "Slack requester's profile email",
+        "button": "none",
+        "commenters": "none",
+        "editors": "none",
+        "link": "none",
+        "viewers": "none"
+      }
     },
     {
       "id": "create-doc",
       "label": "Create Doc",
-      "description": "Create, edit, and organize working docs.",
-      "employeeIds": [
-        "joanne"
-      ]
+      "description": "Create, edit, and organize working docs. Requires confirmation before publish.",
+      "employeeIds": ["joanne"],
+      "requiredParams": ["intent"],
+      "optionalParams": ["title", "type", "commenters", "editors", "viewers"],
+      "paramDefaults": {
+        "title": "Doc from BimRoss",
+        "type": "outline",
+        "commenters": "none",
+        "editors": "none",
+        "viewers": "none"
+      }
+    },
+    {
+      "id": "create-company",
+      "label": "Create Company",
+      "description": "Provision a company channel, run onboarding, create channels, and invite members. Requires confirmation before writes.",
+      "employeeIds": ["joanne"],
+      "requiredParams": ["name"],
+      "optionalParams": ["founders"],
+      "paramDefaults": {
+        "founders": "Message author; add others with @mention"
+      }
     },
     {
       "id": "delete-company",
       "label": "Delete Company",
       "description": "Archive a company Slack channel and remove app-owned Redis data for that workspace. Requires explicit Confirm/Cancel before any write.",
-      "employeeIds": [
-        "joanne"
-      ]
+      "employeeIds": ["joanne"],
+      "requiredParams": [],
+      "optionalParams": ["channel"],
+      "paramDefaults": {
+        "channel": "Current channel, or #name / channel link"
+      }
     },
     {
       "id": "read-slack-channels",
       "label": "Read Slack Channels",
       "description": "List Slack channels visible to the bot. Runs immediately in Slack (no confirmation).",
-      "employeeIds": [
-        "joanne"
-      ]
+      "employeeIds": ["joanne"],
+      "requiredParams": [],
+      "optionalParams": []
     },
     {
       "id": "read-slack-messages",
       "label": "Read Slack Messages",
       "description": "Read recent messages from a named Slack channel. Runs immediately in Slack (no confirmation).",
-      "employeeIds": [
-        "joanne"
-      ]
+      "employeeIds": ["joanne"],
+      "requiredParams": [],
+      "optionalParams": []
     },
     {
       "id": "create-slack",
       "label": "Create Slack",
       "description": "Create channels and invite requesters to channels for onboarding setup. Requires explicit Confirm/Cancel before any write.",
-      "employeeIds": [
-        "joanne"
-      ]
+      "employeeIds": ["joanne"],
+      "requiredParams": [],
+      "optionalParams": []
     },
     {
       "id": "read-company",
       "label": "Read Company",
       "description": "Summarize this channel from cached Slack history in Redis (hourly digest). Runs immediately in Slack (no confirmation).",
-      "employeeIds": [
-        "joanne"
-      ]
+      "employeeIds": ["joanne"],
+      "requiredParams": [],
+      "optionalParams": []
     },
     {
       "id": "read-skills",
       "label": "Read Skills",
       "description": "List team skills from the capability catalog (who has which skills). Runs immediately in Slack (no confirmation).",
-      "employeeIds": [
-        "joanne"
-      ]
+      "employeeIds": ["joanne"],
+      "requiredParams": [],
+      "optionalParams": []
     },
     {
       "id": "read-twitter",
       "label": "Read Twitter",
       "description": "Search Twitter by keyword and fetch high-impression tweets (not the platform trend list). Runs immediately in Slack (no confirmation).",
-      "employeeIds": [
-        "garth"
-      ]
+      "employeeIds": ["garth"],
+      "requiredParams": ["query"],
+      "optionalParams": ["count"]
     },
     {
       "id": "read-trends",
       "label": "Read Trends",
       "description": "Fetch the current Twitter/X trend list (not keyword search). Runs immediately in Slack (no confirmation).",
-      "employeeIds": [
-        "garth"
-      ]
+      "employeeIds": ["garth"],
+      "requiredParams": [],
+      "optionalParams": []
     }
   ]
 }

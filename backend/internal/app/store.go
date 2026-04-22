@@ -188,6 +188,9 @@ func (s *Store) SaveWaitlistSignup(ctx context.Context, sessionID, email, stripe
 	case 0:
 		return ErrWaitlistFull
 	case 1, 2:
+		if err := s.UpsertUserProfileAfterWaitlist(ctx, email, stripeCustomer, sessionID, paymentStatus); err != nil {
+			return fmt.Errorf("user profile merge: %w", err)
+		}
 		return nil
 	default:
 		return fmt.Errorf("waitlist save: unexpected script status %d", res)
