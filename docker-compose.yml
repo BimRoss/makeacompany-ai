@@ -12,9 +12,10 @@
 # frontend-prod defaults env_file to .env.prod when MAKEACOMPANY_AI_ENV_FILE is unset (local → .env.dev).
 #
 # Default host ports avoid clashing with sibling stacks run in other terminals:
-# - employee-factory publishes Redis on 6379 and workers on 18081–18085
-# - slack-orchestrator (separate compose) publishes HTTP on 8080 by default
-# So: makeacompany Redis → 6380, API → 8090. Orchestrator debug uses host.docker.internal + SLACK_ORCHESTRATOR_PORT.
+# - This stack: Redis → host ${REDIS_PORT:-6380}, API → ${BACKEND_PORT:-8090}
+# - employee-factory (separate compose) defaults workers to redis://host.docker.internal:${REDIS_PORT:-6380}/0
+#   so one Redis holds makeacompany:admin:*, waitlist hashes, and employee-factory:* (omit COMPANY_CHANNELS_REDIS_URL on the backend).
+# - slack-orchestrator publishes HTTP on 8080 by default. Orchestrator debug uses host.docker.internal + SLACK_ORCHESTRATOR_PORT.
 # Profile prod: Grafana forward publishes host ${PROD_GRAFANA_HOST_PORT:-13000} → svc/makeacompany-ai-grafana:3000 (see k8s-grafana-forward).
 #
 services:

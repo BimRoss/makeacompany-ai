@@ -15,10 +15,12 @@
 | Prefix / key | Redis connection | Notes |
 |----------------|------------------|--------|
 | `makeacompany:*` | `REDIS_URL` (backend) | Waitlist, checkout idempotency, stats, admin sessions, optional catalog JSON. **Sacred** for paid signups — see [Prod reset](#prod-reset-gut--sacred-vs-rebuildable). |
-| `employee-factory:company_channels` | `COMPANY_CHANNELS_REDIS_URL` or `REDIS_URL` | Per-channel registry JSON. **Rebuild** from Slack via `/admin` discover or [`scripts/company-channels-discover-from-orchestrator.mjs`](../scripts/company-channels-discover-from-orchestrator.mjs). |
+| `employee-factory:company_channels` | `COMPANY_CHANNELS_REDIS_URL` if set and different from `REDIS_URL`; else `REDIS_URL` | Per-channel registry JSON. **Rebuild** from Slack via `/admin` discover or [`scripts/company-channels-discover-from-orchestrator.mjs`](../scripts/company-channels-discover-from-orchestrator.mjs). |
 | `employee-factory:channel_knowledge:*`, `employee-factory:capability_routing_events`, `employee-factory:thread_owner:*` | Same as company registry | Rebuildable; see [Prod reset](#prod-reset-gut--sacred-vs-rebuildable). |
 
-**Prod recommendation:** Set `COMPANY_CHANNELS_REDIS_URL` to the Redis (or logical DB) shared with **employee-factory** so company-channel HASH and bots stay aligned, while `REDIS_URL` can remain the makeacompany-ai app instance for waitlist-only isolation when you run two databases. If you use a **single** Redis DB, use **SCAN + DEL** by prefix instead of `FLUSHDB`. Env checklist: [prod-company-channels-env-checklist.md](prod-company-channels-env-checklist.md).
+**Local / single DB:** Leave `COMPANY_CHANNELS_REDIS_URL` unset so the backend uses one Redis client for waitlist + admin + employee-factory keys (sibling **employee-factory** compose defaults to `host.docker.internal:6380`).
+
+**Prod (optional split):** Set `COMPANY_CHANNELS_REDIS_URL` when the backend must read a different Redis than `REDIS_URL` (waitlist-only isolation). If you use a **single** Redis DB, use **SCAN + DEL** by prefix instead of `FLUSHDB`. Env checklist: [prod-company-channels-env-checklist.md](prod-company-channels-env-checklist.md).
 
 ## Keys
 

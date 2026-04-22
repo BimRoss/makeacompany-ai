@@ -296,7 +296,8 @@ export function AdminCompanyChannelsStrip() {
       aria-labelledby="admin-company-channels-heading"
     >
       <h2 id="admin-company-channels-heading" className="text-lg font-semibold leading-snug tracking-tight">
-        Companies
+        Companies{" "}
+        <span className="font-normal text-muted-foreground tabular-nums">({rows.length})</span>
       </h2>
 
       {infoNote ? (

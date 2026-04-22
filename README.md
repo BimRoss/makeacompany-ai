@@ -4,6 +4,8 @@ Source: [github.com/BimRoss/makeacompany-ai](https://github.com/BimRoss/makeacom
 
 Marketing landing page and **$1 Stripe waitlist** for [makeacompany.ai](https://makeacompany.ai), with a Go API and Redis persistence. Stack mirrors BimRoss patterns (Thread Pilot–style billing hooks, Subnet Signal–style Redis backups in GitOps).
 
+Sibling **employee-factory** local compose defaults to this repo’s Redis on **`host.docker.internal:${REDIS_PORT:-6380}`** so one DB holds admin snapshots and `employee-factory:*` keys; run **`../employee-factory/scripts/sync-makeacompany-local-from-sibling.sh dev`** there (or **`make sync-makeacompany-bridge`**) to copy **`BACKEND_INTERNAL_SERVICE_TOKEN`** and snapshot POST URLs from this repo’s **`.env.dev`**. Leave **`COMPANY_CHANNELS_REDIS_URL`** unset here when sharing that single Redis.
+
 ## Repo layout
 
 - `docs/redis-operations.md` — Redis keys, prod gut vs sacred waitlist data

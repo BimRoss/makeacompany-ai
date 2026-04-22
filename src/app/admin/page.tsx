@@ -20,7 +20,8 @@ export default async function AdminPage() {
         <AdminCompanyChannelsStrip />
         <section className="space-y-4" aria-labelledby="admin-skills-heading">
           <h2 id="admin-skills-heading" className="text-lg font-semibold leading-snug tracking-tight">
-            Skills
+            Skills{" "}
+            <span className="font-normal text-muted-foreground tabular-nums">({skills.length})</span>
           </h2>
           {skills.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-border bg-card p-8 text-center">
