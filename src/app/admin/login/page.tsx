@@ -5,6 +5,7 @@ import { Header } from "@/components/landing/header";
 import { AdminEmailMagicForm } from "@/components/admin/admin-email-magic-form";
 import { AdminGoogleSignIn } from "@/components/admin/admin-google-sign-in";
 import { AdminLoginMessages } from "@/components/admin/admin-login-messages";
+import { SignInCard, SignInMethodStack } from "@/components/auth/sign-in-card";
 
 export const metadata: Metadata = {
   title: "Admin sign in",
@@ -19,33 +20,33 @@ export default function AdminLoginPage() {
   const magicEmailReady = Boolean(
     process.env.RESEND_API_KEY?.trim() && process.env.PORTAL_AUTH_EMAIL_FROM?.trim(),
   );
-  const showPrimarySignIn = googleOAuthReady || magicEmailReady;
 
   return (
     <main className="flex min-h-screen flex-col bg-background">
       <Header />
-      <div className="mx-auto flex w-full max-w-lg flex-1 flex-col items-center justify-center gap-8 px-4 py-16 sm:py-24">
-        <div className="w-full max-w-md space-y-2 text-center">
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Admin dashboard</h1>
-          <p className="text-sm leading-relaxed text-muted-foreground">
-            Sign in with the same Google or email flow as the company portal. Only allowlisted accounts can access
-            admin.
-          </p>
-        </div>
-        <Suspense fallback={null}>
-          <AdminLoginMessages />
-        </Suspense>
-        {showPrimarySignIn ? (
-          <div className="flex w-full flex-col items-center gap-4">
-            {googleOAuthReady ? <AdminGoogleSignIn /> : null}
-            {magicEmailReady ? <AdminEmailMagicForm /> : null}
-          </div>
-        ) : (
-          <p className="max-w-md rounded-lg border border-border bg-muted/25 px-4 py-3 text-center text-sm text-muted-foreground">
-            Configure Google OAuth and Resend email env vars to enable admin sign-in.
-          </p>
-        )}
-      </div>
+      <SignInCard
+        title="Admin dashboard"
+        description={
+          <>
+            Welcome to the admin dashboard. Only one person is allowed in here, and you know who you are. Good luck
+            otherwise!
+          </>
+        }
+        messages={
+          <Suspense fallback={null}>
+            <AdminLoginMessages />
+          </Suspense>
+        }
+        signIn={
+          <SignInMethodStack
+            googleOAuthReady={googleOAuthReady}
+            magicEmailReady={magicEmailReady}
+            googleSlot={<AdminGoogleSignIn />}
+            emailSlot={<AdminEmailMagicForm />}
+            unconfiguredMessage="Configure Google OAuth and Resend email env vars to enable admin sign-in."
+          />
+        }
+      />
       <Footer />
     </main>
   );

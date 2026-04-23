@@ -23,7 +23,12 @@ export default async function EmployeesPage() {
             </p>
           </div>
         ) : (
-          <TeamCardsGrid members={members} skills={skills} requestLoopbackHost={requestLoopbackHost} />
+          <TeamCardsGrid
+            members={members}
+            skills={skills}
+            requestLoopbackHost={requestLoopbackHost}
+            skipLocalPortraits
+          />
         )}
       </section>
     </AdminShell>

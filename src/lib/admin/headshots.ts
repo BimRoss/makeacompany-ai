@@ -48,6 +48,12 @@ function getAdminHeadshotLocalUrl(member: TeamMember): string | null {
   return `${LOCAL_HEADSHOT_BASE_PATH}/${matchingKey}.png`;
 }
 
-export function getAdminHeadshotUrl(member: TeamMember): string {
+export function getAdminHeadshotUrl(
+  member: TeamMember,
+  opts?: { skipLocalPortraits?: boolean },
+): string {
+  if (opts?.skipLocalPortraits) {
+    return getAdminHeadshotGeneratedUrl(member);
+  }
   return getAdminHeadshotLocalUrl(member) ?? getAdminHeadshotGeneratedUrl(member);
 }

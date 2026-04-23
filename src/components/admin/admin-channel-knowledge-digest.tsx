@@ -1,7 +1,16 @@
 "use client";
 
+import clsx from "clsx";
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
+import {
+  DigestAuthorLookupProvider,
+  DigestAuthorView,
+  DigestThreadView,
+  digestMarkdownForClassic,
+  type SlackTranscriptAuthorLookup,
+} from "@/components/admin/admin-channel-digest-views";
+import { splitDigestMarkdown } from "@/lib/channel-digest-parse";
 
 /** First paint: show the tail of the digest so recent channel activity is visible (newest at bottom). */
 const INITIAL_VISIBLE_LINES = 120;
@@ -10,19 +19,7 @@ const LOAD_MORE_LINES = 100;
 /** Same spirit as `/twitter` recent-requests table (`admin-health-dashboard`). */
 const TOP_SCROLL_THRESHOLD_PX = 80;
 
-function splitDigestMarkdown(markdown: string): { header: string; bodyLines: string[] } {
-  const lines = markdown.split("\n");
-  let startBody = 0;
-  if (lines.length > 0 && lines[0].trim().startsWith("#")) {
-    startBody = 1;
-    while (startBody < lines.length && lines[startBody].trim() === "") {
-      startBody++;
-    }
-  }
-  const header = lines.slice(0, startBody).join("\n");
-  const bodyLines = lines.slice(startBody);
-  return { header, bodyLines };
-}
+type DigestView = "classic" | "thread" | "author";
 
 function tailStartIndex(bodyLines: string[]): number {
   const n = bodyLines.length;
@@ -36,13 +33,16 @@ type PendingScrollAdjust = { prevHeight: number; prevTop: number };
 
 export type AdminChannelKnowledgeDigestProps = {
   markdown: string;
+  /** When set (from `/api/admin/slack-bot-author-profiles`), transcript rows show bot names + headshots for matching Slack user IDs. */
+  slackAuthorLookup?: SlackTranscriptAuthorLookup | null;
 };
 
-export function AdminChannelKnowledgeDigest({ markdown }: AdminChannelKnowledgeDigestProps) {
+export function AdminChannelKnowledgeDigest({ markdown, slackAuthorLookup }: AdminChannelKnowledgeDigestProps) {
   const { header, bodyLines } = useMemo(() => splitDigestMarkdown(markdown), [markdown]);
   const tailStart = useMemo(() => tailStartIndex(bodyLines), [bodyLines]);
 
   const [visibleStart, setVisibleStart] = useState(tailStart);
+  const [view, setView] = useState<DigestView>("thread");
   const prependingRef = useRef(false);
   const pendingScrollAdjustRef = useRef<PendingScrollAdjust | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -54,6 +54,10 @@ export function AdminChannelKnowledgeDigest({ markdown }: AdminChannelKnowledgeD
     pendingScrollAdjustRef.current = null;
     didInitialScrollRef.current = false;
   }, [tailStart]);
+
+  useLayoutEffect(() => {
+    didInitialScrollRef.current = false;
+  }, [view]);
 
   const visibleBodyText = useMemo(() => bodyLines.slice(visibleStart).join("\n"), [bodyLines, visibleStart]);
 
@@ -67,6 +71,8 @@ export function AdminChannelKnowledgeDigest({ markdown }: AdminChannelKnowledgeD
     return `${header}\n\n${visibleBodyText}`;
   }, [header, visibleBodyText]);
 
+  const classicSource = useMemo(() => digestMarkdownForClassic(visibleMarkdown), [visibleMarkdown]);
+
   useLayoutEffect(() => {
     const el = scrollRef.current;
     const pending = pendingScrollAdjustRef.current;
@@ -75,7 +81,7 @@ export function AdminChannelKnowledgeDigest({ markdown }: AdminChannelKnowledgeD
       pendingScrollAdjustRef.current = null;
     }
     prependingRef.current = false;
-  }, [visibleMarkdown]);
+  }, [visibleMarkdown, view]);
 
   useLayoutEffect(() => {
     const el = scrollRef.current;
@@ -84,7 +90,7 @@ export function AdminChannelKnowledgeDigest({ markdown }: AdminChannelKnowledgeD
     }
     el.scrollTop = el.scrollHeight;
     didInitialScrollRef.current = true;
-  }, [visibleMarkdown]);
+  }, [visibleMarkdown, view]);
 
   const onScroll = useCallback(() => {
     const el = scrollRef.current;
@@ -102,19 +108,54 @@ export function AdminChannelKnowledgeDigest({ markdown }: AdminChannelKnowledgeD
     setVisibleStart((s) => Math.max(0, s - LOAD_MORE_LINES));
   }, [visibleStart]);
 
+  const viewBtn = (id: DigestView, label: string) => (
+    <button
+      key={id}
+      type="button"
+      onClick={() => setView(id)}
+      className={clsx(
+        "rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
+        view === id
+          ? "bg-background text-foreground shadow-sm"
+          : "text-muted-foreground hover:text-foreground",
+      )}
+    >
+      {label}
+    </button>
+  );
+
   return (
     <div className="overflow-hidden rounded-lg border border-border bg-card shadow-sm">
-      <div className="border-b border-border bg-muted/20 px-4 py-3">
+      <div className="flex flex-col gap-3 border-b border-border bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
         <h2 className="text-base font-semibold tracking-tight">Transcript</h2>
+        <div
+          className="inline-flex rounded-lg border border-border/80 bg-muted/40 p-0.5"
+          role="tablist"
+          aria-label="Transcript view"
+        >
+          {viewBtn("thread", "Thread")}
+          {viewBtn("author", "By author")}
+          {viewBtn("classic", "Markdown")}
+        </div>
       </div>
       <div
         ref={scrollRef}
         onScroll={onScroll}
-        className="max-h-[min(36vh,26rem)] min-h-[160px] overflow-auto px-4 py-5 [&_h1]:mb-3 [&_h1]:text-lg [&_h1]:font-semibold [&_li]:my-1 [&_p]:my-2 [&_strong]:font-semibold [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-6"
+        className={clsx(
+          "max-h-[min(48vh,30rem)] min-h-[160px] overflow-auto px-4 py-5",
+          view === "classic" &&
+            "[&_h1]:mb-3 [&_h1]:text-lg [&_h1]:font-semibold [&_li]:my-1 [&_p]:my-2 [&_strong]:font-semibold [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-6",
+        )}
       >
-        <article>
-          <ReactMarkdown>{visibleMarkdown}</ReactMarkdown>
-        </article>
+        <DigestAuthorLookupProvider lookup={slackAuthorLookup}>
+          {view === "classic" ? (
+            <article>
+              <ReactMarkdown>{classicSource}</ReactMarkdown>
+            </article>
+          ) : null}
+          {view === "thread" ? <DigestThreadView markdown={visibleMarkdown} /> : null}
+          {view === "author" ? <DigestAuthorView markdown={visibleMarkdown} /> : null}
+        </DigestAuthorLookupProvider>
       </div>
     </div>
   );

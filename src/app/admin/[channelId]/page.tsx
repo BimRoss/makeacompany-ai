@@ -1,5 +1,5 @@
 import { AdminShell } from "@/components/admin/admin-shell";
-import { AdminCompanyChannelDetail } from "@/components/admin/admin-company-channel-detail";
+import { CompanyChannelWorkspaceDetail } from "@/components/company-channel/company-channel-workspace-detail";
 
 type Props = {
   params: Promise<{ channelId: string }>;
@@ -10,7 +10,11 @@ export default async function AdminCompanyChannelPage({ params }: Props) {
   const id = decodeURIComponent((channelId ?? "").trim());
   return (
     <AdminShell>
-      <AdminCompanyChannelDetail channelId={id} />
+      <CompanyChannelWorkspaceDetail
+        channelId={id}
+        variant="admin"
+        backNav={{ href: "/admin", label: "← Admin" }}
+      />
     </AdminShell>
   );
 }

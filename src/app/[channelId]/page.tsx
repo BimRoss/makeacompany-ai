@@ -1,4 +1,4 @@
-import { CompanyChannelPortalDetail } from "@/components/portal/company-channel-portal-detail";
+import { CompanyChannelWorkspaceDetail } from "@/components/company-channel/company-channel-workspace-detail";
 import { PortalPostAuthWelcomeToast } from "@/components/portal/portal-post-auth-welcome-toast";
 
 type Props = {
@@ -11,7 +11,11 @@ export default async function CompanyChannelPage({ params }: Props) {
   return (
     <>
       <PortalPostAuthWelcomeToast />
-      <CompanyChannelPortalDetail channelId={id} />
+      <CompanyChannelWorkspaceDetail
+        channelId={id}
+        variant="portal"
+        backNav={{ href: "/", label: "← Home" }}
+      />
     </>
   );
 }

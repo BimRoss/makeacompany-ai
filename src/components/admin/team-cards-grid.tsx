@@ -12,6 +12,8 @@ type TeamCardsGridProps = {
   skills: AdminSkill[];
   /** From request `Host` / `X-Forwarded-Host` so loopback hides empty Grafana slots without a paint flash. */
   requestLoopbackHost?: boolean;
+  /** Omit curated `/headshots/*.png` so avatars are initials-only (used on `/employees`). */
+  skipLocalPortraits?: boolean;
 };
 
 type GrafanaEmbed = {
@@ -82,7 +84,12 @@ function asGrafanaEmbedUrl(
   }
 }
 
-export function TeamCardsGrid({ members, skills, requestLoopbackHost = false }: TeamCardsGridProps) {
+export function TeamCardsGrid({
+  members,
+  skills,
+  requestLoopbackHost = false,
+  skipLocalPortraits = false,
+}: TeamCardsGridProps) {
   const { resolvedTheme } = useTheme();
   const [healthPayload, setHealthPayload] = useState<HealthPayload | null>(null);
   const [healthFetched, setHealthFetched] = useState(false);
@@ -155,6 +162,7 @@ export function TeamCardsGrid({ members, skills, requestLoopbackHost = false }: 
               <TeamMemberCard
                 member={member}
                 skillsById={skillsById}
+                skipLocalPortraits={skipLocalPortraits}
                 className="h-full border-none bg-transparent p-2 shadow-none sm:p-3 md:hover:translate-y-0 md:hover:shadow-none"
               />
               {showGraphColumn ? (

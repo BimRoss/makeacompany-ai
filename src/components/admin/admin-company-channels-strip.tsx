@@ -326,7 +326,7 @@ export function AdminCompanyChannelsStrip() {
           {rows.map((row) => (
             <li key={row.channel_id} className="list-none">
               <Link
-                href={`/admin/company/${encodeURIComponent(row.channel_id)}`}
+                href={`/admin/${encodeURIComponent(row.channel_id)}`}
                 className="flex h-full flex-col rounded-xl border border-border bg-card p-4 shadow-sm transition-colors hover:bg-muted/40 focus-visible:outline focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <div className="min-h-0 flex-1">

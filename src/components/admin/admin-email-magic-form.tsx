@@ -42,19 +42,17 @@ export function AdminEmailMagicForm() {
 
   return (
     <form onSubmit={onSubmit} className="flex w-full max-w-md flex-col gap-3">
-      <label className="block w-full text-left text-sm font-medium text-foreground">
-        Admin email
-        <input
-          type="email"
-          name="email"
-          autoComplete="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="you@company.com"
-          required
-          className="mt-1.5 w-full rounded-xl border border-border bg-background px-4 py-3 text-base text-foreground shadow-sm outline-none ring-0 transition focus:border-foreground/25 focus:ring-2 focus:ring-foreground/15"
-        />
-      </label>
+      <input
+        type="email"
+        name="email"
+        autoComplete="email"
+        aria-label="Email"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        placeholder="you@company.com"
+        required
+        className="w-full rounded-xl border border-border bg-background px-4 py-3 text-base text-foreground shadow-sm outline-none ring-0 transition focus:border-foreground/25 focus:ring-2 focus:ring-foreground/15"
+      />
       <button
         type="submit"
         disabled={loading}

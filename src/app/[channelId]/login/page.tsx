@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 
+import { SignInCard, SignInMethodStack } from "@/components/auth/sign-in-card";
 import { PortalEmailMagicForm } from "@/components/portal/portal-email-magic-form";
 import { PortalGoogleSignIn } from "@/components/portal/portal-google-sign-in";
 import { PortalLoginMessages } from "@/components/portal/portal-login-messages";
@@ -32,38 +33,27 @@ export default async function CompanyChannelLoginPage({ params, searchParams }: 
   const magicEmailReady = Boolean(
     process.env.RESEND_API_KEY?.trim() && process.env.PORTAL_AUTH_EMAIL_FROM?.trim(),
   );
-  const showPrimarySignIn = googleOAuthReady || magicEmailReady;
 
   return (
-    <div className="flex flex-1 flex-col items-center justify-center px-4 py-12 sm:py-20">
-      <div className="w-full max-w-md rounded-2xl border border-border bg-card p-8 shadow-sm ring-1 ring-black/[0.03] dark:ring-white/[0.06] sm:p-10">
-        <header className="mb-8 space-y-2 text-center">
-          <h1
-            className="text-pretty text-xl font-semibold capitalize tracking-tight text-foreground sm:text-2xl"
-            title={`Slack channel id: ${id}`}
-          >
-            {label} company portal
-          </h1>
-          <p className="text-pretty text-sm leading-relaxed text-muted-foreground">
-            Sign in to open your company workspace—channel context, updates, and shared knowledge in one place.
-          </p>
-        </header>
-        <div className="space-y-6">
-          <Suspense fallback={null}>
-            <PortalLoginMessages />
-          </Suspense>
-          {showPrimarySignIn ? (
-            <div className="space-y-3">
-              {googleOAuthReady ? <PortalGoogleSignIn channelId={id} /> : null}
-              {magicEmailReady ? <PortalEmailMagicForm channelId={id} /> : null}
-            </div>
-          ) : (
-            <p className="rounded-lg border border-border bg-muted/25 px-4 py-3 text-center text-sm text-muted-foreground">
-              Add Google OAuth and Resend email env vars to enable sign-in for this portal.
-            </p>
-          )}
-        </div>
-      </div>
-    </div>
+    <SignInCard
+      title={`${label} company portal`}
+      titleClassName="capitalize"
+      headingProps={{ title: `Slack channel id: ${id}` }}
+      description="Sign in to open your company workspace—channel context, updates, and shared knowledge in one place."
+      messages={
+        <Suspense fallback={null}>
+          <PortalLoginMessages />
+        </Suspense>
+      }
+      signIn={
+        <SignInMethodStack
+          googleOAuthReady={googleOAuthReady}
+          magicEmailReady={magicEmailReady}
+          googleSlot={<PortalGoogleSignIn channelId={id} />}
+          emailSlot={<PortalEmailMagicForm channelId={id} />}
+          unconfiguredMessage="Add Google OAuth and Resend email env vars to enable sign-in for this portal."
+        />
+      }
+    />
   );
 }

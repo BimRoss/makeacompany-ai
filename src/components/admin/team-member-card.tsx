@@ -15,11 +15,15 @@ type TeamMemberCardProps = {
   member: TeamMember;
   skillsById: Map<string, AdminSkill>;
   className?: string;
+  /** When true, do not resolve `/headshots/{id}.png`; use generated initials only (e.g. public /employees). */
+  skipLocalPortraits?: boolean;
 };
 
-export function TeamMemberCard({ member, skillsById, className }: TeamMemberCardProps) {
+export function TeamMemberCard({ member, skillsById, className, skipLocalPortraits }: TeamMemberCardProps) {
   const [headshotFailed, setHeadshotFailed] = useState(false);
-  const headshotUrl = headshotFailed ? getAdminHeadshotGeneratedUrl(member) : getAdminHeadshotUrl(member);
+  const headshotUrl = headshotFailed
+    ? getAdminHeadshotGeneratedUrl(member)
+    : getAdminHeadshotUrl(member, skipLocalPortraits ? { skipLocalPortraits: true } : undefined);
   const mappedSkills = member.skillIds
     .map((skillId) => skillsById.get(skillId))
     .filter((skill): skill is AdminSkill => Boolean(skill));
