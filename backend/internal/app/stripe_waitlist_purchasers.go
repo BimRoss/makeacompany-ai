@@ -74,7 +74,6 @@ func checkoutSessionWaitlistLineItem(sess *stripe.CheckoutSession, wantPriceID s
 	}
 	params.Limit = stripe.Int64(100)
 	params.AddExpand("data.price")
-	params.AddExpand("data.price.product")
 	iter := checkoutsession.ListLineItems(params)
 	for iter.Next() {
 		li := iter.LineItem()
@@ -110,8 +109,9 @@ func FetchStripeWaitlistPurchasers(ctx context.Context, waitlistPriceID string) 
 	listParams.Status = stripe.String(string(stripe.CheckoutSessionStatusComplete))
 	listParams.Limit = stripe.Int64(100)
 	listParams.AddExpand("data.line_items")
+	// Omit data.line_items.data.price.product: Stripe max expand depth is 4; product id
+	// is still present on Price as an unexpanded string (stripe-go → Product.ID).
 	listParams.AddExpand("data.line_items.data.price")
-	listParams.AddExpand("data.line_items.data.price.product")
 	listParams.AddExpand("data.customer")
 
 	bestByEmail := make(map[string]*stripe.CheckoutSession)
