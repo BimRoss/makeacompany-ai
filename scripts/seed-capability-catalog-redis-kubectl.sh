@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Seed production Redis with the capability catalog JSON from slack-orchestrator (same shape as NATS Capabilities).
-# Fetches GET /debug/capability-catalog — does not use the admin HTTP API (reserved for /admin UI + Stripe OAuth).
+# Fetches GET /debug/capability-catalog — does not use the admin HTTP API (reserved for /admin UI + Google/email auth).
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"

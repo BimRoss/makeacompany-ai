@@ -92,14 +92,16 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 	s.mux.HandleFunc("GET /v1/admin/channel-knowledge/{channelId}", s.handleAdminChannelKnowledge)
 	s.mux.HandleFunc("GET /v1/admin/capability-routing-events", s.handleAdminCapabilityRoutingEvents)
 	s.mux.HandleFunc("/v1/runtime/capability-catalog", s.handleRuntimeCapabilityCatalog)
-	s.mux.HandleFunc("/v1/admin/auth/start", s.handleAdminAuthStart)
-	s.mux.HandleFunc("/v1/admin/auth/finish", s.handleAdminAuthFinish)
 	s.mux.HandleFunc("/v1/admin/auth/me", s.handleAdminAuthMe)
 	s.mux.HandleFunc("/v1/admin/auth/logout", s.handleAdminAuthLogout)
-	s.mux.HandleFunc("/v1/portal/auth/start", s.handlePortalAuthStart)
-	s.mux.HandleFunc("/v1/portal/auth/finish", s.handlePortalAuthFinish)
+	s.mux.HandleFunc("/v1/admin/auth/google/finish", s.handleAdminAuthGoogleFinish)
+	s.mux.HandleFunc("/v1/admin/auth/magic/start", s.handleAdminAuthMagicStart)
+	s.mux.HandleFunc("/v1/admin/auth/magic/finish", s.handleAdminAuthMagicFinish)
 	s.mux.HandleFunc("/v1/portal/auth/me", s.handlePortalAuthMe)
 	s.mux.HandleFunc("/v1/portal/auth/logout", s.handlePortalAuthLogout)
+	s.mux.HandleFunc("/v1/portal/auth/google/finish", s.handlePortalAuthGoogleFinish)
+	s.mux.HandleFunc("/v1/portal/auth/magic/start", s.handlePortalAuthMagicStart)
+	s.mux.HandleFunc("/v1/portal/auth/magic/finish", s.handlePortalAuthMagicFinish)
 	return s, nil
 }
 
@@ -171,22 +173,26 @@ func normalizeMetricRoute(path string) string {
 		return "/v1/admin/capability-routing-events"
 	case path == "/v1/runtime/capability-catalog":
 		return "/v1/runtime/capability-catalog"
-	case path == "/v1/admin/auth/start":
-		return "/v1/admin/auth/start"
-	case path == "/v1/admin/auth/finish":
-		return "/v1/admin/auth/finish"
 	case path == "/v1/admin/auth/me":
 		return "/v1/admin/auth/me"
 	case path == "/v1/admin/auth/logout":
 		return "/v1/admin/auth/logout"
-	case path == "/v1/portal/auth/start":
-		return "/v1/portal/auth/start"
-	case path == "/v1/portal/auth/finish":
-		return "/v1/portal/auth/finish"
+	case path == "/v1/admin/auth/google/finish":
+		return "/v1/admin/auth/google/finish"
+	case path == "/v1/admin/auth/magic/start":
+		return "/v1/admin/auth/magic/start"
+	case path == "/v1/admin/auth/magic/finish":
+		return "/v1/admin/auth/magic/finish"
 	case path == "/v1/portal/auth/me":
 		return "/v1/portal/auth/me"
 	case path == "/v1/portal/auth/logout":
 		return "/v1/portal/auth/logout"
+	case path == "/v1/portal/auth/google/finish":
+		return "/v1/portal/auth/google/finish"
+	case path == "/v1/portal/auth/magic/start":
+		return "/v1/portal/auth/magic/start"
+	case path == "/v1/portal/auth/magic/finish":
+		return "/v1/portal/auth/magic/finish"
 	case strings.HasPrefix(path, "/v1/"):
 		return "/v1/other"
 	default:

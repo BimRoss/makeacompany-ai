@@ -18,6 +18,9 @@ set -euo pipefail
 #   BACKEND_INTERNAL_SERVICE_TOKEN (optional; same value on Next server + Go backend for /v1/admin read APIs)
 #   SLACK_BOT_TOKEN (optional; same as slack-orchestrator .env for /admin Slack Users users.list)
 #   COOKIE_HEALTH_TOKEN (optional in .env, but preserved from existing runtime secret when present)
+#   Portal login (optional; preserved from cluster when not in .env.prod — same Secret is envFrom on frontend + backend):
+#   GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET, PORTAL_GOOGLE_OAUTH_STATE_SECRET (optional),
+#   RESEND_API_KEY, PORTAL_AUTH_EMAIL_FROM
 #
 # Usage:
 #   ./scripts/update-rancher-secrets.sh
@@ -158,6 +161,26 @@ fi
 if [[ -n "${SLACK_BOT_TOKEN_EFFECTIVE}" ]]; then
   secret_args+=(--from-literal=SLACK_BOT_TOKEN="${SLACK_BOT_TOKEN_EFFECTIVE}")
 fi
+
+# Optional portal auth keys (Google OAuth + Resend magic links). If absent from ENV_FILE, keep existing cluster values
+# so a Stripe-only apply does not strip portal login.
+add_optional_runtime_secret() {
+  local key="$1"
+  local from_env="${2:-}"
+  local effective="${from_env}"
+  if [[ -z "${effective}" ]]; then
+    effective="$(read_existing_secret_key "${key}")"
+  fi
+  if [[ -n "${effective}" ]]; then
+    secret_args+=(--from-literal="${key}=${effective}")
+  fi
+}
+
+add_optional_runtime_secret GOOGLE_OAUTH_CLIENT_ID "${GOOGLE_OAUTH_CLIENT_ID:-}"
+add_optional_runtime_secret GOOGLE_OAUTH_CLIENT_SECRET "${GOOGLE_OAUTH_CLIENT_SECRET:-}"
+add_optional_runtime_secret PORTAL_GOOGLE_OAUTH_STATE_SECRET "${PORTAL_GOOGLE_OAUTH_STATE_SECRET:-}"
+add_optional_runtime_secret RESEND_API_KEY "${RESEND_API_KEY:-}"
+add_optional_runtime_secret PORTAL_AUTH_EMAIL_FROM "${PORTAL_AUTH_EMAIL_FROM:-}"
 
 kubectl_app create secret generic "${SECRET_NAME}" \
   "${secret_args[@]}" \

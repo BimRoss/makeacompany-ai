@@ -5,40 +5,32 @@ import (
 	"crypto/rand"
 	"crypto/subtle"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/redis/go-redis/v9"
-	"github.com/stripe/stripe-go/v82"
-	checkoutsession "github.com/stripe/stripe-go/v82/checkout/session"
 )
 
-// stripeAdminAuthAllowlist is the only emails that may complete /admin Stripe Checkout (setup mode).
-// Hardcoded (not env) so dev and prod stay aligned; matches portal-style “prove email in Stripe” flow.
-var stripeAdminAuthAllowlist = []string{
+// adminSignInAllowlist is the only emails that may complete admin Google or magic-link sign-in.
+// Hardcoded (not env) so dev and prod stay aligned.
+var adminSignInAllowlist = []string{
 	"grant@bimross.com",
 	"grantdfoster@gmail.com",
 }
 
-func adminEmailInStripeAllowlist(email string) bool {
+func adminSignInEmailAllowed(email string) bool {
 	email = normalizeProfileEmail(email)
 	if email == "" {
 		return false
 	}
-	for _, allowed := range stripeAdminAuthAllowlist {
+	for _, allowed := range adminSignInAllowlist {
 		if normalizeProfileEmail(allowed) == email {
 			return true
 		}
 	}
 	return false
-}
-
-type adminAuthStartRequest struct {
-	SuccessURL string `json:"successUrl"`
-	CancelURL  string `json:"cancelUrl"`
 }
 
 type adminAuthFinishResponse struct {
@@ -58,98 +50,10 @@ func randomTokenHex(sizeBytes int) (string, error) {
 	return hex.EncodeToString(buf), nil
 }
 
-func sessionEmailFromCheckout(sess *stripe.CheckoutSession) string {
-	if sess == nil {
-		return ""
-	}
-	if sess.CustomerDetails != nil {
-		if email := strings.ToLower(strings.TrimSpace(sess.CustomerDetails.Email)); email != "" {
-			return email
-		}
-	}
-	return strings.ToLower(strings.TrimSpace(sess.CustomerEmail))
-}
-
-func (s *Server) adminAuthEnabled() bool {
-	return len(stripeAdminAuthAllowlist) > 0
-}
-
-func (s *Server) handleAdminAuthStart(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	if !s.adminAuthEnabled() {
-		http.Error(w, "admin auth disabled", http.StatusServiceUnavailable)
-		return
-	}
-	var req adminAuthStartRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "invalid json", http.StatusBadRequest)
-		return
-	}
-	successURL := strings.TrimSpace(req.SuccessURL)
-	cancelURL := strings.TrimSpace(req.CancelURL)
-	if successURL == "" || cancelURL == "" {
-		http.Error(w, "missing successUrl/cancelUrl", http.StatusBadRequest)
-		return
-	}
-
-	params := &stripe.CheckoutSessionParams{
-		Mode:       stripe.String(string(stripe.CheckoutSessionModeSetup)),
-		SuccessURL: stripe.String(successURL),
-		CancelURL:  stripe.String(cancelURL),
-		// No CustomerEmail: two allowlisted identities use the same flow as portal (email comes from Checkout).
-		Metadata: map[string]string{
-			stripeAuthMetadataKey: stripeAuthMetadataAdmin,
-		},
-		// Restrict to card to avoid Stripe requiring extra setup-mode params (e.g. currency).
-		PaymentMethodTypes: stripe.StringSlice([]string{"card"}),
-		WalletOptions: &stripe.CheckoutSessionWalletOptionsParams{
-			Link: &stripe.CheckoutSessionWalletOptionsLinkParams{
-				Display: stripe.String(string(stripe.CheckoutSessionWalletOptionsLinkDisplayNever)),
-			},
-		},
-	}
-	sess, err := checkoutsession.New(params)
-	if err != nil {
-		s.log.Printf("admin auth start checkout: %v", err)
-		http.Error(w, "unable to create stripe auth session", http.StatusBadRequest)
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]any{
-		"url":       sess.URL,
-		"sessionId": sess.ID,
-	})
-}
-
-func (s *Server) handleAdminAuthFinish(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	if !s.adminAuthEnabled() {
-		http.Error(w, "admin auth disabled", http.StatusServiceUnavailable)
-		return
-	}
-	sessionID := strings.TrimSpace(r.URL.Query().Get("session_id"))
-	if sessionID == "" || !strings.HasPrefix(sessionID, "cs_") {
-		http.Error(w, "invalid session_id", http.StatusBadRequest)
-		return
-	}
-	sess, err := s.getCheckoutSessionForAuthFinish(r.Context(), sessionID)
-	if err != nil {
-		s.log.Printf("admin auth finish retrieve session: %v", err)
-		status := http.StatusBadRequest
-		if strings.Contains(err.Error(), "not complete") {
-			status = http.StatusUnauthorized
-		}
-		http.Error(w, "unable to retrieve checkout session", status)
-		return
-	}
-	email := normalizeProfileEmail(sessionEmailFromCheckout(sess))
-	if !adminEmailInStripeAllowlist(email) {
-		http.Error(w, "unauthorized email", http.StatusUnauthorized)
+func (s *Server) writeAdminMintResponse(w http.ResponseWriter, r *http.Request, email string) {
+	email = normalizeProfileEmail(email)
+	if email == "" || !adminSignInEmailAllowed(email) {
+		http.Error(w, "bad request", http.StatusBadRequest)
 		return
 	}
 	sessionToken, err := randomTokenHex(32)
@@ -181,7 +85,7 @@ func constantTimeEqual(a, b string) bool {
 }
 
 // adminReadAuthorized allows read when the Bearer matches BACKEND_INTERNAL_SERVICE_TOKEN, or when
-// Stripe admin is enabled and the Bearer is a valid admin session.
+// the Bearer is a valid admin session (Google / magic-link sign-in).
 func (s *Server) adminReadAuthorized(r *http.Request) (ok bool, serviceUnavailable bool) {
 	got := strings.TrimSpace(tokenFromAuthHeader(r))
 	want := strings.TrimSpace(s.cfg.BackendInternalServiceToken)
@@ -234,6 +138,10 @@ func tokenFromAuthHeader(r *http.Request) string {
 	return ""
 }
 
+func (s *Server) adminAuthEnabled() bool {
+	return len(adminSignInAllowlist) > 0
+}
+
 func (s *Server) validateAdminSession(ctx context.Context, token string) (AdminSession, error) {
 	token = strings.TrimSpace(token)
 	if token == "" {
@@ -251,7 +159,7 @@ func (s *Server) validateAdminSession(ctx context.Context, token string) (AdminS
 		_ = s.store.DeleteAdminSession(ctx, token)
 		return AdminSession{}, fmt.Errorf("expired session")
 	}
-	if !adminEmailInStripeAllowlist(session.Email) {
+	if !adminSignInEmailAllowed(session.Email) {
 		return AdminSession{}, fmt.Errorf("unauthorized session")
 	}
 	return session, nil

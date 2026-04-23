@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 
-import { PortalAuthenticateButton } from "@/components/portal/portal-authenticate-button";
+import { PortalEmailMagicForm } from "@/components/portal/portal-email-magic-form";
+import { PortalGoogleSignIn } from "@/components/portal/portal-google-sign-in";
 import { PortalLoginMessages } from "@/components/portal/portal-login-messages";
 import { getPortalLoginCompanyLabel } from "@/lib/portal/portal-login-channel-label";
 
@@ -9,16 +10,6 @@ type Props = {
   params: Promise<{ channelId: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
-
-function firstQuery(v: string | string[] | undefined): string {
-  if (typeof v === "string") {
-    return v.trim();
-  }
-  if (Array.isArray(v) && typeof v[0] === "string") {
-    return v[0].trim();
-  }
-  return "";
-}
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { channelId } = await params;
@@ -31,11 +22,17 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function CompanyChannelLoginPage({ params, searchParams }: Props) {
   const { channelId } = await params;
-  const sp = await searchParams;
+  await searchParams;
   const id = decodeURIComponent((channelId ?? "").trim());
-  const stripeCustomerId =
-    firstQuery(sp.stripe_customer) || firstQuery(sp["stripeCustomerId"]);
   const { label } = await getPortalLoginCompanyLabel(channelId ?? "");
+
+  const googleOAuthReady = Boolean(
+    process.env.GOOGLE_OAUTH_CLIENT_ID?.trim() && process.env.GOOGLE_OAUTH_CLIENT_SECRET?.trim(),
+  );
+  const magicEmailReady = Boolean(
+    process.env.RESEND_API_KEY?.trim() && process.env.PORTAL_AUTH_EMAIL_FROM?.trim(),
+  );
+  const showPrimarySignIn = googleOAuthReady || magicEmailReady;
 
   return (
     <div className="flex flex-1 flex-col items-center justify-center px-4 py-12 sm:py-20">
@@ -55,7 +52,16 @@ export default async function CompanyChannelLoginPage({ params, searchParams }: 
           <Suspense fallback={null}>
             <PortalLoginMessages />
           </Suspense>
-          <PortalAuthenticateButton channelId={id} stripeCustomerId={stripeCustomerId || undefined} />
+          {showPrimarySignIn ? (
+            <div className="space-y-3">
+              {googleOAuthReady ? <PortalGoogleSignIn channelId={id} /> : null}
+              {magicEmailReady ? <PortalEmailMagicForm channelId={id} /> : null}
+            </div>
+          ) : (
+            <p className="rounded-lg border border-border bg-muted/25 px-4 py-3 text-center text-sm text-muted-foreground">
+              Add Google OAuth and Resend email env vars to enable sign-in for this portal.
+            </p>
+          )}
         </div>
       </div>
     </div>

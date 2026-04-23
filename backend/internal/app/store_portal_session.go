@@ -15,7 +15,7 @@ func portalSessionKey(token string) string {
 	return portalSessionKeyPrefix + strings.TrimSpace(token)
 }
 
-// PortalSession is a browser session for /{channelId} company portal (Stripe-verified owner email).
+// PortalSession is a browser session for /{channelId} company portal (verified owner email).
 type PortalSession struct {
 	Token     string `json:"token"`
 	Email     string `json:"email"`
@@ -163,47 +163,4 @@ func (s *Store) OwnerEmailsForCompanyChannel(ctx context.Context, hashKey, chann
 		}
 	}
 	return emails, nil
-}
-
-// OwnerStripeCustomerIDsForCompanyChannel returns distinct non-empty Stripe customer ids on owner profiles.
-func (s *Store) OwnerStripeCustomerIDsForCompanyChannel(ctx context.Context, hashKey, channelID string) ([]string, error) {
-	if s == nil {
-		return nil, fmt.Errorf("nil store")
-	}
-	ch, err := s.GetCompanyChannel(ctx, hashKey, channelID)
-	if err != nil {
-		return nil, err
-	}
-	var out []string
-	seen := map[string]bool{}
-	for _, uid := range ch.OwnerIDs {
-		uid = strings.TrimSpace(uid)
-		if uid == "" {
-			continue
-		}
-		em, err := s.rdb.Get(ctx, userBySlackRedisKey(uid)).Result()
-		if err == redis.Nil || strings.TrimSpace(em) == "" {
-			continue
-		}
-		if err != nil {
-			return nil, err
-		}
-		em = normalizeProfileEmail(em)
-		if em == "" {
-			continue
-		}
-		cus, err := s.rdb.HGet(ctx, userProfileRedisKey(em), "stripe_customer_id").Result()
-		if err == redis.Nil || strings.TrimSpace(cus) == "" {
-			continue
-		}
-		if err != nil {
-			return nil, err
-		}
-		cus = strings.TrimSpace(cus)
-		if cus != "" && !seen[cus] {
-			seen[cus] = true
-			out = append(out, cus)
-		}
-	}
-	return out, nil
 }

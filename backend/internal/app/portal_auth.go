@@ -2,7 +2,6 @@ package app
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -10,16 +9,7 @@ import (
 	"time"
 
 	"github.com/redis/go-redis/v9"
-	"github.com/stripe/stripe-go/v82"
-	checkoutsession "github.com/stripe/stripe-go/v82/checkout/session"
 )
-
-type portalAuthStartRequest struct {
-	SuccessURL       string `json:"successUrl"`
-	CancelURL        string `json:"cancelUrl"`
-	ChannelID        string `json:"channelId"`
-	StripeCustomerID string `json:"stripeCustomerId,omitempty"`
-}
 
 type portalAuthFinishResponse struct {
 	Email        string `json:"email"`
@@ -28,146 +18,13 @@ type portalAuthFinishResponse struct {
 	ExpiresAt    string `json:"expiresAt"`
 }
 
-func (s *Server) portalStripeEnabled() bool {
-	return strings.TrimSpace(stripe.Key) != ""
-}
-
-// portalStripeCustomerAllowed returns true if customerID is a well-formed Stripe customer id
-// that matches an owner profile for the company channel (prevents arbitrary cus_ in the URL).
-func portalStripeCustomerAllowed(ctx context.Context, st *Store, hashKey, channelID, customerID string) bool {
-	customerID = strings.TrimSpace(customerID)
-	if customerID == "" || st == nil {
-		return false
-	}
-	if !strings.HasPrefix(customerID, "cus_") || len(customerID) < 12 {
-		return false
-	}
-	allowed, err := st.OwnerStripeCustomerIDsForCompanyChannel(ctx, hashKey, channelID)
-	if err != nil {
-		return false
-	}
-	for _, c := range allowed {
-		if strings.TrimSpace(c) == customerID {
-			return true
-		}
-	}
-	return false
-}
-
-func (s *Server) handlePortalAuthStart(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	if !s.portalStripeEnabled() {
-		http.Error(w, "stripe is not configured", http.StatusServiceUnavailable)
-		return
-	}
-	var req portalAuthStartRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "invalid json", http.StatusBadRequest)
-		return
-	}
-	successURL := strings.TrimSpace(req.SuccessURL)
-	cancelURL := strings.TrimSpace(req.CancelURL)
-	if successURL == "" || cancelURL == "" {
-		http.Error(w, "missing successUrl/cancelUrl", http.StatusBadRequest)
-		return
-	}
-	chID := strings.TrimSpace(req.ChannelID)
-	if !ValidSlackChannelID(chID) {
-		http.Error(w, "bad channel id", http.StatusBadRequest)
-		return
-	}
-	if _, err := s.store.GetCompanyChannel(r.Context(), s.cfg.CompanyChannelsRedisKey, chID); err != nil {
-		if errors.Is(err, ErrCompanyChannelNotFound) {
-			http.Error(w, "unknown channel", http.StatusNotFound)
-			return
-		}
-		s.log.Printf("portal auth start get channel: %v", err)
-		http.Error(w, "company channel error", http.StatusInternalServerError)
-		return
-	}
-	params := &stripe.CheckoutSessionParams{
-		Mode:               stripe.String(string(stripe.CheckoutSessionModeSetup)),
-		SuccessURL:         stripe.String(successURL),
-		CancelURL:          stripe.String(cancelURL),
-		ClientReferenceID:  stripe.String(chID),
-		PaymentMethodTypes: stripe.StringSlice([]string{"card"}),
-		Metadata: map[string]string{
-			stripeAuthMetadataKey: stripeAuthMetadataPortal,
-		},
-		// Match admin-like handoff: without a prefilled email, Link can add an extra hosted step
-		// where the page looks “done” but the browser has not yet returned to success_url.
-		WalletOptions: &stripe.CheckoutSessionWalletOptionsParams{
-			Link: &stripe.CheckoutSessionWalletOptionsLinkParams{
-				Display: stripe.String(string(stripe.CheckoutSessionWalletOptionsLinkDisplayNever)),
-			},
-		},
-	}
-	wantCus := strings.TrimSpace(req.StripeCustomerID)
-	if portalStripeCustomerAllowed(r.Context(), s.store, s.cfg.CompanyChannelsRedisKey, chID, wantCus) {
-		params.Customer = stripe.String(wantCus)
-	}
-	sess, err := checkoutsession.New(params)
-	if err != nil {
-		s.log.Printf("portal auth start checkout: %v", err)
-		http.Error(w, "unable to create stripe auth session", http.StatusBadRequest)
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]any{
-		"url":       sess.URL,
-		"sessionId": sess.ID,
-	})
-}
-
-func (s *Server) handlePortalAuthFinish(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	if !s.portalStripeEnabled() {
-		http.Error(w, "stripe is not configured", http.StatusServiceUnavailable)
-		return
-	}
-	sessionID := strings.TrimSpace(r.URL.Query().Get("session_id"))
-	if sessionID == "" || !strings.HasPrefix(sessionID, "cs_") {
-		http.Error(w, "invalid session_id", http.StatusBadRequest)
-		return
-	}
-	sess, err := s.getCheckoutSessionForAuthFinish(r.Context(), sessionID)
-	if err != nil {
-		s.log.Printf("portal auth finish retrieve session: %v", err)
-		status := http.StatusBadRequest
-		if strings.Contains(err.Error(), "not complete") {
-			status = http.StatusUnauthorized
-		}
-		http.Error(w, "unable to retrieve checkout session", status)
-		return
-	}
-	chID := strings.TrimSpace(sess.ClientReferenceID)
-	if !ValidSlackChannelID(chID) {
-		http.Error(w, "invalid client reference channel", http.StatusBadRequest)
-		return
-	}
-	email := sessionEmailFromCheckout(sess)
+// writePortalMintResponse persists a portal session after the caller has verified the email
+// (Google id_token, magic link, etc.) and writes the same JSON shape as the legacy Stripe finish response.
+func (s *Server) writePortalMintResponse(w http.ResponseWriter, r *http.Request, email, chID string) {
 	email = normalizeProfileEmail(email)
-	if email == "" {
-		http.Error(w, "missing checkout email", http.StatusUnauthorized)
-		return
-	}
-	allowed, err := s.store.OwnerEmailsForCompanyChannel(r.Context(), s.cfg.CompanyChannelsRedisKey, chID)
-	if err != nil {
-		if errors.Is(err, ErrCompanyChannelNotFound) {
-			http.Error(w, "unknown channel", http.StatusNotFound)
-			return
-		}
-		s.log.Printf("portal auth finish owner emails: %v", err)
-		http.Error(w, "company channel error", http.StatusInternalServerError)
-		return
-	}
-	if !emailInListFold(allowed, email) {
-		http.Error(w, "email not authorized for this company", http.StatusForbidden)
+	chID = strings.TrimSpace(chID)
+	if email == "" || !ValidSlackChannelID(chID) {
+		http.Error(w, "bad request", http.StatusBadRequest)
 		return
 	}
 	sessionToken, err := randomTokenHex(32)
@@ -190,6 +47,23 @@ func (s *Server) handlePortalAuthFinish(w http.ResponseWriter, r *http.Request) 
 		SessionToken: sessionToken,
 		ExpiresAt:    expiresAt.Format(time.RFC3339),
 	})
+}
+
+// portalOwnerEmails returns owner emails for a company channel or an error (including ErrCompanyChannelNotFound).
+func (s *Server) portalOwnerEmails(ctx context.Context, chID string) ([]string, error) {
+	return s.store.OwnerEmailsForCompanyChannel(ctx, s.cfg.CompanyChannelsRedisKey, chID)
+}
+
+// assertPortalOwnerEmail returns false if email is not an owner for chID (channel must exist).
+func (s *Server) assertPortalOwnerEmail(ctx context.Context, chID, email string) (allowed bool, channelMissing bool, err error) {
+	allowedList, err := s.portalOwnerEmails(ctx, chID)
+	if err != nil {
+		if errors.Is(err, ErrCompanyChannelNotFound) {
+			return false, true, nil
+		}
+		return false, false, err
+	}
+	return emailInListFold(allowedList, normalizeProfileEmail(email)), false, nil
 }
 
 func emailInListFold(list []string, email string) bool {
@@ -223,10 +97,6 @@ func (s *Server) validatePortalSessionForChannel(ctx context.Context, token, wan
 func (s *Server) handlePortalAuthMe(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	if !s.portalStripeEnabled() {
-		http.Error(w, "stripe is not configured", http.StatusServiceUnavailable)
 		return
 	}
 	session, err := s.store.GetPortalSession(r.Context(), tokenFromAuthHeader(r))

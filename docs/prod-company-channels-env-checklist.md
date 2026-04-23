@@ -14,6 +14,17 @@ Use this when deploying or after a Redis **gut** of rebuildable `employee-factor
 | `COMPANY_CHANNELS_REDIS_KEY` | **Go backend** | Hash name (default `employee-factory:company_channels`). Override only if your fleet uses a non-default name. |
 | `SLACK_BOT_TOKEN` / Socket Mode | **slack-orchestrator** | Required for `/debug/member-channels` and `/debug/channel-members` to call Slack APIs. |
 
+## Company portal sign-in (Google + email link)
+
+| Variable | Where | Purpose |
+|----------|--------|---------|
+| `GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET` | **Next + Go** (runtime Secret in prod) | `/{channelId}/login` and `/admin/login` → Continue with Google. Register redirects `https://makeacompany.ai/api/portal/auth/google/callback` and `https://makeacompany.ai/api/admin/auth/google/callback` in Google Cloud Console. |
+| `PORTAL_GOOGLE_OAUTH_STATE_SECRET` | **Next** (optional) | HMAC for OAuth `state`; min 16 chars, or omit to derive from client secret. |
+| `RESEND_API_KEY` / `PORTAL_AUTH_EMAIL_FROM` | **Go + Next** (runtime Secret) | Magic sign-in links; `from` must be verified in Resend. |
+| `APP_BASE_URL` | **Go** (ConfigMap) | Magic links use this origin (already `https://makeacompany.ai` in cluster). |
+
+Push keys with **`./scripts/update-rancher-secrets.sh`** from **`.env.prod`**, then roll **frontend** and **backend** if needed.
+
 ## Verification commands
 
 From an operator machine with network access to orchestrator and backend:

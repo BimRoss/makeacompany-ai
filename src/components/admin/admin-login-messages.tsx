@@ -9,7 +9,7 @@ export function AdminLoginMessages() {
   if (auth === "cancel") {
     return (
       <p className="text-center text-sm text-muted-foreground" role="status">
-        Checkout canceled. You can try again when you are ready.
+        Sign-in was canceled. You can try again when you are ready.
       </p>
     );
   }
@@ -17,6 +17,13 @@ export function AdminLoginMessages() {
     return (
       <p className="text-center text-sm text-muted-foreground" role="alert">
         Authentication did not complete. Please try again.
+      </p>
+    );
+  }
+  if (auth === "unauthorized") {
+    return (
+      <p className="text-center text-sm text-destructive" role="alert">
+        That account is not allowlisted for admin access.
       </p>
     );
   }

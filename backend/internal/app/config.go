@@ -29,6 +29,12 @@ type Config struct {
 	StripePriceWaitlist string
 	// SlackBotToken is the same env as slack-orchestrator: SLACK_BOT_TOKEN (users:read + users:read.email for admin users.list).
 	SlackBotToken string
+	// GoogleOAuthClientID is the Google OAuth Web client id (used as id_token audience for /v1/portal/auth/google/finish).
+	GoogleOAuthClientID string
+	// ResendAPIKey enables portal magic-link email (optional).
+	ResendAPIKey string
+	// PortalAuthEmailFrom is the Resend "from" address for magic links, e.g. "MakeACompany <auth@yourdomain.com>".
+	PortalAuthEmailFrom string
 }
 
 func LoadConfig() Config {
@@ -48,6 +54,9 @@ func LoadConfig() Config {
 		StripeWebhookSecret:                   strings.TrimSpace(os.Getenv("STRIPE_WEBHOOK_SECRET")),
 		StripePriceWaitlist:                   strings.TrimSpace(os.Getenv("STRIPE_PRICE_ID_WAITLIST")),
 		SlackBotToken:                         strings.TrimSpace(os.Getenv("SLACK_BOT_TOKEN")),
+		GoogleOAuthClientID:                   strings.TrimSpace(os.Getenv("GOOGLE_OAUTH_CLIENT_ID")),
+		ResendAPIKey:                          strings.TrimSpace(os.Getenv("RESEND_API_KEY")),
+		PortalAuthEmailFrom:                   strings.TrimSpace(os.Getenv("PORTAL_AUTH_EMAIL_FROM")),
 	}
 }
 

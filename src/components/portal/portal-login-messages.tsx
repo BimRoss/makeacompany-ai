@@ -9,7 +9,7 @@ export function PortalLoginMessages() {
   if (auth === "cancel") {
     return (
       <p className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-center text-sm text-muted-foreground" role="status">
-        Checkout canceled. You can try again when you are ready.
+        Sign-in was canceled. You can try again when you are ready.
       </p>
     );
   }

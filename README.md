@@ -42,7 +42,7 @@ Admin surface (orchestrator + NATS are the live contract for Slack bots; catalog
 - Route: `/admin`
 - Proxy endpoint: `GET/PUT /api/admin/catalog` -> backend `GET/PUT /v1/admin/catalog`
 - `PUT` may include `X-Admin-Token` for machine clients when `ADMIN_CATALOG_TOKEN` is set; the admin UI relies on the session cookie only.
-- Sign-in route: `/admin/login` starts Stripe-backed verification before issuing an HttpOnly admin session cookie.
+- Sign-in route: `/admin/login` uses Google OAuth and/or Resend magic links (same env keys as the company portal) for allowlisted accounts, then issues an HttpOnly admin session cookie.
 - Includes an 8-panel service overview Grafana grid (4 columns x 2 rows) for high-level runtime monitoring.
 - Bottom of the page: read-only **Slack channels (Redis)** strip — loads the shared company-channel registry (`employee-factory:company_channels` by default) via `GET /api/admin/company-channels` and shows per-channel metadata as pills. **Slack + discover** repopulates that HASH; see [docs/redis-operations.md](docs/redis-operations.md) for prod reset vs sacred waitlist keys.
 - **Source of truth (Slack):** **slack-orchestrator** ships capability JSON on dispatch → NATS → **employee-factory** (runtime gates and skill routing).
@@ -119,8 +119,11 @@ npm run dev   # repo root
 | `REDIS_URL` | Redis connection URL |
 | `ADMIN_CATALOG_TOKEN` | Optional machine token: `PUT /v1/admin/catalog` with matching `X-Admin-Token` (no browser session). Admin UI uses session cookie only; writes still land in Redis. |
 | `CAPABILITY_CATALOG_READ_TOKEN` | Optional bearer token required for backend `GET /v1/runtime/capability-catalog` (runtime consumer reads) |
-| `ADMIN_SESSION_TTL_SEC` | Admin session lifetime in seconds (default `259200`). Stripe `/admin` auth allowlist is fixed in code: `grant@bimross.com`, `grantdfoster@gmail.com`. |
-| `APP_BASE_URL` | Public site URL (Stripe success/cancel) |
+| `ADMIN_SESSION_TTL_SEC` | Admin session lifetime in seconds (default `259200`). Admin sign-in allowlist is fixed in code: `grant@bimross.com`, `grantdfoster@gmail.com`. |
+| `APP_BASE_URL` | Public site URL (Stripe success/cancel for waitlist checkout, magic-link links, Google OAuth redirect base) |
+| `GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET` | **Continue with Google** on `/{channelId}/login` and `/admin/login`. Register redirect URIs `{APP_BASE_URL}/api/portal/auth/google/callback` and `{APP_BASE_URL}/api/admin/auth/google/callback`. Backend needs the same **client id** as `GOOGLE_OAUTH_CLIENT_ID` to validate `id_token` audiences. |
+| `PORTAL_GOOGLE_OAUTH_STATE_SECRET` | Optional (≥16 chars): HMAC secret for OAuth `state` (portal and admin). If omitted, `GOOGLE_OAUTH_CLIENT_SECRET` is used. |
+| `RESEND_API_KEY` / `PORTAL_AUTH_EMAIL_FROM` | Optional: portal and admin **email sign-in links**. Set on **Go** (sends mail) and on **Next** (shows the form when both are set). `from` must be verified in Resend. |
 | `BACKEND_INTERNAL_API_BASE_URL` | Server-side internal backend base for Next route handlers (defaults to localhost locally and service DNS in Kubernetes) |
 | `BACKEND_INTERNAL_SERVICE_TOKEN` | Same secret on Next + Go: Bearer for admin read APIs and `POST /v1/admin/company-channels/discover` (set in prod; see [docs/prod-company-channels-env-checklist.md](docs/prod-company-channels-env-checklist.md)) |
 | `COMPANY_CHANNELS_REDIS_URL` | Optional: Redis URL for `employee-factory:*` keys (defaults to `REDIS_URL`). See [docs/redis-operations.md](docs/redis-operations.md#key-prefix-matrix-quick-reference). |
@@ -165,7 +168,7 @@ From a machine with `kubectl` access to the **admin** cluster:
 ./scripts/update-rancher-secrets.sh
 ```
 
-Reads repo-root **`.env.prod`** when present (else **`.env`**) and applies Secret **`makeacompany-ai-runtime-secrets`** in namespace **`makeacompany-ai`**: **`STRIPE_SECRET_KEY`**, **`STRIPE_PRICE_ID_WAITLIST`**, **`STRIPE_WEBHOOK_SECRET`**, plus **`STRIPE_PUBLISHABLE_KEY`** / **`NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`** when set. Catalog price ids often originate in **[stripe-factory](https://github.com/BimRoss/stripe-factory)**. Prefer **`makeacompany-ai/scripts/update-rancher-secrets.sh`** with a full **`.env.prod`**; the narrower **`stripe-factory/scripts/update-rancher-secrets.sh`** omits admin keys—see that script’s header.
+Reads repo-root **`.env.prod`** when present (else **`.env`**) and applies Secret **`makeacompany-ai-runtime-secrets`** in namespace **`makeacompany-ai`**: **`STRIPE_SECRET_KEY`**, **`STRIPE_PRICE_ID_WAITLIST`**, **`STRIPE_WEBHOOK_SECRET`**, plus **`STRIPE_PUBLISHABLE_KEY`** / **`NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`** when set, optional **`BACKEND_INTERNAL_SERVICE_TOKEN`**, **`SLACK_BOT_TOKEN`**, **`COOKIE_HEALTH_TOKEN`**, and optional portal login keys (**`GOOGLE_OAUTH_CLIENT_ID`**, **`GOOGLE_OAUTH_CLIENT_SECRET`**, **`PORTAL_GOOGLE_OAUTH_STATE_SECRET`**, **`RESEND_API_KEY`**, **`PORTAL_AUTH_EMAIL_FROM`**). Keys omitted from `.env.prod` but already on the cluster are **preserved** so Stripe-only edits do not drop Google/Resend. Catalog price ids often originate in **[stripe-factory](https://github.com/BimRoss/stripe-factory)**. Prefer **`makeacompany-ai/scripts/update-rancher-secrets.sh`** with a full **`.env.prod`**; the narrower **`stripe-factory/scripts/update-rancher-secrets.sh`** omits admin and portal keys—see that script’s header.
 
 ## CI/CD
 
