@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 
+import { portalStripeSigninChannelCookieName } from "@/lib/portal-session-cookies";
+
 export const dynamic = "force-dynamic";
 
 function normalizeHost(host: string): string {
@@ -54,6 +56,9 @@ export async function POST(request: Request) {
   }
 
   const origin = resolvePublicOrigin(request);
+  const reqURL = new URL(request.url);
+  const forwardedProto = request.headers.get("x-forwarded-proto")?.split(",")[0]?.trim();
+  const cookieSecure = (forwardedProto || reqURL.protocol.replace(":", "")) === "https";
   const backendURL = `${resolveBackendBaseURL().replace(/\/$/, "")}/v1/portal/auth/start`;
   try {
     const response = await fetch(backendURL, {
@@ -63,7 +68,8 @@ export async function POST(request: Request) {
       },
       body: JSON.stringify({
         channelId,
-        successUrl: `${origin}/api/portal/auth/callback?session_id={CHECKOUT_SESSION_ID}&cid=${encodeURIComponent(channelId)}`,
+        // Match admin auth: only {CHECKOUT_SESSION_ID} in success_url (Stripe hosted redirect).
+        successUrl: `${origin}/api/portal/auth/callback?session_id={CHECKOUT_SESSION_ID}`,
         cancelUrl: `${origin}/${encodeURIComponent(channelId)}/login?auth=cancel`,
       }),
       cache: "no-store",
@@ -71,7 +77,17 @@ export async function POST(request: Request) {
     const payload = await response
       .json()
       .catch(() => ({ error: "invalid backend response" }));
-    return NextResponse.json(payload, { status: response.status });
+    const res = NextResponse.json(payload, { status: response.status });
+    if (response.ok && payload && typeof payload === "object" && "url" in payload && typeof (payload as { url?: unknown }).url === "string") {
+      res.cookies.set(portalStripeSigninChannelCookieName, channelId, {
+        httpOnly: true,
+        secure: cookieSecure,
+        sameSite: "lax",
+        path: "/",
+        maxAge: 900,
+      });
+    }
+    return res;
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json({ error: `portal auth start failed: ${message}` }, { status: 502 });

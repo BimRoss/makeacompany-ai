@@ -69,6 +69,18 @@ func primarySubscriptionPriceID(sub *stripe.Subscription) string {
 	return ""
 }
 
+// primarySubscriptionProductID returns the Stripe product id for the subscription's primary price (any prod_*).
+func primarySubscriptionProductID(sub *stripe.Subscription) string {
+	if sub == nil || len(sub.Items.Data) == 0 {
+		return ""
+	}
+	it := sub.Items.Data[0]
+	if it.Price != nil {
+		return priceProductID(it.Price)
+	}
+	return ""
+}
+
 func (s *Server) syncUserProfileFromStripeSubscription(ctx context.Context, sub *stripe.Subscription, raw json.RawMessage) error {
 	custID := subscriptionCustomerID(sub)
 	if custID == "" {
@@ -87,5 +99,6 @@ func (s *Server) syncUserProfileFromStripeSubscription(ctx context.Context, sub 
 	}
 	tier := profileTierFromSubscription(sub)
 	priceID := primarySubscriptionPriceID(sub)
-	return s.store.UpsertUserProfileStripeSubscription(ctx, email, custID, sub.ID, string(sub.Status), tier, priceID)
+	productID := primarySubscriptionProductID(sub)
+	return s.store.UpsertUserProfileStripeSubscription(ctx, email, custID, sub.ID, string(sub.Status), tier, priceID, productID)
 }

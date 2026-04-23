@@ -864,7 +864,7 @@ func (s *Server) handleWebhook(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			s.completeWaitlistFromSession(w, &sess)
-		case stripe.EventTypeCustomerSubscriptionUpdated, stripe.EventTypeCustomerSubscriptionDeleted:
+		case stripe.EventTypeCustomerSubscriptionCreated, stripe.EventTypeCustomerSubscriptionUpdated, stripe.EventTypeCustomerSubscriptionDeleted:
 			var sub stripe.Subscription
 			if err := json.Unmarshal(event.Data.Raw, &sub); err != nil {
 				s.log.Printf("webhook unmarshal subscription: %v", err)
@@ -949,7 +949,13 @@ func (s *Server) saveWaitlistFromSession(ctx context.Context, sess *stripe.Check
 	amount := sess.AmountTotal
 	cur := string(sess.Currency)
 	status := string(sess.PaymentStatus)
-	if err := s.store.SaveWaitlistSignup(ctx, sess.ID, email, custID, status, amount, cur); err != nil {
+	stripeProductID := ""
+	if priceID, err := s.waitlistPriceID(); err == nil {
+		if ok, pid, err := checkoutSessionWaitlistLineItem(sess, priceID); err == nil && ok {
+			stripeProductID = pid
+		}
+	}
+	if err := s.store.SaveWaitlistSignup(ctx, sess.ID, email, custID, status, amount, cur, stripeProductID); err != nil {
 		return "", err
 	}
 	return email, nil

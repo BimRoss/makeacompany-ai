@@ -1,6 +1,11 @@
+import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
-import { portalChannelCookieName, portalSessionCookieName } from "@/lib/portal-session-cookies";
+import {
+  portalChannelCookieName,
+  portalSessionCookieName,
+  portalStripeSigninChannelCookieName,
+} from "@/lib/portal-session-cookies";
 
 export const dynamic = "force-dynamic";
 
@@ -46,12 +51,28 @@ function resolveBackendBaseURL(): string {
 export async function GET(request: Request) {
   const reqURL = new URL(request.url);
   const origin = resolvePublicOrigin(request);
+  const forwardedProto = request.headers.get("x-forwarded-proto")?.split(",")[0]?.trim();
+  const secureCookies = (forwardedProto || reqURL.protocol.replace(":", "")) === "https";
+  const cookieStore = await cookies();
   const sessionID = reqURL.searchParams.get("session_id")?.trim();
-  const cid = reqURL.searchParams.get("cid")?.trim() ?? "";
+  const cidFromQuery = reqURL.searchParams.get("cid")?.trim() ?? "";
+  const cidFromCookie = cookieStore.get(portalStripeSigninChannelCookieName)?.value?.trim() ?? "";
+  const cid = (cidFromQuery || cidFromCookie).trim();
   const loginBase = cid ? `${origin}/${encodeURIComponent(cid)}/login` : `${origin}/`;
 
+  const clearSigninCookie = (r: NextResponse) => {
+    r.cookies.set(portalStripeSigninChannelCookieName, "", {
+      httpOnly: true,
+      secure: secureCookies,
+      sameSite: "lax",
+      path: "/",
+      maxAge: 0,
+    });
+    return r;
+  };
+
   if (!sessionID) {
-    return NextResponse.redirect(new URL(`${loginBase}?auth=failed`, origin));
+    return clearSigninCookie(NextResponse.redirect(new URL(`${loginBase}?auth=failed`, origin)));
   }
 
   const backendURL = `${resolveBackendBaseURL().replace(/\/$/, "")}/v1/portal/auth/finish?session_id=${encodeURIComponent(sessionID)}`;
@@ -62,10 +83,10 @@ export async function GET(request: Request) {
       | null;
 
     if (response.status === 403) {
-      return NextResponse.redirect(new URL(`${loginBase}?auth=unauthorized`, origin));
+      return clearSigninCookie(NextResponse.redirect(new URL(`${loginBase}?auth=unauthorized`, origin)));
     }
     if (!response.ok || !payload?.sessionToken || !payload.channelId) {
-      return NextResponse.redirect(new URL(`${loginBase}?auth=failed`, origin));
+      return clearSigninCookie(NextResponse.redirect(new URL(`${loginBase}?auth=failed`, origin)));
     }
 
     const ch = encodeURIComponent(payload.channelId.trim());
@@ -73,15 +94,15 @@ export async function GET(request: Request) {
     const expires = payload.expiresAt ? new Date(payload.expiresAt) : undefined;
     const cookieOpts = {
       httpOnly: true,
-      secure: reqURL.protocol === "https:",
+      secure: secureCookies,
       sameSite: "lax" as const,
       path: "/",
       expires,
     };
     redirectResponse.cookies.set(portalSessionCookieName, payload.sessionToken, cookieOpts);
     redirectResponse.cookies.set(portalChannelCookieName, payload.channelId.trim(), cookieOpts);
-    return redirectResponse;
+    return clearSigninCookie(redirectResponse);
   } catch {
-    return NextResponse.redirect(new URL(`${loginBase}?auth=failed`, origin));
+    return clearSigninCookie(NextResponse.redirect(new URL(`${loginBase}?auth=failed`, origin)));
   }
 }

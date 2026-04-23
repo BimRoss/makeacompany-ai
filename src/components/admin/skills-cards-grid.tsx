@@ -76,8 +76,8 @@ export function SkillsCardsGrid({
             <p
               className={
                 skill.comingSoon
-                  ? "line-clamp-2 text-sm leading-snug text-muted-foreground/80"
-                  : "line-clamp-2 text-sm leading-snug text-muted-foreground"
+                  ? "min-w-0 text-sm leading-snug text-muted-foreground/80"
+                  : "min-w-0 text-sm leading-snug text-muted-foreground"
               }
             >
               {skill.description}

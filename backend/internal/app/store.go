@@ -158,7 +158,7 @@ func (s *Store) Ping(ctx context.Context) error {
 
 // SaveWaitlistSignup stores waitlist purchaser info; idempotent per checkout session id.
 // If the waitlist is at capacity and this session has not been stored before, returns ErrWaitlistFull.
-func (s *Store) SaveWaitlistSignup(ctx context.Context, sessionID, email, stripeCustomer, paymentStatus string, amountTotal int64, currency string) error {
+func (s *Store) SaveWaitlistSignup(ctx context.Context, sessionID, email, stripeCustomer, paymentStatus string, amountTotal int64, currency string, stripeProductID string) error {
 	email = strings.TrimSpace(strings.ToLower(email))
 	if email == "" {
 		return fmt.Errorf("missing email")
@@ -188,7 +188,7 @@ func (s *Store) SaveWaitlistSignup(ctx context.Context, sessionID, email, stripe
 	case 0:
 		return ErrWaitlistFull
 	case 1, 2:
-		if err := s.UpsertUserProfileAfterWaitlist(ctx, email, stripeCustomer, sessionID, paymentStatus); err != nil {
+		if err := s.UpsertUserProfileAfterWaitlist(ctx, email, stripeCustomer, sessionID, paymentStatus, stripeProductID); err != nil {
 			return fmt.Errorf("user profile merge: %w", err)
 		}
 		return nil

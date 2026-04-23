@@ -31,7 +31,8 @@ func userBySlackRedisKey(slackUserID string) string {
 }
 
 // UpsertUserProfileAfterWaitlist merges Stripe waitlist fields into the canonical profile hash.
-func (s *Store) UpsertUserProfileAfterWaitlist(ctx context.Context, email, stripeCustomer, stripeSessionID, paymentStatus string) error {
+// stripeProductID is written only when non-empty so callers without line-item data do not clear an existing value.
+func (s *Store) UpsertUserProfileAfterWaitlist(ctx context.Context, email, stripeCustomer, stripeSessionID, paymentStatus, stripeProductID string) error {
 	email = normalizeProfileEmail(email)
 	if email == "" {
 		return fmt.Errorf("missing email")
@@ -44,11 +45,15 @@ func (s *Store) UpsertUserProfileAfterWaitlist(ctx context.Context, email, strip
 		"waitlist_payment_status": strings.TrimSpace(paymentStatus),
 		"profile_updated_at":      now,
 	}
+	if pid := strings.TrimSpace(stripeProductID); pid != "" {
+		fields["stripe_product_id"] = pid
+	}
 	return s.rdb.HSet(ctx, userProfileRedisKey(email), fields).Err()
 }
 
 // UpsertUserProfileStripeSubscription updates subscription-derived fields on the profile hash.
-func (s *Store) UpsertUserProfileStripeSubscription(ctx context.Context, email, stripeCustomerID, subscriptionID, subscriptionStatus, tier, priceID string) error {
+// stripeProductID is set only when non-empty (same as waitlist upsert) so a payload without an expanded price.product does not erase a previously stored product.
+func (s *Store) UpsertUserProfileStripeSubscription(ctx context.Context, email, stripeCustomerID, subscriptionID, subscriptionStatus, tier, priceID, stripeProductID string) error {
 	email = normalizeProfileEmail(email)
 	if email == "" {
 		return fmt.Errorf("missing email")
@@ -63,6 +68,9 @@ func (s *Store) UpsertUserProfileStripeSubscription(ctx context.Context, email, 
 		"tier":                           strings.TrimSpace(tier),
 		"stripe_subscription_updated_at": now,
 		"profile_updated_at":             now,
+	}
+	if pid := strings.TrimSpace(stripeProductID); pid != "" {
+		fields["stripe_product_id"] = pid
 	}
 	return s.rdb.HSet(ctx, userProfileRedisKey(email), fields).Err()
 }
@@ -123,7 +131,7 @@ func (s *Store) UpsertUserProfilesFromStripeWaitlistPurchasers(ctx context.Conte
 		if email == "" {
 			continue
 		}
-		if err := s.UpsertUserProfileAfterWaitlist(ctx, email, strings.TrimSpace(p.StripeCustomer), strings.TrimSpace(p.StripeSessionID), strings.TrimSpace(p.PaymentStatus)); err != nil {
+		if err := s.UpsertUserProfileAfterWaitlist(ctx, email, strings.TrimSpace(p.StripeCustomer), strings.TrimSpace(p.StripeSessionID), strings.TrimSpace(p.PaymentStatus), strings.TrimSpace(p.StripeProductID)); err != nil {
 			return n, fmt.Errorf("waitlist profile %s: %w", email, err)
 		}
 		n++
@@ -139,6 +147,7 @@ type UserProfileRow struct {
 	StripeSubscriptionStatus    string `json:"stripeSubscriptionStatus"`
 	StripePriceID               string `json:"stripePriceId"`
 	StripeSessionID             string `json:"stripeSessionId"`
+	StripeProductID             string `json:"stripeProductId"`
 	Tier                        string `json:"tier"`
 	SlackUserID                 string `json:"slackUserId"`
 	WaitlistPaymentStatus       string `json:"waitlistPaymentStatus"`
@@ -184,6 +193,7 @@ outer:
 				StripeSubscriptionStatus:    strings.TrimSpace(vals["stripe_subscription_status"]),
 				StripePriceID:               strings.TrimSpace(vals["stripe_price_id"]),
 				StripeSessionID:             strings.TrimSpace(vals["stripe_session_id"]),
+				StripeProductID:             strings.TrimSpace(vals["stripe_product_id"]),
 				Tier:                        strings.TrimSpace(vals["tier"]),
 				SlackUserID:                 slackID,
 				WaitlistPaymentStatus:       strings.TrimSpace(vals["waitlist_payment_status"]),
