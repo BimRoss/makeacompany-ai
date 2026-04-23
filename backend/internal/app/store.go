@@ -214,9 +214,10 @@ func (s *Store) GetWaitlistStats(ctx context.Context) (signups int64, amountCent
 	return n, a, nil
 }
 
-// GetWaitlistStatsForPublic uses paid purchaser count from the Stripe waitlist Redis snapshot as
-// signups when that snapshot exists (same cardinality as the admin Stripe table). Falls back to
-// Redis counters when the snapshot is missing or unreadable. amountCents stays from Redis aggregates.
+// GetWaitlistStatsForPublic returns signups as the greater of (a) Redis counters updated on each
+// successful checkout save and (b) deduped purchaser rows in the Stripe snapshot blob (same list as
+// admin). Using max() avoids a stale snapshot hiding a payment that just landed: checkout-status and
+// webhooks update Redis immediately but only cron/admin refresh rewrite the snapshot JSON.
 func (s *Store) GetWaitlistStatsForPublic(ctx context.Context) (signups int64, amountCents int64, err error) {
 	signups, amountCents, err = s.GetWaitlistStats(ctx)
 	if err != nil {
@@ -233,7 +234,11 @@ func (s *Store) GetWaitlistStatsForPublic(ctx context.Context) (signups int64, a
 	if parseErr != nil {
 		return signups, amountCents, nil
 	}
-	return int64(len(env.Purchasers)), amountCents, nil
+	stripeN := int64(len(env.Purchasers))
+	if stripeN > signups {
+		signups = stripeN
+	}
+	return signups, amountCents, nil
 }
 
 // WaitlistUser is one row from Redis hash makeacompany:waitlist:<email>.
