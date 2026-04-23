@@ -114,6 +114,8 @@ services:
       NEXT_PUBLIC_LINKEDIN_PARTNER_ID: ${NEXT_PUBLIC_LINKEDIN_PARTNER_ID:-}
       NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY:-${STRIPE_PUBLISHABLE_KEY:-}}
       NEXT_TELEMETRY_DISABLED: "1"
+      # Same `next dev` image as local, but this profile talks to prod-adjacent ports — avoid live Stripe/Slack on every /admin load.
+      NEXT_PUBLIC_ADMIN_SKIP_SNAPSHOT_WARM_ON_LOAD: "1"
     ports:
       - "${FRONTEND_PORT:-3000}:3000"
     volumes:

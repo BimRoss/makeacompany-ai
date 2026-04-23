@@ -87,7 +87,7 @@ function formatStripeAmount(minorUnits: string, currency: string): string {
   }
 }
 
-/** Stripe checkout customers + Slack workspace members. Load shows Redis snapshots; Refresh pulls live APIs and writes Redis (profiles + slack index). */
+/** Stripe checkout customers + Slack workspace members. Mount: in `next dev`, live-fetches Stripe + Slack (writes Redis) unless `NEXT_PUBLIC_ADMIN_SKIP_SNAPSHOT_WARM_ON_LOAD=1`. Production `next start` uses Redis snapshots only unless `NEXT_PUBLIC_ADMIN_WARM_STRIPE_SLACK_ON_LOAD=1`. Refresh always pulls live. */
 export function UserProfilesPanel() {
   const [stripePurchasers, setStripePurchasers] = useState<StripeWaitlistPurchaserRow[]>([]);
   const [stripeError, setStripeError] = useState<string | null>(null);
@@ -168,12 +168,20 @@ export function UserProfilesPanel() {
   }, []);
 
   useEffect(() => {
-    void fetchStripePurchasers(false);
-  }, [fetchStripePurchasers]);
-
-  useEffect(() => {
-    void fetchSlackUsers(false);
-  }, [fetchSlackUsers]);
+    const skip = process.env.NEXT_PUBLIC_ADMIN_SKIP_SNAPSHOT_WARM_ON_LOAD === "1";
+    const explicitWarm = process.env.NEXT_PUBLIC_ADMIN_WARM_STRIPE_SLACK_ON_LOAD === "1";
+    const devWarm =
+      process.env.NODE_ENV === "development" &&
+      process.env.NEXT_PUBLIC_ADMIN_WARM_STRIPE_SLACK_ON_LOAD !== "0";
+    const warm = !skip && (explicitWarm || devWarm);
+    if (warm) {
+      void fetchStripePurchasers(true);
+      void fetchSlackUsers(true);
+    } else {
+      void fetchStripePurchasers(false);
+      void fetchSlackUsers(false);
+    }
+  }, [fetchStripePurchasers, fetchSlackUsers]);
 
   const slackEmailSet = useMemo(() => {
     const s = new Set<string>();
