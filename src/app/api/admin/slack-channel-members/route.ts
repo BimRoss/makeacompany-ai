@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireAdminApiSession } from "@/lib/backend-proxy-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +16,11 @@ type ChannelMembersPayload = {
  * (human Slack user IDs in the channel, excluding bots).
  */
 export async function GET(req: NextRequest) {
+  const unauthorized = await requireAdminApiSession();
+  if (unauthorized) {
+    return unauthorized;
+  }
+
   const channelId = req.nextUrl.searchParams.get("channel_id")?.trim();
   if (!channelId) {
     return NextResponse.json({ error: "missing channel_id" }, { status: 400 });

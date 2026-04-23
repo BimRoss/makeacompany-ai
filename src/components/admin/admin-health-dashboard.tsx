@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTheme } from "next-themes";
 
+import { kickToLoginForUnauthorizedApi } from "@/lib/client-auth-unauthorized-redirect";
+
 type HealthStatus = "ok" | "degraded" | "unknown";
 
 type GrafanaEmbed = {
@@ -225,6 +227,9 @@ export function AdminHealthDashboard() {
     const load = async () => {
       try {
         const response = await fetch("/api/admin/health", { cache: "no-store" });
+        if (kickToLoginForUnauthorizedApi(response.status, "admin")) {
+          return;
+        }
         const data = (await response.json()) as HealthPayload;
         if (!cancelled) {
           setPayload(data);
@@ -266,6 +271,9 @@ export function AdminHealthDashboard() {
         `/api/admin/indexer-recent-requests?limit=${RECENT_REQUESTS_PAGE_SIZE}&offset=${offset}`,
         { cache: "no-store" }
       );
+      if (kickToLoginForUnauthorizedApi(response.status, "admin")) {
+        return;
+      }
       const data = (await response.json()) as IndexerRecentRequestsPayload;
       if (!response.ok || data.status === "degraded") {
         const message = data.error ?? "failed to load indexer request logs";

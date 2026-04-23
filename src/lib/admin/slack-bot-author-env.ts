@@ -1,6 +1,3 @@
-import type { TeamMember } from "@/lib/admin/catalog";
-import { getAdminHeadshotUrl } from "@/lib/admin/headshots";
-
 /** Same env keys as employee-factory / rancher-admin `employee-factory-config` (Slack bot user IDs). */
 const ENV_SLUG_KEYS: Array<{ envKey: string; slug: string }> = [
   { envKey: "ROSS_SLACK_BOT_ID", slug: "ross" },
@@ -30,22 +27,9 @@ function looksLikeSlackUserId(value: string): boolean {
   return /^U[A-Z0-9]{8,}$/i.test(t);
 }
 
-function syntheticMember(employeeId: string): TeamMember {
-  const id = employeeId.trim().toLowerCase();
-  const displayName = DISPLAY_BY_SLUG[id] ?? id.charAt(0).toUpperCase() + id.slice(1);
-  return {
-    id,
-    displayName,
-    botDisplayName: displayName,
-    lane: "general",
-    roleTitle: "",
-    shortDescription: "",
-    longDescription: "",
-    backgroundColor: "#334155",
-    status: "active",
-    sourceManifest: "env:slack-bot-id",
-    skillIds: [],
-  };
+function displayNameForSlug(slug: string): string {
+  const id = slug.trim().toLowerCase();
+  return DISPLAY_BY_SLUG[id] ?? (id ? id.charAt(0).toUpperCase() + id.slice(1) : slug);
 }
 
 /**
@@ -77,18 +61,20 @@ function resolveSlugToSlackUserId(): Map<string, string> {
   return m;
 }
 
-/** Profiles for admin transcript: map Slack bot user IDs → display name + `/headshots` or generated portrait URL. */
+/**
+ * Fallback when `users.list` is unavailable or omits a known bot id: map env Slack user IDs → display name only.
+ * Portraits always come from Slack in `getSlackAuthorProfiles`; no bundled headshot assets here.
+ */
 export function getSlackBotAuthorProfilesFromEnv(): SlackBotAuthorProfile[] {
   const slugMap = resolveSlugToSlackUserId();
   const out: SlackBotAuthorProfile[] = [];
   for (const [slug, slackUserId] of slugMap) {
-    const member = syntheticMember(slug);
     const normalized = slackUserId.trim();
     out.push({
       slackUserId: normalized,
       employeeId: slug,
-      displayName: member.displayName,
-      portraitUrl: getAdminHeadshotUrl(member),
+      displayName: displayNameForSlug(slug),
+      portraitUrl: "",
     });
   }
   return out;

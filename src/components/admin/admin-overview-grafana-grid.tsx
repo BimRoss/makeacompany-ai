@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useTheme } from "next-themes";
 
 import { isBrowserLoopbackHost } from "@/lib/admin/browser-loopback";
+import { kickToLoginForUnauthorizedApi } from "@/lib/client-auth-unauthorized-redirect";
 
 type GrafanaEmbed = {
   key: string;
@@ -77,6 +78,9 @@ export function AdminOverviewGrafanaGrid() {
     const load = async () => {
       try {
         const response = await fetch("/api/admin/health", { cache: "no-store" });
+        if (kickToLoginForUnauthorizedApi(response.status, "admin")) {
+          return;
+        }
         const payload = (await response.json()) as HealthPayload;
         if (!cancelled) {
           setEmbeds(Array.isArray(payload.adminGrafanaEmbeds) ? payload.adminGrafanaEmbeds : []);

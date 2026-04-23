@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { resolveBackendBaseURL } from "@/lib/http-origin";
+import { resolveBackendBaseURL } from "@/lib/backend-proxy-auth";
 
 export const dynamic = "force-dynamic";
 

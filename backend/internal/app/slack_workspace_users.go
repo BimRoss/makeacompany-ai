@@ -21,8 +21,10 @@ type SlackWorkspaceUser struct {
 	RealName    string `json:"realName"`
 	DisplayName string `json:"displayName"`
 	Email       string `json:"email"`
-	IsBot       bool   `json:"isBot"`
-	IsDeleted   bool   `json:"isDeleted"`
+	// ProfileImageURL is from Slack profile image_* (HTTPS URL; refreshed when snapshot is refreshed).
+	ProfileImageURL string `json:"profileImageUrl,omitempty"`
+	IsBot           bool   `json:"isBot"`
+	IsDeleted       bool   `json:"isDeleted"`
 }
 
 type slackUsersListResponse struct {
@@ -39,6 +41,9 @@ type slackUsersListResponse struct {
 			Email       string `json:"email"`
 			RealName    string `json:"real_name"`
 			DisplayName string `json:"display_name"`
+			Image72     string `json:"image_72"`
+			Image48     string `json:"image_48"`
+			Image32     string `json:"image_32"`
 		} `json:"profile"`
 	} `json:"members"`
 	ResponseMetadata struct {
@@ -114,15 +119,23 @@ func FetchSlackWorkspaceUsers(ctx context.Context, botToken string) ([]SlackWork
 			if real == "" && disp != "" {
 				real = disp
 			}
+			img := strings.TrimSpace(m.Profile.Image72)
+			if img == "" {
+				img = strings.TrimSpace(m.Profile.Image48)
+			}
+			if img == "" {
+				img = strings.TrimSpace(m.Profile.Image32)
+			}
 			out = append(out, SlackWorkspaceUser{
-				SlackUserID: strings.TrimSpace(m.ID),
-				TeamID:      strings.TrimSpace(m.TeamID),
-				Username:    strings.TrimSpace(m.Name),
-				RealName:    real,
-				DisplayName: disp,
-				Email:       strings.ToLower(email),
-				IsBot:       m.IsBot,
-				IsDeleted:   m.Deleted,
+				SlackUserID:     strings.TrimSpace(m.ID),
+				TeamID:          strings.TrimSpace(m.TeamID),
+				Username:        strings.TrimSpace(m.Name),
+				RealName:        real,
+				DisplayName:     disp,
+				Email:           strings.ToLower(email),
+				ProfileImageURL: img,
+				IsBot:           m.IsBot,
+				IsDeleted:       m.Deleted,
 			})
 		}
 		cursor = strings.TrimSpace(parsed.ResponseMetadata.NextCursor)

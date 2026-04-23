@@ -83,14 +83,10 @@ func constantTimeEqual(a, b string) bool {
 	return subtle.ConstantTimeCompare([]byte(a), []byte(b)) == 1
 }
 
-// adminReadAuthorized allows read when the Bearer matches BACKEND_INTERNAL_SERVICE_TOKEN, or when
-// the Bearer is a valid admin session (Google / magic-link sign-in).
+// adminReadAuthorized allows read only when the Bearer is a valid admin session
+// (Google / magic-link sign-in). Internal service tokens are for /v1/internal/* only.
 func (s *Server) adminReadAuthorized(r *http.Request) (ok bool, serviceUnavailable bool) {
 	got := strings.TrimSpace(tokenFromAuthHeader(r))
-	want := strings.TrimSpace(s.cfg.BackendInternalServiceToken)
-	if want != "" && got != "" && constantTimeEqual(got, want) {
-		return true, false
-	}
 	if !s.adminAuthEnabled() {
 		return false, true
 	}
@@ -100,24 +96,18 @@ func (s *Server) adminReadAuthorized(r *http.Request) (ok bool, serviceUnavailab
 	return true, false
 }
 
-// companyChannelsAdminAuthorized gates registry/list/get/discover/patch for company channels.
-// When BACKEND_INTERNAL_SERVICE_TOKEN is set on the backend, requests must send
-// Authorization: Bearer <same token>. When unset (typical local dev), requests are allowed without a bearer.
+// companyChannelsAdminAuthorized gates admin-scoped company-channel reads/writes via admin sessions only.
 func (s *Server) companyChannelsAdminAuthorized(r *http.Request) bool {
-	got := strings.TrimSpace(tokenFromAuthHeader(r))
-	want := strings.TrimSpace(s.cfg.BackendInternalServiceToken)
-	if want == "" {
-		return true
-	}
-	return got != "" && constantTimeEqual(got, want)
+	ok, _ := s.adminReadAuthorized(r)
+	return ok
 }
 
 func (s *Server) companyRegistryReadAuthorized(r *http.Request) (ok bool, serviceUnavailable bool) {
-	return s.companyChannelsAdminAuthorized(r), false
+	return s.adminReadAuthorized(r)
 }
 
 func (s *Server) companyChannelPatchAuthorized(r *http.Request) (ok bool, serviceUnavailable bool) {
-	return s.companyChannelsAdminAuthorized(r), false
+	return s.adminReadAuthorized(r)
 }
 
 func tokenFromAuthHeader(r *http.Request) string {

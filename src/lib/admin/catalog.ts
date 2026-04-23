@@ -5,6 +5,7 @@
 // Otherwise the backend serves Redis + code defaults (same JSON shape).
 import skillsSnapshot from "@/data/admin/skills-snapshot.json";
 import teamSnapshot from "@/data/admin/team-snapshot.json";
+import { resolveBackendBaseURL } from "@/lib/backend-proxy-auth";
 
 export type TeamStatus = "active" | "inactive";
 
@@ -82,16 +83,6 @@ type TeamSnapshot = {
 type SkillsSnapshot = {
   skills: AdminSkill[];
 };
-
-function backendBaseURL(): string {
-  const isKubernetes = Boolean(process.env.KUBERNETES_SERVICE_HOST);
-  const defaultBackendBase = isKubernetes ? "http://makeacompany-ai-backend:8080" : "http://localhost:8080";
-  return (
-    process.env.BACKEND_INTERNAL_API_BASE_URL ??
-    process.env.NEXT_PUBLIC_BACKEND_API_BASE_URL ??
-    defaultBackendBase
-  );
-}
 
 function fallbackCatalogFromSnapshots(): {
   members: TeamMember[];
@@ -215,7 +206,7 @@ export async function getAdminCatalogData(): Promise<{
   members: TeamMember[];
   skills: AdminSkill[];
 }> {
-  const base = backendBaseURL().replace(/\/$/, "");
+  const base = resolveBackendBaseURL().replace(/\/$/, "");
   const runtimeReadToken = process.env.CAPABILITY_CATALOG_READ_TOKEN?.trim();
 
   async function fetchCatalog(path: string, headers?: HeadersInit): Promise<CapabilityCatalog | null> {

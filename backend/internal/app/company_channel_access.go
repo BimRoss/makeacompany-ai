@@ -4,7 +4,9 @@ import (
 	"net/http"
 )
 
-// authorizedForCompanyChannelRead allows internal service token (existing admin proxies) or a valid portal session for channelID.
+// authorizedForCompanyChannelRead allows either:
+// - a valid admin session, or
+// - a valid portal session scoped to channelID.
 func (s *Server) authorizedForCompanyChannelRead(r *http.Request, channelID string) bool {
 	if s.companyChannelsAdminAuthorized(r) {
 		return true
@@ -15,7 +17,9 @@ func (s *Server) authorizedForCompanyChannelRead(r *http.Request, channelID stri
 	return false
 }
 
-// authorizedForCompanyChannelPatch allows internal service token or a portal session scoped to the same channelID.
+// authorizedForCompanyChannelPatch allows either:
+// - a valid admin session, or
+// - a valid portal session scoped to channelID.
 func (s *Server) authorizedForCompanyChannelPatch(r *http.Request, channelID string) bool {
 	if s.companyChannelsAdminAuthorized(r) {
 		return true

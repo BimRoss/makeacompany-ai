@@ -7,10 +7,10 @@
  * Required env:
  *   ORCHESTRATOR_DEBUG_BASE_URL — e.g. http://127.0.0.1:8080 or cluster orchestrator URL
  *   BACKEND_API_BASE_URL        — Go API origin, e.g. http://localhost:8090
+ *   ADMIN_SESSION_TOKEN          — mac_admin_session token (Bearer) for /v1/admin/company-channels/discover
  *
  * Optional:
  *   ORCHESTRATOR_DEBUG_TOKEN    — Bearer for orchestrator if debug routes are locked down
- *   BACKEND_INTERNAL_SERVICE_TOKEN — Bearer for backend (required when backend enforces it)
  *   DISCOVER_MAX_CHANNELS         — max channels from member-channels to process (default: all)
  *   DISCOVER_MEMBER_FETCH_CONCURRENCY — parallel channel-members fetches (default: 6)
  *
@@ -50,11 +50,9 @@ function orchHeaders() {
 }
 
 function backendHeaders() {
-  const token = optionalEnv("BACKEND_INTERNAL_SERVICE_TOKEN");
+  const token = requireEnv("ADMIN_SESSION_TOKEN");
   const headers = { "Content-Type": "application/json" };
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
-  }
+  headers.Authorization = `Bearer ${token}`;
   return headers;
 }
 

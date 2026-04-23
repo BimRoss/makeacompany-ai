@@ -43,3 +43,10 @@ export function companyPortalDisplayName(ch: CompanyChannel): string {
   if (dn) return dn.replace(/^#+/, "").trim();
   return ch.channel_id?.trim() ?? "";
 }
+
+/** Admin / workspace page title: registry display name, then portal-style name, then channel id. */
+export function companyChannelWorkspaceTitle(ch: CompanyChannel): string {
+  const dn = ch.display_name?.trim();
+  if (dn) return dn.replace(/^#+/, "").trim();
+  return companyPortalDisplayName(ch);
+}

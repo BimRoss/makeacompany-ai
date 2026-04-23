@@ -27,7 +27,6 @@ export default async function EmployeesPage() {
             members={members}
             skills={skills}
             requestLoopbackHost={requestLoopbackHost}
-            skipLocalPortraits
           />
         )}
       </section>

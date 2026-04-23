@@ -20,7 +20,7 @@ type Config struct {
 	// slack-orchestrator (e.g. .../debug/capability-catalog); missing Redis catalog key seeds from it; GET /v1/admin/catalog
 	// merges in new skills from a cached orchestrator fetch so older Redis snapshots stay aligned.
 	SlackOrchestratorCapabilityCatalogURL string
-	// BackendInternalServiceToken matches Next.js BACKEND_INTERNAL_SERVICE_TOKEN (server-to-server admin reads).
+	// BackendInternalServiceToken gates /v1/internal/* maintenance endpoints only.
 	BackendInternalServiceToken string
 	AdminSessionTTLSec          int
 	StripeSecretKey             string

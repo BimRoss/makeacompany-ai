@@ -1,5 +1,6 @@
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
+import { requireAdminApiSession, resolveBackendBaseURL } from "@/lib/backend-proxy-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -147,16 +148,16 @@ function buildGrafanaEmbeds(
 }
 
 export async function GET() {
+  const unauthorized = await requireAdminApiSession();
+  if (unauthorized) {
+    return unauthorized;
+  }
+
   const h = await headers();
   const host = h.get("x-forwarded-host") ?? h.get("host");
   const proto = h.get("x-forwarded-proto") ?? "https";
 
-  const isKubernetes = Boolean(process.env.KUBERNETES_SERVICE_HOST);
-  const defaultBackendBase = isKubernetes ? "http://makeacompany-ai-backend:8080" : "http://localhost:8080";
-  const backendBase =
-    process.env.BACKEND_INTERNAL_API_BASE_URL ??
-    process.env.NEXT_PUBLIC_BACKEND_API_BASE_URL ??
-    defaultBackendBase;
+  const backendBase = resolveBackendBaseURL();
   const backendHealthURL = `${backendBase.replace(/\/$/, "")}/health`;
   const backendIndexerRequestsURL = `${backendBase.replace(/\/$/, "")}/api/internal/indexer-recent-requests?limit=100&offset=0`;
 

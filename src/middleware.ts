@@ -29,9 +29,8 @@ export function middleware(request: NextRequest) {
   const hasPortalSession = Boolean(portalSession) && Boolean(portalCID);
 
   if (pathname === "/admin/login") {
-    if (hasSession) {
-      return NextResponse.redirect(new URL("/admin", request.url));
-    }
+    // Do not redirect to /admin based on cookie presence alone: invalid or stale cookies
+    // caused a bounce loop with API 401 → /admin/login → middleware → /admin.
     return NextResponse.next();
   }
 
@@ -46,9 +45,7 @@ export function middleware(request: NextRequest) {
   if (portalPath) {
     const sessionMatchesURL = hasPortalSession && portalCID === portalPath.channelId;
     if (portalPath.isLogin) {
-      if (sessionMatchesURL) {
-        return NextResponse.redirect(new URL(`/${portalPath.channelId}`, request.url));
-      }
+      // Same as admin: cookie + channel match does not prove the session is still valid in Redis.
       const loginClean = new URL(request.url);
       if (stripLegacyPortalStripeSearchParams(loginClean)) {
         return NextResponse.redirect(loginClean);

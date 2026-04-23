@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireAdminApiSession } from "@/lib/backend-proxy-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +14,11 @@ type MemberChannelsPayload = {
  * Same auth and base URL as /api/orchestrator-decisions.
  */
 export async function GET() {
+  const unauthorized = await requireAdminApiSession();
+  if (unauthorized) {
+    return unauthorized;
+  }
+
   const base = process.env.ORCHESTRATOR_DEBUG_BASE_URL?.trim().replace(/\/$/, "");
   if (!base) {
     return NextResponse.json(

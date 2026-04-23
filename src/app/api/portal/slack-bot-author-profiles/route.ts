@@ -1,8 +1,7 @@
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
-import { getSlackBotAuthorProfilesFromEnv } from "@/lib/admin/slack-bot-author-env";
-import { portalSessionCookieName } from "@/lib/portal-session-cookies";
+import { getSlackAuthorProfiles } from "@/lib/admin/slack-author-profiles";
+import { requirePortalApiSession } from "@/lib/backend-proxy-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -13,14 +12,13 @@ const noStore = {
 
 /**
  * Same payload as `/api/admin/slack-bot-author-profiles`, for signed-in portal users viewing `/[channelId]`.
- * Bot user IDs and portrait URLs are not secrets; still requires a portal session cookie.
+ * Requires a valid portal session (verified with backend).
  */
 export async function GET() {
-  const cookieStore = await cookies();
-  const token = cookieStore.get(portalSessionCookieName)?.value?.trim();
-  if (!token) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401, headers: noStore });
+  const unauthorized = await requirePortalApiSession();
+  if (unauthorized) {
+    return unauthorized;
   }
-  const profiles = getSlackBotAuthorProfilesFromEnv();
+  const profiles = await getSlackAuthorProfiles({ slackToken: process.env.SLACK_BOT_TOKEN });
   return NextResponse.json({ profiles }, { status: 200, headers: noStore });
 }

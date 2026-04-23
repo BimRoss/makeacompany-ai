@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
-import { getSlackBotAuthorProfilesFromEnv } from "@/lib/admin/slack-bot-author-env";
-import { resolveBackendBearerToken } from "@/lib/backend-proxy-auth";
+import { getSlackAuthorProfiles } from "@/lib/admin/slack-author-profiles";
+import { requireAdminApiSession } from "@/lib/backend-proxy-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -11,14 +11,14 @@ const noStore = {
 } as const;
 
 /**
- * Slack bot user ID → display name + portrait URL for admin channel transcripts.
- * Reads `MULTIAGENT_BOT_USER_IDS` and/or `ROSS_SLACK_BOT_ID`, `TIM_SLACK_BOT_ID`, … (same as employee-factory).
+ * Slack user ID → display name + portrait URL for channel transcripts (Slack `users.list`, same workspace data as the Slack Users admin table).
+ * Env bot IDs fill gaps when `users.list` omits a row (name only; no local headshot assets).
  */
 export async function GET() {
-  const token = await resolveBackendBearerToken();
-  if (!token) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401, headers: noStore });
+  const unauthorized = await requireAdminApiSession();
+  if (unauthorized) {
+    return unauthorized;
   }
-  const profiles = getSlackBotAuthorProfilesFromEnv();
+  const profiles = await getSlackAuthorProfiles({ slackToken: process.env.SLACK_BOT_TOKEN });
   return NextResponse.json({ profiles }, { status: 200, headers: noStore });
 }

@@ -15,7 +15,7 @@ set -euo pipefail
 #   STRIPE_WEBHOOK_SECRET (required)
 #   STRIPE_PRICE_ID_WAITLIST
 #   STRIPE_PUBLISHABLE_KEY and/or NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY (optional; both written when either is set)
-#   BACKEND_INTERNAL_SERVICE_TOKEN (optional; same value on Next server + Go backend for /v1/admin read APIs)
+#   BACKEND_INTERNAL_SERVICE_TOKEN (optional; Go /v1/internal/* maintenance endpoints only)
 #   SLACK_BOT_TOKEN (optional; same as slack-orchestrator .env for /admin Slack Users users.list)
 #   COOKIE_HEALTH_TOKEN (optional in .env, but preserved from existing runtime secret when present)
 #   Portal login (optional; preserved from cluster when not in .env.prod — same Secret is envFrom on frontend + backend):
@@ -140,7 +140,7 @@ if [[ -n "${COOKIE_HEALTH_TOKEN_EFFECTIVE}" ]]; then
   secret_args+=(--from-literal=COOKIE_HEALTH_TOKEN="${COOKIE_HEALTH_TOKEN_EFFECTIVE}")
 fi
 
-# Preserve existing internal read token if local .env does not provide one.
+# Preserve existing internal maintenance token if local .env does not provide one.
 BACKEND_INTERNAL_SERVICE_TOKEN_EFFECTIVE="${BACKEND_INTERNAL_SERVICE_TOKEN:-}"
 if [[ -z "${BACKEND_INTERNAL_SERVICE_TOKEN_EFFECTIVE}" ]]; then
   BACKEND_INTERNAL_SERVICE_TOKEN_EFFECTIVE="$(read_existing_secret_key BACKEND_INTERNAL_SERVICE_TOKEN)"

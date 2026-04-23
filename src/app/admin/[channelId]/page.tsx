@@ -10,11 +10,7 @@ export default async function AdminCompanyChannelPage({ params }: Props) {
   const id = decodeURIComponent((channelId ?? "").trim());
   return (
     <AdminShell>
-      <CompanyChannelWorkspaceDetail
-        channelId={id}
-        variant="admin"
-        backNav={{ href: "/admin", label: "← Admin" }}
-      />
+      <CompanyChannelWorkspaceDetail channelId={id} variant="admin" />
     </AdminShell>
   );
 }

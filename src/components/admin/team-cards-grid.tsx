@@ -5,6 +5,7 @@ import { useTheme } from "next-themes";
 
 import type { AdminSkill, TeamMember } from "@/lib/admin/catalog";
 import { isBrowserLoopbackHost } from "@/lib/admin/browser-loopback";
+import { kickToLoginForUnauthorizedApi } from "@/lib/client-auth-unauthorized-redirect";
 import { TeamMemberCard } from "@/components/admin/team-member-card";
 
 type TeamCardsGridProps = {
@@ -106,6 +107,9 @@ export function TeamCardsGrid({
     const load = async () => {
       try {
         const response = await fetch("/api/admin/health", { cache: "no-store" });
+        if (kickToLoginForUnauthorizedApi(response.status, "admin")) {
+          return;
+        }
         const payload = (await response.json()) as HealthPayload;
         if (!cancelled) {
           setHealthPayload(payload);

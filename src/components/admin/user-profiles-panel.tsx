@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 
+import { kickToLoginForUnauthorizedApi } from "@/lib/client-auth-unauthorized-redirect";
+
 type StripeWaitlistPurchaserRow = {
   email: string;
   stripeSessionId: string;
@@ -30,6 +32,8 @@ type SlackWorkspaceUserRow = {
   realName: string;
   displayName: string;
   email: string;
+  /** Slack profile image_* URL from users.list (HTTPS). */
+  profileImageUrl?: string;
   isBot: boolean;
   isDeleted: boolean;
 };
@@ -101,6 +105,9 @@ export function UserProfilesPanel() {
     try {
       const qs = live ? "?source=live" : "";
       const res = await fetch(`/api/admin/stripe-waitlist-purchasers${qs}`, { cache: "no-store" });
+      if (kickToLoginForUnauthorizedApi(res.status, "admin")) {
+        return;
+      }
       const body = (await res.json()) as StripePurchasersPayload;
       if (!res.ok) {
         setStripeWriteWarn(null);
@@ -135,6 +142,9 @@ export function UserProfilesPanel() {
     try {
       const qs = live ? "?source=live" : "";
       const res = await fetch(`/api/admin/slack-workspace-users${qs}`, { cache: "no-store" });
+      if (kickToLoginForUnauthorizedApi(res.status, "admin")) {
+        return;
+      }
       const body = (await res.json()) as SlackUsersPayload;
       if (!res.ok) {
         setSlackWriteWarn(null);
@@ -295,9 +305,12 @@ export function UserProfilesPanel() {
         ) : null}
         {slackUsers.length > 0 ? (
           <div className="overflow-x-auto rounded-xl border border-border">
-            <table className="w-full min-w-[720px] border-collapse text-left text-sm">
+            <table className="w-full min-w-[780px] border-collapse text-left text-sm">
               <thead>
                 <tr className="border-b border-border bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
+                  <th className="w-12 px-2 py-2" scope="col">
+                    <span className="sr-only">Photo</span>
+                  </th>
                   <th className="px-3 py-2">Email</th>
                   <th className="px-3 py-2">Name</th>
                   <th className="px-3 py-2">Username</th>
@@ -308,19 +321,43 @@ export function UserProfilesPanel() {
                 </tr>
               </thead>
               <tbody>
-                {slackUsers.map((u) => (
+                {slackUsers.map((u) => {
+                  const display = (u.realName || u.displayName || u.username || "").trim();
+                  const avatarSrc = (u.profileImageUrl ?? "").trim();
+                  return (
                   <tr key={u.slackUserId} className="border-b border-border/80 last:border-0">
-                    <td className="px-3 py-2 font-mono text-xs">{short(u.email || "—", 48)}</td>
-                    <td className="px-3 py-2 text-xs">
-                      {short((u.realName || u.displayName || u.username || "—").trim(), 40)}
+                    <td className="px-2 py-2 align-middle">
+                      {avatarSrc ? (
+                        <img
+                          src={avatarSrc}
+                          alt={display ? `${display} Slack profile` : "Slack profile"}
+                          width={32}
+                          height={32}
+                          loading="lazy"
+                          decoding="async"
+                          referrerPolicy="no-referrer"
+                          className="h-8 w-8 rounded-full object-cover ring-1 ring-border"
+                        />
+                      ) : (
+                        <span
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-muted text-[10px] text-muted-foreground ring-1 ring-border"
+                          title="No image from Slack"
+                          aria-hidden
+                        >
+                          —
+                        </span>
+                      )}
                     </td>
+                    <td className="px-3 py-2 font-mono text-xs">{short(u.email || "—", 48)}</td>
+                    <td className="px-3 py-2 text-xs">{short(display || "—", 40)}</td>
                     <td className="px-3 py-2 font-mono text-xs">{short(u.username, 28)}</td>
                     <td className="px-3 py-2 font-mono text-xs">{short(u.slackUserId, 16)}</td>
                     <td className="px-3 py-2 font-mono text-xs">{short(u.teamId, 14)}</td>
                     <td className="px-3 py-2 text-xs">{u.isBot ? "yes" : "—"}</td>
                     <td className="px-3 py-2 text-xs">{u.isDeleted ? "yes" : "—"}</td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>

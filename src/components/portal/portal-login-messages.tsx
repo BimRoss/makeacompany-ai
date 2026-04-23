@@ -20,13 +20,5 @@ export function PortalLoginMessages() {
       </p>
     );
   }
-  if (auth === "unauthorized") {
-    return (
-      <p className="rounded-lg border border-destructive/25 bg-destructive/5 px-4 py-3 text-center text-sm text-destructive" role="alert">
-        You are not authorized to access this company. Sign in with the same email as a channel owner in Slack (and
-        ensure owner ids and Slack user sync are configured).
-      </p>
-    );
-  }
   return null;
 }

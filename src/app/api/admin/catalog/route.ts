@@ -1,9 +1,19 @@
 import { NextResponse } from "next/server";
-import { backendProxyAuthHeaders, parseBackendProxyBody, resolveBackendBaseURL } from "@/lib/backend-proxy-auth";
+import {
+  backendProxyAuthHeaders,
+  parseBackendProxyBody,
+  requireAdminApiSession,
+  resolveBackendBaseURL,
+} from "@/lib/backend-proxy-auth";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
+  const unauthorized = await requireAdminApiSession();
+  if (unauthorized) {
+    return unauthorized;
+  }
+
   const base = resolveBackendBaseURL().replace(/\/$/, "");
   const runtimeReadToken = process.env.CAPABILITY_CATALOG_READ_TOKEN?.trim();
 

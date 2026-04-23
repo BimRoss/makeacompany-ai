@@ -1,12 +1,13 @@
 "use client";
 
-import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { Loader2 } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { AdminChannelControlPane } from "@/components/admin/admin-channel-control-pane";
+import { AdminChannelControlPane, type AdminChannelFounder } from "@/components/admin/admin-channel-control-pane";
 import { AdminChannelKnowledgeDigest } from "@/components/admin/admin-channel-knowledge-digest";
 import type { SlackTranscriptAuthorLookup } from "@/components/admin/admin-channel-digest-views";
-import { channelDisplayTitle, type CompanyChannel } from "@/lib/admin/company-channels";
+import { companyChannelWorkspaceTitle, type CompanyChannel } from "@/lib/admin/company-channels";
+import { kickToLoginForUnauthorizedApi } from "@/lib/client-auth-unauthorized-redirect";
 
 type LoadState = "idle" | "loading" | "error" | "ready";
 
@@ -16,18 +17,17 @@ export type CompanyChannelWorkspaceDetailProps = {
   channelId: string;
   /** `admin`: MakeACompany admin session + `/api/admin/*`. `portal`: owner session + `/api/portal/*`. */
   variant: CompanyChannelWorkspaceVariant;
-  backNav: { href: string; label: string };
 };
+
+function looksSlackMemberId(s: string): boolean {
+  return /^U[A-Z0-9]{8,}$/i.test(s.trim());
+}
 
 /**
  * Single company-channel workspace: metadata, toggles, transcript.
  * Used from `/admin/[channelId]` (admin-only) and `/[channelId]` (portal owners) — same UI, different auth + API prefix.
  */
-export function CompanyChannelWorkspaceDetail({
-  channelId,
-  variant,
-  backNav,
-}: CompanyChannelWorkspaceDetailProps) {
+export function CompanyChannelWorkspaceDetail({ channelId, variant }: CompanyChannelWorkspaceDetailProps) {
   const [state, setState] = useState<LoadState>("idle");
   const [transcriptError, setTranscriptError] = useState<string | null>(null);
   const [channel, setChannel] = useState<CompanyChannel | null>(null);
@@ -47,10 +47,6 @@ export function CompanyChannelWorkspaceDetail({
     setTranscriptError(null);
     setChannelStatus("loading");
     const enc = encodeURIComponent(channelId);
-    const unauthorizedKnowledge =
-      variant === "admin"
-        ? "Unauthorized loading transcript. Check admin session."
-        : "Unauthorized loading transcript. Sign in again from the company login page.";
 
     try {
       const [chRes, knRes, profRes] = await Promise.all([
@@ -58,6 +54,15 @@ export function CompanyChannelWorkspaceDetail({
         fetch(`/api/${apiPrefix}/channel-knowledge/${enc}`, { cache: "no-store" }),
         fetch(profilesUrl, { cache: "no-store" }),
       ]);
+
+      const flow = variant === "admin" ? "admin" : "portal";
+      if (
+        kickToLoginForUnauthorizedApi(chRes.status, flow, channelId) ||
+        kickToLoginForUnauthorizedApi(knRes.status, flow, channelId) ||
+        kickToLoginForUnauthorizedApi(profRes.status, flow, channelId)
+      ) {
+        return;
+      }
 
       const chPayload = (await chRes.json().catch(() => null)) as
         | { channel?: CompanyChannel; redisKey?: string; error?: string }
@@ -83,9 +88,7 @@ export function CompanyChannelWorkspaceDetail({
       if (!knRes.ok) {
         setMarkdown("");
         setKnowledgeEmpty(false);
-        setTranscriptError(
-          knRes.status === 401 ? unauthorizedKnowledge : (knPayload?.error ?? "Could not load channel transcript."),
-        );
+        setTranscriptError(knPayload?.error ?? "Could not load channel transcript.");
       } else {
         const md = typeof knPayload?.markdown === "string" ? knPayload.markdown : "";
         setMarkdown(md);
@@ -128,24 +131,44 @@ export function CompanyChannelWorkspaceDetail({
     void load();
   }, [load]);
 
-  const title =
-    channel && channelStatus === "ready" ? channelDisplayTitle(channel) : channelId;
+  const pageTitle =
+    channel && channelStatus === "ready" ? companyChannelWorkspaceTitle(channel) : channelId;
+  const workspaceChannelId = (channel?.channel_id ?? channelId).trim().toUpperCase();
+
+  const foundersForHeader = useMemo((): AdminChannelFounder[] | undefined => {
+    if (channelStatus !== "ready" || !channel) return undefined;
+    const ids = channel.owner_ids?.map((id) => id.trim()).filter(Boolean) ?? [];
+    return ids.map((id) => {
+      const up = id.toUpperCase();
+      const lu = slackAuthorLookup[up];
+      const raw = lu?.displayName?.trim() ?? "";
+      const isPlaceholder = !raw || looksSlackMemberId(raw) || raw.toUpperCase() === up;
+      return {
+        displayName: isPlaceholder ? "Member" : raw,
+        portraitUrl: lu?.portraitUrl?.trim() || undefined,
+      };
+    });
+  }, [channel, channelStatus, slackAuthorLookup]);
+
+  if (state === "loading" || state === "idle") {
+    return (
+      <div
+        className="flex min-h-0 flex-1 flex-col items-center justify-center"
+        aria-busy="true"
+        aria-live="polite"
+      >
+        <Loader2
+          className="size-20 animate-spin text-black/25 sm:size-24"
+          strokeWidth={0.55}
+          aria-hidden
+        />
+        <p className="sr-only">Loading channel workspace</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
-      <div>
-        <Link
-          href={backNav.href}
-          className="text-sm font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-        >
-          {backNav.label}
-        </Link>
-        <h1 className="mt-2 text-2xl font-semibold tracking-tight">{title}</h1>
-      </div>
-
-      {state === "loading" || state === "idle" ? (
-        <p className="text-sm text-muted-foreground">Loading channel…</p>
-      ) : null}
       {transcriptError ? <p className="text-sm text-destructive">{transcriptError}</p> : null}
 
       <AdminChannelControlPane
@@ -156,16 +179,14 @@ export function CompanyChannelWorkspaceDetail({
         redisKey={redisKey}
         onChannelUpdated={setChannel}
         companyChannelsApiPrefix={variant === "portal" ? "portal" : "admin"}
+        workspaceTitle={pageTitle}
+        workspaceChannelId={workspaceChannelId}
+        founders={foundersForHeader}
       />
 
       {knowledgeEmpty && state === "ready" && !transcriptError ? (
-        <div className="overflow-hidden rounded-lg border border-border bg-card shadow-sm">
-          <div className="border-b border-border bg-muted/20 px-4 py-3">
-            <h2 className="text-base font-semibold tracking-tight">Transcript</h2>
-          </div>
-          <p className="px-4 py-5 text-sm text-muted-foreground">
-            No channel knowledge digest in Redis yet for this channel.
-          </p>
+        <div className="overflow-hidden rounded-lg border border-border bg-card px-4 py-5 shadow-sm">
+          <p className="text-sm text-muted-foreground">No channel knowledge digest in Redis yet for this channel.</p>
         </div>
       ) : null}
       {!knowledgeEmpty && markdown.trim() ? (

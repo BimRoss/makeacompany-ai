@@ -2,6 +2,8 @@
 
 import { Fragment, useCallback, useEffect, useState } from "react";
 
+import { kickToLoginForUnauthorizedApi } from "@/lib/client-auth-unauthorized-redirect";
+
 export type DecisionEntry = {
   time: string;
   inner_type: string;
@@ -59,6 +61,9 @@ export function OrchestratorDebugPanel() {
       const res = await fetch("/api/orchestrator-decisions?limit=100", {
         cache: "no-store",
       });
+      if (kickToLoginForUnauthorizedApi(res.status, "admin")) {
+        return;
+      }
       const body = (await res.json()) as Payload & { error?: string; message?: string };
       if (!res.ok) {
         setError(body.message ?? body.error ?? `HTTP ${res.status}`);

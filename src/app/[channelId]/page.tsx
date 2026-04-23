@@ -11,11 +11,7 @@ export default async function CompanyChannelPage({ params }: Props) {
   return (
     <>
       <PortalPostAuthWelcomeToast />
-      <CompanyChannelWorkspaceDetail
-        channelId={id}
-        variant="portal"
-        backNav={{ href: "/", label: "← Home" }}
-      />
+      <CompanyChannelWorkspaceDetail channelId={id} variant="portal" />
     </>
   );
 }

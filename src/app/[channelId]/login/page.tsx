@@ -2,8 +2,10 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 
 import { SignInCard, SignInMethodStack } from "@/components/auth/sign-in-card";
+import { SignInUnauthorizedToast } from "@/components/auth/sign-in-unauthorized-toast";
 import { PortalEmailMagicForm } from "@/components/portal/portal-email-magic-form";
 import { PortalGoogleSignIn } from "@/components/portal/portal-google-sign-in";
+import { PortalLoginRedirectWhenSessionValid } from "@/components/portal/portal-login-redirect-when-session-valid";
 import { PortalLoginMessages } from "@/components/portal/portal-login-messages";
 import { getPortalLoginCompanyLabel } from "@/lib/portal/portal-login-channel-label";
 
@@ -35,7 +37,10 @@ export default async function CompanyChannelLoginPage({ params, searchParams }: 
   );
 
   return (
-    <SignInCard
+    <>
+      <PortalLoginRedirectWhenSessionValid channelId={id} />
+      <SignInUnauthorizedToast message="You aren't allowed to access this company with that account. Use the same email as a channel owner in Slack." />
+      <SignInCard
       title={`${label} company portal`}
       titleClassName="capitalize"
       headingProps={{ title: `Slack channel id: ${id}` }}
@@ -55,5 +60,6 @@ export default async function CompanyChannelLoginPage({ params, searchParams }: 
         />
       }
     />
+    </>
   );
 }

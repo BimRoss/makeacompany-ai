@@ -3,7 +3,8 @@ import { NextResponse } from "next/server";
 import { adminSessionCookieName } from "@/lib/admin-session-cookie";
 import { portalChannelCookieName, portalSessionCookieName } from "@/lib/portal-session-cookies";
 import { parseGoogleOAuthState } from "@/lib/portal-google-oauth-state";
-import { cookieSecureFromRequest, resolveBackendBaseURL, resolvePublicOrigin } from "@/lib/http-origin";
+import { resolveBackendBaseURL } from "@/lib/backend-proxy-auth";
+import { cookieSecureFromRequest, resolvePublicOrigin } from "@/lib/http-origin";
 
 export const dynamic = "force-dynamic";
 

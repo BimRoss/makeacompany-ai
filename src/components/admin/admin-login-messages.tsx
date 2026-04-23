@@ -20,12 +20,5 @@ export function AdminLoginMessages() {
       </p>
     );
   }
-  if (auth === "unauthorized") {
-    return (
-      <p className="text-center text-sm text-destructive" role="alert">
-        That account is not allowlisted for admin access.
-      </p>
-    );
-  }
   return null;
 }

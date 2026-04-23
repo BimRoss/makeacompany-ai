@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireAdminApiSession, resolveBackendBaseURL } from "@/lib/backend-proxy-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -7,12 +8,12 @@ const MAX_LIMIT = 5_000_000;
 const DEFAULT_OFFSET = 0;
 
 export async function GET(request: Request) {
-  const isKubernetes = Boolean(process.env.KUBERNETES_SERVICE_HOST);
-  const defaultBackendBase = isKubernetes ? "http://makeacompany-ai-backend:8080" : "http://localhost:8080";
-  const backendBase =
-    process.env.BACKEND_INTERNAL_API_BASE_URL ??
-    process.env.NEXT_PUBLIC_BACKEND_API_BASE_URL ??
-    defaultBackendBase;
+  const unauthorized = await requireAdminApiSession();
+  if (unauthorized) {
+    return unauthorized;
+  }
+
+  const backendBase = resolveBackendBaseURL();
 
   const incomingUrl = new URL(request.url);
   const requestedLimit = Number.parseInt(incomingUrl.searchParams.get("limit") ?? "", 10);

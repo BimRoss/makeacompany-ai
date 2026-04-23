@@ -19,19 +19,17 @@ export function resolveBackendBaseURL(): string {
 }
 
 /**
- * Prefer BACKEND_INTERNAL_SERVICE_TOKEN for server-to-server API calls when Stripe sessions are not used.
- * Falls back to the legacy mac_admin_session cookie when present.
+ * Bearer from admin session cookie only (for `/api/admin/*` browser requests).
  */
-export async function resolveBackendBearerToken(): Promise<string | null> {
-  const internal = process.env.BACKEND_INTERNAL_SERVICE_TOKEN?.trim();
-  if (internal) return internal;
+export async function resolveAdminSessionBearerToken(): Promise<string | null> {
   const cookieStore = await cookies();
-  return cookieStore.get(adminSessionCookieName)?.value ?? null;
+  const token = cookieStore.get(adminSessionCookieName)?.value?.trim();
+  return token || null;
 }
 
-/** Authorization header for Next.js → backend admin proxies (internal token and/or mac_admin_session). */
+/** Authorization header for Next.js → Go `/v1/admin/*` proxies (admin session cookie only). */
 export async function backendProxyAuthHeaders(): Promise<HeadersInit> {
-  const token = await resolveBackendBearerToken();
+  const token = await resolveAdminSessionBearerToken();
   if (!token) return {};
   return { Authorization: `Bearer ${token}` };
 }
@@ -61,12 +59,64 @@ export async function parseBackendProxyBody(response: Response): Promise<unknown
   }
 }
 
-const adminNoStoreHeaders = {
+const proxyJsonNoStoreHeaders = {
   "Cache-Control": "private, no-store, no-cache, must-revalidate, max-age=0",
   Pragma: "no-cache",
 } as const;
 
 /** JSON from admin API proxies — never cache (avoids stale empty snapshot after a live refresh). */
 export function adminProxyNextJson(body: unknown, status: number) {
-  return NextResponse.json(body, { status, headers: adminNoStoreHeaders });
+  return NextResponse.json(body, { status, headers: proxyJsonNoStoreHeaders });
+}
+
+/** Same cache semantics as admin proxies; use for portal API JSON. */
+export function portalProxyNextJson(body: unknown, status: number) {
+  return NextResponse.json(body, { status, headers: proxyJsonNoStoreHeaders });
+}
+
+/** Rejects requests without a valid admin session. Use on API routes that do not proxy `/v1/admin/*`. */
+export async function requireAdminApiSession(): Promise<NextResponse | null> {
+  const token = await resolveAdminSessionBearerToken();
+  if (!token) {
+    return adminProxyNextJson({ error: "unauthorized" }, 401);
+  }
+
+  const backendURL = `${resolveBackendBaseURL().replace(/\/$/, "")}/v1/admin/auth/me`;
+  try {
+    const response = await fetch(backendURL, {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
+    });
+    if (response.ok) {
+      return null;
+    }
+    return adminProxyNextJson({ error: "unauthorized" }, 401);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    return adminProxyNextJson({ error: `session verification failed: ${message}` }, 502);
+  }
+}
+
+/** Rejects requests without a valid portal session (cookie + backend `/v1/portal/auth/me`). */
+export async function requirePortalApiSession(): Promise<NextResponse | null> {
+  const cookieStore = await cookies();
+  const token = cookieStore.get(portalSessionCookieName)?.value?.trim();
+  if (!token) {
+    return portalProxyNextJson({ error: "unauthorized" }, 401);
+  }
+
+  const backendURL = `${resolveBackendBaseURL().replace(/\/$/, "")}/v1/portal/auth/me`;
+  try {
+    const response = await fetch(backendURL, {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
+    });
+    if (response.ok) {
+      return null;
+    }
+    return portalProxyNextJson({ error: "unauthorized" }, 401);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    return portalProxyNextJson({ error: `session verification failed: ${message}` }, 502);
+  }
 }

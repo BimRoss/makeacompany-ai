@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { channelDisplayTitle, type CompanyChannel, type CompanyChannelsResponse } from "@/lib/admin/company-channels";
+import { kickToLoginForUnauthorizedApi } from "@/lib/client-auth-unauthorized-redirect";
 
 type LoadState = "idle" | "loading" | "error" | "ready";
 
@@ -66,7 +67,7 @@ function needsRegistryPolicySync(row: MergedRow): boolean {
 }
 
 async function buildDiscoverChannelsFromSlack(rows: MergedRow[]): Promise<
-  Array<{ channel_id: string; name: string; owner_ids: string[] }>
+  Array<{ channel_id: string; name: string; owner_ids: string[] }> | null
 > {
   const slice = rows.slice(0, maxDiscoverPolicySyncChannels);
   const concurrency = 6;
@@ -81,6 +82,9 @@ async function buildDiscoverChannelsFromSlack(rows: MergedRow[]): Promise<
             `/api/admin/slack-channel-members?channel_id=${encodeURIComponent(row.channel_id)}`,
             { cache: "no-store" },
           );
+          if (kickToLoginForUnauthorizedApi(res.status, "admin")) {
+            return null;
+          }
           if (res.ok) {
             const data = (await res.json().catch(() => null)) as { human_user_ids?: string[] } | null;
             if (data && Array.isArray(data.human_user_ids)) {
@@ -97,7 +101,12 @@ async function buildDiscoverChannelsFromSlack(rows: MergedRow[]): Promise<
         };
       }),
     );
-    out.push(...chunk);
+    if (chunk.some((c) => c === null)) {
+      return null;
+    }
+    out.push(
+      ...chunk.filter((c): c is { channel_id: string; name: string; owner_ids: string[] } => c !== null),
+    );
   }
   return out;
 }
@@ -126,6 +135,13 @@ export function AdminCompanyChannelsStrip() {
         fetch("/api/admin/slack-member-channels", { cache: "no-store" }),
         fetch("/api/admin/company-channels", { cache: "no-store" }),
       ]);
+
+      if (
+        kickToLoginForUnauthorizedApi(slackRes.status, "admin") ||
+        kickToLoginForUnauthorizedApi(redisRes.status, "admin")
+      ) {
+        return;
+      }
 
       const slackPayload = (await slackRes.json().catch(() => null)) as SlackMemberPayload | null;
       const redisPayload = (await redisRes.json().catch(() => null)) as
@@ -182,14 +198,23 @@ export function AdminCompanyChannelsStrip() {
               );
             }
             const channels = await buildDiscoverChannelsFromSlack(forDiscover);
+            if (channels === null) {
+              return;
+            }
             const discoverRes = await fetch("/api/admin/company-channels/discover", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ channels }),
               cache: "no-store",
             });
+            if (kickToLoginForUnauthorizedApi(discoverRes.status, "admin")) {
+              return;
+            }
             if (discoverRes.ok) {
               const redisRefresh = await fetch("/api/admin/company-channels", { cache: "no-store" });
+              if (kickToLoginForUnauthorizedApi(redisRefresh.status, "admin")) {
+                return;
+              }
               const refreshPayload = (await redisRefresh.json().catch(() => null)) as
                 | (CompanyChannelsResponse & { error?: string })
                 | null;

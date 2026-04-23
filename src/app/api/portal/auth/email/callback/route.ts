@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 
 import { portalChannelCookieName, portalSessionCookieName } from "@/lib/portal-session-cookies";
-import { cookieSecureFromRequest, resolveBackendBaseURL, resolvePublicOrigin } from "@/lib/http-origin";
+import { resolveBackendBaseURL } from "@/lib/backend-proxy-auth";
+import { cookieSecureFromRequest, resolvePublicOrigin } from "@/lib/http-origin";
 
 export const dynamic = "force-dynamic";
 

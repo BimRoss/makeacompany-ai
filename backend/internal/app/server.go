@@ -402,7 +402,7 @@ func (s *Server) handleWaitlistStats(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// handleAdminWaitlist lists waitlist rows from Redis (PII). Allowed with BACKEND_INTERNAL_SERVICE_TOKEN or Stripe admin session.
+// handleAdminWaitlist lists waitlist rows from Redis (PII). Requires a valid admin session.
 func (s *Server) handleAdminWaitlist(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
