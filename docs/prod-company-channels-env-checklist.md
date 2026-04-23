@@ -18,7 +18,7 @@ Use this when deploying or after a Redis **gut** of rebuildable `employee-factor
 
 | Variable | Where | Purpose |
 |----------|--------|---------|
-| `GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET` | **Next + Go** (runtime Secret in prod) | `/{channelId}/login` and `/admin/login` → Continue with Google. Register redirects `https://makeacompany.ai/api/portal/auth/google/callback` and `https://makeacompany.ai/api/admin/auth/google/callback` in Google Cloud Console. |
+| `GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET` | **Next + Go** (runtime Secret in prod) | `/{channelId}/login` and `/admin/login` → Continue with Google. Register **`https://makeacompany.ai/api/portal/auth/google/callback`** in Google Cloud Console (admin reuses it). |
 | `PORTAL_GOOGLE_OAUTH_STATE_SECRET` | **Next** (optional) | HMAC for OAuth `state`; min 16 chars, or omit to derive from client secret. |
 | `RESEND_API_KEY` / `PORTAL_AUTH_EMAIL_FROM` | **Go + Next** (runtime Secret) | Magic sign-in links; `from` must be verified in Resend. |
 | `APP_BASE_URL` | **Go** (ConfigMap) | Magic links use this origin (already `https://makeacompany.ai` in cluster). |

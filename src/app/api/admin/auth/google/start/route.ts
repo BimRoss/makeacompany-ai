@@ -21,7 +21,8 @@ export async function GET(request: Request) {
     );
   }
   const origin = resolvePublicOrigin(request);
-  const redirectUri = `${origin}/api/admin/auth/google/callback`;
+  // Reuse the portal redirect URI so Google Cloud only needs the callback already used for channel login.
+  const redirectUri = `${origin}/api/portal/auth/google/callback`;
   const params = new URLSearchParams({
     client_id: clientId,
     redirect_uri: redirectUri,

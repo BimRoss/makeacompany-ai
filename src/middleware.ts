@@ -6,6 +6,20 @@ import { matchCompanyPortalPath } from "@/lib/slack-channel-id";
 
 const adminSessionCookieName = "mac_admin_session";
 
+/** Removed from portal URLs; Stripe checkout prefill is no longer used for Google/email sign-in. */
+const legacyPortalStripeSearchKeys = ["stripe_customer", "stripeCustomer", "stripeCustomerId"] as const;
+
+function stripLegacyPortalStripeSearchParams(url: URL): boolean {
+  let removed = false;
+  for (const key of legacyPortalStripeSearchKeys) {
+    if (url.searchParams.has(key)) {
+      url.searchParams.delete(key);
+      removed = true;
+    }
+  }
+  return removed;
+}
+
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const session = request.cookies.get(adminSessionCookieName)?.value?.trim();
@@ -35,11 +49,16 @@ export function middleware(request: NextRequest) {
       if (sessionMatchesURL) {
         return NextResponse.redirect(new URL(`/${portalPath.channelId}`, request.url));
       }
+      const loginClean = new URL(request.url);
+      if (stripLegacyPortalStripeSearchParams(loginClean)) {
+        return NextResponse.redirect(loginClean);
+      }
       return NextResponse.next();
     }
     if (!sessionMatchesURL) {
       const login = new URL(`/${portalPath.channelId}/login`, request.url);
       login.search = request.nextUrl.search;
+      stripLegacyPortalStripeSearchParams(login);
       return NextResponse.redirect(login);
     }
     return NextResponse.next();
