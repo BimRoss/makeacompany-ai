@@ -39,7 +39,9 @@
       "backgroundColor": "#000000",
       "status": "active",
       "sourceManifest": "slack-factory/manifests/ross/app-manifest.json",
-      "skillIds": []
+      "skillIds": [
+        "read-user"
+      ]
     },
     {
       "id": "garth",

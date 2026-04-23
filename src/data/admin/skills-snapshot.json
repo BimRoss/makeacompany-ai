@@ -21,11 +21,12 @@
       "description": "Create, edit, and organize working docs. Requires confirmation before publish.",
       "employeeIds": ["joanne"],
       "requiredParams": ["intent", "title", "editors"],
-      "optionalParams": ["commenters", "viewers", "type"],
+      "optionalParams": ["commenters", "viewers", "type", "length"],
       "paramDefaults": {
         "title": "Derived from intent when omitted; runtime infers a working title before draft",
         "editors": "Message author email (implicit default); append @mentions or explicit editor emails",
         "type": "outline",
+        "length": "Defaults to one page when omitted",
         "commenters": "none",
         "viewers": "none"
       }

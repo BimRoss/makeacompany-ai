@@ -219,6 +219,7 @@ func mergeCreateDocParamDefaultsMap(incoming map[string]string) map[string]strin
 		"title":      "Derived from intent when omitted; runtime infers a working title before draft",
 		"editors":    "Message author email (implicit default); append @mentions or explicit editor emails",
 		"type":       "outline",
+		"length":     "Defaults to one page when omitted",
 		"commenters": "none",
 		"viewers":    "none",
 	}
@@ -283,7 +284,7 @@ func builtinSkillParamDefaults(skillID string) (minRequired, defaultOptional []s
 	case "create-email":
 		return []string{"intent", "to"}, []string{"button", "link"}
 	case "create-doc":
-		return []string{"intent", "title", "editors"}, []string{"commenters", "viewers", "type"}
+		return []string{"intent", "title", "editors"}, []string{"commenters", "viewers", "type", "length"}
 	case "create-company":
 		return []string{"name", "founders"}, nil
 	case "delete-company":
