@@ -303,7 +303,7 @@ func (s *Server) handleCheckout(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "stripe is not configured"})
 		return
 	}
-	signups, _, err := s.store.GetWaitlistStats(r.Context())
+	signups, _, err := s.store.GetWaitlistStatsForPublic(r.Context())
 	if err != nil {
 		s.log.Printf("checkout waitlist stats: %v", err)
 		writeJSON(w, http.StatusServiceUnavailable, map[string]any{"error": "unable to verify waitlist availability"})
@@ -369,7 +369,7 @@ func (s *Server) handleWaitlistStats(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	signups, amountCents, err := s.store.GetWaitlistStats(r.Context())
+	signups, amountCents, err := s.store.GetWaitlistStatsForPublic(r.Context())
 	if err != nil {
 		s.log.Printf("waitlist stats: %v", err)
 		http.Error(w, "stats error", http.StatusInternalServerError)

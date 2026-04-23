@@ -214,6 +214,28 @@ func (s *Store) GetWaitlistStats(ctx context.Context) (signups int64, amountCent
 	return n, a, nil
 }
 
+// GetWaitlistStatsForPublic uses paid purchaser count from the Stripe waitlist Redis snapshot as
+// signups when that snapshot exists (same cardinality as the admin Stripe table). Falls back to
+// Redis counters when the snapshot is missing or unreadable. amountCents stays from Redis aggregates.
+func (s *Store) GetWaitlistStatsForPublic(ctx context.Context) (signups int64, amountCents int64, err error) {
+	signups, amountCents, err = s.GetWaitlistStats(ctx)
+	if err != nil {
+		return 0, 0, err
+	}
+	raw, snapErr := s.GetStripeWaitlistSnapshotBytes(ctx)
+	if snapErr != nil {
+		if errors.Is(snapErr, ErrStripeWaitlistSnapshotMissing) {
+			return signups, amountCents, nil
+		}
+		return signups, amountCents, nil
+	}
+	env, parseErr := ParseStripeWaitlistSnapshotEnvelope(raw)
+	if parseErr != nil {
+		return signups, amountCents, nil
+	}
+	return int64(len(env.Purchasers)), amountCents, nil
+}
+
 // WaitlistUser is one row from Redis hash makeacompany:waitlist:<email>.
 type WaitlistUser struct {
 	Email           string `json:"email"`
