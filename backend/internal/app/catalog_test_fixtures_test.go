@@ -64,10 +64,10 @@ func testCatalogFixture() CapabilityCatalog {
 				Label:          "Delete Company",
 				Description:    "Permanently delete a company Slack channel and remove app-owned Redis data for that workspace (frees the channel name). Requires explicit Confirm/Cancel before any write.",
 				RuntimeTool:    "joanne-delete-company",
-				RequiredParams: []string{"channel"},
+				RequiredParams: []string{"name"},
 				OptionalParams: []string{},
 				ParamDefaults: map[string]string{
-					"channel": "The Slack channel where the command runs (implicit default; operators do not pass this at runtime)",
+					"name": "Company / channel slug (gathered in-thread when not in the first message)",
 				},
 				Requires: []string{"slack_workspace"},
 			},
@@ -91,7 +91,7 @@ func testCatalogFixture() CapabilityCatalog {
 			{
 				ID:             "read-user",
 				Label:          "Read User",
-				Description:    "Show the message author's Stripe customer id, Slack user id, and Slack workspace team id. Runs immediately in Slack (no confirmation).",
+				Description:    "Show the message author's email, Slack user id, and Stripe customer id. Runs immediately in Slack (no confirmation).",
 				RuntimeTool:    "joanne-read-user",
 				RequiredParams: []string{},
 				OptionalParams: []string{},
@@ -118,7 +118,7 @@ func testCatalogFixture() CapabilityCatalog {
 		EmployeeSkillIDs: map[string][]string{
 			"alex":   {},
 			"tim":    {},
-			"ross":   {"read-user"},
+			"ross":   {},
 			"garth":  {"read-twitter", "read-trends"},
 			"joanne": {"read-company", "read-skills", "read-user", "create-company", "delete-company", "create-email", "create-doc"},
 		},

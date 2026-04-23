@@ -48,10 +48,10 @@
       "label": "Delete Company",
       "description": "Archive a company Slack channel and remove app-owned Redis data for that workspace. Requires explicit Confirm/Cancel before any write.",
       "employeeIds": ["joanne"],
-      "requiredParams": ["channel"],
+      "requiredParams": ["name"],
       "optionalParams": [],
       "paramDefaults": {
-        "channel": "The Slack channel where the command runs (implicit default; operators do not pass this at runtime)"
+        "name": "Company / channel slug (gathered in-thread when not in the first message)"
       }
     },
     {
@@ -73,7 +73,7 @@
     {
       "id": "read-user",
       "label": "Read User",
-      "description": "Show the message author's Stripe customer id (makeacompany Redis profile), Slack user id, and Slack workspace team id. Runs immediately in Slack (no confirmation).",
+      "description": "Show the message author's email, Slack user id, and Stripe customer id (makeacompany Redis profile). Runs immediately in Slack (no confirmation).",
       "employeeIds": ["joanne"],
       "requiredParams": [],
       "optionalParams": []

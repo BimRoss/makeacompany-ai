@@ -260,7 +260,7 @@ func mergeCreateCompanyParamDefaultsMap(incoming map[string]string) map[string]s
 
 func mergeDeleteCompanyParamDefaultsMap(incoming map[string]string) map[string]string {
 	def := map[string]string{
-		"channel": "The Slack channel where the command runs (implicit default; operators do not pass this at runtime)",
+		"name": "Company / channel slug (gathered in-thread when not in the first message)",
 	}
 	out := make(map[string]string, len(def)+len(incoming))
 	for k, v := range def {
@@ -288,7 +288,7 @@ func builtinSkillParamDefaults(skillID string) (minRequired, defaultOptional []s
 	case "create-company":
 		return []string{"name", "founders"}, nil
 	case "delete-company":
-		return []string{"channel"}, nil
+		return []string{"name"}, nil
 	case "read-company", "read-skills", "read-user":
 		return nil, nil
 	case "read-twitter":
