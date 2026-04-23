@@ -71,6 +71,7 @@
       "skillIds": [
         "read-company",
         "read-skills",
+        "read-user",
         "create-company",
         "delete-company",
         "create-email",

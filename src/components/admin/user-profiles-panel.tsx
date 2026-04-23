@@ -328,8 +328,8 @@ export function UserProfilesPanel() {
             <table className="w-full min-w-[720px] border-collapse text-left text-sm">
               <thead>
                 <tr className="border-b border-border bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
-                  <th className="px-3 py-2">Name</th>
                   <th className="px-3 py-2">Email</th>
+                  <th className="px-3 py-2">Name</th>
                   <th className="px-3 py-2">Username</th>
                   <th className="px-3 py-2">Slack ID</th>
                   <th className="px-3 py-2">Team</th>
@@ -343,9 +343,6 @@ export function UserProfilesPanel() {
                   const hasStripeMatch = slackEmailNorm !== null && stripeEmailSet.has(slackEmailNorm);
                   return (
                   <tr key={u.slackUserId} className="border-b border-border/80 last:border-0">
-                    <td className="px-3 py-2 text-xs">
-                      {short((u.realName || u.displayName || u.username || "—").trim(), 40)}
-                    </td>
                     <td className="px-3 py-2 font-mono text-xs">
                       <span className="inline-flex items-center gap-1.5">
                         {hasStripeMatch ? (
@@ -361,6 +358,9 @@ export function UserProfilesPanel() {
                         ) : null}
                         {short(u.email || "—", 48)}
                       </span>
+                    </td>
+                    <td className="px-3 py-2 text-xs">
+                      {short((u.realName || u.displayName || u.username || "—").trim(), 40)}
                     </td>
                     <td className="px-3 py-2 font-mono text-xs">{short(u.username, 28)}</td>
                     <td className="px-3 py-2 font-mono text-xs">{short(u.slackUserId, 16)}</td>

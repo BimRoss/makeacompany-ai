@@ -182,6 +182,8 @@ func builtinSkillDisplayLabel(skillID string) string {
 		return "Read Company"
 	case "read-skills":
 		return "Read Skills"
+	case "read-user":
+		return "Read User"
 	case "read-twitter":
 		return "Read Twitter"
 	case "read-trends":
@@ -193,13 +195,9 @@ func builtinSkillDisplayLabel(skillID string) string {
 
 func mergeCreateEmailParamDefaultsMap(incoming map[string]string) map[string]string {
 	def := map[string]string{
-		"subject":    "Note from BimRoss",
-		"to":         "Slack requester's profile email",
-		"button":     "none",
-		"commenters": "none",
-		"editors":    "none",
-		"link":       "none",
-		"viewers":    "none",
+		"to":     "Message author (Slack profile; makeacompany slack→email index when configured)",
+		"button": "none",
+		"link":   "none",
 	}
 	out := make(map[string]string, len(def)+len(incoming))
 	for k, v := range def {
@@ -218,10 +216,10 @@ func mergeCreateEmailParamDefaultsMap(incoming map[string]string) map[string]str
 
 func mergeCreateDocParamDefaultsMap(incoming map[string]string) map[string]string {
 	def := map[string]string{
-		"title":      "Doc from BimRoss",
+		"title":      "Derived from intent when omitted; runtime infers a working title before draft",
+		"editors":    "Message author email (implicit default); append @mentions or explicit editor emails",
 		"type":       "outline",
 		"commenters": "none",
-		"editors":    "none",
 		"viewers":    "none",
 	}
 	out := make(map[string]string, len(def)+len(incoming))
@@ -241,7 +239,8 @@ func mergeCreateDocParamDefaultsMap(incoming map[string]string) map[string]strin
 
 func mergeCreateCompanyParamDefaultsMap(incoming map[string]string) map[string]string {
 	def := map[string]string{
-		"founders": "Message author; add others with @mention",
+		"name":     "Company / channel slug (gathered in-thread when not in the first message)",
+		"founders": "Message author (implicit default); the skill appends @mentioned cofounders",
 	}
 	out := make(map[string]string, len(def)+len(incoming))
 	for k, v := range def {
@@ -260,7 +259,7 @@ func mergeCreateCompanyParamDefaultsMap(incoming map[string]string) map[string]s
 
 func mergeDeleteCompanyParamDefaultsMap(incoming map[string]string) map[string]string {
 	def := map[string]string{
-		"channel": "Current channel, or #name / channel link",
+		"channel": "The Slack channel where the command runs (implicit default; operators do not pass this at runtime)",
 	}
 	out := make(map[string]string, len(def)+len(incoming))
 	for k, v := range def {
@@ -282,14 +281,14 @@ func mergeDeleteCompanyParamDefaultsMap(incoming map[string]string) map[string]s
 func builtinSkillParamDefaults(skillID string) (minRequired, defaultOptional []string) {
 	switch skillID {
 	case "create-email":
-		return []string{"intent"}, []string{"subject", "to", "button", "commenters", "editors", "link", "viewers"}
+		return []string{"intent", "to"}, []string{"button", "link"}
 	case "create-doc":
-		return []string{"intent"}, []string{"title", "type", "commenters", "editors", "viewers"}
+		return []string{"intent", "title", "editors"}, []string{"commenters", "viewers", "type"}
 	case "create-company":
-		return []string{"name"}, []string{"founders"}
+		return []string{"name", "founders"}, nil
 	case "delete-company":
-		return nil, []string{"channel"}
-	case "read-company", "read-skills":
+		return []string{"channel"}, nil
+	case "read-company", "read-skills", "read-user":
 		return nil, nil
 	case "read-twitter":
 		return []string{"query"}, []string{"count"}
