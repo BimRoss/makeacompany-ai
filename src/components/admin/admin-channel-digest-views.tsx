@@ -12,8 +12,12 @@ import {
   useState,
   type ReactNode,
   type RefObject,
+  type UIEvent,
   type UIEventHandler,
 } from "react";
+
+/** Match `TOP_SCROLL_THRESHOLD_PX` in admin-channel-knowledge-digest for “load older” while scrolled near top. */
+const AUTHOR_COLUMN_TOP_SCROLL_THRESHOLD_PX = 80;
 import ReactMarkdown from "react-markdown";
 import {
   authorColumnOrder,
@@ -130,9 +134,20 @@ function pickThreadRoot(unit: ThreadUnit): DigestLine {
   return nonReply ?? messages[0]!;
 }
 
-function ThreadReplyCard({ line, author }: { line: DigestLine; author: SlackTranscriptAuthor | null }) {
+function ThreadReplyCard({
+  line,
+  author,
+  staggerIndex,
+}: {
+  line: DigestLine;
+  author: SlackTranscriptAuthor | null;
+  staggerIndex: number;
+}) {
   return (
-    <div className="w-full rounded-r-lg rounded-bl-lg border border-border/70 border-l-transparent bg-muted/15 py-2.5 pl-2 pr-3 shadow-sm">
+    <div
+      className="digest-thread-reply-in w-full rounded-xl border border-border/80 bg-muted/15 py-2.5 pl-2 pr-3 shadow-sm transition-[border-color,box-shadow] duration-500 ease-in-out"
+      style={{ animationDelay: `${staggerIndex * 70}ms` }}
+    >
       <div className="flex gap-2.5">
         <Avatar userId={line.userId} author={author} />
         <div className="min-w-0 flex-1">
@@ -169,6 +184,28 @@ function ThreadRightPanelSelectPrompt() {
       role="status"
     >
       Select a channel message to view its thread.
+    </div>
+  );
+}
+
+function AuthorRightPanelSelectPrompt() {
+  return (
+    <div
+      className="flex min-h-[12rem] flex-1 items-center justify-center rounded-xl border border-dashed border-border/60 bg-muted/15 px-4 py-8 text-center text-sm text-muted-foreground"
+      role="status"
+    >
+      Select an employee to view their messages.
+    </div>
+  );
+}
+
+function AuthorRightPanelEmpty() {
+  return (
+    <div
+      className="flex min-h-[10rem] flex-1 items-center justify-center rounded-xl border border-dashed border-border/80 bg-muted/20 px-4 py-8 text-center text-sm text-muted-foreground"
+      role="status"
+    >
+      No messages for this author
     </div>
   );
 }
@@ -237,7 +274,102 @@ function ThreadRootListRow({
   );
 }
 
-/** Root message pinned to the top of the right-hand thread column (replies scroll beneath). */
+function AuthorEmployeeListRow({
+  userId,
+  author,
+  messageCount,
+  previewBody,
+  selected,
+  onSelect,
+}: {
+  userId: string;
+  author: SlackTranscriptAuthor | null;
+  messageCount: number;
+  previewBody: string;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  const hasMany = messageCount > 1;
+  return (
+    <div role="listitem" className="relative w-full">
+      <button
+        type="button"
+        onClick={onSelect}
+        aria-pressed={selected}
+        className={clsx(
+          "relative w-full cursor-pointer rounded-xl border p-2.5 pr-2.5 text-left transition-[colors,box-shadow,opacity,ring] [&_*]:cursor-inherit",
+          selected
+            ? "border-transparent bg-white opacity-50 shadow-none ring-0 hover:border-transparent hover:bg-white hover:shadow-none dark:bg-background dark:hover:bg-background"
+            : clsx(
+                hasMany ? "shadow-lg" : "shadow-sm",
+                hasMany
+                  ? "border-border/80 bg-card hover:border-border hover:bg-card/50 border-l-[3px] border-l-muted-foreground/40 hover:border-l-muted-foreground/55"
+                  : "border-border/80 bg-card hover:border-border hover:bg-muted/30",
+              ),
+        )}
+      >
+        <div className="flex gap-2.5">
+          <Avatar userId={userId} author={author} />
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+              <AuthorHeading author={author} />
+              {hasMany ? (
+                <span className="shrink-0 text-[10px] text-muted-foreground">{messageCount} msgs</span>
+              ) : null}
+            </div>
+            <div className="mt-1 line-clamp-2 text-left text-[12px] leading-snug text-muted-foreground">
+              <span className="text-foreground/90">{previewBody.replace(/\s+/g, " ").trim()}</span>
+            </div>
+          </div>
+        </div>
+      </button>
+    </div>
+  );
+}
+
+/** Selected employee identity (fixed above the message scroll area; mirrors thread sticky root chrome). */
+function AuthorRightStickyHeader({
+  userId,
+  author,
+  messageCount,
+  onClose,
+}: {
+  userId: string;
+  author: SlackTranscriptAuthor | null;
+  messageCount: number;
+  onClose: () => void;
+}) {
+  return (
+    <div
+      role="region"
+      aria-label="Selected author"
+      className="w-full shrink-0 rounded-xl border border-border/80 bg-muted/15 py-2.5 pl-2 pr-3 shadow-sm transition-[border-color,box-shadow,background-color] duration-500 ease-in-out"
+    >
+      <div className="relative pr-11">
+        <div className="flex gap-2.5">
+          <Avatar userId={userId} author={author} />
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+              <AuthorHeading author={author} />
+              <span className="shrink-0 text-[10px] text-muted-foreground">{messageCount} msgs</span>
+            </div>
+          </div>
+        </div>
+        <button
+          type="button"
+          aria-label="Close author"
+          title="Close"
+          onClick={onClose}
+          className="absolute right-0 top-0 z-[1] flex size-8 items-center justify-center rounded-full border border-border bg-card text-foreground shadow-sm transition-[background-color,border-color,box-shadow,transform,opacity] duration-500 ease-in-out hover:bg-muted/50 active:scale-95 dark:hover:bg-muted/40"
+        >
+          <X className="size-4 stroke-[2.5]" strokeLinecap="round" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** Root message for the right-hand thread column (fixed above the replies scroll area; same card chrome as replies). */
 function ThreadRightStickyRoot({
   unit,
   onClose,
@@ -255,30 +387,28 @@ function ThreadRightStickyRoot({
     <div
       role="region"
       aria-label="Selected thread"
-      className="sticky top-0 z-[4] border-b border-border/70 bg-background/95 px-1 pb-2.5 pt-1 shadow-[0_1px_0_rgba(0,0,0,0.04)] backdrop-blur-sm dark:bg-background/95 dark:shadow-[0_1px_0_rgba(255,255,255,0.06)]"
+      className="w-full shrink-0 rounded-xl border border-border/80 bg-muted/15 py-2.5 pl-2 pr-3 shadow-sm transition-[border-color,box-shadow,background-color] duration-500 ease-in-out"
     >
-      <div className="relative">
-        <div className="rounded-xl border border-border/80 bg-white p-2.5 pr-11 shadow-none dark:bg-background">
-          <div className="flex gap-2.5">
-            <Avatar userId={root.userId} author={rootAuthor} />
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                <AuthorHeading author={rootAuthor} />
-                {hasThreadStack ? (
-                  <span className="shrink-0 text-[10px] text-muted-foreground">{threadCount} msgs</span>
-                ) : null}
-                {!unit.hasMeta && unit.messages.some((m: DigestLine) => m.isReply) ? (
-                  <span
-                    className="text-[10px] text-amber-700/90 dark:text-amber-400/90"
-                    title="Digest was built without thread markers; replies may be grouped by position only until the next hourly refresh."
-                  >
-                    approx. grouping
-                  </span>
-                ) : null}
-              </div>
-              <div className="mt-1.5">
-                <DigestBodyMarkdown text={root.body} />
-              </div>
+      <div className="relative pr-11">
+        <div className="flex gap-2.5">
+          <Avatar userId={root.userId} author={rootAuthor} />
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+              <AuthorHeading author={rootAuthor} />
+              {hasThreadStack ? (
+                <span className="shrink-0 text-[10px] text-muted-foreground">{threadCount} msgs</span>
+              ) : null}
+              {!unit.hasMeta && unit.messages.some((m: DigestLine) => m.isReply) ? (
+                <span
+                  className="text-[10px] text-amber-700/90 dark:text-amber-400/90"
+                  title="Digest was built without thread markers; replies may be grouped by position only until the next hourly refresh."
+                >
+                  approx. grouping
+                </span>
+              ) : null}
+            </div>
+            <div className="mt-1.5">
+              <DigestBodyMarkdown text={root.body} />
             </div>
           </div>
         </div>
@@ -287,7 +417,7 @@ function ThreadRightStickyRoot({
           aria-label="Close thread"
           title="Close thread"
           onClick={onClose}
-          className="absolute right-1 top-1 z-[1] flex size-8 items-center justify-center rounded-full border border-border bg-card text-foreground shadow-sm transition hover:bg-muted/50 active:scale-95 dark:hover:bg-muted/40"
+          className="absolute right-0 top-0 z-[1] flex size-8 items-center justify-center rounded-full border border-border bg-card text-foreground shadow-sm transition-[background-color,border-color,box-shadow,transform,opacity] duration-500 ease-in-out hover:bg-muted/50 active:scale-95 dark:hover:bg-muted/40"
         >
           <X className="size-4 stroke-[2.5]" strokeLinecap="round" />
         </button>
@@ -302,6 +432,38 @@ export type DigestThreadViewProps = {
   listScrollRef?: RefObject<HTMLDivElement | null>;
   onListScroll?: UIEventHandler<HTMLDivElement>;
 };
+
+/** Shared two-pane chrome for Threads + Authors so height and flex behavior match exactly. */
+function DigestTwoPaneShell({
+  leftScrollRef,
+  onLeftScroll,
+  leftList,
+  rightPanel,
+}: {
+  leftScrollRef?: RefObject<HTMLDivElement | null>;
+  onLeftScroll?: UIEventHandler<HTMLDivElement>;
+  leftList: ReactNode;
+  rightPanel: ReactNode;
+}) {
+  return (
+    <div className="grid h-full max-h-full min-h-0 w-full flex-1 grid-cols-1 grid-rows-[minmax(0,1fr)_minmax(0,1fr)] gap-0 divide-y divide-border/80 md:grid-cols-2 md:grid-rows-1 md:divide-y-0">
+      <div className="flex h-full min-h-0 min-w-0 flex-col">
+        <div
+          ref={leftScrollRef}
+          onScroll={onLeftScroll}
+          className="h-full min-h-0 flex-1 overflow-y-auto overscroll-y-contain border-b border-border/60 bg-muted/10 px-2 py-2 md:border-b-0 md:bg-transparent md:px-3 md:py-3 [scrollbar-gutter:stable]"
+        >
+          {leftList}
+        </div>
+      </div>
+      <div className="flex h-full min-h-0 min-w-0 flex-col">
+        <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden px-2 py-2 md:px-3 md:py-3">
+          {rightPanel}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export function DigestThreadView({ markdown, listScrollRef, onListScroll }: DigestThreadViewProps) {
   const units = useMemo(() => {
@@ -382,71 +544,82 @@ export function DigestThreadView({ markdown, listScrollRef, onListScroll }: Dige
   }
 
   return (
-    <div className="grid h-full min-h-0 w-full flex-1 grid-cols-1 grid-rows-[minmax(0,1fr)_minmax(0,1fr)] gap-0 divide-y divide-border/80 md:grid-cols-2 md:grid-rows-1 md:divide-y-0">
-      <div className="flex min-h-0 min-w-0 flex-col">
-        <div
-          ref={listScrollRef}
-          onScroll={onListScroll}
-          className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain border-b border-border/60 bg-muted/10 px-2 py-2 md:border-b-0 md:bg-transparent md:px-3 md:py-3 [scrollbar-gutter:stable]"
-        >
-          <div className="flex flex-col gap-2" role="list" aria-label="Channel messages">
-            {channelRootUnitsNewestFirst.map((u) => (
-              <ThreadRootListRow
-                key={threadUnitListKey(u)}
-                unit={u}
-                selected={u.threadKey === selectedKey}
-                onSelect={() => {
-                  if (u.threadKey === selectedKey) {
-                    dismissThreadPanel();
-                  } else {
-                    selectThreadRoot(u.threadKey);
-                  }
-                }}
-              />
-            ))}
-          </div>
+    <DigestTwoPaneShell
+      leftScrollRef={listScrollRef}
+      onLeftScroll={onListScroll}
+      leftList={
+        <div className="flex flex-col gap-2" role="list" aria-label="Channel messages">
+          {channelRootUnitsNewestFirst.map((u) => (
+            <ThreadRootListRow
+              key={threadUnitListKey(u)}
+              unit={u}
+              selected={u.threadKey === selectedKey}
+              onSelect={() => {
+                if (u.threadKey === selectedKey) {
+                  dismissThreadPanel();
+                } else {
+                  selectThreadRoot(u.threadKey);
+                }
+              }}
+            />
+          ))}
         </div>
-      </div>
-      <div className="flex min-h-0 min-w-0 flex-col">
-        <div
-          ref={rightThreadScrollRef}
-          className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain px-2 py-2 md:px-3 md:py-3 [scrollbar-gutter:stable]"
-        >
-          {!selectedUnit ? (
+      }
+      rightPanel={
+        !selectedUnit ? (
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
             <ThreadRightPanelSelectPrompt />
-          ) : (
-            <>
-              <ThreadRightStickyRoot unit={selectedUnit} onClose={dismissThreadPanel} />
+          </div>
+        ) : (
+          <div key={selectedUnit.threadKey} className="flex min-h-0 min-w-0 flex-1 flex-col gap-2.5">
+            <ThreadRightStickyRoot unit={selectedUnit} onClose={dismissThreadPanel} />
+            <div
+              ref={rightThreadScrollRef}
+              className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-1 [scrollbar-gutter:stable]"
+            >
               {replies.length > 0 ? (
-                <div
-                  className="relative mt-2 flex-1 border-l-2 border-muted-foreground/25 pl-3 md:ml-1 md:pl-4"
-                  aria-label="Thread replies"
-                >
-                  <div className="flex flex-col gap-2.5 pb-1">
-                    {replies.map((r) => (
-                      <ThreadReplyCard
-                        key={r.order}
-                        line={r}
-                        author={resolveTranscriptAuthor(r.userId, lookup)}
-                      />
-                    ))}
-                  </div>
+                <div className="flex flex-col gap-2.5 pb-1" aria-label="Thread replies">
+                  {replies.map((r, i) => (
+                    <ThreadReplyCard
+                      key={r.order}
+                      line={r}
+                      author={resolveTranscriptAuthor(r.userId, lookup)}
+                      staggerIndex={i}
+                    />
+                  ))}
                 </div>
               ) : (
-                <div className="mt-2 min-h-[6rem] flex-1">
-                  <ThreadRightPanelEmpty />
+                <div className="min-h-[6rem] flex-1">
+                  <div className="digest-thread-reply-in" style={{ animationDelay: "0ms" }}>
+                    <ThreadRightPanelEmpty />
+                  </div>
                 </div>
               )}
-            </>
-          )}
-        </div>
-      </div>
-    </div>
+            </div>
+          </div>
+        )
+      }
+    />
   );
 }
 
-export function DigestAuthorView({ markdown }: { markdown: string }) {
+export type DigestAuthorViewProps = {
+  markdown: string;
+  /** When false, scrolling a column to the top does not request older digest lines. */
+  canLoadOlderDigest?: boolean;
+  /** Return true if older lines were scheduled (used to preserve per-column scroll after prepend). */
+  onTryLoadOlderDigest?: () => boolean;
+};
+
+export function DigestAuthorView({
+  markdown,
+  canLoadOlderDigest = false,
+  onTryLoadOlderDigest,
+}: DigestAuthorViewProps) {
   const lookup = useDigestAuthorLookup();
+  const messageScrollRef = useRef<HTMLDivElement | null>(null);
+  const pendingMessageScrollAdjustRef = useRef<{ prevH: number; prevT: number } | null>(null);
+
   const { columns, order } = useMemo(() => {
     const { bodyLines } = splitDigestMarkdown(markdown);
     const lines = parseDigestBodyLines(bodyLines);
@@ -455,53 +628,151 @@ export function DigestAuthorView({ markdown }: { markdown: string }) {
     return { columns: by, order: orderIds };
   }, [markdown]);
 
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+
+  useLayoutEffect(() => {
+    if (order.length === 0) {
+      setSelectedUserId(null);
+      return;
+    }
+    setSelectedUserId((prev) => {
+      if (prev && order.some((id) => id === prev)) {
+        return prev;
+      }
+      return null;
+    });
+  }, [order]);
+
+  const dismissAuthorPanel = useCallback(() => {
+    setSelectedUserId(null);
+  }, []);
+
+  const selectAuthor = useCallback((userId: string) => {
+    setSelectedUserId(userId);
+  }, []);
+
+  const prevSelectedUserIdRef = useRef<string | null>(null);
+
+  const onMessagesScroll = useCallback(
+    (e: UIEvent<HTMLDivElement>) => {
+      if (!canLoadOlderDigest || !onTryLoadOlderDigest) {
+        return;
+      }
+      if (e.currentTarget.scrollTop > AUTHOR_COLUMN_TOP_SCROLL_THRESHOLD_PX) {
+        return;
+      }
+      const el = e.currentTarget;
+      pendingMessageScrollAdjustRef.current = { prevH: el.scrollHeight, prevT: el.scrollTop };
+      if (!onTryLoadOlderDigest()) {
+        pendingMessageScrollAdjustRef.current = null;
+        return;
+      }
+    },
+    [canLoadOlderDigest, onTryLoadOlderDigest],
+  );
+
+  useLayoutEffect(() => {
+    const el = messageScrollRef.current;
+    if (!el) {
+      prevSelectedUserIdRef.current = selectedUserId;
+      return;
+    }
+    const pending = pendingMessageScrollAdjustRef.current;
+    if (pending) {
+      el.scrollTop = pending.prevT + (el.scrollHeight - pending.prevH);
+      pendingMessageScrollAdjustRef.current = null;
+      prevSelectedUserIdRef.current = selectedUserId;
+      return;
+    }
+    if (!selectedUserId) {
+      prevSelectedUserIdRef.current = null;
+      return;
+    }
+    const selChanged = prevSelectedUserIdRef.current !== selectedUserId;
+    prevSelectedUserIdRef.current = selectedUserId;
+    if (selChanged) {
+      el.scrollTop = 0;
+      return;
+    }
+    el.scrollTop = el.scrollHeight;
+  }, [markdown, selectedUserId]);
+
+  const selectedMsgs = selectedUserId ? (columns.get(selectedUserId) ?? []) : [];
+
   if (order.length === 0) {
     return <p className="text-sm text-muted-foreground">No parsed messages in this digest.</p>;
   }
 
   return (
-    <div className="flex gap-3 overflow-x-auto pb-1 [scrollbar-gutter:stable]">
-      {order.map((uid) => {
-        const msgs = columns.get(uid) ?? [];
-        const author = resolveTranscriptAuthor(uid, lookup);
-        return (
-          <div
-            key={uid}
-            className="flex w-[min(100%,280px)] shrink-0 flex-col gap-2 rounded-xl border border-border/80 bg-muted/10 p-2"
-          >
-            <div className="sticky top-0 z-[1] flex items-center gap-2 rounded-lg border border-border/60 bg-card/95 px-2 py-2 backdrop-blur-sm">
-              <Avatar userId={uid} author={author} />
-              <div className="min-w-0">
-                <p className="truncate text-sm font-semibold text-foreground">
-                  {author?.displayName?.trim() || "Unknown participant"}
-                </p>
-                <p className="text-[10px] text-muted-foreground">{msgs.length} messages</p>
-              </div>
-            </div>
-            <div className="flex flex-col gap-2">
-              {msgs.map((line) => (
-                <div
-                  key={line.order}
-                  className={clsx(
-                    "rounded-lg border border-border/70 bg-card p-2 shadow-sm",
-                    line.isReply
-                      ? "ml-3 border-l-[3px] border-l-muted-foreground/35 pl-3 md:ml-4 md:pl-3.5"
-                      : "",
-                  )}
-                >
-                  {line.isReply ? (
-                    <span className="mb-1 inline-block text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
-                      thread
-                    </span>
-                  ) : null}
-                  <DigestBodyMarkdown text={line.body} />
+    <DigestTwoPaneShell
+      leftList={
+        <div className="flex flex-col gap-2" role="list" aria-label="Employees">
+          {order.map((uid) => {
+            const msgs = columns.get(uid) ?? [];
+            const author = resolveTranscriptAuthor(uid, lookup);
+            const previewBody =
+              msgs.length > 0 ? msgs[msgs.length - 1]!.body : "";
+            return (
+              <AuthorEmployeeListRow
+                key={uid}
+                userId={uid}
+                author={author}
+                messageCount={msgs.length}
+                previewBody={previewBody}
+                selected={uid === selectedUserId}
+                onSelect={() => {
+                  if (uid === selectedUserId) {
+                    dismissAuthorPanel();
+                  } else {
+                    selectAuthor(uid);
+                  }
+                }}
+              />
+            );
+          })}
+        </div>
+      }
+      rightPanel={
+        !selectedUserId ? (
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+            <AuthorRightPanelSelectPrompt />
+          </div>
+        ) : (
+          <div key={selectedUserId} className="flex min-h-0 min-w-0 flex-1 flex-col gap-2.5">
+            <AuthorRightStickyHeader
+              userId={selectedUserId}
+              author={resolveTranscriptAuthor(selectedUserId, lookup)}
+              messageCount={selectedMsgs.length}
+              onClose={dismissAuthorPanel}
+            />
+            <div
+              ref={messageScrollRef}
+              onScroll={onMessagesScroll}
+              className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-1 [scrollbar-gutter:stable]"
+            >
+              {selectedMsgs.length > 0 ? (
+                <div className="flex flex-col gap-2.5 pb-1" aria-label="Author messages">
+                  {selectedMsgs.map((line, i) => (
+                    <ThreadReplyCard
+                      key={line.order}
+                      line={line}
+                      author={resolveTranscriptAuthor(line.userId, lookup)}
+                      staggerIndex={i}
+                    />
+                  ))}
                 </div>
-              ))}
+              ) : (
+                <div className="min-h-[6rem] flex-1">
+                  <div className="digest-thread-reply-in" style={{ animationDelay: "0ms" }}>
+                    <AuthorRightPanelEmpty />
+                  </div>
+                </div>
+              )}
             </div>
           </div>
-        );
-      })}
-    </div>
+        )
+      }
+    />
   );
 }
 

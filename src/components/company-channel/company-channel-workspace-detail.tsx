@@ -153,7 +153,7 @@ export function CompanyChannelWorkspaceDetail({ channelId, variant }: CompanyCha
   if (state === "loading" || state === "idle") {
     return (
       <div
-        className="flex min-h-0 flex-1 flex-col items-center justify-center"
+        className="flex min-h-0 flex-1 flex-col items-center justify-center py-12"
         aria-busy="true"
         aria-live="polite"
       >
@@ -168,7 +168,7 @@ export function CompanyChannelWorkspaceDetail({ channelId, variant }: CompanyCha
   }
 
   return (
-    <div className="space-y-8">
+    <div className="flex min-h-0 flex-1 flex-col gap-8">
       {transcriptError ? <p className="text-sm text-destructive">{transcriptError}</p> : null}
 
       <AdminChannelControlPane
@@ -190,7 +190,9 @@ export function CompanyChannelWorkspaceDetail({ channelId, variant }: CompanyCha
         </div>
       ) : null}
       {!knowledgeEmpty && markdown.trim() ? (
-        <AdminChannelKnowledgeDigest markdown={markdown} slackAuthorLookup={slackAuthorLookup} />
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          <AdminChannelKnowledgeDigest markdown={markdown} slackAuthorLookup={slackAuthorLookup} />
+        </div>
       ) : null}
     </div>
   );

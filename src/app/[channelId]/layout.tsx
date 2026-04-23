@@ -25,10 +25,10 @@ export default async function CompanyChannelLayout({ children, params }: Props) 
     notFound();
   }
   return (
-    <main className="flex min-h-screen flex-col bg-background">
+    <main className="flex min-h-dvh flex-col bg-background">
       <Header endSlot={<PortalLogoutButton channelId={id} />} />
-      <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col px-3 pb-5 pt-4 sm:px-6 sm:pb-6 sm:pt-5">
-        {children}
+      <div className="mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col px-3 pb-5 pt-4 sm:px-6 sm:pb-6 sm:pt-5">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">{children}</div>
       </div>
       <Footer />
     </main>

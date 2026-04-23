@@ -9,10 +9,10 @@ type AdminShellProps = {
 
 export function AdminShell({ children }: AdminShellProps) {
   return (
-    <main className="flex min-h-screen flex-col bg-background">
+    <main className="flex min-h-dvh flex-col bg-background">
       <Header endSlot={<AdminLogoutButton />} />
-      <div className="mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col space-y-4 px-3 pb-5 pt-4 sm:px-6 sm:pb-6 sm:pt-5">
-        {children}
+      <div className="mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col px-3 pb-5 pt-4 sm:px-6 sm:pb-6 sm:pt-5">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4">{children}</div>
       </div>
       <Footer />
     </main>

@@ -1,7 +1,7 @@
 "use client";
 
 import clsx from "clsx";
-import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef, useState, type UIEventHandler } from "react";
 import ReactMarkdown from "react-markdown";
 import {
   DigestAuthorLookupProvider,
@@ -14,6 +14,11 @@ import { splitDigestMarkdown } from "@/lib/channel-digest-parse";
 
 /** First paint: show the tail of the digest so recent channel activity is visible. */
 const INITIAL_VISIBLE_LINES = 120;
+/**
+ * Author (kanban) columns are built from the visible slice only; a short tail can hide
+ * infrequent posters. When switching to Author, widen to this many tail lines (cap for perf).
+ */
+const INITIAL_AUTHOR_KANBAN_LINES = 500;
 /** Each time the user scrolls near the load edge, reveal this many older lines. */
 const LOAD_MORE_LINES = 100;
 /** Classic/author: load older when near the top of the scroll container. */
@@ -49,6 +54,7 @@ export function AdminChannelKnowledgeDigest({ markdown, slackAuthorLookup }: Adm
   const pendingScrollAdjustRef = useRef<PendingScrollAdjust | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const didInitialScrollRef = useRef(false);
+  const prevViewRef = useRef<DigestView | null>(null);
 
   useLayoutEffect(() => {
     setVisibleStart(tailStart);
@@ -60,6 +66,21 @@ export function AdminChannelKnowledgeDigest({ markdown, slackAuthorLookup }: Adm
   useLayoutEffect(() => {
     didInitialScrollRef.current = false;
   }, [view]);
+
+  useLayoutEffect(() => {
+    const prev = prevViewRef.current;
+    prevViewRef.current = view;
+    if (view !== "author" || prev === "author") {
+      return;
+    }
+    const n = bodyLines.length;
+    if (n <= INITIAL_AUTHOR_KANBAN_LINES) {
+      setVisibleStart(0);
+      return;
+    }
+    const authorTailStart = Math.max(0, n - INITIAL_AUTHOR_KANBAN_LINES);
+    setVisibleStart((s) => Math.min(s, authorTailStart));
+  }, [view, bodyLines]);
 
   const visibleBodyText = useMemo(() => bodyLines.slice(visibleStart).join("\n"), [bodyLines, visibleStart]);
 
@@ -95,25 +116,47 @@ export function AdminChannelKnowledgeDigest({ markdown, slackAuthorLookup }: Adm
     didInitialScrollRef.current = true;
   }, [visibleMarkdown, view]);
 
-  const onScroll = useCallback(() => {
+  const tryPrependOlderDigestSlice = useCallback((scrollEl: HTMLElement | null): boolean => {
+    if (prependingRef.current || visibleStart <= 0) {
+      return false;
+    }
+    prependingRef.current = true;
+    if (scrollEl) {
+      pendingScrollAdjustRef.current = {
+        prevHeight: scrollEl.scrollHeight,
+        prevTop: scrollEl.scrollTop,
+      };
+    } else {
+      pendingScrollAdjustRef.current = null;
+    }
+    setVisibleStart((s) => Math.max(0, s - LOAD_MORE_LINES));
+    return true;
+  }, [visibleStart]);
+
+  const onThreadListScroll: UIEventHandler<HTMLDivElement> = useCallback(
+    (e) => {
+      const el = e.currentTarget;
+      if (prependingRef.current || visibleStart <= 0) {
+        return;
+      }
+      if (el.scrollTop + el.clientHeight < el.scrollHeight - BOTTOM_SCROLL_THRESHOLD_PX) {
+        return;
+      }
+      tryPrependOlderDigestSlice(el);
+    },
+    [visibleStart, tryPrependOlderDigestSlice],
+  );
+
+  const onClassicScroll: UIEventHandler<HTMLDivElement> = useCallback(() => {
     const el = scrollRef.current;
     if (!el || prependingRef.current || visibleStart <= 0) {
       return;
     }
-    if (view === "thread") {
-      if (el.scrollTop + el.clientHeight < el.scrollHeight - BOTTOM_SCROLL_THRESHOLD_PX) {
-        return;
-      }
-    } else if (el.scrollTop > TOP_SCROLL_THRESHOLD_PX) {
+    if (el.scrollTop > TOP_SCROLL_THRESHOLD_PX) {
       return;
     }
-    prependingRef.current = true;
-    pendingScrollAdjustRef.current = {
-      prevHeight: el.scrollHeight,
-      prevTop: el.scrollTop,
-    };
-    setVisibleStart((s) => Math.max(0, s - LOAD_MORE_LINES));
-  }, [visibleStart, view]);
+    tryPrependOlderDigestSlice(el);
+  }, [visibleStart, tryPrependOlderDigestSlice]);
 
   const viewBtn = (id: DigestView, label: string) => (
     <button
@@ -132,28 +175,26 @@ export function AdminChannelKnowledgeDigest({ markdown, slackAuthorLookup }: Adm
   );
 
   return (
-    <div className="flex flex-col overflow-hidden rounded-lg border border-border bg-card shadow-sm">
+    <div className="flex min-h-[14rem] flex-1 flex-col overflow-hidden rounded-lg border border-border bg-card shadow-sm">
       <div className="flex shrink-0 justify-end border-b border-border bg-muted/20 px-3 py-2 sm:px-4">
         <div
-          className="inline-flex rounded-lg border border-border/80 bg-muted/40 p-0.5"
+          className="inline-flex rounded-lg bg-muted/40 p-0.5"
           role="tablist"
           aria-label="Message view"
         >
-          {viewBtn("thread", "Thread")}
-          {viewBtn("author", "Author")}
-          {viewBtn("classic", "Transcript")}
+          {viewBtn("thread", "Threads")}
+          {viewBtn("author", "Authors")}
+          {viewBtn("classic", "Markdown")}
         </div>
       </div>
       <div
-        ref={view === "thread" ? undefined : scrollRef}
-        onScroll={view === "thread" ? undefined : onScroll}
+        ref={view === "classic" ? scrollRef : undefined}
+        onScroll={view === "classic" ? onClassicScroll : undefined}
         className={clsx(
-          "flex min-h-[160px] flex-col px-4 py-5",
-          view === "thread"
-            ? "h-[max(10rem,min(48vh,30rem))] min-h-0 shrink-0 overflow-hidden"
-            : "max-h-[min(48vh,30rem)] overflow-auto",
-          view === "classic" &&
-            "[&_h1]:mb-3 [&_h1]:text-lg [&_h1]:font-semibold [&_li]:my-1 [&_p]:my-2 [&_strong]:font-semibold [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-6",
+          "flex min-h-0 min-w-0 flex-1 basis-0 flex-col items-stretch px-3 py-3 sm:px-4",
+          view === "classic"
+            ? "overflow-y-auto [&_h1]:mb-3 [&_h1]:text-lg [&_h1]:font-semibold [&_li]:my-1 [&_p]:my-2 [&_strong]:font-semibold [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-6"
+            : "overflow-hidden",
         )}
       >
         <DigestAuthorLookupProvider lookup={slackAuthorLookup}>
@@ -163,9 +204,19 @@ export function AdminChannelKnowledgeDigest({ markdown, slackAuthorLookup }: Adm
             </article>
           ) : null}
           {view === "thread" ? (
-            <DigestThreadView markdown={visibleMarkdown} listScrollRef={scrollRef} onListScroll={onScroll} />
+            <div className="flex h-full min-h-0 min-w-0 w-full flex-1 basis-0 flex-col overflow-hidden">
+              <DigestThreadView markdown={visibleMarkdown} listScrollRef={scrollRef} onListScroll={onThreadListScroll} />
+            </div>
           ) : null}
-          {view === "author" ? <DigestAuthorView markdown={visibleMarkdown} /> : null}
+          {view === "author" ? (
+            <div className="flex h-full min-h-0 min-w-0 w-full flex-1 basis-0 flex-col overflow-hidden">
+              <DigestAuthorView
+                markdown={visibleMarkdown}
+                canLoadOlderDigest={visibleStart > 0}
+                onTryLoadOlderDigest={() => tryPrependOlderDigestSlice(null)}
+              />
+            </div>
+          ) : null}
         </DigestAuthorLookupProvider>
       </div>
     </div>
