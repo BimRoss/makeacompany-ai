@@ -45,9 +45,11 @@ function resolveBackendBaseURL(): string {
 
 export async function POST(request: Request) {
   let channelId = "";
+  let stripeCustomerId = "";
   try {
-    const body = (await request.json()) as { channelId?: string };
+    const body = (await request.json()) as { channelId?: string; stripeCustomerId?: string };
     channelId = (body.channelId ?? "").trim();
+    stripeCustomerId = (body.stripeCustomerId ?? "").trim();
   } catch {
     return NextResponse.json({ error: "invalid json" }, { status: 400 });
   }
@@ -60,6 +62,10 @@ export async function POST(request: Request) {
   const forwardedProto = request.headers.get("x-forwarded-proto")?.split(",")[0]?.trim();
   const cookieSecure = (forwardedProto || reqURL.protocol.replace(":", "")) === "https";
   const backendURL = `${resolveBackendBaseURL().replace(/\/$/, "")}/v1/portal/auth/start`;
+  const cancelQS = new URLSearchParams({ auth: "cancel" });
+  if (stripeCustomerId) {
+    cancelQS.set("stripe_customer", stripeCustomerId);
+  }
   try {
     const response = await fetch(backendURL, {
       method: "POST",
@@ -68,9 +74,10 @@ export async function POST(request: Request) {
       },
       body: JSON.stringify({
         channelId,
+        ...(stripeCustomerId ? { stripeCustomerId } : {}),
         // Match admin auth: only {CHECKOUT_SESSION_ID} in success_url (Stripe hosted redirect).
-        successUrl: `${origin}/api/portal/auth/callback?session_id={CHECKOUT_SESSION_ID}`,
-        cancelUrl: `${origin}/${encodeURIComponent(channelId)}/login?auth=cancel`,
+        successUrl: `${origin}/api/portal/auth/callback?session_id={CHECKOUT_SESSION_ID}&cid=${encodeURIComponent(channelId)}`,
+        cancelUrl: `${origin}/${encodeURIComponent(channelId)}/login?${cancelQS.toString()}`,
       }),
       cache: "no-store",
     });

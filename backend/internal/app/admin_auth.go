@@ -16,6 +16,26 @@ import (
 	checkoutsession "github.com/stripe/stripe-go/v82/checkout/session"
 )
 
+// stripeAdminAuthAllowlist is the only emails that may complete /admin Stripe Checkout (setup mode).
+// Hardcoded (not env) so dev and prod stay aligned; matches portal-style “prove email in Stripe” flow.
+var stripeAdminAuthAllowlist = []string{
+	"grant@bimross.com",
+	"grantdfoster@gmail.com",
+}
+
+func adminEmailInStripeAllowlist(email string) bool {
+	email = normalizeProfileEmail(email)
+	if email == "" {
+		return false
+	}
+	for _, allowed := range stripeAdminAuthAllowlist {
+		if normalizeProfileEmail(allowed) == email {
+			return true
+		}
+	}
+	return false
+}
+
 type adminAuthStartRequest struct {
 	SuccessURL string `json:"successUrl"`
 	CancelURL  string `json:"cancelUrl"`
@@ -51,7 +71,7 @@ func sessionEmailFromCheckout(sess *stripe.CheckoutSession) string {
 }
 
 func (s *Server) adminAuthEnabled() bool {
-	return strings.TrimSpace(s.cfg.AdminAllowedEmail) != ""
+	return len(stripeAdminAuthAllowlist) > 0
 }
 
 func (s *Server) handleAdminAuthStart(w http.ResponseWriter, r *http.Request) {
@@ -76,12 +96,20 @@ func (s *Server) handleAdminAuthStart(w http.ResponseWriter, r *http.Request) {
 	}
 
 	params := &stripe.CheckoutSessionParams{
-		Mode:          stripe.String(string(stripe.CheckoutSessionModeSetup)),
-		SuccessURL:    stripe.String(successURL),
-		CancelURL:     stripe.String(cancelURL),
-		CustomerEmail: stripe.String(strings.TrimSpace(s.cfg.AdminAllowedEmail)),
+		Mode:       stripe.String(string(stripe.CheckoutSessionModeSetup)),
+		SuccessURL: stripe.String(successURL),
+		CancelURL:  stripe.String(cancelURL),
+		// No CustomerEmail: two allowlisted identities use the same flow as portal (email comes from Checkout).
+		Metadata: map[string]string{
+			stripeAuthMetadataKey: stripeAuthMetadataAdmin,
+		},
 		// Restrict to card to avoid Stripe requiring extra setup-mode params (e.g. currency).
 		PaymentMethodTypes: stripe.StringSlice([]string{"card"}),
+		WalletOptions: &stripe.CheckoutSessionWalletOptionsParams{
+			Link: &stripe.CheckoutSessionWalletOptionsLinkParams{
+				Display: stripe.String(string(stripe.CheckoutSessionWalletOptionsLinkDisplayNever)),
+			},
+		},
 	}
 	sess, err := checkoutsession.New(params)
 	if err != nil {
@@ -109,18 +137,18 @@ func (s *Server) handleAdminAuthFinish(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid session_id", http.StatusBadRequest)
 		return
 	}
-	sess, err := checkoutsession.Get(sessionID, nil)
+	sess, err := s.getCheckoutSessionForAuthFinish(r.Context(), sessionID)
 	if err != nil {
 		s.log.Printf("admin auth finish retrieve session: %v", err)
-		http.Error(w, "unable to retrieve checkout session", http.StatusBadRequest)
+		status := http.StatusBadRequest
+		if strings.Contains(err.Error(), "not complete") {
+			status = http.StatusUnauthorized
+		}
+		http.Error(w, "unable to retrieve checkout session", status)
 		return
 	}
-	if !strings.EqualFold(strings.TrimSpace(string(sess.Status)), "complete") {
-		http.Error(w, "checkout session not complete", http.StatusUnauthorized)
-		return
-	}
-	email := sessionEmailFromCheckout(sess)
-	if !strings.EqualFold(email, strings.TrimSpace(s.cfg.AdminAllowedEmail)) {
+	email := normalizeProfileEmail(sessionEmailFromCheckout(sess))
+	if !adminEmailInStripeAllowlist(email) {
 		http.Error(w, "unauthorized email", http.StatusUnauthorized)
 		return
 	}
@@ -223,7 +251,7 @@ func (s *Server) validateAdminSession(ctx context.Context, token string) (AdminS
 		_ = s.store.DeleteAdminSession(ctx, token)
 		return AdminSession{}, fmt.Errorf("expired session")
 	}
-	if !strings.EqualFold(strings.TrimSpace(session.Email), strings.TrimSpace(s.cfg.AdminAllowedEmail)) {
+	if !adminEmailInStripeAllowlist(session.Email) {
 		return AdminSession{}, fmt.Errorf("unauthorized session")
 	}
 	return session, nil

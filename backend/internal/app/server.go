@@ -863,7 +863,7 @@ func (s *Server) handleWebhook(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "bad payload", http.StatusBadRequest)
 				return
 			}
-			s.completeWaitlistFromSession(w, &sess)
+			s.routeCheckoutSessionCompleted(w, r.Context(), &sess)
 		case stripe.EventTypeCustomerSubscriptionCreated, stripe.EventTypeCustomerSubscriptionUpdated, stripe.EventTypeCustomerSubscriptionDeleted:
 			var sub stripe.Subscription
 			if err := json.Unmarshal(event.Data.Raw, &sub); err != nil {
@@ -909,7 +909,7 @@ func (s *Server) handleWebhook(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "stripe retrieve failed", http.StatusBadRequest)
 			return
 		}
-		s.completeWaitlistFromSession(w, sess)
+		s.routeCheckoutSessionCompleted(w, r.Context(), sess)
 
 	default:
 		http.Error(w, "unsupported webhook object", http.StatusBadRequest)

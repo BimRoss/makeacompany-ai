@@ -38,7 +38,9 @@ export function middleware(request: NextRequest) {
       return NextResponse.next();
     }
     if (!sessionMatchesURL) {
-      return NextResponse.redirect(new URL(`/${portalPath.channelId}/login`, request.url));
+      const login = new URL(`/${portalPath.channelId}/login`, request.url);
+      login.search = request.nextUrl.search;
+      return NextResponse.redirect(login);
     }
     return NextResponse.next();
   }

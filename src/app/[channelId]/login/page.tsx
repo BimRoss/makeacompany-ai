@@ -5,7 +5,20 @@ import { PortalAuthenticateButton } from "@/components/portal/portal-authenticat
 import { PortalLoginMessages } from "@/components/portal/portal-login-messages";
 import { getPortalLoginCompanyLabel } from "@/lib/portal/portal-login-channel-label";
 
-type Props = { params: Promise<{ channelId: string }> };
+type Props = {
+  params: Promise<{ channelId: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
+
+function firstQuery(v: string | string[] | undefined): string {
+  if (typeof v === "string") {
+    return v.trim();
+  }
+  if (Array.isArray(v) && typeof v[0] === "string") {
+    return v[0].trim();
+  }
+  return "";
+}
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { channelId } = await params;
@@ -16,9 +29,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-export default async function CompanyChannelLoginPage({ params }: Props) {
+export default async function CompanyChannelLoginPage({ params, searchParams }: Props) {
   const { channelId } = await params;
+  const sp = await searchParams;
   const id = decodeURIComponent((channelId ?? "").trim());
+  const stripeCustomerId =
+    firstQuery(sp.stripe_customer) || firstQuery(sp["stripeCustomerId"]);
   const { label } = await getPortalLoginCompanyLabel(channelId ?? "");
 
   return (
@@ -39,7 +55,7 @@ export default async function CompanyChannelLoginPage({ params }: Props) {
           <Suspense fallback={null}>
             <PortalLoginMessages />
           </Suspense>
-          <PortalAuthenticateButton channelId={id} />
+          <PortalAuthenticateButton channelId={id} stripeCustomerId={stripeCustomerId || undefined} />
         </div>
       </div>
     </div>

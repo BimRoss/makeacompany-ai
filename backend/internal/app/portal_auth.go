@@ -15,9 +15,10 @@ import (
 )
 
 type portalAuthStartRequest struct {
-	SuccessURL string `json:"successUrl"`
-	CancelURL  string `json:"cancelUrl"`
-	ChannelID  string `json:"channelId"`
+	SuccessURL       string `json:"successUrl"`
+	CancelURL        string `json:"cancelUrl"`
+	ChannelID        string `json:"channelId"`
+	StripeCustomerID string `json:"stripeCustomerId,omitempty"`
 }
 
 type portalAuthFinishResponse struct {
@@ -29,6 +30,28 @@ type portalAuthFinishResponse struct {
 
 func (s *Server) portalStripeEnabled() bool {
 	return strings.TrimSpace(stripe.Key) != ""
+}
+
+// portalStripeCustomerAllowed returns true if customerID is a well-formed Stripe customer id
+// that matches an owner profile for the company channel (prevents arbitrary cus_ in the URL).
+func portalStripeCustomerAllowed(ctx context.Context, st *Store, hashKey, channelID, customerID string) bool {
+	customerID = strings.TrimSpace(customerID)
+	if customerID == "" || st == nil {
+		return false
+	}
+	if !strings.HasPrefix(customerID, "cus_") || len(customerID) < 12 {
+		return false
+	}
+	allowed, err := st.OwnerStripeCustomerIDsForCompanyChannel(ctx, hashKey, channelID)
+	if err != nil {
+		return false
+	}
+	for _, c := range allowed {
+		if strings.TrimSpace(c) == customerID {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *Server) handlePortalAuthStart(w http.ResponseWriter, r *http.Request) {
@@ -71,6 +94,20 @@ func (s *Server) handlePortalAuthStart(w http.ResponseWriter, r *http.Request) {
 		CancelURL:          stripe.String(cancelURL),
 		ClientReferenceID:  stripe.String(chID),
 		PaymentMethodTypes: stripe.StringSlice([]string{"card"}),
+		Metadata: map[string]string{
+			stripeAuthMetadataKey: stripeAuthMetadataPortal,
+		},
+		// Match admin-like handoff: without a prefilled email, Link can add an extra hosted step
+		// where the page looks “done” but the browser has not yet returned to success_url.
+		WalletOptions: &stripe.CheckoutSessionWalletOptionsParams{
+			Link: &stripe.CheckoutSessionWalletOptionsLinkParams{
+				Display: stripe.String(string(stripe.CheckoutSessionWalletOptionsLinkDisplayNever)),
+			},
+		},
+	}
+	wantCus := strings.TrimSpace(req.StripeCustomerID)
+	if portalStripeCustomerAllowed(r.Context(), s.store, s.cfg.CompanyChannelsRedisKey, chID, wantCus) {
+		params.Customer = stripe.String(wantCus)
 	}
 	sess, err := checkoutsession.New(params)
 	if err != nil {
@@ -98,14 +135,14 @@ func (s *Server) handlePortalAuthFinish(w http.ResponseWriter, r *http.Request) 
 		http.Error(w, "invalid session_id", http.StatusBadRequest)
 		return
 	}
-	sess, err := checkoutsession.Get(sessionID, nil)
+	sess, err := s.getCheckoutSessionForAuthFinish(r.Context(), sessionID)
 	if err != nil {
 		s.log.Printf("portal auth finish retrieve session: %v", err)
-		http.Error(w, "unable to retrieve checkout session", http.StatusBadRequest)
-		return
-	}
-	if !strings.EqualFold(strings.TrimSpace(string(sess.Status)), "complete") {
-		http.Error(w, "checkout session not complete", http.StatusUnauthorized)
+		status := http.StatusBadRequest
+		if strings.Contains(err.Error(), "not complete") {
+			status = http.StatusUnauthorized
+		}
+		http.Error(w, "unable to retrieve checkout session", status)
 		return
 	}
 	chID := strings.TrimSpace(sess.ClientReferenceID)

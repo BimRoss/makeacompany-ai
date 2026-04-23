@@ -46,6 +46,8 @@ function resolveBackendBaseURL(): string {
 export async function GET(request: Request) {
   const reqURL = new URL(request.url);
   const origin = resolvePublicOrigin(request);
+  const forwardedProto = request.headers.get("x-forwarded-proto")?.split(",")[0]?.trim();
+  const secureCookies = (forwardedProto || reqURL.protocol.replace(":", "")) === "https";
   const sessionID = reqURL.searchParams.get("session_id")?.trim();
   if (!sessionID) {
     return NextResponse.redirect(new URL("/admin/login?auth=failed", origin));
@@ -65,7 +67,7 @@ export async function GET(request: Request) {
     const expires = payload.expiresAt ? new Date(payload.expiresAt) : undefined;
     redirectResponse.cookies.set(adminSessionCookieName, payload.sessionToken, {
       httpOnly: true,
-      secure: reqURL.protocol === "https:",
+      secure: secureCookies,
       sameSite: "lax",
       path: "/",
       expires,

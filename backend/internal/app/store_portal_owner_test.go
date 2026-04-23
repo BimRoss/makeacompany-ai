@@ -41,6 +41,44 @@ func TestOwnerEmailsForCompanyChannel(t *testing.T) {
 	}
 }
 
+func TestOwnerStripeCustomerIDsForCompanyChannel(t *testing.T) {
+	srv, err := miniredis.Run()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer srv.Close()
+	rdb := redis.NewClient(&redis.Options{Addr: srv.Addr()})
+	defer rdb.Close()
+	ctx := context.Background()
+
+	st := &Store{rdb: rdb}
+	hashKey := "test:company_channels"
+	chJSON := `{"company_slug":"acme","channel_id":"C0OWNERS","threads_enabled":true,"general_auto_reaction_enabled":false,"out_of_office_enabled":false,"owner_ids":["U1","U2"]}`
+	if err := rdb.HSet(ctx, hashKey, "C0OWNERS", chJSON).Err(); err != nil {
+		t.Fatal(err)
+	}
+	if err := rdb.Set(ctx, userBySlackRedisKey("U1"), "owner@example.com", 0).Err(); err != nil {
+		t.Fatal(err)
+	}
+	if err := rdb.Set(ctx, userBySlackRedisKey("U2"), "co@example.com", 0).Err(); err != nil {
+		t.Fatal(err)
+	}
+	if err := rdb.HSet(ctx, userProfileRedisKey("owner@example.com"), "email", "owner@example.com", "stripe_customer_id", "cus_owner111").Err(); err != nil {
+		t.Fatal(err)
+	}
+	if err := rdb.HSet(ctx, userProfileRedisKey("co@example.com"), "email", "co@example.com", "stripe_customer_id", "cus_co222222").Err(); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := st.OwnerStripeCustomerIDsForCompanyChannel(ctx, hashKey, "C0OWNERS")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("ids: %#v", got)
+	}
+}
+
 func TestOwnerEmailsForCompanyChannel_NoSlackIndex(t *testing.T) {
 	srv, err := miniredis.Run()
 	if err != nil {

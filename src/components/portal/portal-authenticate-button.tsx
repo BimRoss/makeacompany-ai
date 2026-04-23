@@ -7,9 +7,11 @@ type StartPayload = { url?: string; error?: string };
 
 type Props = {
   channelId: string;
+  /** When set (e.g. from ?stripe_customer= on login), Checkout prefills that Stripe customer. */
+  stripeCustomerId?: string;
 };
 
-export function PortalAuthenticateButton({ channelId }: Props) {
+export function PortalAuthenticateButton({ channelId, stripeCustomerId }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -28,7 +30,10 @@ export function PortalAuthenticateButton({ channelId }: Props) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         cache: "no-store",
-        body: JSON.stringify({ channelId }),
+        body: JSON.stringify({
+          channelId,
+          ...(stripeCustomerId?.trim() ? { stripeCustomerId: stripeCustomerId.trim() } : {}),
+        }),
       });
       const data = (await res.json().catch(() => ({}))) as StartPayload;
       if (!res.ok) {
