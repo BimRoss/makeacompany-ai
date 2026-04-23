@@ -5,7 +5,7 @@
     {
       "id": "create-email",
       "label": "Create Email",
-      "description": "Draft, send, and triage email communication. Requires confirmation before send.",
+      "description": "Design and send email, to one or a hundred. Bulk concurrency handled, HTML supported natively. Requires confirmation before send.",
       "employeeIds": ["joanne"],
       "requiredParams": ["intent", "to"],
       "optionalParams": ["button", "link"],
@@ -18,7 +18,7 @@
     {
       "id": "create-doc",
       "label": "Create Doc",
-      "description": "Create, edit, and organize working docs. Requires confirmation before publish.",
+      "description": "Create Google documents, outlines, and game plans. Pair with search skills to produce research documents in seconds.",
       "employeeIds": ["joanne"],
       "requiredParams": ["intent", "title", "editors"],
       "optionalParams": ["commenters", "viewers", "type", "length"],
@@ -34,7 +34,7 @@
     {
       "id": "create-company",
       "label": "Create Company",
-      "description": "Provision a company channel, run onboarding, create channels, and invite members. Requires confirmation before writes.",
+      "description": "Start a company with just a name.",
       "employeeIds": ["joanne"],
       "requiredParams": ["name", "founders"],
       "optionalParams": [],
@@ -46,7 +46,7 @@
     {
       "id": "delete-company",
       "label": "Delete Company",
-      "description": "Archive a company Slack channel and remove app-owned Redis data for that workspace. Requires explicit Confirm/Cancel before any write.",
+      "description": "Removes a company and sends it to the archive. Requires confirmation.",
       "employeeIds": ["joanne"],
       "requiredParams": ["name"],
       "optionalParams": [],
@@ -57,7 +57,7 @@
     {
       "id": "read-company",
       "label": "Read Company",
-      "description": "Summarize this channel from cached Slack history in Redis (hourly digest). Runs immediately in Slack (no confirmation).",
+      "description": "Summarize the latest activity within the company.",
       "employeeIds": ["joanne"],
       "requiredParams": [],
       "optionalParams": []
@@ -65,7 +65,7 @@
     {
       "id": "read-skills",
       "label": "Read Skills",
-      "description": "List team skills from the capability catalog (who has which skills). Runs immediately in Slack (no confirmation).",
+      "description": "Display the skills of the team",
       "employeeIds": ["joanne"],
       "requiredParams": [],
       "optionalParams": []
@@ -73,7 +73,7 @@
     {
       "id": "read-user",
       "label": "Read User",
-      "description": "Show the message author's email, Slack user id, and Stripe customer id (makeacompany Redis profile). Runs immediately in Slack (no confirmation).",
+      "description": "Display a user's company card.",
       "employeeIds": ["joanne"],
       "requiredParams": [],
       "optionalParams": []
@@ -81,7 +81,7 @@
     {
       "id": "read-twitter",
       "label": "Read Twitter",
-      "description": "Search Twitter by keyword and fetch high-impression tweets (not the platform trend list). Runs immediately in Slack (no confirmation).",
+      "description": "Search twitter for high-impression tweets on any topic",
       "employeeIds": ["garth"],
       "requiredParams": ["query"],
       "optionalParams": ["count"]
@@ -89,7 +89,7 @@
     {
       "id": "read-trends",
       "label": "Read Trends",
-      "description": "Fetch the current Twitter/X trend list (not keyword search). Runs immediately in Slack (no confirmation).",
+      "description": "Show the latest trends",
       "employeeIds": ["garth"],
       "requiredParams": [],
       "optionalParams": []

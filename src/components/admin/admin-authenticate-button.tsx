@@ -50,7 +50,7 @@ export function AdminAuthenticateButton() {
         disabled={loading}
         aria-busy={loading}
         onClick={onClick}
-        className="inline-flex h-14 min-w-[220px] items-center justify-center rounded-xl bg-violet-900 px-10 text-base font-semibold text-white shadow-md transition hover:bg-violet-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-400 disabled:pointer-events-none disabled:opacity-65 dark:bg-violet-950 dark:hover:bg-violet-900 dark:focus-visible:outline-violet-500"
+        className="inline-flex h-14 min-w-[220px] items-center justify-center rounded-xl border-2 border-foreground/15 bg-white px-10 text-base font-semibold text-foreground shadow-md transition hover:border-foreground/25 hover:bg-muted/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground/30 disabled:pointer-events-none disabled:opacity-65 dark:border-white/20 dark:bg-zinc-950 dark:hover:bg-zinc-900 dark:hover:border-white/30 dark:focus-visible:outline-white/40"
       >
         {loading ? (
           <>

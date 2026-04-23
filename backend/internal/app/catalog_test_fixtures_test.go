@@ -18,7 +18,7 @@ func testCatalogFixture() CapabilityCatalog {
 			{
 				ID:             "create-email",
 				Label:          "Create Email",
-				Description:    "Draft, send, and triage email communication. Requires confirmation before send.",
+				Description:    "Design and send email, to one or a hundred. Bulk concurrency handled, HTML supported natively. Requires confirmation before send.",
 				RuntimeTool:    "joanne-create-email",
 				RequiredParams: []string{"intent", "to"},
 				OptionalParams: []string{"button", "link"},
@@ -32,7 +32,7 @@ func testCatalogFixture() CapabilityCatalog {
 			{
 				ID:             "create-doc",
 				Label:          "Create Doc",
-				Description:    "Create, edit, and organize working docs. Requires confirmation before publish.",
+				Description:    "Create Google documents, outlines, and game plans. Pair with search skills to produce research documents in seconds.",
 				RuntimeTool:    "joanne-create-doc",
 				RequiredParams: []string{"intent", "title", "editors"},
 				OptionalParams: []string{"commenters", "viewers", "type", "length"},
@@ -49,7 +49,7 @@ func testCatalogFixture() CapabilityCatalog {
 			{
 				ID:             "create-company",
 				Label:          "Create Company",
-				Description:    "Provision a company channel, run onboarding, create channels, and invite members. Requires explicit Confirm/Cancel before any write.",
+				Description:    "Start a company with just a name.",
 				RuntimeTool:    "joanne-create-company",
 				RequiredParams: []string{"name", "founders"},
 				OptionalParams: []string{},
@@ -62,7 +62,7 @@ func testCatalogFixture() CapabilityCatalog {
 			{
 				ID:             "delete-company",
 				Label:          "Delete Company",
-				Description:    "Permanently delete a company Slack channel and remove app-owned Redis data for that workspace (frees the channel name). Requires explicit Confirm/Cancel before any write.",
+				Description:    "Removes a company and sends it to the archive. Requires confirmation.",
 				RuntimeTool:    "joanne-delete-company",
 				RequiredParams: []string{"name"},
 				OptionalParams: []string{},
@@ -74,7 +74,7 @@ func testCatalogFixture() CapabilityCatalog {
 			{
 				ID:             "read-company",
 				Label:          "Read Company",
-				Description:    "Summarize this channel from cached Slack history in Redis (hourly digest). Runs immediately in Slack (no confirmation).",
+				Description:    "Summarize the latest activity within the company.",
 				RuntimeTool:    "joanne-read-company",
 				RequiredParams: []string{},
 				OptionalParams: []string{},
@@ -83,7 +83,7 @@ func testCatalogFixture() CapabilityCatalog {
 			{
 				ID:             "read-skills",
 				Label:          "Read Skills",
-				Description:    "List team skills from the capability catalog (who has which skills). Runs immediately in Slack (no confirmation).",
+				Description:    "Display the skills of the team",
 				RuntimeTool:    "joanne-read-skills",
 				RequiredParams: []string{},
 				OptionalParams: []string{},
@@ -91,7 +91,7 @@ func testCatalogFixture() CapabilityCatalog {
 			{
 				ID:             "read-user",
 				Label:          "Read User",
-				Description:    "Show the message author's email, Slack user id, and Stripe customer id. Runs immediately in Slack (no confirmation).",
+				Description:    "Display a user's company card.",
 				RuntimeTool:    "joanne-read-user",
 				RequiredParams: []string{},
 				OptionalParams: []string{},
@@ -99,7 +99,7 @@ func testCatalogFixture() CapabilityCatalog {
 			{
 				ID:             "read-twitter",
 				Label:          "Read Twitter",
-				Description:    "Search Twitter by keyword and fetch high-impression tweets (not the platform trend list). Runs immediately in Slack (no confirmation).",
+				Description:    "Search twitter for high-impression tweets on any topic",
 				RuntimeTool:    "garth-read-twitter",
 				RequiredParams: []string{"query"},
 				OptionalParams: []string{"count"},
@@ -108,7 +108,7 @@ func testCatalogFixture() CapabilityCatalog {
 			{
 				ID:             "read-trends",
 				Label:          "Read Trends",
-				Description:    "Fetch the current Twitter/X trend list (not keyword search). Runs immediately in Slack (no confirmation).",
+				Description:    "Show the latest trends",
 				RuntimeTool:    "garth-read-trends",
 				RequiredParams: []string{},
 				OptionalParams: []string{},

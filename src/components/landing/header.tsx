@@ -4,9 +4,13 @@ import Image from "next/image";
 import Link from "next/link";
 import { Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
-export function Header() {
+type HeaderProps = {
+  endSlot?: ReactNode;
+};
+
+export function Header({ endSlot }: HeaderProps = {}) {
   const { resolvedTheme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
@@ -54,27 +58,30 @@ export function Header() {
             makeacompany.ai
           </p>
         </Link>
-        <button
-          type="button"
-          onClick={() => setTheme(isDark ? "light" : "dark")}
-          aria-label={
-            mounted
-              ? isDark
-                ? "Switch to light mode"
-                : "Switch to dark mode"
-              : "Toggle color theme"
-          }
-          className="relative inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-full text-foreground/70 motion-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/25 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent active:scale-[0.97]"
-        >
-          {!mounted ? (
-            <span className="inline-block h-5 w-5" aria-hidden />
-          ) : (
-            <>
-              <Sun className="h-[1.125rem] w-[1.125rem] rotate-0 scale-100 motion-transform dark:-rotate-90 dark:scale-0" />
-              <Moon className="absolute h-[1.125rem] w-[1.125rem] rotate-90 scale-0 motion-transform dark:rotate-0 dark:scale-100" />
-            </>
-          )}
-        </button>
+        <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+          {endSlot}
+          <button
+            type="button"
+            onClick={() => setTheme(isDark ? "light" : "dark")}
+            aria-label={
+              mounted
+                ? isDark
+                  ? "Switch to light mode"
+                  : "Switch to dark mode"
+                : "Toggle color theme"
+            }
+            className="relative inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-full text-foreground/70 motion-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/25 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent active:scale-[0.97]"
+          >
+            {!mounted ? (
+              <span className="inline-block h-5 w-5" aria-hidden />
+            ) : (
+              <>
+                <Sun className="h-[1.125rem] w-[1.125rem] rotate-0 scale-100 motion-transform dark:-rotate-90 dark:scale-0" />
+                <Moon className="absolute h-[1.125rem] w-[1.125rem] rotate-90 scale-0 motion-transform dark:rotate-0 dark:scale-100" />
+              </>
+            )}
+          </button>
+        </div>
       </div>
     </header>
   );
