@@ -122,7 +122,9 @@ export async function GET(request: Request) {
     }
 
     const ch = encodeURIComponent(payload.channelId.trim());
-    const redirectResponse = NextResponse.redirect(new URL(`${origin}/${ch}`, origin));
+    const redirectResponse = NextResponse.redirect(
+      new URL(`${origin}/${ch}?portal_welcome=1`, origin),
+    );
     const expires = payload.expiresAt ? new Date(payload.expiresAt) : undefined;
     const cookieOpts = {
       httpOnly: true,

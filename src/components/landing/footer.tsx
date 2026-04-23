@@ -11,6 +11,9 @@ export function Footer() {
             &copy; {year} makeacompany.ai. All rights reserved.
           </p>
           <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-muted-foreground">
+            <Link href="/admin" className="motion-colors hover:text-foreground">
+              Admin
+            </Link>
             <Link href="/privacy" className="motion-colors hover:text-foreground">
               Privacy
             </Link>

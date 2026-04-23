@@ -17,7 +17,6 @@ import (
 // Hardcoded (not env) so dev and prod stay aligned.
 var adminSignInAllowlist = []string{
 	"grant@bimross.com",
-	"grantdfoster@gmail.com",
 }
 
 func adminSignInEmailAllowed(email string) bool {

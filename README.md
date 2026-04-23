@@ -119,7 +119,7 @@ npm run dev   # repo root
 | `REDIS_URL` | Redis connection URL |
 | `ADMIN_CATALOG_TOKEN` | Optional machine token: `PUT /v1/admin/catalog` with matching `X-Admin-Token` (no browser session). Admin UI uses session cookie only; writes still land in Redis. |
 | `CAPABILITY_CATALOG_READ_TOKEN` | Optional bearer token required for backend `GET /v1/runtime/capability-catalog` (runtime consumer reads) |
-| `ADMIN_SESSION_TTL_SEC` | Admin session lifetime in seconds (default `259200`). Admin sign-in allowlist is fixed in code: `grant@bimross.com`, `grantdfoster@gmail.com`. |
+| `ADMIN_SESSION_TTL_SEC` | Admin session lifetime in seconds (default `259200`). Admin sign-in allowlist is fixed in code: `grant@bimross.com` only. |
 | `APP_BASE_URL` | Public site URL (Stripe success/cancel for waitlist checkout, magic-link links, Google OAuth redirect base) |
 | `GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET` | **Continue with Google** on `/{channelId}/login` and `/admin/login`. Register **`{APP_BASE_URL}/api/portal/auth/google/callback`** in Google Cloud (admin sign-in reuses this URI; signed `state` selects portal vs admin). Optional legacy URI `{APP_BASE_URL}/api/admin/auth/google/callback` if you still have in-flight OAuth from older deploys. Backend needs the same **client id** as `GOOGLE_OAUTH_CLIENT_ID` to validate `id_token` audiences. |
 | `PORTAL_GOOGLE_OAUTH_STATE_SECRET` | Optional (≥16 chars): HMAC secret for OAuth `state` (portal and admin). If omitted, `GOOGLE_OAUTH_CLIENT_SECRET` is used. |
