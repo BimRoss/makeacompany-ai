@@ -277,7 +277,7 @@ export function UserProfilesPanel() {
                       {w.amountTotal && w.amountTotal !== "0" ? formatStripeAmount(w.amountTotal, w.currency) : "—"}
                     </td>
                     <td className="px-3 py-2 font-mono text-xs" title={w.stripeProductId?.trim() || undefined}>
-                      {(w.stripeProductId ?? "").trim() ? short(w.stripeProductId, 22) : "—"}
+                      {(w.stripeProductId ?? "").trim() ? short(w.stripeProductId ?? "", 22) : "—"}
                     </td>
                     <td className="px-3 py-2 font-mono text-xs">
                       {(w.stripeCustomer ?? "").trim() ? (
