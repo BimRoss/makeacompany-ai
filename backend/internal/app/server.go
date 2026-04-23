@@ -96,6 +96,10 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 	s.mux.HandleFunc("/v1/admin/auth/finish", s.handleAdminAuthFinish)
 	s.mux.HandleFunc("/v1/admin/auth/me", s.handleAdminAuthMe)
 	s.mux.HandleFunc("/v1/admin/auth/logout", s.handleAdminAuthLogout)
+	s.mux.HandleFunc("/v1/portal/auth/start", s.handlePortalAuthStart)
+	s.mux.HandleFunc("/v1/portal/auth/finish", s.handlePortalAuthFinish)
+	s.mux.HandleFunc("/v1/portal/auth/me", s.handlePortalAuthMe)
+	s.mux.HandleFunc("/v1/portal/auth/logout", s.handlePortalAuthLogout)
 	return s, nil
 }
 
@@ -175,6 +179,14 @@ func normalizeMetricRoute(path string) string {
 		return "/v1/admin/auth/me"
 	case path == "/v1/admin/auth/logout":
 		return "/v1/admin/auth/logout"
+	case path == "/v1/portal/auth/start":
+		return "/v1/portal/auth/start"
+	case path == "/v1/portal/auth/finish":
+		return "/v1/portal/auth/finish"
+	case path == "/v1/portal/auth/me":
+		return "/v1/portal/auth/me"
+	case path == "/v1/portal/auth/logout":
+		return "/v1/portal/auth/logout"
 	case strings.HasPrefix(path, "/v1/"):
 		return "/v1/other"
 	default:
@@ -567,7 +579,7 @@ func (s *Server) handleAdminCompanyChannelsDiscover(w http.ResponseWriter, r *ht
 	var in []DiscoveredChannelInput
 	for _, c := range body.Channels {
 		cid := strings.TrimSpace(c.ChannelID)
-		if cid == "" || !validAdminSlackChannelID(cid) {
+		if cid == "" || !ValidSlackChannelID(cid) {
 			continue
 		}
 		in = append(in, DiscoveredChannelInput{ChannelID: cid, Name: c.Name, OwnerIDs: c.OwnerIDs})
@@ -600,18 +612,13 @@ func (s *Server) handleAdminCompanyChannelGet(w http.ResponseWriter, r *http.Req
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	ok, svcUnavail := s.companyRegistryReadAuthorized(r)
-	if !ok {
-		if svcUnavail {
-			http.Error(w, "admin auth disabled", http.StatusServiceUnavailable)
-		} else {
-			http.Error(w, "unauthorized", http.StatusUnauthorized)
-		}
+	chID := strings.TrimSpace(r.PathValue("channelId"))
+	if chID == "" || !ValidSlackChannelID(chID) {
+		http.Error(w, "bad channel id", http.StatusBadRequest)
 		return
 	}
-	chID := strings.TrimSpace(r.PathValue("channelId"))
-	if chID == "" || !validAdminSlackChannelID(chID) {
-		http.Error(w, "bad channel id", http.StatusBadRequest)
+	if !s.authorizedForCompanyChannelRead(r, chID) {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 	e, err := s.store.GetCompanyChannel(r.Context(), s.cfg.CompanyChannelsRedisKey, chID)
@@ -635,14 +642,13 @@ func (s *Server) handleAdminCompanyChannelPatch(w http.ResponseWriter, r *http.R
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	ok, _ := s.companyChannelPatchAuthorized(r)
-	if !ok {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
+	chID := strings.TrimSpace(r.PathValue("channelId"))
+	if chID == "" || !ValidSlackChannelID(chID) {
+		http.Error(w, "bad channel id", http.StatusBadRequest)
 		return
 	}
-	chID := strings.TrimSpace(r.PathValue("channelId"))
-	if chID == "" || !validAdminSlackChannelID(chID) {
-		http.Error(w, "bad channel id", http.StatusBadRequest)
+	if !s.authorizedForCompanyChannelPatch(r, chID) {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 	var patch CompanyChannelPatch
@@ -669,39 +675,14 @@ func (s *Server) handleAdminCompanyChannelPatch(w http.ResponseWriter, r *http.R
 	})
 }
 
-func validAdminSlackChannelID(id string) bool {
-	id = strings.TrimSpace(id)
-	if len(id) < 8 || len(id) > 24 {
-		return false
-	}
-	for i := 0; i < len(id); i++ {
-		c := id[i]
-		if (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') {
-			continue
-		}
-		return false
-	}
-	switch id[0] {
-	case 'C', 'G':
-		return true
-	default:
-		return false
-	}
-}
-
 func (s *Server) handleAdminChannelKnowledge(w http.ResponseWriter, r *http.Request) {
-	ok, svcUnavail := s.companyRegistryReadAuthorized(r)
-	if !ok {
-		if svcUnavail {
-			http.Error(w, "admin auth disabled", http.StatusServiceUnavailable)
-		} else {
-			http.Error(w, "unauthorized", http.StatusUnauthorized)
-		}
+	chID := strings.TrimSpace(r.PathValue("channelId"))
+	if chID == "" || !ValidSlackChannelID(chID) {
+		http.Error(w, "bad channel id", http.StatusBadRequest)
 		return
 	}
-	chID := strings.TrimSpace(r.PathValue("channelId"))
-	if chID == "" || !validAdminSlackChannelID(chID) {
-		http.Error(w, "bad channel id", http.StatusBadRequest)
+	if !s.authorizedForCompanyChannelRead(r, chID) {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 	md, err := s.store.GetChannelKnowledgeMarkdown(r.Context(), chID)

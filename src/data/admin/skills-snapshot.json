@@ -36,11 +36,11 @@
       "label": "Create Company",
       "description": "Start a company with just a name.",
       "employeeIds": ["joanne"],
-      "requiredParams": ["name", "founders"],
-      "optionalParams": [],
+      "requiredParams": ["name"],
+      "optionalParams": ["founders"],
       "paramDefaults": {
         "name": "Company / channel slug (gathered in-thread when not in the first message)",
-        "founders": "Message author (implicit default); the skill appends @mentioned cofounders"
+        "founders": "Optional; when omitted defaults to the message author plus any @mentioned cofounders"
       }
     },
     {

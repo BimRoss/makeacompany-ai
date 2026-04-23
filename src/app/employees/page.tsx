@@ -1,9 +1,15 @@
+import { headers } from "next/headers";
+
 import { AdminShell } from "@/components/admin/admin-shell";
 import { TeamCardsGrid } from "@/components/admin/team-cards-grid";
 import { getAdminCatalogData } from "@/lib/admin/catalog";
+import { requestHostLooksLoopback } from "@/lib/admin/browser-loopback";
 
 export default async function EmployeesPage() {
   const { members, skills } = await getAdminCatalogData();
+  const hdrs = await headers();
+  const host = hdrs.get("x-forwarded-host") ?? hdrs.get("host") ?? "";
+  const requestLoopbackHost = requestHostLooksLoopback(host);
 
   return (
     <AdminShell>
@@ -17,7 +23,7 @@ export default async function EmployeesPage() {
             </p>
           </div>
         ) : (
-          <TeamCardsGrid members={members} skills={skills} />
+          <TeamCardsGrid members={members} skills={skills} requestLoopbackHost={requestLoopbackHost} />
         )}
       </section>
     </AdminShell>

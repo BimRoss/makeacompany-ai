@@ -26,3 +26,20 @@ export function channelDisplayTitle(ch: CompanyChannel): string {
   if (dn) return dn;
   return ch.channel_id;
 }
+
+/**
+ * Portal login / headings: prefer Slack channel display name, then a title-cased company slug,
+ * then the raw channel id.
+ */
+export function companyPortalDisplayName(ch: CompanyChannel): string {
+  const dn = ch.display_name?.trim();
+  if (dn) return dn;
+  const slug = ch.company_slug?.trim();
+  if (slug) {
+    const parts = slug.split(/[-_]+/).filter(Boolean);
+    if (parts.length > 0) {
+      return parts.map((p) => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase()).join(" ");
+    }
+  }
+  return ch.channel_id?.trim() ?? "";
+}

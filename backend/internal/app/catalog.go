@@ -241,7 +241,7 @@ func mergeCreateDocParamDefaultsMap(incoming map[string]string) map[string]strin
 func mergeCreateCompanyParamDefaultsMap(incoming map[string]string) map[string]string {
 	def := map[string]string{
 		"name":     "Company / channel slug (gathered in-thread when not in the first message)",
-		"founders": "Message author (implicit default); the skill appends @mentioned cofounders",
+		"founders": "Optional; when omitted defaults to the message author plus any @mentioned cofounders",
 	}
 	out := make(map[string]string, len(def)+len(incoming))
 	for k, v := range def {
@@ -286,7 +286,7 @@ func builtinSkillParamDefaults(skillID string) (minRequired, defaultOptional []s
 	case "create-doc":
 		return []string{"intent", "title", "editors"}, []string{"commenters", "viewers", "type", "length"}
 	case "create-company":
-		return []string{"name", "founders"}, nil
+		return []string{"name"}, []string{"founders"}
 	case "delete-company":
 		return []string{"name"}, nil
 	case "read-company", "read-skills", "read-user":

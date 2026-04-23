@@ -12,6 +12,7 @@ type StripeWaitlistPurchaserRow = {
   email: string;
   stripeSessionId: string;
   stripeCustomer: string;
+  stripeProductId?: string;
   paymentStatus: string;
   amountTotal: string;
   currency: string;
@@ -237,12 +238,13 @@ export function UserProfilesPanel() {
         ) : null}
         {stripePurchasers.length > 0 ? (
           <div className="overflow-x-auto rounded-xl border border-border">
-            <table className="w-full min-w-[640px] border-collapse text-left text-sm">
+            <table className="w-full min-w-[760px] border-collapse text-left text-sm">
               <thead>
                 <tr className="border-b border-border bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
                   <th className="px-3 py-2">Email</th>
                   <th className="px-3 py-2">Payment</th>
                   <th className="px-3 py-2">Amount</th>
+                  <th className="px-3 py-2">Product</th>
                   <th className="px-3 py-2">Customer</th>
                   <th className="px-3 py-2">Session</th>
                   <th className="px-3 py-2">Checkout created</th>
@@ -273,6 +275,9 @@ export function UserProfilesPanel() {
                     <td className="px-3 py-2 text-xs">{short(w.paymentStatus, 20)}</td>
                     <td className="px-3 py-2 text-xs text-muted-foreground">
                       {w.amountTotal && w.amountTotal !== "0" ? formatStripeAmount(w.amountTotal, w.currency) : "—"}
+                    </td>
+                    <td className="px-3 py-2 font-mono text-xs" title={w.stripeProductId?.trim() || undefined}>
+                      {(w.stripeProductId ?? "").trim() ? short(w.stripeProductId, 22) : "—"}
                     </td>
                     <td className="px-3 py-2 font-mono text-xs">
                       {(w.stripeCustomer ?? "").trim() ? (

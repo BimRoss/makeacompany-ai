@@ -12,6 +12,8 @@ type AdminChannelControlPaneProps = {
   errorMessage?: string;
   redisKey?: string;
   onChannelUpdated: (ch: CompanyChannel) => void;
+  /** Defaults to admin API; use `portal` for company portal pages. */
+  companyChannelsApiPrefix?: "admin" | "portal";
 };
 
 /** Read-only registry field: label + value in one pill for consistent scanning. */
@@ -72,9 +74,11 @@ export function AdminChannelControlPane({
   errorMessage,
   redisKey,
   onChannelUpdated,
+  companyChannelsApiPrefix = "admin",
 }: AdminChannelControlPaneProps) {
   const [patchError, setPatchError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const apiCompany = `/api/${companyChannelsApiPrefix}/company-channels`;
 
   const patchChannel = useCallback(
     async (body: Record<string, boolean | number>) => {
@@ -82,7 +86,7 @@ export function AdminChannelControlPane({
       setPatchError(null);
       setBusy(true);
       try {
-        const res = await fetch(`/api/admin/company-channels/${encodeURIComponent(channelId)}`, {
+        const res = await fetch(`${apiCompany}/${encodeURIComponent(channelId)}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
@@ -99,7 +103,7 @@ export function AdminChannelControlPane({
         setBusy(false);
       }
     },
-    [channel, channelId, onChannelUpdated],
+    [apiCompany, channel, channelId, onChannelUpdated],
   );
 
   if (status === "loading") {

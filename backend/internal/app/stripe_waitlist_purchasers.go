@@ -22,6 +22,7 @@ type StripeWaitlistPurchaser struct {
 	Currency        string `json:"currency"`
 	StripeCustomer  string `json:"stripeCustomer"`
 	StripeSessionID string `json:"stripeSessionId"`
+	StripeProductID string `json:"stripeProductId"`
 	CheckoutCreated string `json:"checkoutCreated"`
 	Source          string `json:"source"`
 	WaitlistPriceID string `json:"waitlistPriceId"`
@@ -38,40 +39,53 @@ type stripeWaitlistSnapshotEnvelope struct {
 // maxStripeWaitlistSessionsScanned caps Stripe list iteration (complete sessions) to avoid runaway.
 const maxStripeWaitlistSessionsScanned = 50000
 
-func priceInLineItemList(list *stripe.LineItemList, wantPriceID string) bool {
-	if list == nil || wantPriceID == "" {
-		return false
+func priceProductID(p *stripe.Price) string {
+	if p == nil {
+		return ""
 	}
-	for _, li := range list.Data {
-		if li != nil && li.Price != nil && li.Price.ID == wantPriceID {
-			return true
+	if p.Product != nil {
+		if id := strings.TrimSpace(p.Product.ID); id != "" {
+			return id
 		}
 	}
-	return false
+	return ""
 }
 
-func checkoutSessionHasWaitlistPrice(sess *stripe.CheckoutSession, wantPriceID string) (bool, error) {
+func checkoutSessionWaitlistLineItem(sess *stripe.CheckoutSession, wantPriceID string) (found bool, productID string, err error) {
 	if sess == nil || wantPriceID == "" {
-		return false, nil
+		return false, "", nil
 	}
-	if priceInLineItemList(sess.LineItems, wantPriceID) {
-		return true, nil
+	tryList := func(list *stripe.LineItemList) (bool, string) {
+		if list == nil {
+			return false, ""
+		}
+		for _, li := range list.Data {
+			if li != nil && li.Price != nil && li.Price.ID == wantPriceID {
+				return true, priceProductID(li.Price)
+			}
+		}
+		return false, ""
+	}
+	if ok, pid := tryList(sess.LineItems); ok {
+		return true, pid, nil
 	}
 	params := &stripe.CheckoutSessionListLineItemsParams{
 		Session: stripe.String(sess.ID),
 	}
 	params.Limit = stripe.Int64(100)
+	params.AddExpand("data.price")
+	params.AddExpand("data.price.product")
 	iter := checkoutsession.ListLineItems(params)
 	for iter.Next() {
 		li := iter.LineItem()
 		if li != nil && li.Price != nil && li.Price.ID == wantPriceID {
-			return true, nil
+			return true, priceProductID(li.Price), nil
 		}
 	}
 	if err := iter.Err(); err != nil {
-		return false, err
+		return false, "", err
 	}
-	return false, nil
+	return false, "", nil
 }
 
 func checkoutSessionCustomerID(sess *stripe.CheckoutSession) string {
@@ -96,9 +110,12 @@ func FetchStripeWaitlistPurchasers(ctx context.Context, waitlistPriceID string) 
 	listParams.Status = stripe.String(string(stripe.CheckoutSessionStatusComplete))
 	listParams.Limit = stripe.Int64(100)
 	listParams.AddExpand("data.line_items")
+	listParams.AddExpand("data.line_items.data.price")
+	listParams.AddExpand("data.line_items.data.price.product")
 	listParams.AddExpand("data.customer")
 
 	bestByEmail := make(map[string]*stripe.CheckoutSession)
+	bestProductIDByEmail := make(map[string]string)
 	iter := checkoutsession.List(listParams)
 	scanned := 0
 	for iter.Next() {
@@ -125,7 +142,7 @@ func FetchStripeWaitlistPurchasers(ctx context.Context, waitlistPriceID string) 
 		if em == "" {
 			continue
 		}
-		ok, err := checkoutSessionHasWaitlistPrice(sess, waitlistPriceID)
+		ok, productID, err := checkoutSessionWaitlistLineItem(sess, waitlistPriceID)
 		if err != nil {
 			return nil, fmt.Errorf("line items for session %s: %w", sess.ID, err)
 		}
@@ -136,6 +153,7 @@ func FetchStripeWaitlistPurchasers(ctx context.Context, waitlistPriceID string) 
 		if prev == nil || sess.Created > prev.Created {
 			cp := *sess
 			bestByEmail[em] = &cp
+			bestProductIDByEmail[em] = productID
 		}
 	}
 	if err := iter.Err(); err != nil {
@@ -152,6 +170,7 @@ func FetchStripeWaitlistPurchasers(ctx context.Context, waitlistPriceID string) 
 			Currency:        string(sess.Currency),
 			StripeCustomer:  checkoutSessionCustomerID(sess),
 			StripeSessionID: sess.ID,
+			StripeProductID: strings.TrimSpace(bestProductIDByEmail[email]),
 			CheckoutCreated: created,
 			Source:          "stripe_api",
 			WaitlistPriceID: waitlistPriceID,

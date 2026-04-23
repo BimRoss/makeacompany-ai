@@ -77,6 +77,8 @@ Copy `.env.example` to **`.env.dev`** (gitignored), set Stripe **test** keys and
 docker compose --profile local up --build
 ```
 
+Sibling Go repos (**slack-orchestrator**, **employee-factory**) do not use a Go file watcher: their compose dev images compile on each container start—restart a service or run `up --build` after backend changes there.
+
 - Site: http://localhost:3000  
 - API: http://localhost:8090 (host port **8090** so **8080** stays free for [slack-orchestrator](https://github.com/BimRoss/slack-orchestrator) in another terminal). Bundled Redis publishes on host **${REDIS_PORT:-6380}**; sibling [employee-factory](https://github.com/BimRoss/employee-factory) local compose defaults workers to **`redis://host.docker.internal:${MAKEACOMPANY_AI_REDIS_PORT:-6380}/0`** so **makeacompany:*** and **employee-factory:*** keys share one DB.  
 - **`/admin` orchestrator log:** with slack-orchestrator running locally and published on `${SLACK_ORCHESTRATOR_PORT:-8080}`, compose sets `ORCHESTRATOR_DEBUG_BASE_URL` to `http://host.docker.internal` on that port. If you change `ORCHESTRATOR_PORT` in the orchestrator compose file, set the same value as `SLACK_ORCHESTRATOR_PORT` in **`.env.dev`** (or whatever **`MAKEACOMPANY_AI_ENV_FILE`** points at).  

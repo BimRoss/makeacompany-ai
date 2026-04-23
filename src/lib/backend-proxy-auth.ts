@@ -1,7 +1,11 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
+import { portalSessionCookieName } from "@/lib/portal-session-cookies";
+
 const adminSessionCookieName = "mac_admin_session";
+
+export { portalChannelCookieName, portalSessionCookieName } from "@/lib/portal-session-cookies";
 
 export function resolveBackendBaseURL(): string {
   const isKubernetes = Boolean(process.env.KUBERNETES_SERVICE_HOST);
@@ -28,6 +32,14 @@ export async function resolveBackendBearerToken(): Promise<string | null> {
 /** Authorization header for Next.js → backend admin proxies (internal token and/or mac_admin_session). */
 export async function backendProxyAuthHeaders(): Promise<HeadersInit> {
   const token = await resolveBackendBearerToken();
+  if (!token) return {};
+  return { Authorization: `Bearer ${token}` };
+}
+
+/** Bearer from portal session cookie only (for `/api/portal/*` → company channel + knowledge). */
+export async function portalProxyAuthHeaders(): Promise<HeadersInit> {
+  const cookieStore = await cookies();
+  const token = cookieStore.get(portalSessionCookieName)?.value?.trim();
   if (!token) return {};
   return { Authorization: `Bearer ${token}` };
 }

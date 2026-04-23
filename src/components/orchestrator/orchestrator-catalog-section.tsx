@@ -1,9 +1,15 @@
+import { headers } from "next/headers";
+
 import { SkillsCardsGrid } from "@/components/admin/skills-cards-grid";
 import { TeamCardsGrid } from "@/components/admin/team-cards-grid";
 import { getAdminCatalogData } from "@/lib/admin/catalog";
+import { requestHostLooksLoopback } from "@/lib/admin/browser-loopback";
 
 export async function OrchestratorCatalogSection() {
   const { members, skills } = await getAdminCatalogData();
+  const hdrs = await headers();
+  const host = hdrs.get("x-forwarded-host") ?? hdrs.get("host") ?? "";
+  const requestLoopbackHost = requestHostLooksLoopback(host);
 
   return (
     <div className="space-y-10">
@@ -23,7 +29,7 @@ export async function OrchestratorCatalogSection() {
             </p>
           </div>
         ) : (
-          <TeamCardsGrid members={members} skills={skills} />
+          <TeamCardsGrid members={members} skills={skills} requestLoopbackHost={requestLoopbackHost} />
         )}
       </section>
 
