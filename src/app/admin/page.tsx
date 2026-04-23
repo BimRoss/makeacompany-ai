@@ -4,6 +4,7 @@ import { AdminOverviewGrafanaGrid } from "@/components/admin/admin-overview-graf
 import { AdminShell } from "@/components/admin/admin-shell";
 import { SkillsCardsGrid } from "@/components/admin/skills-cards-grid";
 import { OrchestratorDebugPanel } from "@/components/orchestrator/orchestrator-debug-panel";
+import { AdminWaitlistProgress } from "@/components/admin/admin-waitlist-progress";
 import { UserProfilesPanel } from "@/components/admin/user-profiles-panel";
 import { getAdminCatalogData } from "@/lib/admin/catalog";
 
@@ -34,6 +35,7 @@ export default async function AdminPage() {
             <SkillsCardsGrid skills={skills} members={members} readOnly showToolParams />
           )}
         </section>
+        <AdminWaitlistProgress />
         <UserProfilesPanel />
         <OrchestratorDebugPanel />
       </div>

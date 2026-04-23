@@ -2,6 +2,7 @@
 
 import { Link2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { ADMIN_STRIPE_WAITLIST_REFRESH_EVENT } from "@/lib/waitlist";
 
 function normalizeEmail(email: string): string | null {
   const t = (email ?? "").trim().toLowerCase();
@@ -113,7 +114,9 @@ export function UserProfilesPanel() {
         setStripePurchasers([]);
         return;
       }
-      setStripePurchasers(Array.isArray(body.purchasers) ? body.purchasers : []);
+      const rows = Array.isArray(body.purchasers) ? body.purchasers : [];
+      setStripePurchasers(rows);
+      window.dispatchEvent(new Event(ADMIN_STRIPE_WAITLIST_REFRESH_EVENT));
       if (live) {
         const parts: string[] = [];
         if (typeof body.redisSaveError === "string")
