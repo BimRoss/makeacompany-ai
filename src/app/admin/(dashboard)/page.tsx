@@ -17,7 +17,6 @@ export default async function AdminPage() {
           <AdminOverviewGrafanaGrid />
           <AdminAgentsAllGrafanaEmbed />
         </div>
-        <AdminCompanyChannelsStrip />
         <section className="space-y-4" aria-labelledby="admin-skills-heading">
           <h2 id="admin-skills-heading" className="text-lg font-semibold leading-snug tracking-tight">
             Skills{" "}
@@ -34,6 +33,7 @@ export default async function AdminPage() {
             <SkillsCardsGrid skills={skills} members={members} readOnly showToolParams />
           )}
         </section>
+        <AdminCompanyChannelsStrip />
         <UserProfilesPanel />
         <OrchestratorDebugPanel />
       </div>

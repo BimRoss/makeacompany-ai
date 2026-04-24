@@ -157,6 +157,26 @@ body {
   background: transparent;
 }
 
+/* Authors / Threads Knowledge Base panes — subtler thumb than app default */
+.digest-view-scroll {
+  --dv-scroll-thumb: rgba(0, 0, 0, 0.1);
+  --dv-scroll-thumb-hover: rgba(0, 0, 0, 0.2);
+  scrollbar-color: var(--dv-scroll-thumb) var(--scrollbar-track);
+}
+
+.dark .digest-view-scroll {
+  --dv-scroll-thumb: rgba(255, 255, 255, 0.12);
+  --dv-scroll-thumb-hover: rgba(255, 255, 255, 0.24);
+}
+
+.digest-view-scroll::-webkit-scrollbar-thumb {
+  background-color: var(--dv-scroll-thumb);
+}
+
+.digest-view-scroll::-webkit-scrollbar-thumb:hover {
+  background-color: var(--dv-scroll-thumb-hover);
+}
+
 /* Global interactive cursor: hand over the whole control; nested SVG/text inherit so hover matches. */
 a[href]:not([aria-disabled="true"]) {
   cursor: pointer;

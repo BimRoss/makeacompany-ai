@@ -1,19 +1,20 @@
 package app
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"strings"
 	"time"
 )
 
-// handleInternalRefreshSlackUsersSnapshot rebuilds the Redis snapshot from Slack (BACKEND_INTERNAL_SERVICE_TOKEN only).
+// handleInternalRefreshSlackUsersSnapshot rebuilds the Redis snapshot from Slack.
 func (s *Server) handleInternalRefreshSlackUsersSnapshot(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	if !s.internalServiceBearerAuthorized(r) {
+	if !s.internalRefreshAuthorized(r) {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
@@ -49,6 +50,41 @@ func (s *Server) handleInternalRefreshSlackUsersSnapshot(w http.ResponseWriter, 
 		"syncError":           errStringOrNil(syncErr),
 		"fetchedAt":           fetchedAt,
 	})
+}
+
+// tryWarmSlackUsersSnapshotWhenMissing calls Slack users.list and writes Redis when the snapshot key is absent (same
+// cold-start idea as admin slack-member-channels and Stripe waitlist snapshot warm).
+func (s *Server) tryWarmSlackUsersSnapshotWhenMissing(ctx context.Context) map[string]any {
+	if strings.TrimSpace(s.cfg.SlackBotToken) == "" {
+		return nil
+	}
+	users, err := FetchSlackWorkspaceUsers(ctx, s.cfg.SlackBotToken)
+	if err != nil {
+		s.log.Printf("admin slack users snapshot warm (missing): slack: %v", err)
+		return nil
+	}
+	blob, mErr := MarshalSlackUsersSnapshot(users)
+	if mErr != nil {
+		s.log.Printf("admin slack users snapshot warm (missing): marshal: %v", mErr)
+		return nil
+	}
+	if svErr := s.store.SaveSlackUsersSnapshot(ctx, blob); svErr != nil {
+		s.log.Printf("admin slack users snapshot warm (missing): save: %v", svErr)
+		return nil
+	}
+	synced, syncErr := s.store.SyncSlackUserIndexFromWorkspaceUsers(ctx, users)
+	if syncErr != nil {
+		s.log.Printf("admin slack users snapshot warm (missing): sync index: %v", syncErr)
+	}
+	fetchedAt := time.Now().UTC().Format(time.RFC3339)
+	return map[string]any{
+		"source":              "snapshot",
+		"fetchedAt":           fetchedAt,
+		"users":               users,
+		"snapshotNote":        "Filled from Slack users.list (Redis workspace snapshot was missing).",
+		"slackEmailIndexSync": synced,
+		"syncError":           errStringOrNil(syncErr),
+	}
 }
 
 // handleAdminSlackWorkspaceUsers returns cached Slack members or a live Slack query when source=live.
@@ -105,6 +141,10 @@ func (s *Server) handleAdminSlackWorkspaceUsers(w http.ResponseWriter, r *http.R
 	raw, err := s.store.GetSlackUsersSnapshotBytes(r.Context())
 	if err != nil {
 		if errors.Is(err, ErrSlackUsersSnapshotMissing) {
+			if warm := s.tryWarmSlackUsersSnapshotWhenMissing(r.Context()); warm != nil {
+				writeJSONNoStore(w, http.StatusOK, warm)
+				return
+			}
 			writeJSONNoStore(w, http.StatusOK, map[string]any{
 				"source":       "snapshot",
 				"fetchedAt":    nil,

@@ -6,7 +6,6 @@ import { AdminChannelControlPane, type AdminChannelFounder } from "@/components/
 import { AdminChannelKnowledgeDigest } from "@/components/admin/admin-channel-knowledge-digest";
 import type { SlackTranscriptAuthorLookup } from "@/components/admin/admin-channel-digest-views";
 import { CompanyChannelPageLoader } from "@/components/company-channel/company-channel-page-loader";
-import { CompanyChannelPulsecheck } from "@/components/company-channel/company-channel-pulsecheck";
 import { PortalPostAuthWelcomeToast } from "@/components/portal/portal-post-auth-welcome-toast";
 import { companyChannelWorkspaceTitle, type CompanyChannel } from "@/lib/admin/company-channels";
 import { kickToLoginForUnauthorizedApi } from "@/lib/client-auth-unauthorized-redirect";
@@ -66,7 +65,6 @@ export function CompanyChannelWorkspaceDetail({ channelId, variant }: CompanyCha
   const [channelError, setChannelError] = useState<string | undefined>();
   const [redisKey, setRedisKey] = useState<string | undefined>();
   const [markdown, setMarkdown] = useState<string>("");
-  const [companyPulsecheck, setCompanyPulsecheck] = useState<string>("");
   const [knowledgeEmpty, setKnowledgeEmpty] = useState(false);
   const [slackAuthorLookup, setSlackAuthorLookup] = useState<SlackTranscriptAuthorLookup>({});
   const [portalWelcome, setPortalWelcome] = useState<{ greeting: string; portraitUrl?: string } | null>(null);
@@ -120,8 +118,6 @@ export function CompanyChannelWorkspaceDetail({ channelId, variant }: CompanyCha
             markdown?: string;
             empty?: boolean;
             error?: string;
-            company_pulsecheck?: string;
-            company_pulsecheck_empty?: boolean;
           }
         | null;
 
@@ -141,7 +137,6 @@ export function CompanyChannelWorkspaceDetail({ channelId, variant }: CompanyCha
 
       if (!knRes.ok) {
         setMarkdown("");
-        setCompanyPulsecheck("");
         setKnowledgeEmpty(false);
         setTranscriptError(knPayload?.error ?? "Could not load channel transcript.");
       } else {
@@ -149,11 +144,6 @@ export function CompanyChannelWorkspaceDetail({ channelId, variant }: CompanyCha
         setMarkdown(md);
         setKnowledgeEmpty(Boolean(knPayload?.empty) || md.trim() === "");
         setTranscriptError(null);
-        const pulse =
-          typeof knPayload?.company_pulsecheck === "string" && !knPayload?.company_pulsecheck_empty
-            ? knPayload.company_pulsecheck
-            : "";
-        setCompanyPulsecheck(pulse);
       }
 
       let profPayload: { profiles?: SlackProfileRow[] } | null = null;
@@ -210,7 +200,6 @@ export function CompanyChannelWorkspaceDetail({ channelId, variant }: CompanyCha
       setState("error");
       setSlackAuthorLookup({});
       setSlackChannelIsPrivate(null);
-      setCompanyPulsecheck("");
       setTranscriptError("Network error loading transcript.");
       setChannelStatus("error");
       setChannelError("Network error.");
@@ -261,10 +250,6 @@ export function CompanyChannelWorkspaceDetail({ channelId, variant }: CompanyCha
         founders={foundersForHeader}
         slackChannelIsPrivate={slackChannelIsPrivate}
       />
-
-      {state === "ready" && !transcriptError ? (
-        <CompanyChannelPulsecheck markdown={companyPulsecheck} slackAuthorLookup={slackAuthorLookup} />
-      ) : null}
 
       {knowledgeEmpty && state === "ready" && !transcriptError ? (
         <div className="flex shrink-0 flex-col gap-2">

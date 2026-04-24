@@ -6,12 +6,15 @@ import { Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useEffect, useState, type ReactNode } from "react";
 
+import { useWorkspaceNavbarTrail } from "@/components/workspace-navbar-trail-provider";
+
 type HeaderProps = {
   endSlot?: ReactNode;
 };
 
 export function Header({ endSlot }: HeaderProps = {}) {
   const { resolvedTheme, setTheme } = useTheme();
+  const { trail: workspaceNavbarTrail } = useWorkspaceNavbarTrail();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => setMounted(true), []);
@@ -24,18 +27,28 @@ export function Header({ endSlot }: HeaderProps = {}) {
         <div className="pointer-events-none absolute inset-0">
           <div className="absolute -left-1/3 top-0 h-full w-1/3 -skew-x-12 bg-gradient-to-r from-transparent via-white/45 to-transparent opacity-0 motion-all group-hover:translate-x-[360%] group-hover:opacity-100 dark:via-white/20" />
         </div>
-        <Link href="/" aria-label="Go to homepage" className="flex items-center gap-3">
-          <Image
-            src="/logo.png"
-            alt="makeacompany.ai logo"
-            width={40}
-            height={40}
-            className="h-10 w-10 rounded-md object-contain"
-          />
-          <p className="font-display text-lg font-semibold tracking-[-0.03em] text-muted-foreground opacity-95 motion-colors sm:text-xl">
-            makeacompany.ai
-          </p>
-        </Link>
+        <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
+          <Link href="/" aria-label="Go to homepage" className="flex shrink-0 items-center gap-3">
+            <Image
+              src="/logo.png"
+              alt="makeacompany.ai logo"
+              width={40}
+              height={40}
+              className="h-10 w-10 rounded-md object-contain"
+            />
+            <p className="font-display text-lg font-semibold tracking-[-0.03em] text-muted-foreground opacity-95 motion-colors sm:text-xl">
+              makeacompany.ai
+            </p>
+          </Link>
+          {workspaceNavbarTrail ? (
+            <>
+              <span className="shrink-0 select-none text-muted-foreground/40 motion-colors" aria-hidden>
+                –
+              </span>
+              <div className="min-w-0 flex-1">{workspaceNavbarTrail}</div>
+            </>
+          ) : null}
+        </div>
         <div className="flex shrink-0 items-center gap-2 sm:gap-3">
           {endSlot}
           <button

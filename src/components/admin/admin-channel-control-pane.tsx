@@ -1,8 +1,9 @@
 "use client";
 
 import { Lock, Users } from "lucide-react";
-import { useCallback, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { CompanyChannel } from "@/lib/admin/company-channels";
+import { useWorkspaceNavbarTrail } from "@/components/workspace-navbar-trail-provider";
 import { kickToLoginForUnauthorizedApi } from "@/lib/client-auth-unauthorized-redirect";
 import { SlackPersonChip } from "@/components/admin/slack-person-chip";
 
@@ -80,6 +81,7 @@ export function AdminChannelControlPane({
   founders,
   slackChannelIsPrivate,
 }: AdminChannelControlPaneProps) {
+  const { setWorkspaceNavbarTrail } = useWorkspaceNavbarTrail();
   const [patchError, setPatchError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const apiCompany = `/api/${companyChannelsApiPrefix}/company-channels`;
@@ -141,30 +143,31 @@ export function AdminChannelControlPane({
       </div>
     ) : null;
 
-  const visibilityIcon =
-    slackChannelIsPrivate === true ? (
-      <span className="inline-flex shrink-0 text-muted-foreground" title="Private Slack channel" aria-hidden>
-        <Lock className="size-7 stroke-[2.25]" />
+  const navbarTrail = useMemo(
+    () => (
+      <span className="flex min-w-0 items-center gap-1.5 text-base font-semibold leading-snug tracking-tight text-foreground motion-colors sm:text-lg">
+        {slackChannelIsPrivate === true ? (
+          <span className="inline-flex shrink-0 text-muted-foreground" title="Private Slack channel" aria-hidden>
+            <Lock className="size-3.5 stroke-[2.25]" />
+          </span>
+        ) : null}
+        {slackChannelIsPrivate === true ? <span className="sr-only">Private Slack channel: </span> : null}
+        {slackChannelIsPrivate === false ? (
+          <span className="inline-flex shrink-0 text-muted-foreground" title="Public channel" aria-hidden>
+            <Users className="size-3.5 stroke-[2.25]" />
+          </span>
+        ) : null}
+        {slackChannelIsPrivate === false ? <span className="sr-only">Public channel: </span> : null}
+        <span className="min-w-0 truncate font-display tracking-[-0.02em]">{workspaceTitle}</span>
       </span>
-    ) : slackChannelIsPrivate === false ? (
-      <span className="inline-flex shrink-0 text-muted-foreground" title="Public channel" aria-hidden>
-        <Users className="size-7 stroke-[2.25]" />
-      </span>
-    ) : null;
-
-  /** Same floating title treatment as Latest News / Knowledge Base on the workspace page. */
-  const workspaceHeading = (
-    <h2 className="flex min-w-0 max-w-full items-center gap-2 text-lg font-semibold leading-snug tracking-tight text-foreground">
-      {visibilityIcon ? (
-        <>
-          {visibilityIcon}
-          {slackChannelIsPrivate === true ? <span className="sr-only">Private Slack channel: </span> : null}
-          {slackChannelIsPrivate === false ? <span className="sr-only">Public channel: </span> : null}
-        </>
-      ) : null}
-      <span className="min-w-0 truncate">{workspaceTitle}</span>
-    </h2>
+    ),
+    [slackChannelIsPrivate, workspaceTitle],
   );
+
+  useEffect(() => {
+    setWorkspaceNavbarTrail(navbarTrail);
+    return () => setWorkspaceNavbarTrail(null);
+  }, [navbarTrail, setWorkspaceNavbarTrail]);
 
   const foundersColumn = <div className="min-w-0 flex-1 space-y-3">{foundersSection}</div>;
 
@@ -174,12 +177,7 @@ export function AdminChannelControlPane({
     <div className="min-w-0 shrink-0 border-t border-border pt-3 md:border-l md:border-t-0 md:pl-6 md:pt-0">{child}</div>
   );
 
-  const paneShell = (card: ReactNode) => (
-    <div className="flex shrink-0 flex-col gap-2">
-      {workspaceHeading}
-      {card}
-    </div>
-  );
+  const paneShell = (card: ReactNode) => <div className="flex shrink-0 flex-col gap-2">{card}</div>;
 
   if (status === "loading") {
     return paneShell(

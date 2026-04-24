@@ -4,6 +4,7 @@ import { DM_Sans, Syne } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
+import { WorkspaceNavbarTrailProvider } from "@/components/workspace-navbar-trail-provider";
 import { siteDescription, siteName, siteTagline, siteTitle, siteUrl } from "@/lib/site";
 
 const dmSans = DM_Sans({
@@ -96,7 +97,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         className={`${dmSans.variable} ${syne.variable} min-h-dvh antialiased`}
         suppressHydrationWarning
       >
-        <ThemeProvider>{children}</ThemeProvider>
+        <ThemeProvider>
+          <WorkspaceNavbarTrailProvider>{children}</WorkspaceNavbarTrailProvider>
+        </ThemeProvider>
         <Script id="structured-data" type="application/ld+json" strategy="afterInteractive">
           {JSON.stringify(structuredData)}
         </Script>

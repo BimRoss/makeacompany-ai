@@ -16,7 +16,7 @@
 |----------------|------------------|--------|
 | `makeacompany:*` | `REDIS_URL` (backend) | Waitlist, checkout idempotency, stats, admin sessions, optional catalog JSON. **Sacred** for paid signups — see [Prod reset](#prod-reset-gut--sacred-vs-rebuildable). |
 | `employee-factory:company_channels` | `COMPANY_CHANNELS_REDIS_URL` if set and different from `REDIS_URL`; else `REDIS_URL` | Per-channel registry JSON. **Rebuild** from Slack via `/admin` discover or [`scripts/company-channels-discover-from-orchestrator.mjs`](../scripts/company-channels-discover-from-orchestrator.mjs). |
-| `employee-factory:channel_knowledge:*` (includes `…:markdown` digest and `…:company_pulsecheck` portal summary), `employee-factory:capability_routing_events`, `employee-factory:thread_owner:*` | Same as company registry | Rebuildable; see [Prod reset](#prod-reset-gut--sacred-vs-rebuildable). |
+| `employee-factory:channel_knowledge:*` (`…:markdown` digest per channel), `employee-factory:capability_routing_events`, `employee-factory:thread_owner:*` | Same as company registry | Rebuildable; see [Prod reset](#prod-reset-gut--sacred-vs-rebuildable). |
 
 **Local / single DB:** Leave `COMPANY_CHANNELS_REDIS_URL` unset so the backend uses one Redis client for waitlist + admin + employee-factory keys (sibling **employee-factory** compose defaults to `host.docker.internal:6380`).
 
@@ -27,6 +27,7 @@
 - `makeacompany:catalog:capabilities:v1` — JSON used for **makeacompany.ai** `/employees`, `/skills`, and `GET/PUT /v1/admin/catalog` only. **Slack bots do not read this key** — runtime skills and assignments come from **slack-orchestrator** (capabilities on dispatch → NATS → employee-factory). Safe to `DEL` this key for a prod reset: the backend merges **code defaults** on read (`mergeCapabilityCatalogWithDefaults`). Omit or ignore Redis seeding while admin stays read-only and orchestrator is the live contract.
 - `makeacompany:checkout:<stripe_checkout_session_id>` — idempotency marker
 - `makeacompany:waitlist:<email>` — hash of waitlist signup fields
+- `makeacompany:admin:slack_member_channels_snapshot` — JSON envelope (orchestrator `GET /debug/member-channels` body + `fetchedAt`). Rebuild: `POST /v1/internal/refresh-slack-member-channels-snapshot` with Bearer `BACKEND_INTERNAL_SERVICE_TOKEN` in production; locally, when that env is unset, the same Bearer as `/admin` (admin session) is accepted. CronJob `makeacompany-ai-slack-member-channels-scraper` in rancher-admin.
 
 ### Shared employee-factory namespace (often same Redis instance or `COMPANY_CHANNELS_REDIS_URL`)
 

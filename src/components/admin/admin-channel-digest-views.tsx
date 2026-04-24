@@ -169,17 +169,33 @@ function ThreadReplyCard({
   line,
   author,
   staggerIndex,
+  onClose,
+  closeAriaLabel,
 }: {
   line: DigestLine;
   author: SlackTranscriptAuthor | null;
   staggerIndex: number;
+  /** When set, a close control is shown at the top-right of this card (first message in the right column). */
+  onClose?: () => void;
+  closeAriaLabel?: string;
 }) {
   return (
     <div
-      className="digest-thread-reply-in w-full rounded-xl border border-border/80 bg-muted/15 py-2.5 pl-2 pr-3 shadow-sm transition-[border-color,box-shadow] duration-500 ease-in-out"
+      className="digest-thread-reply-in relative w-full rounded-xl border border-border/80 bg-muted/15 py-2.5 pl-2 pr-3 shadow-sm transition-[border-color,box-shadow] duration-500 ease-in-out"
       style={{ animationDelay: `${staggerIndex * 70}ms` }}
     >
-      <div className="flex gap-2.5">
+      {onClose ? (
+        <button
+          type="button"
+          aria-label={closeAriaLabel ?? "Close"}
+          title="Close"
+          onClick={onClose}
+          className="absolute right-2 top-2 z-[1] flex size-8 items-center justify-center rounded-full border border-border bg-card text-foreground shadow-sm transition-[background-color,border-color,box-shadow,transform,opacity] duration-500 ease-in-out hover:bg-muted/50 active:scale-95 dark:hover:bg-muted/40"
+        >
+          <X className="size-4 stroke-[2.5]" strokeLinecap="round" />
+        </button>
+      ) : null}
+      <div className={clsx("flex gap-2.5", onClose && "pr-10")}>
         <Avatar userId={line.userId} author={author} />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
@@ -267,17 +283,17 @@ function ThreadRootListRow({
         onClick={onSelect}
         aria-pressed={selected}
         className={clsx(
-          "relative w-full rounded-xl border p-2.5 pr-2.5 text-left transition-[colors,box-shadow,opacity,ring]",
+          "relative w-full rounded-xl p-2.5 pr-2.5 text-left transition-[background-color,border-color,box-shadow]",
           hasReplies
             ? "cursor-pointer [&_*]:cursor-inherit"
             : "cursor-not-allowed [&_*]:cursor-not-allowed",
           selected
-            ? "border-transparent bg-white opacity-50 shadow-none ring-0 hover:border-transparent hover:bg-white hover:shadow-none dark:bg-background dark:hover:bg-background"
+            ? "border-0 bg-white shadow-none hover:bg-white dark:bg-white dark:text-foreground dark:hover:bg-white"
             : clsx(
-                hasReplies ? "shadow-lg" : "shadow-sm",
+                "border border-border/70 shadow-sm",
                 hasReplies
-                  ? "border-border/80 bg-card hover:border-border hover:bg-card/50 border-l-[3px] border-l-muted-foreground/40 hover:border-l-muted-foreground/55"
-                  : "border-border/80 bg-card hover:border-border/80 hover:bg-card",
+                  ? "bg-muted/50 hover:bg-muted/60 border-l-[3px] border-l-muted-foreground/35 hover:border-l-muted-foreground/50 dark:bg-muted/35 dark:hover:bg-muted/45"
+                  : "bg-muted/50 hover:bg-muted/60 dark:bg-muted/35 dark:hover:bg-muted/45",
               ),
         )}
       >
@@ -331,14 +347,14 @@ function AuthorEmployeeListRow({
         onClick={onSelect}
         aria-pressed={selected}
         className={clsx(
-          "relative w-full cursor-pointer rounded-xl border p-2.5 pr-2.5 text-left transition-[colors,box-shadow,opacity,ring] [&_*]:cursor-inherit",
+          "relative w-full cursor-pointer rounded-xl p-2.5 pr-2.5 text-left transition-[background-color,border-color,box-shadow] [&_*]:cursor-inherit",
           selected
-            ? "border-transparent bg-white opacity-50 shadow-none ring-0 hover:border-transparent hover:bg-white hover:shadow-none dark:bg-background dark:hover:bg-background"
+            ? "border-0 bg-white shadow-none hover:bg-white dark:bg-white dark:text-foreground dark:hover:bg-white"
             : clsx(
-                hasMany ? "shadow-lg" : "shadow-sm",
+                "border border-border/70 shadow-sm",
                 hasMany
-                  ? "border-border/80 bg-card hover:border-border hover:bg-card/50 border-l-[3px] border-l-muted-foreground/40 hover:border-l-muted-foreground/55"
-                  : "border-border/80 bg-card hover:border-border hover:bg-muted/30",
+                  ? "bg-muted/50 hover:bg-muted/60 border-l-[3px] border-l-muted-foreground/35 hover:border-l-muted-foreground/50 dark:bg-muted/35 dark:hover:bg-muted/45"
+                  : "bg-muted/50 hover:bg-muted/60 dark:bg-muted/35 dark:hover:bg-muted/45",
               ),
         )}
       >
@@ -357,105 +373,6 @@ function AuthorEmployeeListRow({
           </div>
         </div>
       </button>
-    </div>
-  );
-}
-
-/** Selected employee identity (fixed above the message scroll area; mirrors thread sticky root chrome). */
-function AuthorRightStickyHeader({
-  userId,
-  author,
-  messageCount,
-  onClose,
-}: {
-  userId: string;
-  author: SlackTranscriptAuthor | null;
-  messageCount: number;
-  onClose: () => void;
-}) {
-  return (
-    <div
-      role="region"
-      aria-label="Selected author"
-      className="w-full shrink-0 rounded-xl border border-border/80 bg-muted/15 py-2.5 pl-2 pr-3 shadow-sm transition-[border-color,box-shadow,background-color] duration-500 ease-in-out"
-    >
-      <div className="relative pr-11">
-        <div className="flex gap-2.5">
-          <Avatar userId={userId} author={author} />
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-              <AuthorHeading author={author} />
-              <span className="shrink-0 text-[10px] text-muted-foreground">{messageCount} msgs</span>
-            </div>
-          </div>
-        </div>
-        <button
-          type="button"
-          aria-label="Close author"
-          title="Close"
-          onClick={onClose}
-          className="absolute right-0 top-0 z-[1] flex size-8 items-center justify-center rounded-full border border-border bg-card text-foreground shadow-sm transition-[background-color,border-color,box-shadow,transform,opacity] duration-500 ease-in-out hover:bg-muted/50 active:scale-95 dark:hover:bg-muted/40"
-        >
-          <X className="size-4 stroke-[2.5]" strokeLinecap="round" />
-        </button>
-      </div>
-    </div>
-  );
-}
-
-/** Root message for the right-hand thread column (fixed above the replies scroll area; same card chrome as replies). */
-function ThreadRightStickyRoot({
-  unit,
-  onClose,
-}: {
-  unit: ThreadUnit;
-  onClose: () => void;
-}) {
-  const lookup = useDigestAuthorLookup();
-  const root = pickThreadRoot(unit);
-  const threadCount = unit.messages.length;
-  const rootAuthor = resolveTranscriptAuthor(root.userId, lookup);
-  const hasReplies = threadUnitHasReplies(unit);
-
-  return (
-    <div
-      role="region"
-      aria-label="Selected thread"
-      className="w-full shrink-0 rounded-xl border border-border/80 bg-muted/15 py-2.5 pl-2 pr-3 shadow-sm transition-[border-color,box-shadow,background-color] duration-500 ease-in-out"
-    >
-      <div className="relative pr-11">
-        <div className="flex gap-2.5">
-          <Avatar userId={root.userId} author={rootAuthor} />
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-              <AuthorHeading author={rootAuthor} />
-              {hasReplies ? (
-                <span className="shrink-0 text-[10px] text-muted-foreground">{threadCount} msgs</span>
-              ) : null}
-              {!unit.hasMeta && unit.messages.some((m: DigestLine) => m.isReply) ? (
-                <span
-                  className="text-[10px] text-amber-700/90 dark:text-amber-400/90"
-                  title="Digest was built without thread markers; replies may be grouped by position only until the next hourly refresh."
-                >
-                  approx. grouping
-                </span>
-              ) : null}
-            </div>
-            <div className="mt-1.5">
-              <DigestBodyMarkdown text={root.body} />
-            </div>
-          </div>
-        </div>
-        <button
-          type="button"
-          aria-label="Close thread"
-          title="Close thread"
-          onClick={onClose}
-          className="absolute right-0 top-0 z-[1] flex size-8 items-center justify-center rounded-full border border-border bg-card text-foreground shadow-sm transition-[background-color,border-color,box-shadow,transform,opacity] duration-500 ease-in-out hover:bg-muted/50 active:scale-95 dark:hover:bg-muted/40"
-        >
-          <X className="size-4 stroke-[2.5]" strokeLinecap="round" />
-        </button>
-      </div>
     </div>
   );
 }
@@ -485,7 +402,7 @@ function DigestTwoPaneShell({
         <div
           ref={leftScrollRef}
           onScroll={onLeftScroll}
-          className="h-full min-h-0 flex-1 overflow-y-auto overscroll-y-contain border-b border-border/60 bg-muted/10 px-2 py-2 md:border-b-0 md:bg-transparent md:px-3 md:py-3 [scrollbar-gutter:stable]"
+          className="digest-view-scroll h-full min-h-0 flex-1 overflow-y-auto overscroll-y-contain border-b border-border/60 bg-muted/10 px-2 py-2 md:border-b-0 md:bg-transparent md:px-3 md:py-3 [scrollbar-gutter:stable]"
         >
           {leftList}
         </div>
@@ -521,7 +438,7 @@ export function DigestThreadView({ markdown, listScrollRef, onListScroll }: Dige
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const rightThreadScrollRef = useRef<HTMLDivElement | null>(null);
 
-  /** Keep selection only if that thread is still in the visible slice; never auto-select on load. */
+  /** Keep selection if still in the visible slice; otherwise default to newest thread (same idea as Authors). */
   useLayoutEffect(() => {
     if (channelRootUnitsNewestFirst.length === 0) {
       setSelectedKey(null);
@@ -531,7 +448,7 @@ export function DigestThreadView({ markdown, listScrollRef, onListScroll }: Dige
       if (prev && channelRootUnitsNewestFirst.some((u) => u.threadKey === prev)) {
         return prev;
       }
-      return null;
+      return channelRootUnitsNewestFirst[0]!.threadKey;
     });
   }, [channelRootUnitsNewestFirst]);
 
@@ -543,7 +460,7 @@ export function DigestThreadView({ markdown, listScrollRef, onListScroll }: Dige
     setSelectedKey(threadKey);
   }, []);
 
-  /** Snap the right column so the sticky root sits at the top of the viewport. */
+  /** Snap the right column to the top when switching threads. */
   useLayoutEffect(() => {
     const el = rightThreadScrollRef.current;
     if (!el) {
@@ -606,11 +523,10 @@ export function DigestThreadView({ markdown, listScrollRef, onListScroll }: Dige
             <ThreadRightPanelSelectPrompt />
           </div>
         ) : (
-          <div key={selectedUnit.threadKey} className="flex min-h-0 min-w-0 flex-1 flex-col gap-2.5">
-            <ThreadRightStickyRoot unit={selectedUnit} onClose={dismissThreadPanel} />
+          <div key={selectedUnit.threadKey} className="flex min-h-0 min-w-0 flex-1 flex-col">
             <div
               ref={rightThreadScrollRef}
-              className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-1 [scrollbar-gutter:stable]"
+              className="digest-view-scroll min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-1 [scrollbar-gutter:stable]"
             >
               {replies.length > 0 ? (
                 <div className="flex flex-col gap-2.5 pb-1" aria-label="Thread replies">
@@ -620,6 +536,8 @@ export function DigestThreadView({ markdown, listScrollRef, onListScroll }: Dige
                       line={r}
                       author={resolveTranscriptAuthor(r.userId, lookup)}
                       staggerIndex={i}
+                      onClose={i === 0 ? dismissThreadPanel : undefined}
+                      closeAriaLabel={i === 0 ? "Close thread" : undefined}
                     />
                   ))}
                 </div>
@@ -779,17 +697,11 @@ export function DigestAuthorView({
             <AuthorRightPanelSelectPrompt />
           </div>
         ) : (
-          <div key={selectedUserId} className="flex min-h-0 min-w-0 flex-1 flex-col gap-2.5">
-            <AuthorRightStickyHeader
-              userId={selectedUserId}
-              author={resolveTranscriptAuthor(selectedUserId, lookup)}
-              messageCount={selectedMsgs.length}
-              onClose={dismissAuthorPanel}
-            />
+          <div key={selectedUserId} className="flex min-h-0 min-w-0 flex-1 flex-col">
             <div
               ref={messageScrollRef}
               onScroll={onMessagesScroll}
-              className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-1 [scrollbar-gutter:stable]"
+              className="digest-view-scroll min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-1 [scrollbar-gutter:stable]"
             >
               {selectedMsgs.length > 0 ? (
                 <div className="flex flex-col gap-2.5 pb-1" aria-label="Author messages">
@@ -799,6 +711,8 @@ export function DigestAuthorView({
                       line={line}
                       author={resolveTranscriptAuthor(line.userId, lookup)}
                       staggerIndex={i}
+                      onClose={i === 0 ? dismissAuthorPanel : undefined}
+                      closeAriaLabel={i === 0 ? "Close author" : undefined}
                     />
                   ))}
                 </div>

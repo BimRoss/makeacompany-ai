@@ -739,8 +739,6 @@ func slugFromSlackChannelDisplayName(name string) string {
 
 const channelKnowledgeRedisKeyFmt = "employee-factory:channel_knowledge:%s:markdown"
 
-const channelKnowledgePulsecheckRedisKeyFmt = "employee-factory:channel_knowledge:%s:company_pulsecheck"
-
 // GetChannelKnowledgeMarkdown returns the stored hourly digest markdown for a Slack channel id
 // (same key employee-factory uses in Redis). Empty string with no error if missing.
 func (s *Store) GetChannelKnowledgeMarkdown(ctx context.Context, channelID string) (string, error) {
@@ -753,27 +751,6 @@ func (s *Store) GetChannelKnowledgeMarkdown(ctx context.Context, channelID strin
 		return "", nil
 	}
 	key := fmt.Sprintf(channelKnowledgeRedisKeyFmt, ch)
-	raw, err := rdb.Get(ctx, key).Result()
-	if err == redis.Nil {
-		return "", nil
-	}
-	if err != nil {
-		return "", err
-	}
-	return raw, nil
-}
-
-// GetChannelKnowledgePulsecheck returns the cached read-company style portal pulse (mrkdwn/plain), or empty if missing.
-func (s *Store) GetChannelKnowledgePulsecheck(ctx context.Context, channelID string) (string, error) {
-	rdb := s.companyChannelsRedis()
-	if s == nil || rdb == nil {
-		return "", fmt.Errorf("channel knowledge pulsecheck: nil store")
-	}
-	ch := strings.TrimSpace(channelID)
-	if ch == "" {
-		return "", nil
-	}
-	key := fmt.Sprintf(channelKnowledgePulsecheckRedisKeyFmt, ch)
 	raw, err := rdb.Get(ctx, key).Result()
 	if err == redis.Nil {
 		return "", nil

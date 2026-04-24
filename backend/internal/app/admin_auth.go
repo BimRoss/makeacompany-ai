@@ -84,7 +84,9 @@ func constantTimeEqual(a, b string) bool {
 }
 
 // adminReadAuthorized allows read only when the Bearer is a valid admin session
-// (Google / magic-link sign-in). Internal service tokens are for /v1/internal/* only.
+// (Google / magic-link sign-in). For /v1/internal/* snapshot refresh, see internalRefreshAuthorized:
+// production CronJobs use BACKEND_INTERNAL_SERVICE_TOKEN; when that env is unset, the same routes
+// accept this admin session so local dev does not need a second secret.
 func (s *Server) adminReadAuthorized(r *http.Request) (ok bool, serviceUnavailable bool) {
 	got := strings.TrimSpace(tokenFromAuthHeader(r))
 	if !s.adminAuthEnabled() {

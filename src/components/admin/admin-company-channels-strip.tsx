@@ -31,8 +31,8 @@ type MergedRow = {
 
 function pillClassName(emphasis: boolean): string {
   return emphasis
-    ? "inline-flex rounded-full border border-foreground/20 bg-foreground px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-background"
-    : "inline-flex rounded-full border border-border bg-background px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground";
+    ? "inline-flex rounded-full border border-foreground/20 bg-foreground px-1.5 py-px text-[10px] font-medium uppercase leading-none tracking-wide text-background"
+    : "inline-flex rounded-full border border-border bg-background px-1.5 py-px text-[10px] font-medium uppercase leading-none tracking-wide text-muted-foreground";
 }
 
 const maxDiscoverPolicySyncChannels = 25;
@@ -180,22 +180,20 @@ export function AdminCompanyChannelsStrip() {
   const [state, setState] = useState<LoadState>("idle");
   const [statusText, setStatusText] = useState("");
   const [rows, setRows] = useState<MergedRow[]>([]);
-  const [slackTruncated, setSlackTruncated] = useState(false);
-  const [infoNote, setInfoNote] = useState<string | null>(null);
   const [humanPillData, setHumanPillData] = useState<HumanPillData>({
     profileByUserId: {},
   });
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (live: boolean) => {
     setState("loading");
-    setStatusText("Loading companies…");
-    setInfoNote(null);
+    setStatusText(live ? "Refreshing companies from Slack…" : "Loading companies…");
     setHumanPillData({
       profileByUserId: {},
     });
     try {
+      const slackQs = live ? "?source=live" : "";
       const [slackRes, redisRes] = await Promise.all([
-        fetch("/api/admin/slack-member-channels", { cache: "no-store" }),
+        fetch(`/api/admin/slack-member-channels${slackQs}`, { cache: "no-store" }),
         fetch("/api/admin/company-channels", { cache: "no-store" }),
       ]);
 
@@ -230,7 +228,6 @@ export function AdminCompanyChannelsStrip() {
       const seen = new Set<string>();
 
       if (slackRes.ok && slackPayload && Array.isArray(slackPayload.channels)) {
-        setSlackTruncated(Boolean(slackPayload.truncated));
         for (const sc of slackPayload.channels) {
           const id = sc.channel_id?.trim();
           if (!id) continue;
@@ -250,18 +247,14 @@ export function AdminCompanyChannelsStrip() {
         const forDiscover = merged.filter(needsRegistryPolicySync);
         if (forDiscover.length > 0 && !redisError) {
           try {
-            if (forDiscover.length > maxDiscoverPolicySyncChannels) {
-              setInfoNote((prev) =>
-                [
-                  prev,
-                  `Policy sync runs for up to ${maxDiscoverPolicySyncChannels} channels per load (Slack member fetch). Refresh to cover more.`,
-                ]
-                  .filter(Boolean)
-                  .join(" "),
-              );
-            }
             const channels = await buildDiscoverChannelsFromSlack(forDiscover);
             if (channels === null) {
+              setState("error");
+              setStatusText(
+                "Company policy sync was interrupted (session or Slack member fetch). Reload the page or sign in again.",
+              );
+              setRows([]);
+              setHumanPillData({ profileByUserId: {} });
               return;
             }
             const discoverRes = await fetch("/api/admin/company-channels/discover", {
@@ -298,20 +291,6 @@ export function AdminCompanyChannelsStrip() {
           }
         }
       } else {
-        setSlackTruncated(false);
-        let slackHint: string | null = null;
-        if (!slackRes.ok && slackPayload) {
-          if (slackRes.status === 503 && slackPayload.error === "not_configured") {
-            slackHint =
-              "Live Slack list skipped (set ORCHESTRATOR_DEBUG_BASE_URL like the Orchestrator log). Showing registry only.";
-          } else if (slackPayload.message) {
-            slackHint = `Slack list: ${slackPayload.message}`;
-          } else if (slackPayload.error) {
-            slackHint = `Slack list: ${slackPayload.error}`;
-          }
-        }
-        if (slackHint) setInfoNote(slackHint);
-
         if (redisPayload && Array.isArray(redisPayload.channels)) {
           for (const ch of redisPayload.channels) {
             const id = ch.channel_id?.trim();
@@ -350,21 +329,25 @@ export function AdminCompanyChannelsStrip() {
         const parts: string[] = [];
         if (redisError) parts.push(redisError);
         if (!slackRes.ok && slackPayload?.message) parts.push(slackPayload.message);
+        const slackEmpty =
+          slackRes.ok &&
+          slackPayload &&
+          Array.isArray(slackPayload.channels) &&
+          slackPayload.channels.length === 0;
+        const hint =
+          slackEmpty && !redisError
+            ? "No Slack channels in the member snapshot and no rows in the company registry for this Redis. If you use docker compose, ensure employee-factory and makeacompany-ai share the same REDIS_URL (or run channel discover once)."
+            : "";
         setState("error");
-        setStatusText(parts.filter(Boolean).join(" · ") || "Failed to load company channels.");
+        setStatusText(
+          [parts.filter(Boolean).join(" · "), hint].filter(Boolean).join(" ") ||
+            "Failed to load company channels.",
+        );
         setRows([]);
         setHumanPillData({
           profileByUserId: {},
         });
         return;
-      }
-
-      if (slackRes.ok && slackPayload && Array.isArray(slackPayload.channels) && redisError) {
-        setInfoNote((prev) =>
-          [prev, `Registry enrichment skipped: ${redisError}`].filter(Boolean).join(" "),
-        );
-      } else if (!slackRes.ok && redisError && merged.length > 0) {
-        setInfoNote((prev) => [prev, redisError].filter(Boolean).join(" · "));
       }
 
       const nextHumanPills: HumanPillData = {
@@ -395,107 +378,122 @@ export function AdminCompanyChannelsStrip() {
   }, []);
 
   useEffect(() => {
-    void load();
+    void load(false);
   }, [load]);
 
   return (
-    <section
-      className="space-y-2 rounded-none bg-card px-0 py-2 sm:rounded-2xl sm:py-3"
-      aria-labelledby="admin-company-channels-heading"
-    >
-      <h2 id="admin-company-channels-heading" className="text-lg font-semibold leading-snug tracking-tight">
-        Companies{" "}
-        <span className="font-normal text-muted-foreground tabular-nums">({rows.length})</span>
-      </h2>
-
-      {infoNote ? (
-        <p className="text-sm text-muted-foreground" role="status">
-          {infoNote}
-        </p>
-      ) : null}
+    <section className="space-y-3" aria-labelledby="admin-company-channels-heading">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 id="admin-company-channels-heading" className="font-display text-xl font-semibold tracking-tight text-foreground">
+          Companies{" "}
+          <span className="font-normal text-muted-foreground tabular-nums">({rows.length})</span>
+        </h2>
+        <button
+          type="button"
+          disabled={state === "loading" || state === "idle"}
+          onClick={() => void load(true)}
+          className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/60 disabled:opacity-50"
+        >
+          Refresh
+        </button>
+      </div>
 
       {state === "loading" || state === "idle" ? (
         <p className="text-sm text-muted-foreground">{statusText || "Loading…"}</p>
       ) : null}
       {state === "error" ? <p className="text-sm text-destructive">{statusText}</p> : null}
 
-      {state === "ready" && slackTruncated ? (
-        <p className="text-sm text-amber-600 dark:text-amber-500">
-          Slack list truncated to the first 500 channels.
-        </p>
-      ) : null}
-
       {state === "ready" && rows.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No channels to show.</p>
+        <p className="text-sm text-muted-foreground">No companies.</p>
       ) : null}
 
       {state === "ready" && rows.length > 0 ? (
-        <ul className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
-          {rows.map((row) => {
-            const { profileByUserId } = humanPillData;
-            const founderIdsOrdered = row.registry
-              ? uniqueNormalizedOwnerIds(row.registry.owner_ids)
-              : [];
+        <div className="overflow-x-auto rounded-xl border border-border">
+          <table className="w-full min-w-[800px] border-collapse text-left text-sm">
+            <thead>
+              <tr className="border-b border-border bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
+                <th className="px-3 py-1.5">Company</th>
+                <th className="px-3 py-1.5">Channel ID</th>
+                <th className="px-3 py-1.5">Visibility</th>
+                <th className="px-3 py-1.5">General</th>
+                <th className="px-3 py-1.5">Reactions</th>
+                <th className="px-3 py-1.5">Founders</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => {
+                const { profileByUserId } = humanPillData;
+                const founderIdsOrdered = row.registry
+                  ? uniqueNormalizedOwnerIds(row.registry.owner_ids)
+                  : [];
+                const title = stripLeadingHash(cardTitle(row));
 
-            return (
-              <li key={row.channel_id} className="list-none">
-                <Link
-                  href={`/admin/${encodeURIComponent(row.channel_id)}`}
-                  className="flex flex-col rounded-lg border border-border bg-card p-2.5 shadow-sm transition-colors hover:bg-muted/40 focus-visible:outline focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  <div className="min-w-0">
-                    <p className="flex items-center gap-1.5 text-sm font-semibold leading-snug">
-                      <span
-                        className="inline-flex shrink-0 text-muted-foreground"
-                        title={row.is_private ? "Private channel" : "Public channel"}
-                        aria-hidden
+                return (
+                  <tr key={row.channel_id} className="border-b border-border/80 last:border-0">
+                    <td className="px-3 py-1.5 align-middle">
+                      <Link
+                        href={`/admin/${encodeURIComponent(row.channel_id)}`}
+                        className="text-sm font-medium text-foreground underline-offset-2 hover:underline focus-visible:outline focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
                       >
-                        {row.is_private ? (
-                          <Lock className="size-3.5" strokeWidth={2.25} />
-                        ) : (
-                          <Users className="size-3.5" strokeWidth={2.25} />
-                        )}
+                        {title}
+                      </Link>
+                    </td>
+                    <td className="px-3 py-1.5 align-middle font-mono text-xs text-muted-foreground tabular-nums">
+                      {row.channel_id}
+                    </td>
+                    <td className="px-3 py-1.5 align-middle text-xs text-muted-foreground">
+                      <span className="inline-flex items-center gap-1">
+                        <span title={row.is_private ? "Private channel" : "Public channel"} aria-hidden>
+                          {row.is_private ? (
+                            <Lock className="size-3 shrink-0" strokeWidth={2.25} />
+                          ) : (
+                            <Users className="size-3 shrink-0" strokeWidth={2.25} />
+                          )}
+                        </span>
+                        {row.is_private ? "Private" : "Public"}
                       </span>
-                      {!row.is_private ? <span className="sr-only">Public channel: </span> : null}
-                      {row.is_private ? <span className="sr-only">Private channel: </span> : null}
-                      <span className="truncate">{stripLeadingHash(cardTitle(row))}</span>
-                    </p>
-                  </div>
-                  <div className="mt-1.5 flex flex-wrap gap-1.5">
-                    {row.registry ? (
-                      <>
+                    </td>
+                    <td className="px-3 py-1.5 align-middle">
+                      {row.registry ? (
                         <span className={pillClassName(!row.registry.general_responses_muted)}>
-                          {!row.registry.general_responses_muted ? "general on" : "general off"}
+                          {!row.registry.general_responses_muted ? "on" : "off"}
                         </span>
+                      ) : (
+                        <span className={pillClassName(false)} title="Not in employee-factory Redis registry yet">
+                          —
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-3 py-1.5 align-middle">
+                      {row.registry ? (
                         <span className={pillClassName(row.registry.general_auto_reaction_enabled)}>
-                          {row.registry.general_auto_reaction_enabled ? "reactions on" : "reactions off"}
+                          {row.registry.general_auto_reaction_enabled ? "on" : "off"}
                         </span>
-                      </>
-                    ) : (
-                      <span className={pillClassName(false)} title="Not in employee-factory Redis registry yet">
-                        not in registry
-                      </span>
-                    )}
-                  </div>
-                  {founderIdsOrdered.length > 0 ? (
-                    <div className="mt-1.5 min-w-0">
-                      <p className="text-[10px] font-medium uppercase leading-none tracking-wide text-muted-foreground">
-                        Founders
-                      </p>
-                      <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-1">
-                        {founderIdsOrdered.map((sid) => (
-                          <span key={`founder-${sid}`} title={`Slack user ${sid}`}>
-                            <SlackPersonChip {...personChipProps(sid, profileByUserId)} />
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  ) : null}
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
+                      ) : (
+                        <span className={pillClassName(false)} title="Not in employee-factory Redis registry yet">
+                          —
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-3 py-1.5 align-middle">
+                      {founderIdsOrdered.length > 0 ? (
+                        <div className="flex min-w-0 flex-wrap items-center gap-1">
+                          {founderIdsOrdered.map((sid) => (
+                            <span key={`founder-${sid}`} title={`Slack user ${sid}`}>
+                              <SlackPersonChip {...personChipProps(sid, profileByUserId)} />
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       ) : null}
     </section>
   );

@@ -45,12 +45,34 @@ services:
       # When set, GET /v1/runtime/capability-catalog proxies slack-orchestrator (live Skills on /admin), no auth.
       # Default matches ORCHESTRATOR_DEBUG: orchestrator on host SLACK_ORCHESTRATOR_PORT (8080). Override with '' to disable.
       SLACK_ORCHESTRATOR_CAPABILITY_CATALOG_URL: ${SLACK_ORCHESTRATOR_CAPABILITY_CATALOG_URL:-http://host.docker.internal:${SLACK_ORCHESTRATOR_PORT:-8080}/debug/capability-catalog}
+      # Same host as Next ORCHESTRATOR_DEBUG_* — backend hourly/startup snapshot for /admin Companies strip.
+      ORCHESTRATOR_DEBUG_BASE_URL: ${ORCHESTRATOR_DEBUG_BASE_URL:-http://host.docker.internal:${SLACK_ORCHESTRATOR_PORT:-8080}}
+      ORCHESTRATOR_DEBUG_TOKEN: ${ORCHESTRATOR_DEBUG_TOKEN:-}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
       - redis
     ports:
       - "${BACKEND_PORT:-8090}:8080"
+
+  # One-shot: warm Redis makeacompany:admin:slack_member_channels_snapshot (skips if no machine token; or curl POST_URL with admin session Bearer when backend token unset).
+  slack-member-channels-snapshot-refresh:
+    profiles: ["local"]
+    image: alpine:3.20
+    entrypoint: ["/bin/sh", "/snapshot-refresh.sh"]
+    volumes:
+      - ./scripts/snapshot-refresh.sh:/snapshot-refresh.sh:ro
+    env_file:
+      - ${MAKEACOMPANY_AI_ENV_FILE:-.env.dev}
+    depends_on:
+      - backend
+    environment:
+      POST_URL: ${MEMBER_CHANNELS_SNAPSHOT_REFRESH_URL:-http://backend:8080/v1/internal/refresh-slack-member-channels-snapshot}
+      BACKEND_INTERNAL_SERVICE_TOKEN: ${BACKEND_INTERNAL_SERVICE_TOKEN:-}
+      SNAPSHOT_LABEL: slack-member-channels-snapshot-refresh
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: "no"
 
   frontend-local:
     profiles: ["local"]
@@ -114,8 +136,7 @@ services:
       NEXT_PUBLIC_LINKEDIN_PARTNER_ID: ${NEXT_PUBLIC_LINKEDIN_PARTNER_ID:-}
       NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY:-${STRIPE_PUBLISHABLE_KEY:-}}
       NEXT_TELEMETRY_DISABLED: "1"
-      # Same `next dev` image as local, but this profile talks to prod-adjacent ports — avoid live Stripe/Slack on every /admin load.
-      NEXT_PUBLIC_ADMIN_SKIP_SNAPSHOT_WARM_ON_LOAD: "1"
+      # Same `next dev` image as local; /admin tables read Redis on load — use Refresh for live Stripe/Slack pulls.
     ports:
       - "${FRONTEND_PORT:-3000}:3000"
     volumes:

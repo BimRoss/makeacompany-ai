@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"strings"
@@ -16,13 +17,29 @@ func (s *Server) internalServiceBearerAuthorized(r *http.Request) bool {
 	return got != "" && constantTimeEqual(got, want)
 }
 
-// handleInternalRefreshStripeWaitlistSnapshot rebuilds the Redis snapshot from Stripe (BACKEND_INTERNAL_SERVICE_TOKEN only).
+// internalRefreshAuthorized gates POST /v1/internal/* snapshot refresh routes.
+// Prefer Authorization: Bearer BACKEND_INTERNAL_SERVICE_TOKEN (Kubernetes CronJobs, compose one-shots).
+// If BACKEND_INTERNAL_SERVICE_TOKEN is unset, the same routes accept an authenticated admin session
+// (same checks as /v1/admin/*) so local dev is not forced to carry a second secret next to Google OAuth.
+// In production, set BACKEND_INTERNAL_SERVICE_TOKEN so unattended jobs keep working without a browser session.
+func (s *Server) internalRefreshAuthorized(r *http.Request) bool {
+	if s.internalServiceBearerAuthorized(r) {
+		return true
+	}
+	if strings.TrimSpace(s.cfg.BackendInternalServiceToken) != "" {
+		return false
+	}
+	ok, _ := s.adminReadAuthorized(r)
+	return ok
+}
+
+// handleInternalRefreshStripeWaitlistSnapshot rebuilds the Redis snapshot from Stripe.
 func (s *Server) handleInternalRefreshStripeWaitlistSnapshot(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	if !s.internalServiceBearerAuthorized(r) {
+	if !s.internalRefreshAuthorized(r) {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
@@ -64,6 +81,47 @@ func (s *Server) handleInternalRefreshStripeWaitlistSnapshot(w http.ResponseWrit
 		"profileUpserts":     profN,
 		"profileUpsertError": errStringOrNil(profErr),
 	})
+}
+
+// tryWarmStripeWaitlistSnapshotWhenMissing fetches Stripe and writes Redis when the snapshot key is absent (mirrors
+// admin slack-member-channels cold fill so /admin first load is useful before the first CronJob).
+func (s *Server) tryWarmStripeWaitlistSnapshotWhenMissing(ctx context.Context) map[string]any {
+	if strings.TrimSpace(s.cfg.StripeSecretKey) == "" {
+		return nil
+	}
+	priceID, err := s.waitlistPriceID()
+	if err != nil {
+		s.log.Printf("admin stripe waitlist snapshot warm (missing): price id: %v", err)
+		return nil
+	}
+	purchasers, err := FetchStripeWaitlistPurchasers(ctx, priceID)
+	if err != nil {
+		s.log.Printf("admin stripe waitlist snapshot warm (missing): stripe: %v", err)
+		return nil
+	}
+	blob, mErr := MarshalStripeWaitlistSnapshot(priceID, purchasers)
+	if mErr != nil {
+		s.log.Printf("admin stripe waitlist snapshot warm (missing): marshal: %v", mErr)
+		return nil
+	}
+	if svErr := s.store.SaveStripeWaitlistSnapshot(ctx, blob); svErr != nil {
+		s.log.Printf("admin stripe waitlist snapshot warm (missing): save: %v", svErr)
+		return nil
+	}
+	profN, profErr := s.store.UpsertUserProfilesFromStripeWaitlistPurchasers(ctx, purchasers)
+	if profErr != nil {
+		s.log.Printf("admin stripe waitlist snapshot warm (missing): profile upserts: %v", profErr)
+	}
+	fetchedAt := time.Now().UTC().Format(time.RFC3339)
+	return map[string]any{
+		"source":             "snapshot",
+		"fetchedAt":          fetchedAt,
+		"priceId":            priceID,
+		"purchasers":         purchasers,
+		"snapshotNote":       "Filled from Stripe (Redis waitlist snapshot was missing).",
+		"profileUpserts":     profN,
+		"profileUpsertError": errStringOrNil(profErr),
+	}
 }
 
 // handleAdminStripeWaitlistPurchasers returns cached Stripe waitlist purchasers or a live Stripe query when source=live.
@@ -126,6 +184,10 @@ func (s *Server) handleAdminStripeWaitlistPurchasers(w http.ResponseWriter, r *h
 	raw, err := s.store.GetStripeWaitlistSnapshotBytes(r.Context())
 	if err != nil {
 		if errors.Is(err, ErrStripeWaitlistSnapshotMissing) {
+			if warm := s.tryWarmStripeWaitlistSnapshotWhenMissing(r.Context()); warm != nil {
+				writeJSONNoStore(w, http.StatusOK, warm)
+				return
+			}
 			writeJSONNoStore(w, http.StatusOK, map[string]any{
 				"source":       "snapshot",
 				"fetchedAt":    nil,
