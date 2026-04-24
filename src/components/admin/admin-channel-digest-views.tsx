@@ -252,7 +252,7 @@ function AuthorRightPanelEmpty() {
       className="flex min-h-[10rem] flex-1 items-center justify-center rounded-xl border border-dashed border-border/80 bg-muted/20 px-4 py-8 text-center text-sm text-muted-foreground"
       role="status"
     >
-      No messages for this author
+      No messages for this employee
     </div>
   );
 }
@@ -524,7 +524,7 @@ export function DigestThreadView({ markdown, listScrollRef, onListScroll }: Dige
               className="digest-view-scroll min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-1 [scrollbar-gutter:stable]"
             >
               {replies.length > 0 ? (
-                <div className="flex flex-col gap-2.5 pb-1" aria-label="Thread replies">
+                <div className="flex flex-col gap-2.5 pb-1" aria-label="Message replies">
                   {replies.map((r, i) => (
                     <ThreadReplyCard
                       key={r.order}
@@ -701,7 +701,7 @@ export function DigestAuthorView({
               className="digest-view-scroll min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-1 [scrollbar-gutter:stable]"
             >
               {selectedMsgsNewestFirst.length > 0 ? (
-                <div className="flex flex-col gap-2.5 pb-1" aria-label="Author messages">
+                <div className="flex flex-col gap-2.5 pb-1" aria-label="Employee messages">
                   {selectedMsgsNewestFirst.map((line, i) => (
                     <ThreadReplyCard
                       key={line.order}

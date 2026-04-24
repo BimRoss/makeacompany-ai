@@ -14,6 +14,15 @@ function formatTimeAxisTick(tsSec: number, granularity: ActivityGranularity): st
   if (Number.isNaN(d.getTime())) {
     return "";
   }
+  if (granularity === "second") {
+    return d.toLocaleString(undefined, {
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      second: "2-digit",
+    });
+  }
   if (granularity === "minute") {
     return d.toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
   }
@@ -28,6 +37,8 @@ function formatTimeAxisTick(tsSec: number, granularity: ActivityGranularity): st
 
 function granularityCaption(g: ActivityGranularity): string {
   switch (g) {
+    case "second":
+      return "sub-minute buckets";
     case "minute":
       return "per minute";
     case "hour":
@@ -232,7 +243,7 @@ export function AdminChannelKnowledgeActivityChart({
       .attr("height", (b) => (b.count === 0 ? 1 : innerH - y(b.count)))
       .attr("rx", 2)
       .attr("fill", (b) => (b.count === 0 ? "var(--muted-foreground)" : "var(--foreground)"))
-      .attr("fill-opacity", (b) => (b.count === 0 ? 0.12 : 0.42));
+      .attr("fill-opacity", (b) => (b.count === 0 ? 0.08 : 0.28));
 
     const updateBarOpacity = (hovered: KnowledgeActivityTimeBin | null) => {
       const hovK = hovered ? binKey(hovered) : null;
@@ -240,17 +251,17 @@ export function AdminChannelKnowledgeActivityChart({
         const k = binKey(b);
         if (pinK) {
           if (k === pinK) {
-            return b.count === 0 ? 0.24 : 0.75;
+            return b.count === 0 ? 0.18 : 0.56;
           }
           if (hovK && k === hovK) {
-            return b.count === 0 ? 0.18 : 0.48;
+            return b.count === 0 ? 0.12 : 0.34;
           }
-          return b.count === 0 ? 0.08 : 0.2;
+          return b.count === 0 ? 0.06 : 0.14;
         }
         if (hovK && k === hovK) {
-          return b.count === 0 ? 0.22 : 0.72;
+          return b.count === 0 ? 0.15 : 0.5;
         }
-        return b.count === 0 ? 0.12 : 0.42;
+        return b.count === 0 ? 0.08 : 0.28;
       });
     };
 

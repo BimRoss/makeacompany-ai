@@ -235,10 +235,10 @@ export function AdminChannelKnowledgeDigest({
         <div
           className="inline-flex shrink-0 rounded-lg bg-muted/40 p-0.5"
           role="tablist"
-          aria-label="Message view"
+          aria-label="Knowledge base view"
         >
-          {viewBtn("author", "Authors")}
-          {viewBtn("thread", "Threads")}
+          {viewBtn("author", "Employees")}
+          {viewBtn("thread", "Messages")}
           {viewBtn("classic", "Markdown")}
         </div>
       </div>

@@ -5,7 +5,7 @@ const SYNTHETIC_BIN_COUNT = 28;
 /** Same shape as digest list markers for filtering body lines. */
 const DIGEST_BODY_LINE_RE = /^(  )?- \*\*([^*]+)\*\*: (.*)$/;
 
-export type ActivityGranularity = "minute" | "hour" | "day" | "week" | "synthetic";
+export type ActivityGranularity = "second" | "minute" | "hour" | "day" | "week" | "synthetic";
 
 export type KnowledgeActivityTimeBin = {
   t0: number;
@@ -21,27 +21,56 @@ export type KnowledgeActivityHistogram = {
   granularity: ActivityGranularity;
 };
 
+/** Bin widths for the digest activity chart; ordered fine → coarse. */
+const ACTIVITY_NICE_BIN_WIDTHS: { readonly durationSec: number; readonly granularity: ActivityGranularity }[] = [
+  { durationSec: 1, granularity: "second" },
+  { durationSec: 2, granularity: "second" },
+  { durationSec: 5, granularity: "second" },
+  { durationSec: 10, granularity: "second" },
+  { durationSec: 15, granularity: "second" },
+  { durationSec: 30, granularity: "second" },
+  { durationSec: 60, granularity: "minute" },
+  { durationSec: 120, granularity: "minute" },
+  { durationSec: 300, granularity: "minute" },
+  { durationSec: 600, granularity: "minute" },
+  { durationSec: 900, granularity: "minute" },
+  { durationSec: 1800, granularity: "minute" },
+  { durationSec: 3600, granularity: "hour" },
+  { durationSec: 7200, granularity: "hour" },
+  { durationSec: 10800, granularity: "hour" },
+  { durationSec: 21600, granularity: "hour" },
+  { durationSec: 43200, granularity: "hour" },
+  { durationSec: 86400, granularity: "day" },
+  { durationSec: 172800, granularity: "day" },
+  { durationSec: 259200, granularity: "day" },
+  { durationSec: 432000, granularity: "day" },
+  { durationSec: 604800, granularity: "week" },
+];
+
+const ACTIVITY_MIN_BINS = 8;
+const ACTIVITY_MAX_BINS = 200;
+
 function chooseBinDurationSec(spanSec: number): { durationSec: number; granularity: ActivityGranularity } {
   if (!Number.isFinite(spanSec) || spanSec <= 0) {
     return { durationSec: 60, granularity: "minute" };
   }
-  const minute = 60;
-  const hour = 3600;
-  const day = 86400;
-  const week = 7 * day;
-  const nMin = Math.ceil(spanSec / minute);
-  if (nMin <= 48) {
-    return { durationSec: minute, granularity: "minute" };
+  const span = Math.max(spanSec, 1);
+  const maxDur = span / ACTIVITY_MIN_BINS;
+  const minDur = span / ACTIVITY_MAX_BINS;
+  const lastNice = ACTIVITY_NICE_BIN_WIDTHS[ACTIVITY_NICE_BIN_WIDTHS.length - 1]!;
+
+  const inBand = ACTIVITY_NICE_BIN_WIDTHS.filter((w) => w.durationSec <= maxDur && w.durationSec >= minDur);
+  if (inBand.length > 0) {
+    return inBand[inBand.length - 1]!;
   }
-  const nHr = Math.ceil(spanSec / hour);
-  if (nHr <= 72) {
-    return { durationSec: hour, granularity: "hour" };
+
+  if (minDur > lastNice.durationSec) {
+    const weekSec = 7 * 86400;
+    const dur = Math.max(weekSec, Math.ceil(span / ACTIVITY_MAX_BINS / weekSec) * weekSec);
+    return { durationSec: dur, granularity: "week" };
   }
-  const nDay = Math.ceil(spanSec / day);
-  if (nDay <= 90) {
-    return { durationSec: day, granularity: "day" };
-  }
-  return { durationSec: week, granularity: "week" };
+
+  return ACTIVITY_NICE_BIN_WIDTHS[0]!;
 }
 
 /** Per-line time used for binning (matches histogram). */
