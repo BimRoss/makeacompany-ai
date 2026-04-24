@@ -30,8 +30,8 @@ export function useWorkspaceNavbarTrail() {
     return {
       trail: null as ReactNode | null,
       endLead: null as ReactNode | null,
-      setWorkspaceNavbarTrail: (_: SetStateAction<ReactNode | null>) => {},
-      setWorkspaceNavbarEndLead: (_: SetStateAction<ReactNode | null>) => {},
+      setWorkspaceNavbarTrail: (() => {}) as Dispatch<SetStateAction<ReactNode | null>>,
+      setWorkspaceNavbarEndLead: (() => {}) as Dispatch<SetStateAction<ReactNode | null>>,
     };
   }
   return ctx;

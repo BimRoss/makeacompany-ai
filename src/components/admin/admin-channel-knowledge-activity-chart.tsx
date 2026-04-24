@@ -206,7 +206,6 @@ export function AdminChannelKnowledgeActivityChart({
       .attr("pointer-events", interactive ? "none" : "auto")
       .attr("x", (b) => {
         const x0 = x(b.t0);
-        const x1 = x(Math.min(b.t1, histogram.tEnd));
         return x0 + gap / 2;
       })
       .attr("width", (b) => {

@@ -241,7 +241,7 @@ export function AdminCompanyChannelsStrip() {
         redisError = msg;
       }
 
-      let merged: MergedRow[] = [];
+      const merged: MergedRow[] = [];
       const seen = new Set<string>();
 
       if (slackRes.ok && slackPayload && Array.isArray(slackPayload.channels)) {
@@ -468,7 +468,7 @@ export function AdminCompanyChannelsStrip() {
                 <th className="px-3 py-1.5">Company</th>
                 <th className="px-3 py-1.5">Channel ID</th>
                 <th className="px-3 py-1.5">Visibility</th>
-                <th className="px-3 py-1.5">General</th>
+                <th className="px-3 py-1.5">Follow Up</th>
                 <th className="px-3 py-1.5">Reactions</th>
                 <th className="px-3 py-1.5">Founders</th>
               </tr>

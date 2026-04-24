@@ -131,9 +131,10 @@ export function AdminChannelControlPane({
     [apiCompany, channel, channelId, companyChannelsApiPrefix, onChannelUpdated],
   );
 
+  const ownerIds = channel?.owner_ids;
   const founderIdsNormalized = useMemo(
-    () => channel?.owner_ids?.map((id) => id.trim()).filter(Boolean).map((id) => id.toUpperCase()) ?? [],
-    [channel?.owner_ids?.join("|")],
+    () => ownerIds?.map((id) => id.trim()).filter(Boolean).map((id) => id.toUpperCase()) ?? [],
+    [ownerIds],
   );
 
   /** Stable across referential churn on `founders` so navbar context updates do not re-render-loop. */
@@ -288,23 +289,60 @@ export function AdminChannelControlPane({
           aria-label="Channel controls"
         >
           <div className="flex flex-wrap items-center justify-between gap-2 py-1.5">
-            <span className="text-xs font-medium text-foreground">Respond to General Messages</span>
+            <span
+              className="max-w-[11rem] text-xs font-medium text-foreground"
+              title="When off, agents only reply when directly addressed (@mention, @here, @channel, @everyone). When on, agents may follow up on general channel messages and in threads."
+            >
+              Follow Up
+            </span>
             <ControlToggle
               enabled={generalOn}
               disabled={false}
               busy={busy}
               onToggle={() => void patchChannel({ general_responses_muted: generalOn })}
-              ariaLabel={generalOn ? "Turn off general responses" : "Turn on general responses"}
+              ariaLabel={generalOn ? "Turn off follow up on general messages and threads" : "Turn on follow up"}
             />
           </div>
           <div className="flex flex-wrap items-center justify-between gap-2 py-1.5">
-            <span className="text-xs font-medium text-foreground">Employee Reaction Mirroring</span>
+            <span
+              className="max-w-[11rem] text-xs font-medium text-foreground"
+              title="When off, no agent reactions (no sentiment thumbs on general messages, no mirroring). When on, sentiment and reaction mirroring are enabled."
+            >
+              Reactions
+            </span>
             <ControlToggle
               enabled={reactionsOn}
               disabled={false}
               busy={busy}
               onToggle={() => void patchChannel({ general_auto_reaction_enabled: !reactionsOn })}
-              ariaLabel={reactionsOn ? "Turn off reaction mirroring" : "Turn on reaction mirroring"}
+              ariaLabel={reactionsOn ? "Turn off reactions" : "Turn on reactions"}
+            />
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-2 py-1.5">
+            <span className="text-xs font-medium text-muted-foreground">Emotions</span>
+            <ControlToggle
+              enabled={false}
+              disabled
+              onToggle={() => {}}
+              ariaLabel="Emotions (coming soon)"
+            />
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-2 py-1.5">
+            <span className="text-xs font-medium text-muted-foreground">Banter</span>
+            <ControlToggle
+              enabled={false}
+              disabled
+              onToggle={() => {}}
+              ariaLabel="Banter (coming soon)"
+            />
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-2 py-1.5">
+            <span className="text-xs font-medium text-muted-foreground">War Room</span>
+            <ControlToggle
+              enabled={false}
+              disabled
+              onToggle={() => {}}
+              ariaLabel="War Room (coming soon)"
             />
           </div>
         </div>
