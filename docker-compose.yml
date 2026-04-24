@@ -37,6 +37,8 @@ services:
       - ${MAKEACOMPANY_AI_ENV_FILE:-.env.dev}
     environment:
       PORT: "8080"
+      # Matches one-shot jobs below; override via shell or project `.env` for compose interpolation (`${…}` does not read env_file).
+      BACKEND_INTERNAL_SERVICE_TOKEN: ${BACKEND_INTERNAL_SERVICE_TOKEN:-mac-local-dev-internal-service-token}
       # Use COMPOSE_REDIS_URL so a host-only REDIS_URL in .env.dev (e.g. for go run) does not break the container.
       # Example shared DB: COMPOSE_REDIS_URL=redis://host.docker.internal:6379/1
       REDIS_URL: ${COMPOSE_REDIS_URL:-redis://redis:6379/0}
@@ -55,7 +57,7 @@ services:
     ports:
       - "${BACKEND_PORT:-8090}:8080"
 
-  # One-shot: warm Redis makeacompany:admin:slack_member_channels_snapshot (skips if no machine token; or curl POST_URL with admin session Bearer when backend token unset).
+  # One-shot: snapshot + company registry from slack-orchestrator (same as /admin Companies discover). Requires orchestrator on host SLACK_ORCHESTRATOR_PORT. Override MEMBER_CHANNELS_SNAPSHOT_REFRESH_URL for snapshot-only POST.
   slack-member-channels-snapshot-refresh:
     profiles: ["local"]
     image: alpine:3.20
@@ -67,8 +69,8 @@ services:
     depends_on:
       - backend
     environment:
-      POST_URL: ${MEMBER_CHANNELS_SNAPSHOT_REFRESH_URL:-http://backend:8080/v1/internal/refresh-slack-member-channels-snapshot}
-      BACKEND_INTERNAL_SERVICE_TOKEN: ${BACKEND_INTERNAL_SERVICE_TOKEN:-}
+      POST_URL: ${MEMBER_CHANNELS_SNAPSHOT_REFRESH_URL:-http://backend:8080/v1/internal/bootstrap-company-channels-from-orchestrator}
+      BACKEND_INTERNAL_SERVICE_TOKEN: ${BACKEND_INTERNAL_SERVICE_TOKEN:-mac-local-dev-internal-service-token}
       SNAPSHOT_LABEL: slack-member-channels-snapshot-refresh
     extra_hosts:
       - "host.docker.internal:host-gateway"

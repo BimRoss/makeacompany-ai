@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
-import { siteDescription, siteTagline } from "@/lib/site";
+import { siteTagline, siteTaglineLine1, siteTaglineLine2 } from "@/lib/site";
 
-export const alt = `${siteTagline} — ${siteDescription}`;
+export const alt = siteTagline;
 export const size = {
   width: 1200,
   height: 630,
@@ -42,11 +42,19 @@ export default function OpenGraphImage() {
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 20, maxWidth: "86%" }}>
-          <div style={{ fontSize: 72, lineHeight: 1.04, fontWeight: 700, letterSpacing: "-0.03em" }}>
-            {siteTagline}
-          </div>
-          <div style={{ fontSize: 34, color: "#d4d4d8", lineHeight: 1.3 }}>
-            {siteDescription}
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 12,
+              fontSize: 64,
+              lineHeight: 1.04,
+              fontWeight: 700,
+              letterSpacing: "-0.03em",
+            }}
+          >
+            <div>{siteTaglineLine1}</div>
+            <div>{siteTaglineLine2}</div>
           </div>
         </div>
 

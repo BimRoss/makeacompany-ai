@@ -3,13 +3,22 @@ export const siteDomainLabel = "makeacompany.ai";
 /** Back-compat: same as domain-first branding */
 export const siteName = siteDomainLabel;
 
-/** Primary headline — hero H1, Open Graph / Twitter title */
-export const siteTagline = "Make a Company for $1";
+/** Primary headline lines — hero H1 */
+export const siteTaglineLine1 = "Stop Chatting with AI.";
+export const siteTaglineLine2 = "Conduct it.";
+
+/** Single-line headline for `<title>`, OG alt, and other one-string contexts */
+export const siteTagline = `${siteTaglineLine1} — ${siteTaglineLine2}`;
+
+/** Subhead lines — hero, OG image body */
+export const siteDescriptionLine1 = "Create an AI-native team in seconds.";
+export const siteDescriptionLine2 =
+  "For mid-sized companies who want departments, not agents, at a fraction of the cost.";
 
 /**
- * Subhead — meta description, hero secondary line, OG image secondary text.
+ * Subhead as one string — meta description, manifest, JSON-LD, OG alt.
  */
-export const siteDescription = "Your AI company, live in Slack.";
+export const siteDescription = `${siteDescriptionLine1} ${siteDescriptionLine2}`;
 
 /**
  * Default `<title>` — matches primary headline so tabs and unfurls lead with the product promise.

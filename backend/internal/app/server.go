@@ -86,6 +86,7 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 	s.mux.HandleFunc("/v1/internal/refresh-stripe-waitlist-snapshot", s.handleInternalRefreshStripeWaitlistSnapshot)
 	s.mux.HandleFunc("/v1/internal/refresh-slack-users-snapshot", s.handleInternalRefreshSlackUsersSnapshot)
 	s.mux.HandleFunc("/v1/internal/refresh-slack-member-channels-snapshot", s.handleInternalRefreshSlackMemberChannelsSnapshot)
+	s.mux.HandleFunc("/v1/internal/bootstrap-company-channels-from-orchestrator", s.handleInternalBootstrapCompanyChannelsFromOrchestrator)
 	s.mux.HandleFunc("/v1/admin/catalog", s.handleAdminCatalog)
 	s.mux.HandleFunc("/v1/admin/company-channels", s.handleAdminCompanyChannels)
 	s.mux.HandleFunc("POST /v1/admin/company-channels/discover", s.handleAdminCompanyChannelsDiscover)
@@ -166,6 +167,8 @@ func normalizeMetricRoute(path string) string {
 		return "/v1/internal/refresh-slack-users-snapshot"
 	case path == "/v1/internal/refresh-slack-member-channels-snapshot":
 		return "/v1/internal/refresh-slack-member-channels-snapshot"
+	case path == "/v1/internal/bootstrap-company-channels-from-orchestrator":
+		return "/v1/internal/bootstrap-company-channels-from-orchestrator"
 	case path == "/v1/admin/catalog":
 		return "/v1/admin/catalog"
 	case path == "/v1/admin/company-channels":

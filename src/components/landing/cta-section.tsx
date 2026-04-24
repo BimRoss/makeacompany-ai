@@ -4,12 +4,12 @@ import { CheckCircle } from "lucide-react";
 export function CtaSection() {
   return (
     <section className="py-20">
-      <div className="mx-auto max-w-4xl px-6">
+      <div className="mx-auto w-full max-w-4xl px-6">
         <div className="relative overflow-hidden rounded-3xl border border-border bg-card p-8 shadow-lg sm:p-12">
           <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-primary/5 blur-3xl" />
           <div className="pointer-events-none absolute -bottom-20 -left-20 h-64 w-64 rounded-full bg-primary/5 blur-3xl" />
 
-          <div className="relative text-center">
+          <div className="relative w-full text-center">
             <h2 className="mb-4 text-balance text-3xl font-bold tracking-tight sm:text-4xl">
               Don&apos;t miss your free month
             </h2>
@@ -32,7 +32,7 @@ export function CtaSection() {
               </div>
             </div>
             <p className="mx-auto mb-4 inline-flex items-center rounded-full border border-border bg-muted px-4 py-1.5 text-sm font-semibold tracking-tight text-foreground sm:px-5 sm:text-base">
-              Make a company for $1
+              Create a team for $1
             </p>
             <CheckoutButton label="Join the Waitlist" className="sm:px-10" />
             <p className="mt-6 text-pretty text-sm text-muted-foreground">
