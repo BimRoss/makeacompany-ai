@@ -1,5 +1,9 @@
 import type { Metadata } from "next";
-import type { ReactNode } from "react";
+import { Suspense, type ReactNode } from "react";
+
+import { AdminSessionVerifiedBoundary } from "@/components/admin/admin-session-verified-boundary";
+import { AdminShell } from "@/components/admin/admin-shell";
+import { CompanyChannelPageLoader } from "@/components/company-channel/company-channel-page-loader";
 
 export const metadata: Metadata = {
   title: "Twitter",
@@ -14,5 +18,15 @@ export const metadata: Metadata = {
 };
 
 export default function TwitterLayout({ children }: { children: ReactNode }) {
-  return children;
+  return (
+    <Suspense
+      fallback={
+        <AdminShell>
+          <CompanyChannelPageLoader srLabel="Loading Twitter dashboard" />
+        </AdminShell>
+      }
+    >
+      <AdminSessionVerifiedBoundary>{children}</AdminSessionVerifiedBoundary>
+    </Suspense>
+  );
 }
