@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"testing"
 	"time"
 
@@ -136,5 +137,60 @@ func TestUpsertDiscoveredCompanyChannels_MergesDefaults(t *testing.T) {
 	}
 	if len(decodedExist.OwnerIDs) != 2 {
 		t.Fatalf("owner_ids existing: got %#v", decodedExist.OwnerIDs)
+	}
+}
+
+func TestPruneCompanyChannelsRegistry_RemovesStaleAndAuxKeys(t *testing.T) {
+	srv, err := miniredis.Run()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer srv.Close()
+
+	rdb := redis.NewClient(&redis.Options{Addr: srv.Addr()})
+	defer rdb.Close()
+
+	ctx := context.Background()
+	hashKey := ""
+	k := companyChannelsHashKey(hashKey)
+	keep := "C0KEEP01"
+	stale := "C0STALE1"
+	seedKeep := `{"company_slug":"keepco","channel_id":"C0KEEP01","threads_enabled":true,"general_auto_reaction_enabled":false,"out_of_office_enabled":false}`
+	seedStale := `{"company_slug":"gone","channel_id":"C0STALE1","threads_enabled":true,"general_auto_reaction_enabled":false,"out_of_office_enabled":false}`
+	if err := rdb.HSet(ctx, k, keep, seedKeep, stale, seedStale).Err(); err != nil {
+		t.Fatal(err)
+	}
+	digestKey := channelKnowledgeMarkdownRedisKey(stale)
+	if err := rdb.Set(ctx, digestKey, "old digest", 0).Err(); err != nil {
+		t.Fatal(err)
+	}
+	toKey := fmt.Sprintf("employee-factory:thread_owner:%s:123.456", stale)
+	if err := rdb.Set(ctx, toKey, "emp:alice", 0).Err(); err != nil {
+		t.Fatal(err)
+	}
+
+	store := &Store{rdb: rdb}
+	removed, err := store.PruneCompanyChannelsRegistry(ctx, hashKey, []string{keep})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(removed) != 1 || removed[0] != stale {
+		t.Fatalf("removed: %#v", removed)
+	}
+	n, err := rdb.HLen(ctx, k).Result()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n != 1 {
+		t.Fatalf("hash len: got %d want 1", n)
+	}
+	if _, err := rdb.HGet(ctx, k, stale).Result(); err != redis.Nil {
+		t.Fatalf("expected stale field gone: %v", err)
+	}
+	if _, err := rdb.Get(ctx, digestKey).Result(); err != redis.Nil {
+		t.Fatal("expected channel knowledge key deleted")
+	}
+	if _, err := rdb.Get(ctx, toKey).Result(); err != redis.Nil {
+		t.Fatal("expected thread_owner key deleted")
 	}
 }

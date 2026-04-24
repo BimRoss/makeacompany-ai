@@ -724,6 +724,109 @@ func dedupeTrimmedIDs(ids []string, maxN int) []string {
 	return out
 }
 
+func channelKnowledgeMarkdownRedisKey(channelID string) string {
+	return fmt.Sprintf(channelKnowledgeRedisKeyFmt, strings.TrimSpace(channelID))
+}
+
+// deleteCompanyChannelAuxiliaryKeys removes channel-scoped keys from the company-channels Redis
+// (hourly digest markdown, thread-owner hints). Matches employee-factory key shapes.
+func (s *Store) deleteCompanyChannelAuxiliaryKeys(ctx context.Context, channelID string) error {
+	rdb := s.companyChannelsRedis()
+	if s == nil || rdb == nil {
+		return fmt.Errorf("company channels: nil store")
+	}
+	ch := strings.TrimSpace(channelID)
+	if ch == "" {
+		return nil
+	}
+	if err := rdb.Del(ctx, channelKnowledgeMarkdownRedisKey(ch)).Err(); err != nil {
+		return err
+	}
+	pat := fmt.Sprintf("employee-factory:thread_owner:%s:*", ch)
+	var cursor uint64
+	for {
+		keys, next, err := rdb.Scan(ctx, cursor, pat, 200).Result()
+		if err != nil {
+			return err
+		}
+		if len(keys) > 0 {
+			if err := rdb.Del(ctx, keys...).Err(); err != nil {
+				return err
+			}
+		}
+		cursor = next
+		if cursor == 0 {
+			break
+		}
+	}
+	return nil
+}
+
+// RemoveCompanyChannelRegistryEntry deletes one registry field and publishes invalidation
+// (same contract as employee-factory/channelregistry.RemoveCompanyChannel).
+func (s *Store) RemoveCompanyChannelRegistryEntry(ctx context.Context, hashKey, channelID string) error {
+	rdb := s.companyChannelsRedis()
+	if s == nil || rdb == nil {
+		return fmt.Errorf("company channels: nil store")
+	}
+	cid := strings.TrimSpace(channelID)
+	if cid == "" || !ValidSlackChannelID(cid) {
+		return fmt.Errorf("company channels: bad channel id")
+	}
+	k := companyChannelsHashKey(hashKey)
+	if err := rdb.HDel(ctx, k, cid).Err(); err != nil {
+		return err
+	}
+	if pubErr := rdb.Publish(ctx, companyChannelsInvalidatePubSubChannel, cid).Err(); pubErr != nil {
+		log.Printf("company channels remove: invalidate publish: %v", pubErr)
+	}
+	return nil
+}
+
+// PruneCompanyChannelsRegistry removes HASH fields whose channel id is not in keepChannelIDs,
+// after deleting auxiliary keys for each removed channel. keepChannelIDs must be non-empty
+// (caller must not invoke with an empty Slack snapshot).
+func (s *Store) PruneCompanyChannelsRegistry(ctx context.Context, hashKey string, keepChannelIDs []string) ([]string, error) {
+	rdb := s.companyChannelsRedis()
+	if s == nil || rdb == nil {
+		return nil, fmt.Errorf("company channels: nil store")
+	}
+	keep := make(map[string]struct{})
+	for _, id := range keepChannelIDs {
+		id = strings.TrimSpace(id)
+		if id == "" || !ValidSlackChannelID(id) {
+			continue
+		}
+		keep[id] = struct{}{}
+	}
+	if len(keep) == 0 {
+		return nil, fmt.Errorf("keep_channel_ids: need at least one valid Slack channel id")
+	}
+	k := companyChannelsHashKey(hashKey)
+	raw, err := rdb.HGetAll(ctx, k).Result()
+	if err != nil {
+		return nil, err
+	}
+	var removed []string
+	for field := range raw {
+		f := strings.TrimSpace(field)
+		if !ValidSlackChannelID(f) {
+			continue
+		}
+		if _, ok := keep[f]; ok {
+			continue
+		}
+		if err := s.deleteCompanyChannelAuxiliaryKeys(ctx, f); err != nil {
+			return removed, fmt.Errorf("aux cleanup %s: %w", f, err)
+		}
+		if err := s.RemoveCompanyChannelRegistryEntry(ctx, hashKey, f); err != nil {
+			return removed, err
+		}
+		removed = append(removed, f)
+	}
+	return removed, nil
+}
+
 func slugFromSlackChannelDisplayName(name string) string {
 	name = strings.TrimSpace(name)
 	name = strings.TrimPrefix(strings.ToLower(name), "#")

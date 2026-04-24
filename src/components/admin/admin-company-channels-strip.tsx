@@ -240,23 +240,63 @@ export function AdminCompanyChannelsStrip() {
 
     try {
       const slackQs = live ? "?source=live" : "";
-      const [slackRes, redisRes] = await Promise.all([
-        fetch(`/api/admin/slack-member-channels${slackQs}`, { cache: "no-store" }),
-        fetch("/api/admin/company-channels", { cache: "no-store" }),
-      ]);
-
+      const slackRes = await fetch(`/api/admin/slack-member-channels${slackQs}`, { cache: "no-store" });
       if (stale()) return;
-
-      if (
-        kickToLoginForUnauthorizedApi(slackRes.status, "admin") ||
-        kickToLoginForUnauthorizedApi(redisRes.status, "admin")
-      ) {
+      if (kickToLoginForUnauthorizedApi(slackRes.status, "admin")) {
         setSnapshotLoading(false);
         setState("idle");
         return;
       }
 
       const slackPayload = (await slackRes.json().catch(() => null)) as SlackMemberPayload | null;
+
+      // After a live Slack pull, drop registry rows that no longer appear in the orchestrator member list
+      // (same idea as Stripe refresh replacing the snapshot). Skip when list is empty or truncated.
+      if (live && slackRes.ok && slackPayload && Array.isArray(slackPayload.channels)) {
+        const truncated = Boolean(slackPayload.truncated);
+        const ids = slackPayload.channels
+          .map((c) => (c.channel_id ?? "").trim())
+          .filter((id) => id.length > 0);
+        if (truncated && ids.length > 0) {
+          setEnrichBanner(
+            "Slack channel list was truncated; skipped pruning the Redis company registry to avoid deleting rows that were not returned.",
+          );
+        } else if (ids.length > 0) {
+          try {
+            const pruneRes = await fetch("/api/admin/company-channels/registry-prune", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ keep_channel_ids: ids }),
+              cache: "no-store",
+            });
+            if (kickToLoginForUnauthorizedApi(pruneRes.status, "admin")) {
+              setSnapshotLoading(false);
+              setState("idle");
+              return;
+            }
+            if (!pruneRes.ok) {
+              const errBody = (await pruneRes.json().catch(() => null)) as { error?: string } | null;
+              setEnrichBanner(
+                `Could not prune stale companies from Redis: ${typeof errBody?.error === "string" ? errBody.error : `HTTP ${pruneRes.status}`}`,
+              );
+            }
+          } catch {
+            setEnrichBanner("Could not prune stale companies from Redis (network error).");
+          }
+          if (stale()) return;
+        }
+      }
+
+      if (stale()) return;
+
+      const redisRes = await fetch("/api/admin/company-channels", { cache: "no-store" });
+      if (stale()) return;
+      if (kickToLoginForUnauthorizedApi(redisRes.status, "admin")) {
+        setSnapshotLoading(false);
+        setState("idle");
+        return;
+      }
+
       const redisPayload = (await redisRes.json().catch(() => null)) as
         | (CompanyChannelsResponse & { error?: string })
         | null;

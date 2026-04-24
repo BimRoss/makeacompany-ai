@@ -90,6 +90,7 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 	s.mux.HandleFunc("/v1/admin/catalog", s.handleAdminCatalog)
 	s.mux.HandleFunc("/v1/admin/company-channels", s.handleAdminCompanyChannels)
 	s.mux.HandleFunc("POST /v1/admin/company-channels/discover", s.handleAdminCompanyChannelsDiscover)
+	s.mux.HandleFunc("POST /v1/admin/company-channels/registry-prune", s.handleAdminCompanyChannelsRegistryPrune)
 	s.mux.HandleFunc("GET /v1/admin/company-channels/{channelId}", s.handleAdminCompanyChannelGet)
 	s.mux.HandleFunc("PATCH /v1/admin/company-channels/{channelId}", s.handleAdminCompanyChannelPatch)
 	s.mux.HandleFunc("GET /v1/admin/channel-knowledge/{channelId}", s.handleAdminChannelKnowledge)
@@ -175,6 +176,8 @@ func normalizeMetricRoute(path string) string {
 		return "/v1/admin/company-channels"
 	case path == "/v1/admin/company-channels/discover":
 		return "/v1/admin/company-channels/discover"
+	case path == "/v1/admin/company-channels/registry-prune":
+		return "/v1/admin/company-channels/registry-prune"
 	case strings.HasPrefix(path, "/v1/admin/company-channels/"):
 		return "/v1/admin/company-channels/{channelId}"
 	case strings.HasPrefix(path, "/v1/admin/channel-knowledge/"):
@@ -622,6 +625,43 @@ func (s *Server) handleAdminCompanyChannelsDiscover(w http.ResponseWriter, r *ht
 		"upserted_count": len(touched),
 		"requested":      len(in),
 		"redisKey":       strings.TrimSpace(s.cfg.CompanyChannelsRedisKey),
+	})
+}
+
+// handleAdminCompanyChannelsRegistryPrune removes Redis registry rows (and channel-scoped auxiliary keys)
+// not present in keep_channel_ids. Caller must pass the live Slack/orchestrator member-channel id set.
+func (s *Server) handleAdminCompanyChannelsRegistryPrune(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	ok, svcUnavail := s.companyRegistryReadAuthorized(r)
+	if !ok {
+		if svcUnavail {
+			http.Error(w, "admin auth disabled", http.StatusServiceUnavailable)
+		} else {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+		}
+		return
+	}
+	var body struct {
+		KeepChannelIDs []string `json:"keep_channel_ids"`
+	}
+	if err := json.NewDecoder(io.LimitReader(r.Body, 1<<20)).Decode(&body); err != nil {
+		http.Error(w, "invalid json", http.StatusBadRequest)
+		return
+	}
+	removed, err := s.store.PruneCompanyChannelsRegistry(r.Context(), s.cfg.CompanyChannelsRedisKey, body.KeepChannelIDs)
+	if err != nil {
+		s.log.Printf("admin company channels registry-prune: %v", err)
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"ok":            true,
+		"removed":       removed,
+		"removed_count": len(removed),
+		"redisKey":      strings.TrimSpace(s.cfg.CompanyChannelsRedisKey),
 	})
 }
 
