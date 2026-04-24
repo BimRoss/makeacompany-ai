@@ -257,34 +257,30 @@ export function CompanyChannelWorkspaceDetail({ channelId, variant }: CompanyCha
       ) : null}
       {transcriptError ? <p className="text-sm text-destructive">{transcriptError}</p> : null}
 
-      <AdminChannelControlPane
-        channelId={channelId}
-        channel={channel}
-        status={channelStatus}
-        errorMessage={channelError}
-        redisKey={redisKey}
-        onChannelUpdated={setChannel}
-        companyChannelsApiPrefix={variant === "portal" ? "portal" : "admin"}
-        workspaceTitle={pageTitle}
-        founders={foundersForHeader}
-        knowledgeMarkdown={markdown}
-        knowledgeActivityPinnedBin={knowledgeActivityPinnedBin}
-        onKnowledgeActivityPinnedBinChange={setKnowledgeActivityPinnedBin}
-        onKnowledgeActivityBinHover={setKnowledgeActivityHoverBin}
-        slackChannelIsPrivate={slackChannelIsPrivate}
-      />
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2">
+        <AdminChannelControlPane
+          channelId={channelId}
+          channel={channel}
+          status={channelStatus}
+          errorMessage={channelError}
+          redisKey={redisKey}
+          onChannelUpdated={setChannel}
+          companyChannelsApiPrefix={variant === "portal" ? "portal" : "admin"}
+          workspaceTitle={pageTitle}
+          founders={foundersForHeader}
+          knowledgeMarkdown={markdown}
+          knowledgeActivityPinnedBin={knowledgeActivityPinnedBin}
+          onKnowledgeActivityPinnedBinChange={setKnowledgeActivityPinnedBin}
+          onKnowledgeActivityBinHover={setKnowledgeActivityHoverBin}
+          slackChannelIsPrivate={slackChannelIsPrivate}
+        />
 
-      {knowledgeEmpty && state === "ready" && !transcriptError ? (
-        <div className="flex shrink-0 flex-col gap-2">
-          <h2 className="text-lg font-semibold leading-snug tracking-tight text-foreground">Knowledge Base</h2>
-          <div className="overflow-hidden rounded-lg border border-border bg-card px-4 py-5 shadow-sm">
+        {knowledgeEmpty && state === "ready" && !transcriptError ? (
+          <div className="shrink-0 overflow-hidden rounded-lg border border-border bg-card px-4 py-5 shadow-sm">
             <p className="text-sm text-muted-foreground">No channel knowledge digest in Redis yet for this channel.</p>
           </div>
-        </div>
-      ) : null}
-      {!knowledgeEmpty && markdown.trim() ? (
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2">
-          <h2 className="shrink-0 text-lg font-semibold leading-snug tracking-tight text-foreground">Knowledge Base</h2>
+        ) : null}
+        {!knowledgeEmpty && markdown.trim() ? (
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">
             <AdminChannelKnowledgeDigest
               markdown={markdown}
@@ -292,8 +288,8 @@ export function CompanyChannelWorkspaceDetail({ channelId, variant }: CompanyCha
               activityTimeBinFilter={knowledgeDigestActivityBin}
             />
           </div>
-        </div>
-      ) : null}
+        ) : null}
+      </div>
     </div>
   );
 }
