@@ -2,27 +2,51 @@
 
 import { UserRound } from "lucide-react";
 
+const sizeClasses = {
+  compact: {
+    wrap: "gap-1 rounded-full py-px pl-px pr-1.5",
+    avatar: "size-3",
+    icon: "size-2",
+    label: "text-[10px] font-medium leading-none",
+  },
+  comfortable: {
+    wrap: "gap-2 rounded-full border-border/80 py-1 pl-1 pr-3 shadow-sm",
+    avatar: "size-8 ring-1 ring-border/40",
+    icon: "size-4",
+    label: "text-xs font-medium leading-tight tracking-tight",
+  },
+} as const;
+
 export function SlackPersonChip({
   displayName,
   portraitUrl,
+  size = "compact",
 }: {
   displayName: string;
   portraitUrl?: string;
+  /** `comfortable`: larger avatar and type for prominent surfaces (e.g. workspace header). */
+  size?: keyof typeof sizeClasses;
 }) {
   const url = portraitUrl?.trim();
+  const s = sizeClasses[size];
   return (
-    <span className="inline-flex min-w-0 max-w-full items-center gap-1 rounded-full border border-border bg-muted/30 py-px pl-px pr-1.5">
-      <span className="relative size-3 shrink-0 overflow-hidden rounded-full border border-border bg-muted">
+    <span
+      className={[
+        "inline-flex min-w-0 max-w-full items-center rounded-full border border-border bg-muted/30",
+        s.wrap,
+      ].join(" ")}
+    >
+      <span className={["relative shrink-0 overflow-hidden rounded-full border border-border bg-muted", s.avatar].join(" ")}>
         {url ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={url} alt="" className="size-full object-cover" />
         ) : (
           <span className="flex size-full items-center justify-center text-muted-foreground" aria-hidden>
-            <UserRound className="size-2" />
+            <UserRound className={s.icon} />
           </span>
         )}
       </span>
-      <span className="truncate text-[10px] font-medium leading-none text-foreground">{displayName}</span>
+      <span className={["min-w-0 truncate text-foreground", s.label].join(" ")}>{displayName}</span>
     </span>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
+import { Lock, Users } from "lucide-react";
 import { useCallback, useState, type ReactNode } from "react";
-import type { SlackTranscriptAuthorLookup } from "@/components/admin/admin-channel-digest-views";
 import type { CompanyChannel } from "@/lib/admin/company-channels";
 import { kickToLoginForUnauthorizedApi } from "@/lib/client-auth-unauthorized-redirect";
 import { SlackPersonChip } from "@/components/admin/slack-person-chip";
@@ -24,32 +24,11 @@ type AdminChannelControlPaneProps = {
   companyChannelsApiPrefix?: "admin" | "portal";
   /** Shown in the card header (top row), e.g. display name or channel id while loading. */
   workspaceTitle: string;
-  /** Registry owners resolved to names + portraits; used on portal where in-channel roster is not fetched. */
+  /** Registry `owner_ids` resolved to names + portraits for the founders row. */
   founders?: AdminChannelFounder[] | null;
-  /** When set (including `[]`), show a “Humans” row like `/admin` company cards. Omitted for portal or before fetch. */
-  inChannelHumanIds?: string[];
-  /** Resolve in-channel chips by Slack user id (same source as transcript author pills). */
-  humanPillLookup?: SlackTranscriptAuthorLookup;
+  /** From Slack member-channels when this workspace id appears in the bot’s conversation list. */
+  slackChannelIsPrivate?: boolean | null;
 };
-
-function looksSlackMemberId(s: string): boolean {
-  return /^U[A-Z0-9]{8,}$/i.test(s.trim());
-}
-
-function humanChipFromLookup(
-  slackUserId: string,
-  lookup: SlackTranscriptAuthorLookup | undefined,
-): { displayName: string; portraitUrl?: string } {
-  const up = slackUserId.trim().toUpperCase();
-  const lu = lookup?.[up];
-  const raw = lu?.displayName?.trim() ?? "";
-  const portrait = lu?.portraitUrl?.trim();
-  const isPlaceholder = !raw || looksSlackMemberId(raw) || raw.toUpperCase() === up;
-  return {
-    displayName: isPlaceholder ? "Member" : raw,
-    portraitUrl: portrait || undefined,
-  };
-}
 
 function ControlToggle({
   enabled,
@@ -99,8 +78,7 @@ export function AdminChannelControlPane({
   companyChannelsApiPrefix = "admin",
   workspaceTitle,
   founders,
-  inChannelHumanIds,
-  humanPillLookup,
+  slackChannelIsPrivate,
 }: AdminChannelControlPaneProps) {
   const [patchError, setPatchError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -139,38 +117,22 @@ export function AdminChannelControlPane({
   const founderIdsNormalized =
     channel?.owner_ids?.map((id) => id.trim()).filter(Boolean).map((id) => id.toUpperCase()) ?? [];
 
-  const portalRosterAsInChannel =
-    companyChannelsApiPrefix === "portal" &&
-    inChannelHumanIds === undefined &&
-    founderIdsNormalized.length > 0;
-
-  const inChannelSection =
-    inChannelHumanIds !== undefined ? (
-      <div className="space-y-1">
-        <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Humans</p>
-        {inChannelHumanIds.length > 0 ? (
-          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-            {inChannelHumanIds.map((sid) => (
-              <span key={`member-${sid}`} title={`Slack user ${sid.trim().toUpperCase()}`}>
-                <SlackPersonChip {...humanChipFromLookup(sid, humanPillLookup)} />
-              </span>
-            ))}
-          </div>
-        ) : (
-          <p className="text-[10px] text-muted-foreground">No human members reported.</p>
-        )}
-      </div>
-    ) : portalRosterAsInChannel ? (
-      <div className="space-y-1">
-        <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Humans</p>
-        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+  const foundersSection =
+    founderIdsNormalized.length > 0 ? (
+      <div
+        className="rounded-xl border border-border/70 bg-gradient-to-br from-muted/60 via-muted/25 to-background p-3.5 shadow-[0_1px_0_0_rgba(0,0,0,0.03)] dark:from-muted/25 dark:via-muted/10 dark:to-card dark:shadow-[0_1px_0_0_rgba(255,255,255,0.04)]"
+        aria-label="Company founders"
+      >
+        <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Founders</p>
+        <div className="mt-2.5 flex min-w-0 flex-wrap items-center gap-2">
           {founderIdsNormalized.map((id, i) => {
             const f = founders?.[i];
             return (
-              <span key={`portal-roster-${id}`} title={`Slack user ${id}`}>
+              <span key={`founder-${id}`} title={`Slack user ${id}`}>
                 <SlackPersonChip
                   displayName={f?.displayName ?? "Member"}
                   portraitUrl={f?.portraitUrl}
+                  size="comfortable"
                 />
               </span>
             );
@@ -179,27 +141,43 @@ export function AdminChannelControlPane({
       </div>
     ) : null;
 
+  const visibilityIcon =
+    slackChannelIsPrivate === true ? (
+      <span className="inline-flex shrink-0 text-muted-foreground" title="Private Slack channel" aria-hidden>
+        <Lock className="size-7 stroke-[2.25]" />
+      </span>
+    ) : slackChannelIsPrivate === false ? (
+      <span className="inline-flex shrink-0 text-muted-foreground" title="Public channel" aria-hidden>
+        <Users className="size-7 stroke-[2.25]" />
+      </span>
+    ) : null;
+
   const metaBlock = (
-    <div className="min-w-0 flex-1 space-y-2">
-      <h1 className="min-w-0 max-w-full truncate text-2xl font-semibold tracking-tight text-foreground">
-        {workspaceTitle}
+    <div className="min-w-0 flex-1 space-y-3">
+      <h1 className="flex min-w-0 max-w-full items-center gap-2 text-2xl font-semibold tracking-tight text-foreground">
+        {visibilityIcon ? (
+          <>
+            {visibilityIcon}
+            {slackChannelIsPrivate === true ? <span className="sr-only">Private Slack channel: </span> : null}
+            {slackChannelIsPrivate === false ? <span className="sr-only">Public channel: </span> : null}
+          </>
+        ) : null}
+        <span className="min-w-0 truncate">{workspaceTitle}</span>
       </h1>
-      {inChannelSection}
+      {foundersSection}
     </div>
   );
 
+  const cardShell = "rounded-2xl border border-border bg-card px-4 py-3.5 shadow-sm";
+
   const sideShell = (child: ReactNode) => (
-    <div className="min-w-0 shrink-0 border-t border-border pt-2 md:border-l md:border-t-0 md:pl-5 md:pt-0">{child}</div>
+    <div className="min-w-0 shrink-0 border-t border-border pt-3 md:border-l md:border-t-0 md:pl-6 md:pt-0">{child}</div>
   );
 
   if (status === "loading") {
     return (
-      <section
-        className="rounded-lg border border-border bg-card px-3 py-2 shadow-sm"
-        aria-busy="true"
-        aria-label="Channel workspace"
-      >
-        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between md:gap-5">
+      <section className={cardShell} aria-busy="true" aria-label="Channel workspace">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between md:gap-6">
           {metaBlock}
           {sideShell(<p className="text-xs text-muted-foreground">Loading channel registry…</p>)}
         </div>
@@ -209,8 +187,11 @@ export function AdminChannelControlPane({
 
   if (status === "error") {
     return (
-      <section className="rounded-lg border border-destructive/40 bg-card px-3 py-2 shadow-sm" aria-label="Channel workspace">
-        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between md:gap-5">
+      <section
+        className="rounded-2xl border border-destructive/40 bg-card px-4 py-3.5 shadow-sm"
+        aria-label="Channel workspace"
+      >
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between md:gap-6">
           {metaBlock}
           {sideShell(<p className="text-xs text-destructive">{errorMessage ?? "Could not load channel metadata."}</p>)}
         </div>
@@ -220,8 +201,8 @@ export function AdminChannelControlPane({
 
   if (status === "missing" || !channel) {
     return (
-      <section className="rounded-lg border border-border bg-card px-3 py-2 shadow-sm" aria-label="Channel workspace">
-        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between md:gap-5">
+      <section className={cardShell} aria-label="Channel workspace">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between md:gap-6">
           {metaBlock}
           {sideShell(
             <div className="space-y-1">
@@ -240,11 +221,11 @@ export function AdminChannelControlPane({
   const generalOn = !channel.general_responses_muted;
 
   return (
-    <section className="rounded-lg border border-border bg-card px-3 py-2 shadow-sm" aria-label="Channel workspace">
-      <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between md:gap-5">
+    <section className={cardShell} aria-label="Channel workspace">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between md:gap-6">
         {metaBlock}
         <div
-          className="min-w-[min(100%,14rem)] shrink-0 divide-y divide-border border-t border-border md:border-l md:border-t-0 md:pl-5"
+          className="min-w-[min(100%,14rem)] shrink-0 divide-y divide-border border-t border-border md:border-l md:border-t-0 md:pl-6"
           aria-label="Channel controls"
         >
           <div className="flex flex-wrap items-center justify-between gap-2 py-1.5">

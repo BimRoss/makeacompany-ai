@@ -37,6 +37,27 @@ type SlackProfileRow = {
   email?: string;
 };
 
+type SlackMemberChannelsPayload = {
+  channels?: Array<{ channel_id?: string; is_private?: boolean }>;
+};
+
+function slackPrivateForChannelId(payload: SlackMemberChannelsPayload | null, cid: string): boolean | null {
+  const list = payload?.channels;
+  if (!Array.isArray(list)) {
+    return null;
+  }
+  const up = cid.trim().toUpperCase();
+  for (const row of list) {
+    const id = String(row?.channel_id ?? "")
+      .trim()
+      .toUpperCase();
+    if (id === up) {
+      return Boolean(row?.is_private);
+    }
+  }
+  return null;
+}
+
 export function CompanyChannelWorkspaceDetail({ channelId, variant }: CompanyChannelWorkspaceDetailProps) {
   const [state, setState] = useState<LoadState>("idle");
   const [transcriptError, setTranscriptError] = useState<string | null>(null);
@@ -48,9 +69,9 @@ export function CompanyChannelWorkspaceDetail({ channelId, variant }: CompanyCha
   const [companyPulsecheck, setCompanyPulsecheck] = useState<string>("");
   const [knowledgeEmpty, setKnowledgeEmpty] = useState(false);
   const [slackAuthorLookup, setSlackAuthorLookup] = useState<SlackTranscriptAuthorLookup>({});
-  /** Admin-only: human Slack user ids in channel (from orchestrator); `undefined` = not loaded or portal. */
-  const [inChannelHumanIds, setInChannelHumanIds] = useState<string[] | undefined>(undefined);
   const [portalWelcome, setPortalWelcome] = useState<{ greeting: string; portraitUrl?: string } | null>(null);
+  /** Resolved from orchestrator member-channels; null if unknown or not listed. */
+  const [slackChannelIsPrivate, setSlackChannelIsPrivate] = useState<boolean | null>(null);
 
   const apiPrefix = variant === "admin" ? "admin" : "portal";
   const profilesUrl =
@@ -64,15 +85,17 @@ export function CompanyChannelWorkspaceDetail({ channelId, variant }: CompanyCha
     setState("loading");
     setTranscriptError(null);
     setChannelStatus("loading");
+    setSlackChannelIsPrivate(null);
     const enc = encodeURIComponent(channelId);
     const wantPortalWelcome = variant === "portal" && peekPortalWelcomeParam();
     const mePromise = wantPortalWelcome ? fetch("/api/portal/auth/me", { cache: "no-store" }) : null;
 
     try {
-      const [chRes, knRes, profRes] = await Promise.all([
+      const [chRes, knRes, profRes, slackMcRes] = await Promise.all([
         fetch(`/api/${apiPrefix}/company-channels/${enc}`, { cache: "no-store" }),
         fetch(`/api/${apiPrefix}/channel-knowledge/${enc}`, { cache: "no-store" }),
         fetch(profilesUrl, { cache: "no-store" }),
+        fetch(`/api/${apiPrefix}/slack-member-channels`, { cache: "no-store" }),
       ]);
       const meRes = mePromise ? await mePromise : null;
 
@@ -80,10 +103,14 @@ export function CompanyChannelWorkspaceDetail({ channelId, variant }: CompanyCha
       if (
         kickToLoginForUnauthorizedApi(chRes.status, flow, channelId) ||
         kickToLoginForUnauthorizedApi(knRes.status, flow, channelId) ||
-        kickToLoginForUnauthorizedApi(profRes.status, flow, channelId)
+        kickToLoginForUnauthorizedApi(profRes.status, flow, channelId) ||
+        kickToLoginForUnauthorizedApi(slackMcRes.status, flow, channelId)
       ) {
         return;
       }
+
+      const slackPayload = (await slackMcRes.json().catch(() => null)) as SlackMemberChannelsPayload | null;
+      setSlackChannelIsPrivate(slackPrivateForChannelId(slackPayload, channelId));
 
       const chPayload = (await chRes.json().catch(() => null)) as
         | { channel?: CompanyChannel; redisKey?: string; error?: string }
@@ -182,6 +209,7 @@ export function CompanyChannelWorkspaceDetail({ channelId, variant }: CompanyCha
     } catch {
       setState("error");
       setSlackAuthorLookup({});
+      setSlackChannelIsPrivate(null);
       setCompanyPulsecheck("");
       setTranscriptError("Network error loading transcript.");
       setChannelStatus("error");
@@ -192,46 +220,6 @@ export function CompanyChannelWorkspaceDetail({ channelId, variant }: CompanyCha
   useEffect(() => {
     void load();
   }, [load]);
-
-  useEffect(() => {
-    if (variant !== "admin" || channelStatus !== "ready" || !channel?.channel_id?.trim()) {
-      setInChannelHumanIds(undefined);
-      return;
-    }
-    const cid = channel.channel_id.trim();
-    let cancelled = false;
-    void (async () => {
-      try {
-        const res = await fetch(
-          `/api/admin/slack-channel-members?channel_id=${encodeURIComponent(cid)}`,
-          { cache: "no-store" },
-        );
-        if (kickToLoginForUnauthorizedApi(res.status, "admin")) {
-          return;
-        }
-        if (!res.ok) {
-          if (!cancelled) {
-            setInChannelHumanIds(undefined);
-          }
-          return;
-        }
-        const data = (await res.json().catch(() => null)) as { human_user_ids?: string[] } | null;
-        const ids = Array.isArray(data?.human_user_ids)
-          ? data.human_user_ids.filter((id): id is string => typeof id === "string" && Boolean(id.trim()))
-          : [];
-        if (!cancelled) {
-          setInChannelHumanIds(ids);
-        }
-      } catch {
-        if (!cancelled) {
-          setInChannelHumanIds(undefined);
-        }
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [variant, channelStatus, channel?.channel_id]);
 
   const pageTitle =
     channel && channelStatus === "ready" ? companyChannelWorkspaceTitle(channel) : channelId;
@@ -271,8 +259,7 @@ export function CompanyChannelWorkspaceDetail({ channelId, variant }: CompanyCha
         companyChannelsApiPrefix={variant === "portal" ? "portal" : "admin"}
         workspaceTitle={pageTitle}
         founders={foundersForHeader}
-        inChannelHumanIds={variant === "admin" ? inChannelHumanIds : undefined}
-        humanPillLookup={slackAuthorLookup}
+        slackChannelIsPrivate={slackChannelIsPrivate}
       />
 
       {state === "ready" && !transcriptError ? (

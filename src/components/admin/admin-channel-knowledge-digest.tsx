@@ -175,7 +175,7 @@ export function AdminChannelKnowledgeDigest({ markdown, slackAuthorLookup }: Adm
   );
 
   return (
-    <div className="flex min-h-[14rem] flex-1 flex-col overflow-hidden rounded-lg border border-border bg-card shadow-sm">
+    <div className="flex min-h-[42rem] flex-1 flex-col overflow-hidden rounded-lg border border-border bg-card shadow-sm">
       <div className="flex shrink-0 justify-end border-b border-border bg-muted/20 px-3 py-2 sm:px-4">
         <div
           className="inline-flex rounded-lg bg-muted/40 p-0.5"

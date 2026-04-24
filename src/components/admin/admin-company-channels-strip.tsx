@@ -35,33 +35,7 @@ function pillClassName(emphasis: boolean): string {
     : "inline-flex rounded-full border border-border bg-background px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground";
 }
 
-function ownersPill(ch: CompanyChannel) {
-  const owners = ch.owner_ids?.filter((id) => id.trim()) ?? [];
-  if (owners.length === 0) {
-    return (
-      <span
-        className={pillClassName(false)}
-        title="Default policy: any human in the channel. Sync from Slack (discover) to persist owner_ids in Redis."
-      >
-        owners · any human
-      </span>
-    );
-  }
-  return (
-    <span
-      className={pillClassName(false)}
-      title={`Owner Slack IDs: ${owners.join(
-        ", ",
-      )}. Count is owners stored at company creation or discover sync, not total humans in the channel.`}
-    >
-      {owners.length} owner{owners.length === 1 ? "" : "s"}
-    </span>
-  );
-}
-
 const maxDiscoverPolicySyncChannels = 25;
-/** Cap Slack channel-member fetches for human-name pills (orchestrator round-trips). */
-const maxHumanMemberFetchChannels = 50;
 
 function looksSlackMemberId(s: string): boolean {
   return /^U[A-Z0-9]{8,}$/i.test(s.trim());
@@ -100,7 +74,6 @@ function personChipProps(
 
 type HumanPillData = {
   profileByUserId: Record<string, SlackProfileEntry>;
-  humanIdsByChannelId: Record<string, string[]>;
 };
 
 function needsRegistryPolicySync(row: MergedRow): boolean {
@@ -177,51 +150,6 @@ async function loadSlackProfilesForPills(): Promise<Record<string, SlackProfileE
   return out;
 }
 
-/**
- * Returns null if admin session kicked to login.
- */
-async function loadHumanIdsByChannel(
-  channelIds: string[],
-): Promise<Record<string, string[]> | null> {
-  const humanIdsByChannelId: Record<string, string[]> = {};
-  const concurrency = 6;
-  for (let i = 0; i < channelIds.length; i += concurrency) {
-    const batch = channelIds.slice(i, i + concurrency);
-    const chunk = await Promise.all(
-      batch.map(async (channel_id) => {
-        try {
-          const res = await fetch(
-            `/api/admin/slack-channel-members?channel_id=${encodeURIComponent(channel_id)}`,
-            { cache: "no-store" },
-          );
-          if (kickToLoginForUnauthorizedApi(res.status, "admin")) {
-            return null;
-          }
-          if (!res.ok) {
-            return { channel_id, ids: undefined };
-          }
-          const data = (await res.json().catch(() => null)) as { human_user_ids?: string[] } | null;
-          const ids = Array.isArray(data?.human_user_ids)
-            ? data!.human_user_ids!.filter((id) => typeof id === "string" && id.trim())
-            : [];
-          return { channel_id, ids };
-        } catch {
-          return { channel_id, ids: undefined };
-        }
-      }),
-    );
-    if (chunk.some((c) => c === null)) {
-      return null;
-    }
-    for (const row of chunk) {
-      if (row && row.ids !== undefined) {
-        humanIdsByChannelId[row.channel_id] = row.ids;
-      }
-    }
-  }
-  return humanIdsByChannelId;
-}
-
 function cardTitle(row: MergedRow): string {
   if (row.registry) {
     return channelDisplayTitle(row.registry);
@@ -234,6 +162,20 @@ function stripLeadingHash(title: string): string {
   return title.startsWith("#") ? title.slice(1) : title;
 }
 
+/** Preserve registry order, uppercase Slack ids, drop empties and duplicates. */
+function uniqueNormalizedOwnerIds(ownerIds: string[] | undefined): string[] {
+  if (!ownerIds?.length) return [];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const raw of ownerIds) {
+    const u = raw.trim().toUpperCase();
+    if (!u || seen.has(u)) continue;
+    seen.add(u);
+    out.push(u);
+  }
+  return out;
+}
+
 export function AdminCompanyChannelsStrip() {
   const [state, setState] = useState<LoadState>("idle");
   const [statusText, setStatusText] = useState("");
@@ -242,7 +184,6 @@ export function AdminCompanyChannelsStrip() {
   const [infoNote, setInfoNote] = useState<string | null>(null);
   const [humanPillData, setHumanPillData] = useState<HumanPillData>({
     profileByUserId: {},
-    humanIdsByChannelId: {},
   });
 
   const load = useCallback(async () => {
@@ -251,7 +192,6 @@ export function AdminCompanyChannelsStrip() {
     setInfoNote(null);
     setHumanPillData({
       profileByUserId: {},
-      humanIdsByChannelId: {},
     });
     try {
       const [slackRes, redisRes] = await Promise.all([
@@ -415,7 +355,6 @@ export function AdminCompanyChannelsStrip() {
         setRows([]);
         setHumanPillData({
           profileByUserId: {},
-          humanIdsByChannelId: {},
         });
         return;
       }
@@ -430,7 +369,6 @@ export function AdminCompanyChannelsStrip() {
 
       let nextHumanPills: HumanPillData = {
         profileByUserId: {},
-        humanIdsByChannelId: {},
       };
       try {
         const profiles = await loadSlackProfilesForPills();
@@ -438,30 +376,8 @@ export function AdminCompanyChannelsStrip() {
           return;
         }
         nextHumanPills.profileByUserId = profiles;
-
-        let memberFetchIds = merged.map((r) => r.channel_id);
-        if (memberFetchIds.length > maxHumanMemberFetchChannels) {
-          memberFetchIds = merged
-            .slice(0, maxHumanMemberFetchChannels)
-            .map((r) => r.channel_id);
-          setInfoNote((prev) =>
-            [
-              prev,
-              `Roster pills (Slack channel members) load for up to ${maxHumanMemberFetchChannels} companies per visit.`,
-            ]
-              .filter(Boolean)
-              .join(" "),
-          );
-        }
-        if (memberFetchIds.length > 0) {
-          const idsMap = await loadHumanIdsByChannel(memberFetchIds);
-          if (idsMap === null) {
-            return;
-          }
-          nextHumanPills.humanIdsByChannelId = idsMap;
-        }
       } catch {
-        /* keep empty maps; registry pills still useful */
+        /* keep empty profile map; registry pills still useful */
       }
 
       setHumanPillData(nextHumanPills);
@@ -474,7 +390,6 @@ export function AdminCompanyChannelsStrip() {
       setRows([]);
       setHumanPillData({
         profileByUserId: {},
-        humanIdsByChannelId: {},
       });
     }
   }, []);
@@ -485,7 +400,7 @@ export function AdminCompanyChannelsStrip() {
 
   return (
     <section
-      className="space-y-3 rounded-none bg-card px-0 py-3 sm:rounded-2xl sm:py-4"
+      className="space-y-2 rounded-none bg-card px-0 py-2 sm:rounded-2xl sm:py-3"
       aria-labelledby="admin-company-channels-heading"
     >
       <h2 id="admin-company-channels-heading" className="text-lg font-semibold leading-snug tracking-tight">
@@ -515,77 +430,67 @@ export function AdminCompanyChannelsStrip() {
       ) : null}
 
       {state === "ready" && rows.length > 0 ? (
-        <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <ul className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
           {rows.map((row) => {
-            const channelHumanIds = humanPillData.humanIdsByChannelId[row.channel_id];
             const { profileByUserId } = humanPillData;
+            const founderIdsOrdered = row.registry
+              ? uniqueNormalizedOwnerIds(row.registry.owner_ids)
+              : [];
 
             return (
               <li key={row.channel_id} className="list-none">
                 <Link
                   href={`/admin/${encodeURIComponent(row.channel_id)}`}
-                  className="flex h-full flex-col rounded-xl border border-border bg-card p-4 shadow-sm transition-colors hover:bg-muted/40 focus-visible:outline focus-visible:ring-2 focus-visible:ring-ring"
+                  className="flex flex-col rounded-lg border border-border bg-card p-2.5 shadow-sm transition-colors hover:bg-muted/40 focus-visible:outline focus-visible:ring-2 focus-visible:ring-ring"
                 >
-                  <div className="min-h-0 flex-1">
-                    <p className="flex items-center gap-1.5 font-semibold leading-tight">
+                  <div className="min-w-0">
+                    <p className="flex items-center gap-1.5 text-sm font-semibold leading-snug">
                       <span
                         className="inline-flex shrink-0 text-muted-foreground"
                         title={row.is_private ? "Private channel" : "Public channel"}
                         aria-hidden
                       >
                         {row.is_private ? (
-                          <Lock className="size-4" strokeWidth={2.25} />
+                          <Lock className="size-3.5" strokeWidth={2.25} />
                         ) : (
-                          <Users className="size-4" strokeWidth={2.25} />
+                          <Users className="size-3.5" strokeWidth={2.25} />
                         )}
                       </span>
                       {!row.is_private ? <span className="sr-only">Public channel: </span> : null}
                       {row.is_private ? <span className="sr-only">Private channel: </span> : null}
-                      <span>{stripLeadingHash(cardTitle(row))}</span>
+                      <span className="truncate">{stripLeadingHash(cardTitle(row))}</span>
                     </p>
                   </div>
-                  <div className="mt-4 space-y-2">
-                    <div className="flex flex-wrap gap-2">
-                      {row.registry ? (
-                        <>
-                          {row.registry.company_slug?.trim() ? (
-                            <span className={pillClassName(false)} title="company_slug">
-                              {row.registry.company_slug}
-                            </span>
-                          ) : null}
-                          <span className={pillClassName(!row.registry.general_responses_muted)}>
-                            {!row.registry.general_responses_muted ? "general on" : "general off"}
-                          </span>
-                          <span className={pillClassName(row.registry.general_auto_reaction_enabled)}>
-                            {row.registry.general_auto_reaction_enabled ? "reactions on" : "reactions off"}
-                          </span>
-                          {ownersPill(row.registry)}
-                        </>
-                      ) : (
-                        <span className={pillClassName(false)} title="Not in employee-factory Redis registry yet">
-                          not in registry
+                  <div className="mt-1.5 flex flex-wrap gap-1.5">
+                    {row.registry ? (
+                      <>
+                        <span className={pillClassName(!row.registry.general_responses_muted)}>
+                          {!row.registry.general_responses_muted ? "general on" : "general off"}
                         </span>
-                      )}
-                    </div>
-                    {channelHumanIds !== undefined ? (
-                      <div className="space-y-1">
-                        <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                          Humans
-                        </p>
-                        {channelHumanIds.length > 0 ? (
-                          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-                            {channelHumanIds.map((sid) => (
-                              <span key={`member-${sid}`} title={`Slack user ${sid.trim().toUpperCase()}`}>
-                                <SlackPersonChip {...personChipProps(sid, profileByUserId)} />
-                              </span>
-                            ))}
-                          </div>
-                        ) : (
-                          <p className="text-[10px] text-muted-foreground">No human members reported.</p>
-                        )}
-                      </div>
-                    ) : null}
+                        <span className={pillClassName(row.registry.general_auto_reaction_enabled)}>
+                          {row.registry.general_auto_reaction_enabled ? "reactions on" : "reactions off"}
+                        </span>
+                      </>
+                    ) : (
+                      <span className={pillClassName(false)} title="Not in employee-factory Redis registry yet">
+                        not in registry
+                      </span>
+                    )}
                   </div>
+                  {founderIdsOrdered.length > 0 ? (
+                    <div className="mt-1.5 min-w-0">
+                      <p className="text-[10px] font-medium uppercase leading-none tracking-wide text-muted-foreground">
+                        Founders
+                      </p>
+                      <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-1">
+                        {founderIdsOrdered.map((sid) => (
+                          <span key={`founder-${sid}`} title={`Slack user ${sid}`}>
+                            <SlackPersonChip {...personChipProps(sid, profileByUserId)} />
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
                 </Link>
               </li>
             );
