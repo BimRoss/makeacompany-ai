@@ -9,6 +9,8 @@ import { AdminLoginMessages } from "@/components/admin/admin-login-messages";
 import { SignInCard, SignInMethodStack } from "@/components/auth/sign-in-card";
 import { SignInUnauthorizedToast } from "@/components/auth/sign-in-unauthorized-toast";
 
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: "Admin sign in",
   description: "Sign in with Google or email to access the admin dashboard",
