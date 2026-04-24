@@ -8,7 +8,7 @@ export const siteTaglineLine1 = "Stop Chatting with AI.";
 export const siteTaglineLine2 = "Conduct it.";
 
 /** Single-line headline for `<title>`, OG alt, and other one-string contexts */
-export const siteTagline = `${siteTaglineLine1} — ${siteTaglineLine2}`;
+export const siteTagline = `${siteTaglineLine1} ${siteTaglineLine2}`;
 
 /** Subhead lines — hero, OG image body */
 export const siteDescriptionLine1 = "Create an AI-native team in seconds.";
