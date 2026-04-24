@@ -22,6 +22,8 @@ Use this when deploying or after a Redis **gut** of rebuildable `employee-factor
 | `GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET` | **Next + Go** (runtime Secret in prod) | `/{channelId}/login` and `/admin/login` → Continue with Google. Register **`https://makeacompany.ai/api/portal/auth/google/callback`** in Google Cloud Console (admin reuses it). |
 | `PORTAL_GOOGLE_OAUTH_STATE_SECRET` | **Next** (optional) | HMAC for OAuth `state`; min 16 chars, or omit to derive from client secret. |
 | `RESEND_API_KEY` / `PORTAL_AUTH_EMAIL_FROM` | **Go + Next** (runtime Secret) | Magic sign-in links; `from` must be verified in Resend. |
+| `RESEND_MAGIC_LINK_TEMPLATE_ID` | **Go** (runtime Secret) | Optional. Published Resend template id or slug (e.g. `account-login`). If unset, Go sends the simple inline HTML/text fallback. |
+| `RESEND_MAGIC_LINK_TEMPLATE_LINK_VAR` / `RESEND_MAGIC_LINK_TEMPLATE_FIRST_NAME_VAR` | **Go** (optional) | Must match your template’s variable names; defaults `login_url` and `recipient_first_name`. |
 | `APP_BASE_URL` | **Go** (ConfigMap) | Magic links use this origin (already `https://makeacompany.ai` in cluster). |
 
 Push keys with **`./scripts/update-rancher-secrets.sh`** from **`.env.prod`**, then roll **frontend** and **backend** if needed.

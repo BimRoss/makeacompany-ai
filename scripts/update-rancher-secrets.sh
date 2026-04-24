@@ -20,7 +20,9 @@ set -euo pipefail
 #   COOKIE_HEALTH_TOKEN (optional in .env, but preserved from existing runtime secret when present)
 #   Portal login (optional; preserved from cluster when not in .env.prod — same Secret is envFrom on frontend + backend):
 #   GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET, PORTAL_GOOGLE_OAUTH_STATE_SECRET (optional),
-#   RESEND_API_KEY, PORTAL_AUTH_EMAIL_FROM
+#   RESEND_API_KEY, PORTAL_AUTH_EMAIL_FROM,
+#   RESEND_MAGIC_LINK_TEMPLATE_ID (optional; Resend template slug/id), RESEND_MAGIC_LINK_TEMPLATE_LINK_VAR,
+#   RESEND_MAGIC_LINK_TEMPLATE_FIRST_NAME_VAR (optional; override template variable keys)
 #
 # Usage:
 #   ./scripts/update-rancher-secrets.sh
@@ -181,6 +183,9 @@ add_optional_runtime_secret GOOGLE_OAUTH_CLIENT_SECRET "${GOOGLE_OAUTH_CLIENT_SE
 add_optional_runtime_secret PORTAL_GOOGLE_OAUTH_STATE_SECRET "${PORTAL_GOOGLE_OAUTH_STATE_SECRET:-}"
 add_optional_runtime_secret RESEND_API_KEY "${RESEND_API_KEY:-}"
 add_optional_runtime_secret PORTAL_AUTH_EMAIL_FROM "${PORTAL_AUTH_EMAIL_FROM:-}"
+add_optional_runtime_secret RESEND_MAGIC_LINK_TEMPLATE_ID "${RESEND_MAGIC_LINK_TEMPLATE_ID:-}"
+add_optional_runtime_secret RESEND_MAGIC_LINK_TEMPLATE_LINK_VAR "${RESEND_MAGIC_LINK_TEMPLATE_LINK_VAR:-}"
+add_optional_runtime_secret RESEND_MAGIC_LINK_TEMPLATE_FIRST_NAME_VAR "${RESEND_MAGIC_LINK_TEMPLATE_FIRST_NAME_VAR:-}"
 
 kubectl_app create secret generic "${SECRET_NAME}" \
   "${secret_args[@]}" \
