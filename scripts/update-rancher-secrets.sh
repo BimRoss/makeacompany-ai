@@ -9,6 +9,9 @@ set -euo pipefail
 # By default also copies dockerhub-pull from namespace subnet-signal (fallback: bimross-web)
 # so private geeemoney/* images can pull — same pattern as rancher-admin/scripts/sync-makeacompany-ai-pull-secret.sh.
 # Set SYNC_PULL_SECRET=false to skip.
+# After the Secret apply, by default restarts makeacompany-ai-backend + makeacompany-ai-frontend so
+# envFrom reloads (e.g. rotated RESEND_API_KEY for /admin/login: Go sends mail; Next gates the email UI).
+# Set ROLLOUT_AFTER_SECRET_SYNC=false to skip restarts.
 #
 # Keys (must match backend internal/app/config.go, docker-compose, .env.example, and slack-orchestrator for SLACK_BOT_TOKEN):
 #   STRIPE_SECRET_KEY
@@ -96,6 +99,14 @@ set -a
 # shellcheck source=/dev/null
 source "${ENV_FILE}"
 set +a
+
+# Honor kube pointers often kept in .env.prod (must run before any kubectl_app).
+if [[ -n "${KUBECONFIG_HOST_PATH:-}" && -f "${KUBECONFIG_HOST_PATH}" ]]; then
+  export KUBECONFIG="${KUBECONFIG_HOST_PATH}"
+fi
+if [[ -n "${KUBECONFIG_CONTEXT:-}" && -z "${KUBE_CONTEXT:-}" ]]; then
+  export KUBE_CONTEXT="${KUBECONFIG_CONTEXT}"
+fi
 
 if [[ -z "${STRIPE_SECRET_KEY:-}" ]]; then
   echo "need STRIPE_SECRET_KEY in ${ENV_FILE}" >&2
@@ -192,3 +203,13 @@ kubectl_app create secret generic "${SECRET_NAME}" \
   --dry-run=client -o yaml | kubectl_app apply -f -
 
 echo "applied secret ${SECRET_NAME} in namespace ${NAMESPACE}"
+
+ROLLOUT_AFTER_SECRET_SYNC="${ROLLOUT_AFTER_SECRET_SYNC:-true}"
+if [[ "${ROLLOUT_AFTER_SECRET_SYNC}" == "true" ]]; then
+  for dep in makeacompany-ai-backend makeacompany-ai-frontend; do
+    if kubectl_app get deployment "${dep}" -n "${NAMESPACE}" >/dev/null 2>&1; then
+      kubectl_app rollout restart "deployment/${dep}" -n "${NAMESPACE}"
+      echo "rollout restart: ${dep}"
+    fi
+  done
+fi
