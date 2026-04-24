@@ -367,7 +367,7 @@ export function AdminCompanyChannelsStrip() {
         setInfoNote((prev) => [prev, redisError].filter(Boolean).join(" · "));
       }
 
-      let nextHumanPills: HumanPillData = {
+      const nextHumanPills: HumanPillData = {
         profileByUserId: {},
       };
       try {

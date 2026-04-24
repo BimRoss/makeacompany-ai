@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useCallback, useEffect, useState } from "react";
 
 import { kickToLoginForUnauthorizedApi } from "@/lib/client-auth-unauthorized-redirect";
@@ -328,7 +329,7 @@ export function UserProfilesPanel() {
                   <tr key={u.slackUserId} className="border-b border-border/80 last:border-0">
                     <td className="px-2 py-2 align-middle">
                       {avatarSrc ? (
-                        <img
+                        <Image
                           src={avatarSrc}
                           alt={display ? `${display} Slack profile` : "Slack profile"}
                           width={32}
