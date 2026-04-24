@@ -3,6 +3,7 @@
 import { Lock, Users } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { CompanyChannel } from "@/lib/admin/company-channels";
+import { AdminChannelKnowledgeActivityChart } from "@/components/admin/admin-channel-knowledge-activity-chart";
 import { useWorkspaceNavbarTrail } from "@/components/workspace-navbar-trail-provider";
 import { kickToLoginForUnauthorizedApi } from "@/lib/client-auth-unauthorized-redirect";
 import { SlackPersonChip } from "@/components/admin/slack-person-chip";
@@ -27,6 +28,8 @@ type AdminChannelControlPaneProps = {
   workspaceTitle: string;
   /** Registry `owner_ids` resolved to names + portraits for the founders row. */
   founders?: AdminChannelFounder[] | null;
+  /** Channel digest markdown (same payload as Knowledge Base) for the activity chart. */
+  knowledgeMarkdown?: string | null;
   /** From Slack member-channels when this workspace id appears in the bot’s conversation list. */
   slackChannelIsPrivate?: boolean | null;
 };
@@ -79,9 +82,10 @@ export function AdminChannelControlPane({
   companyChannelsApiPrefix = "admin",
   workspaceTitle,
   founders,
+  knowledgeMarkdown,
   slackChannelIsPrivate,
 }: AdminChannelControlPaneProps) {
-  const { setWorkspaceNavbarTrail } = useWorkspaceNavbarTrail();
+  const { setWorkspaceNavbarTrail, setWorkspaceNavbarEndLead } = useWorkspaceNavbarTrail();
   const [patchError, setPatchError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const apiCompany = `/api/${companyChannelsApiPrefix}/company-channels`;
@@ -119,29 +123,36 @@ export function AdminChannelControlPane({
   const founderIdsNormalized =
     channel?.owner_ids?.map((id) => id.trim()).filter(Boolean).map((id) => id.toUpperCase()) ?? [];
 
-  const foundersSection =
-    founderIdsNormalized.length > 0 ? (
-      <div
-        className="rounded-xl border border-border/70 bg-gradient-to-br from-muted/60 via-muted/25 to-background p-3.5 shadow-[0_1px_0_0_rgba(0,0,0,0.03)] dark:from-muted/25 dark:via-muted/10 dark:to-card dark:shadow-[0_1px_0_0_rgba(255,255,255,0.04)]"
-        aria-label="Company founders"
-      >
-        <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Founders</p>
-        <div className="mt-2.5 flex min-w-0 flex-wrap items-center gap-2">
-          {founderIdsNormalized.map((id, i) => {
-            const f = founders?.[i];
-            return (
-              <span key={`founder-${id}`} title={`Slack user ${id}`}>
-                <SlackPersonChip
-                  displayName={f?.displayName ?? "Member"}
-                  portraitUrl={f?.portraitUrl}
-                  size="comfortable"
-                />
-              </span>
-            );
-          })}
-        </div>
+  const founderNavbarLead = useMemo(() => {
+    if (founderIdsNormalized.length === 0) {
+      return null;
+    }
+    return (
+      <div className="flex min-w-0 items-center justify-end gap-1" aria-label="Company founders">
+        {founderIdsNormalized.map((id, i) => {
+          const f = founders?.[i];
+          return (
+            <span key={`founder-${id}`} className="min-w-0 shrink" title={`Slack user ${id}`}>
+              <SlackPersonChip
+                displayName={f?.displayName ?? "Member"}
+                portraitUrl={f?.portraitUrl}
+                size="nav"
+              />
+            </span>
+          );
+        })}
       </div>
-    ) : null;
+    );
+  }, [founderIdsNormalized, founders]);
+
+  const activitySection = (
+    <div
+      className="rounded-xl border border-border/70 bg-gradient-to-br from-muted/60 via-muted/25 to-background p-3.5 shadow-[0_1px_0_0_rgba(0,0,0,0.03)] dark:from-muted/25 dark:via-muted/10 dark:to-card dark:shadow-[0_1px_0_0_rgba(255,255,255,0.04)]"
+      aria-label="Message activity from knowledge digest"
+    >
+      <AdminChannelKnowledgeActivityChart markdown={knowledgeMarkdown ?? ""} />
+    </div>
+  );
 
   const navbarTrail = useMemo(
     () => (
@@ -169,7 +180,12 @@ export function AdminChannelControlPane({
     return () => setWorkspaceNavbarTrail(null);
   }, [navbarTrail, setWorkspaceNavbarTrail]);
 
-  const foundersColumn = <div className="min-w-0 flex-1 space-y-3">{foundersSection}</div>;
+  useEffect(() => {
+    setWorkspaceNavbarEndLead(founderNavbarLead);
+    return () => setWorkspaceNavbarEndLead(null);
+  }, [founderNavbarLead, setWorkspaceNavbarEndLead]);
+
+  const activityColumn = <div className="min-w-0 flex-1 space-y-3">{activitySection}</div>;
 
   const cardShell = "rounded-2xl border border-border bg-card px-4 py-3.5 shadow-sm";
 
@@ -183,7 +199,7 @@ export function AdminChannelControlPane({
     return paneShell(
       <section className={cardShell} aria-busy="true" aria-label="Channel workspace">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between md:gap-6">
-          {foundersColumn}
+          {activityColumn}
           {sideShell(<p className="text-xs text-muted-foreground">Loading channel registry…</p>)}
         </div>
       </section>,
@@ -197,7 +213,7 @@ export function AdminChannelControlPane({
         aria-label="Channel workspace"
       >
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between md:gap-6">
-          {foundersColumn}
+          {activityColumn}
           {sideShell(<p className="text-xs text-destructive">{errorMessage ?? "Could not load channel metadata."}</p>)}
         </div>
       </section>,
@@ -208,7 +224,7 @@ export function AdminChannelControlPane({
     return paneShell(
       <section className={cardShell} aria-label="Channel workspace">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between md:gap-6">
-          {foundersColumn}
+          {activityColumn}
           {sideShell(
             <div className="space-y-1">
               <p className="text-xs text-muted-foreground">
@@ -228,7 +244,7 @@ export function AdminChannelControlPane({
   return paneShell(
     <section className={cardShell} aria-label="Channel workspace">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between md:gap-6">
-        {foundersColumn}
+        {activityColumn}
         <div
           className="min-w-[min(100%,14rem)] shrink-0 divide-y divide-border border-t border-border md:border-l md:border-t-0 md:pl-6"
           aria-label="Channel controls"

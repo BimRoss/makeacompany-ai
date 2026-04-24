@@ -248,6 +248,7 @@ export function CompanyChannelWorkspaceDetail({ channelId, variant }: CompanyCha
         companyChannelsApiPrefix={variant === "portal" ? "portal" : "admin"}
         workspaceTitle={pageTitle}
         founders={foundersForHeader}
+        knowledgeMarkdown={markdown}
         slackChannelIsPrivate={slackChannelIsPrivate}
       />
 

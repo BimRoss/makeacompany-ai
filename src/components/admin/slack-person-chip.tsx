@@ -9,6 +9,13 @@ const sizeClasses = {
     icon: "size-2",
     label: "text-[10px] font-medium leading-none",
   },
+  /** Fits the workspace header beside logout without crowding the title. */
+  nav: {
+    wrap: "gap-1.5 rounded-full py-0.5 pl-0.5 pr-2",
+    avatar: "size-5 ring-1 ring-border/35",
+    icon: "size-2.5",
+    label: "max-w-[7rem] truncate text-[11px] font-medium leading-tight tracking-tight sm:max-w-[9rem]",
+  },
   comfortable: {
     wrap: "gap-2 rounded-full border-border/80 py-1 pl-1 pr-3 shadow-sm",
     avatar: "size-8 ring-1 ring-border/40",
@@ -24,7 +31,7 @@ export function SlackPersonChip({
 }: {
   displayName: string;
   portraitUrl?: string;
-  /** `comfortable`: larger avatar and type for prominent surfaces (e.g. workspace header). */
+  /** `comfortable`: larger chips in cards. `nav`: compact header next to actions. */
   size?: keyof typeof sizeClasses;
 }) {
   const url = portraitUrl?.trim();

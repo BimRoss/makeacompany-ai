@@ -14,7 +14,7 @@ type HeaderProps = {
 
 export function Header({ endSlot }: HeaderProps = {}) {
   const { resolvedTheme, setTheme } = useTheme();
-  const { trail: workspaceNavbarTrail } = useWorkspaceNavbarTrail();
+  const { trail: workspaceNavbarTrail, endLead: workspaceNavbarEndLead } = useWorkspaceNavbarTrail();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => setMounted(true), []);
@@ -49,7 +49,12 @@ export function Header({ endSlot }: HeaderProps = {}) {
             </>
           ) : null}
         </div>
-        <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+        <div className="flex min-w-0 shrink-0 items-center gap-1.5 sm:gap-2.5">
+          {workspaceNavbarEndLead ? (
+            <div className="flex min-w-0 max-w-[min(100vw-12rem,14rem)] items-center justify-end gap-1 sm:max-w-[18rem]">
+              {workspaceNavbarEndLead}
+            </div>
+          ) : null}
           {endSlot}
           <button
             type="button"

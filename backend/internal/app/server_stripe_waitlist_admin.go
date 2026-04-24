@@ -124,6 +124,37 @@ func (s *Server) tryWarmStripeWaitlistSnapshotWhenMissing(ctx context.Context) m
 	}
 }
 
+// StartStripeWaitlistSnapshotWarmIfMissing runs once in the background after the process starts.
+// When Redis has no snapshot yet, it calls Stripe and writes the same keys as admin first-load warm
+// and POST /v1/internal/refresh-stripe-waitlist-snapshot, so public /v1/billing/waitlist-stats matches
+// reality without opening /admin (local docker compose and go run alike).
+func (s *Server) StartStripeWaitlistSnapshotWarmIfMissing() {
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+		defer cancel()
+		_, err := s.store.GetStripeWaitlistSnapshotBytes(ctx)
+		if err == nil {
+			return
+		}
+		if !errors.Is(err, ErrStripeWaitlistSnapshotMissing) {
+			s.log.Printf("stripe waitlist startup warm: skip (redis snapshot read: %v)", err)
+			return
+		}
+		warm := s.tryWarmStripeWaitlistSnapshotWhenMissing(ctx)
+		if warm == nil {
+			s.log.Printf("stripe waitlist startup warm: skipped (no stripe key, STRIPE_PRICE_ID_WAITLIST, or stripe fetch failed; see admin warm logs above if any)")
+			return
+		}
+		n := 0
+		if ps, ok := warm["purchasers"]; ok {
+			if sl, ok := ps.([]StripeWaitlistPurchaser); ok {
+				n = len(sl)
+			}
+		}
+		s.log.Printf("stripe waitlist startup warm: wrote redis snapshot (%d purchasers)", n)
+	}()
+}
+
 // handleAdminStripeWaitlistPurchasers returns cached Stripe waitlist purchasers or a live Stripe query when source=live.
 func (s *Server) handleAdminStripeWaitlistPurchasers(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {

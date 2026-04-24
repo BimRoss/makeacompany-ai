@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Lock, Users } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { SlackPersonChip } from "@/components/admin/slack-person-chip";
 import { channelDisplayTitle, type CompanyChannel, type CompanyChannelsResponse } from "@/lib/admin/company-channels";
 import { kickToLoginForUnauthorizedApi } from "@/lib/client-auth-unauthorized-redirect";
@@ -183,13 +183,28 @@ export function AdminCompanyChannelsStrip() {
   const [humanPillData, setHumanPillData] = useState<HumanPillData>({
     profileByUserId: {},
   });
+  const [snapshotLoading, setSnapshotLoading] = useState(false);
+  const [enrichBanner, setEnrichBanner] = useState<string | null>(null);
+  const loadSeq = useRef(0);
+  const rowsRef = useRef<MergedRow[]>([]);
+  rowsRef.current = rows;
 
   const load = useCallback(async (live: boolean) => {
-    setState("loading");
-    setStatusText(live ? "Refreshing companies from Slack…" : "Loading companies…");
-    setHumanPillData({
-      profileByUserId: {},
-    });
+    const seq = ++loadSeq.current;
+    const stale = () => seq !== loadSeq.current;
+
+    setSnapshotLoading(true);
+    setEnrichBanner(null);
+    if (live) {
+      setStatusText("Refreshing companies from Slack…");
+    } else {
+      setStatusText("");
+    }
+    const keepTableVisible = live && rowsRef.current.length > 0;
+    if (!keepTableVisible) {
+      setState("loading");
+    }
+
     try {
       const slackQs = live ? "?source=live" : "";
       const [slackRes, redisRes] = await Promise.all([
@@ -197,10 +212,14 @@ export function AdminCompanyChannelsStrip() {
         fetch("/api/admin/company-channels", { cache: "no-store" }),
       ]);
 
+      if (stale()) return;
+
       if (
         kickToLoginForUnauthorizedApi(slackRes.status, "admin") ||
         kickToLoginForUnauthorizedApi(redisRes.status, "admin")
       ) {
+        setSnapshotLoading(false);
+        setState("idle");
         return;
       }
 
@@ -243,53 +262,6 @@ export function AdminCompanyChannelsStrip() {
         merged.sort((a, b) =>
           a.slack_name.localeCompare(b.slack_name, undefined, { sensitivity: "base" }),
         );
-
-        const forDiscover = merged.filter(needsRegistryPolicySync);
-        if (forDiscover.length > 0 && !redisError) {
-          try {
-            const channels = await buildDiscoverChannelsFromSlack(forDiscover);
-            if (channels === null) {
-              setState("error");
-              setStatusText(
-                "Company policy sync was interrupted (session or Slack member fetch). Reload the page or sign in again.",
-              );
-              setRows([]);
-              setHumanPillData({ profileByUserId: {} });
-              return;
-            }
-            const discoverRes = await fetch("/api/admin/company-channels/discover", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ channels }),
-              cache: "no-store",
-            });
-            if (kickToLoginForUnauthorizedApi(discoverRes.status, "admin")) {
-              return;
-            }
-            if (discoverRes.ok) {
-              const redisRefresh = await fetch("/api/admin/company-channels", { cache: "no-store" });
-              if (kickToLoginForUnauthorizedApi(redisRefresh.status, "admin")) {
-                return;
-              }
-              const refreshPayload = (await redisRefresh.json().catch(() => null)) as
-                | (CompanyChannelsResponse & { error?: string })
-                | null;
-              if (redisRefresh.ok && refreshPayload && Array.isArray(refreshPayload.channels)) {
-                const reg2 = new Map<string, CompanyChannel>();
-                for (const ch of refreshPayload.channels) {
-                  const id = ch.channel_id?.trim();
-                  if (id) reg2.set(id, ch);
-                }
-                merged = merged.map((row) => ({
-                  ...row,
-                  registry: reg2.get(row.channel_id) ?? row.registry,
-                }));
-              }
-            }
-          } catch {
-            /* keep merged rows as-is */
-          }
-        }
       } else {
         if (redisPayload && Array.isArray(redisPayload.channels)) {
           for (const ch of redisPayload.channels) {
@@ -344,36 +316,99 @@ export function AdminCompanyChannelsStrip() {
             "Failed to load company channels.",
         );
         setRows([]);
-        setHumanPillData({
-          profileByUserId: {},
-        });
+        setHumanPillData({ profileByUserId: {} });
+        setSnapshotLoading(false);
         return;
       }
 
-      const nextHumanPills: HumanPillData = {
-        profileByUserId: {},
-      };
-      try {
-        const profiles = await loadSlackProfilesForPills();
-        if (profiles === null) {
-          return;
-        }
-        nextHumanPills.profileByUserId = profiles;
-      } catch {
-        /* keep empty profile map; registry pills still useful */
-      }
-
-      setHumanPillData(nextHumanPills);
+      // Phase 1: show table immediately (Slack snapshot + Redis registry merge only).
       setRows(merged);
       setState("ready");
       setStatusText("");
+      setSnapshotLoading(false);
+
+      const slackOk = slackRes.ok && slackPayload && Array.isArray(slackPayload.channels);
+      const snapshotMerged = merged;
+
+      void (async () => {
+        let working = snapshotMerged;
+
+        if (slackOk && !redisError) {
+          const forDiscover = working.filter(needsRegistryPolicySync);
+          if (forDiscover.length > 0) {
+            try {
+              const channels = await buildDiscoverChannelsFromSlack(forDiscover);
+              if (stale()) return;
+              if (channels === null) {
+                setEnrichBanner(
+                  "Company policy sync was interrupted (session or Slack member fetch). Reload or sign in again; table shows the snapshot before sync.",
+                );
+              } else {
+                const discoverRes = await fetch("/api/admin/company-channels/discover", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ channels }),
+                  cache: "no-store",
+                });
+                if (kickToLoginForUnauthorizedApi(discoverRes.status, "admin")) {
+                  return;
+                }
+                if (stale()) return;
+                if (discoverRes.ok) {
+                  const redisRefresh = await fetch("/api/admin/company-channels", { cache: "no-store" });
+                  if (kickToLoginForUnauthorizedApi(redisRefresh.status, "admin")) {
+                    return;
+                  }
+                  if (stale()) return;
+                  const refreshPayload = (await redisRefresh.json().catch(() => null)) as
+                    | (CompanyChannelsResponse & { error?: string })
+                    | null;
+                  if (redisRefresh.ok && refreshPayload && Array.isArray(refreshPayload.channels)) {
+                    const reg2 = new Map<string, CompanyChannel>();
+                    for (const ch of refreshPayload.channels) {
+                      const id = ch.channel_id?.trim();
+                      if (id) reg2.set(id, ch);
+                    }
+                    working = working.map((row) => ({
+                      ...row,
+                      registry: reg2.get(row.channel_id) ?? row.registry,
+                    }));
+                    if (!stale()) setRows(working);
+                  }
+                }
+              }
+            } catch {
+              /* keep working rows as-is */
+            }
+          }
+        }
+
+        if (stale()) return;
+
+        try {
+          const profiles = await loadSlackProfilesForPills();
+          if (stale()) return;
+          if (profiles === null) {
+            setEnrichBanner(
+              (prev) =>
+                prev ??
+                "Could not load Slack profile names for founder chips (session). Table data is unchanged.",
+            );
+          } else {
+            setHumanPillData({ profileByUserId: profiles });
+          }
+        } catch {
+          /* keep existing profile map */
+        }
+      })();
     } catch {
-      setState("error");
-      setStatusText("Failed to load company channels.");
-      setRows([]);
-      setHumanPillData({
-        profileByUserId: {},
-      });
+      if (!stale()) {
+        setState("error");
+        setStatusText("Failed to load company channels.");
+        setRows([]);
+        setHumanPillData({ profileByUserId: {} });
+        setSnapshotLoading(false);
+      }
     }
   }, []);
 
@@ -390,7 +425,7 @@ export function AdminCompanyChannelsStrip() {
         </h2>
         <button
           type="button"
-          disabled={state === "loading" || state === "idle"}
+          disabled={snapshotLoading}
           onClick={() => void load(true)}
           className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/60 disabled:opacity-50"
         >
@@ -398,16 +433,27 @@ export function AdminCompanyChannelsStrip() {
         </button>
       </div>
 
-      {state === "loading" || state === "idle" ? (
-        <p className="text-sm text-muted-foreground">{statusText || "Loading…"}</p>
+      {snapshotLoading && rows.length === 0 ? (
+        <p className="text-sm text-muted-foreground">{statusText || "Loading companies…"}</p>
+      ) : null}
+      {snapshotLoading && rows.length > 0 && statusText ? (
+        <p className="text-sm text-muted-foreground">{statusText}</p>
       ) : null}
       {state === "error" ? <p className="text-sm text-destructive">{statusText}</p> : null}
+      {enrichBanner && state !== "error" ? (
+        <p
+          className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-950 dark:text-amber-100"
+          role="status"
+        >
+          {enrichBanner}
+        </p>
+      ) : null}
 
       {state === "ready" && rows.length === 0 ? (
         <p className="text-sm text-muted-foreground">No companies.</p>
       ) : null}
 
-      {state === "ready" && rows.length > 0 ? (
+      {state !== "error" && rows.length > 0 ? (
         <div className="overflow-x-auto rounded-xl border border-border">
           <table className="w-full min-w-[800px] border-collapse text-left text-sm">
             <thead>
