@@ -16,8 +16,8 @@ import {
   type UIEventHandler,
 } from "react";
 
-/** Match `TOP_SCROLL_THRESHOLD_PX` in admin-channel-knowledge-digest for “load older” while scrolled near top. */
-const AUTHOR_COLUMN_TOP_SCROLL_THRESHOLD_PX = 80;
+/** Author right column (newest at top): load older digest slice when scrolled near the bottom. */
+const AUTHOR_MESSAGES_BOTTOM_SCROLL_THRESHOLD_PX = 80;
 import ReactMarkdown from "react-markdown";
 import {
   authorColumnOrder,
@@ -175,7 +175,7 @@ function ThreadReplyCard({
   line: DigestLine;
   author: SlackTranscriptAuthor | null;
   staggerIndex: number;
-  /** When set, a close control is shown at the top-right of this card (first message in the right column). */
+  /** When set, a close control is shown at the top-right of this card (e.g. newest row in the author column). */
   onClose?: () => void;
   closeAriaLabel?: string;
 }) {
@@ -328,14 +328,12 @@ function AuthorEmployeeListRow({
   userId,
   author,
   messageCount,
-  previewBody,
   selected,
   onSelect,
 }: {
   userId: string;
   author: SlackTranscriptAuthor | null;
   messageCount: number;
-  previewBody: string;
   selected: boolean;
   onSelect: () => void;
 }) {
@@ -358,17 +356,14 @@ function AuthorEmployeeListRow({
               ),
         )}
       >
-        <div className="flex gap-2.5">
+        <div className="flex items-center gap-2.5">
           <Avatar userId={userId} author={author} />
           <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+            <div className="flex min-w-0 items-center gap-2">
               <AuthorHeading author={author} />
-              {hasMany ? (
-                <span className="shrink-0 text-[10px] text-muted-foreground">{messageCount} msgs</span>
-              ) : null}
-            </div>
-            <div className="mt-1 line-clamp-2 text-left text-[12px] leading-snug text-muted-foreground">
-              <span className="text-foreground/90">{previewBody.replace(/\s+/g, " ").trim()}</span>
+              <span className="shrink-0 rounded-full border border-border/60 bg-muted/80 px-2 py-0.5 text-[10px] font-semibold tabular-nums text-muted-foreground dark:bg-muted/50">
+                {messageCount} {messageCount === 1 ? "msg" : "msgs"}
+              </span>
             </div>
           </div>
         </div>
@@ -617,10 +612,10 @@ export function DigestAuthorView({
       if (!canLoadOlderDigest || !onTryLoadOlderDigest) {
         return;
       }
-      if (e.currentTarget.scrollTop > AUTHOR_COLUMN_TOP_SCROLL_THRESHOLD_PX) {
+      const el = e.currentTarget;
+      if (el.scrollTop + el.clientHeight < el.scrollHeight - AUTHOR_MESSAGES_BOTTOM_SCROLL_THRESHOLD_PX) {
         return;
       }
-      const el = e.currentTarget;
       pendingMessageScrollAdjustRef.current = { prevH: el.scrollHeight, prevT: el.scrollTop };
       if (!onTryLoadOlderDigest()) {
         pendingMessageScrollAdjustRef.current = null;
@@ -653,10 +648,15 @@ export function DigestAuthorView({
       el.scrollTop = 0;
       return;
     }
-    el.scrollTop = el.scrollHeight;
+    el.scrollTop = 0;
   }, [markdown, selectedUserId]);
 
-  const selectedMsgs = selectedUserId ? (columns.get(selectedUserId) ?? []) : [];
+  const selectedMsgsNewestFirst = useMemo(() => {
+    if (!selectedUserId) {
+      return [] as DigestLine[];
+    }
+    return [...(columns.get(selectedUserId) ?? [])].reverse();
+  }, [columns, selectedUserId]);
 
   if (order.length === 0) {
     return <p className="text-sm text-muted-foreground">No parsed messages in this digest.</p>;
@@ -669,15 +669,12 @@ export function DigestAuthorView({
           {order.map((uid) => {
             const msgs = columns.get(uid) ?? [];
             const author = resolveTranscriptAuthor(uid, lookup);
-            const previewBody =
-              msgs.length > 0 ? msgs[msgs.length - 1]!.body : "";
             return (
               <AuthorEmployeeListRow
                 key={uid}
                 userId={uid}
                 author={author}
                 messageCount={msgs.length}
-                previewBody={previewBody}
                 selected={uid === selectedUserId}
                 onSelect={() => {
                   if (uid === selectedUserId) {
@@ -703,9 +700,9 @@ export function DigestAuthorView({
               onScroll={onMessagesScroll}
               className="digest-view-scroll min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-1 [scrollbar-gutter:stable]"
             >
-              {selectedMsgs.length > 0 ? (
+              {selectedMsgsNewestFirst.length > 0 ? (
                 <div className="flex flex-col gap-2.5 pb-1" aria-label="Author messages">
-                  {selectedMsgs.map((line, i) => (
+                  {selectedMsgsNewestFirst.map((line, i) => (
                     <ThreadReplyCard
                       key={line.order}
                       line={line}

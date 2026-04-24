@@ -41,17 +41,12 @@ export function Header({ endSlot }: HeaderProps = {}) {
             </p>
           </Link>
           {workspaceNavbarTrail ? (
-            <>
-              <span className="shrink-0 select-none text-muted-foreground/40 motion-colors" aria-hidden>
-                –
-              </span>
-              <div className="min-w-0 flex-1">{workspaceNavbarTrail}</div>
-            </>
+            <div className="min-w-0 flex-1">{workspaceNavbarTrail}</div>
           ) : null}
         </div>
         <div className="flex min-w-0 shrink-0 items-center gap-1.5 sm:gap-2.5">
           {workspaceNavbarEndLead ? (
-            <div className="flex min-w-0 max-w-[min(100vw-12rem,14rem)] items-center justify-end gap-1 sm:max-w-[18rem]">
+            <div className="flex min-h-11 min-w-0 max-w-[min(100vw-12rem,14rem)] items-center justify-end gap-1 sm:max-w-[18rem]">
               {workspaceNavbarEndLead}
             </div>
           ) : null}

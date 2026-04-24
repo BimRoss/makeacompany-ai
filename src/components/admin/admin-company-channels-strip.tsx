@@ -195,9 +195,7 @@ export function AdminCompanyChannelsStrip() {
 
     setSnapshotLoading(true);
     setEnrichBanner(null);
-    if (live) {
-      setStatusText("Refreshing companies from Slack…");
-    } else {
+    if (!live) {
       setStatusText("");
     }
     const keepTableVisible = live && rowsRef.current.length > 0;
@@ -325,12 +323,14 @@ export function AdminCompanyChannelsStrip() {
       setRows(merged);
       setState("ready");
       setStatusText("");
-      setSnapshotLoading(false);
+      if (!live) {
+        setSnapshotLoading(false);
+      }
 
       const slackOk = slackRes.ok && slackPayload && Array.isArray(slackPayload.channels);
       const snapshotMerged = merged;
 
-      void (async () => {
+      const runEnrichment = async () => {
         let working = snapshotMerged;
 
         if (slackOk && !redisError) {
@@ -400,7 +400,19 @@ export function AdminCompanyChannelsStrip() {
         } catch {
           /* keep existing profile map */
         }
-      })();
+      };
+
+      if (live) {
+        try {
+          await runEnrichment();
+        } finally {
+          if (!stale()) {
+            setSnapshotLoading(false);
+          }
+        }
+      } else {
+        void runEnrichment();
+      }
     } catch {
       if (!stale()) {
         setState("error");
@@ -426,19 +438,14 @@ export function AdminCompanyChannelsStrip() {
         <button
           type="button"
           disabled={snapshotLoading}
+          aria-busy={snapshotLoading}
           onClick={() => void load(true)}
-          className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/60 disabled:opacity-50"
+          className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/60 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50"
         >
           Refresh
         </button>
       </div>
 
-      {snapshotLoading && rows.length === 0 ? (
-        <p className="text-sm text-muted-foreground">{statusText || "Loading companies…"}</p>
-      ) : null}
-      {snapshotLoading && rows.length > 0 && statusText ? (
-        <p className="text-sm text-muted-foreground">{statusText}</p>
-      ) : null}
       {state === "error" ? <p className="text-sm text-destructive">{statusText}</p> : null}
       {enrichBanner && state !== "error" ? (
         <p

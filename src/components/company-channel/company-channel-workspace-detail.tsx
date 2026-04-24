@@ -10,6 +10,7 @@ import { PortalPostAuthWelcomeToast } from "@/components/portal/portal-post-auth
 import { companyChannelWorkspaceTitle, type CompanyChannel } from "@/lib/admin/company-channels";
 import { kickToLoginForUnauthorizedApi } from "@/lib/client-auth-unauthorized-redirect";
 import { peekPortalWelcomeParam, stripPortalWelcomeParam } from "@/lib/portal-welcome-param";
+import type { KnowledgeActivityTimeBin } from "@/lib/channel-knowledge-activity";
 
 type LoadState = "idle" | "loading" | "error" | "ready";
 
@@ -70,6 +71,11 @@ export function CompanyChannelWorkspaceDetail({ channelId, variant }: CompanyCha
   const [portalWelcome, setPortalWelcome] = useState<{ greeting: string; portraitUrl?: string } | null>(null);
   /** Resolved from orchestrator member-channels; null if unknown or not listed. */
   const [slackChannelIsPrivate, setSlackChannelIsPrivate] = useState<boolean | null>(null);
+  /** Hover preview when no pin (clears when pointer leaves chart). */
+  const [knowledgeActivityHoverBin, setKnowledgeActivityHoverBin] = useState<KnowledgeActivityTimeBin | null>(null);
+  /** Click a bar to pin; Knowledge Base stays on this bucket until unpinned (click again or Escape). */
+  const [knowledgeActivityPinnedBin, setKnowledgeActivityPinnedBin] = useState<KnowledgeActivityTimeBin | null>(null);
+  const knowledgeDigestActivityBin = knowledgeActivityPinnedBin ?? knowledgeActivityHoverBin;
 
   const apiPrefix = variant === "admin" ? "admin" : "portal";
   const profilesUrl =
@@ -210,6 +216,19 @@ export function CompanyChannelWorkspaceDetail({ channelId, variant }: CompanyCha
     void load();
   }, [load]);
 
+  useEffect(() => {
+    if (!knowledgeActivityPinnedBin) {
+      return;
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setKnowledgeActivityPinnedBin(null);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [knowledgeActivityPinnedBin]);
+
   const pageTitle =
     channel && channelStatus === "ready" ? companyChannelWorkspaceTitle(channel) : channelId;
   const foundersForHeader = useMemo((): AdminChannelFounder[] | undefined => {
@@ -249,6 +268,9 @@ export function CompanyChannelWorkspaceDetail({ channelId, variant }: CompanyCha
         workspaceTitle={pageTitle}
         founders={foundersForHeader}
         knowledgeMarkdown={markdown}
+        knowledgeActivityPinnedBin={knowledgeActivityPinnedBin}
+        onKnowledgeActivityPinnedBinChange={setKnowledgeActivityPinnedBin}
+        onKnowledgeActivityBinHover={setKnowledgeActivityHoverBin}
         slackChannelIsPrivate={slackChannelIsPrivate}
       />
 
@@ -264,7 +286,11 @@ export function CompanyChannelWorkspaceDetail({ channelId, variant }: CompanyCha
         <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2">
           <h2 className="shrink-0 text-lg font-semibold leading-snug tracking-tight text-foreground">Knowledge Base</h2>
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-            <AdminChannelKnowledgeDigest markdown={markdown} slackAuthorLookup={slackAuthorLookup} />
+            <AdminChannelKnowledgeDigest
+              markdown={markdown}
+              slackAuthorLookup={slackAuthorLookup}
+              activityTimeBinFilter={knowledgeDigestActivityBin}
+            />
           </div>
         </div>
       ) : null}

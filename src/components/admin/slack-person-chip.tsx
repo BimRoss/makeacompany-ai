@@ -11,10 +11,11 @@ const sizeClasses = {
   },
   /** Fits the workspace header beside logout without crowding the title. */
   nav: {
-    wrap: "gap-1.5 rounded-full py-0.5 pl-0.5 pr-2",
+    wrap: "gap-1.5 rounded-full py-1 pl-0.5 pr-2",
     avatar: "size-5 ring-1 ring-border/35",
     icon: "size-2.5",
-    label: "max-w-[7rem] truncate text-[11px] font-medium leading-tight tracking-tight sm:max-w-[9rem]",
+    label:
+      "max-w-[7rem] truncate text-[11px] font-medium leading-none tracking-tight sm:max-w-[9rem]",
   },
   comfortable: {
     wrap: "gap-2 rounded-full border-border/80 py-1 pl-1 pr-3 shadow-sm",
@@ -43,10 +44,15 @@ export function SlackPersonChip({
         s.wrap,
       ].join(" ")}
     >
-      <span className={["relative shrink-0 overflow-hidden rounded-full border border-border bg-muted", s.avatar].join(" ")}>
+      <span
+        className={[
+          "relative flex shrink-0 items-center justify-center overflow-hidden rounded-full border border-border bg-muted",
+          s.avatar,
+        ].join(" ")}
+      >
         {url ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={url} alt="" className="size-full object-cover" />
+          <img src={url} alt="" className="block size-full object-cover" />
         ) : (
           <span className="flex size-full items-center justify-center text-muted-foreground" aria-hidden>
             <UserRound className={s.icon} />

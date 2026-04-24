@@ -3,7 +3,10 @@
 import { Lock, Users } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { CompanyChannel } from "@/lib/admin/company-channels";
-import { AdminChannelKnowledgeActivityChart } from "@/components/admin/admin-channel-knowledge-activity-chart";
+import {
+  AdminChannelKnowledgeActivityChart,
+  type KnowledgeActivityTimeBin,
+} from "@/components/admin/admin-channel-knowledge-activity-chart";
 import { useWorkspaceNavbarTrail } from "@/components/workspace-navbar-trail-provider";
 import { kickToLoginForUnauthorizedApi } from "@/lib/client-auth-unauthorized-redirect";
 import { SlackPersonChip } from "@/components/admin/slack-person-chip";
@@ -30,6 +33,11 @@ type AdminChannelControlPaneProps = {
   founders?: AdminChannelFounder[] | null;
   /** Channel digest markdown (same payload as Knowledge Base) for the activity chart. */
   knowledgeMarkdown?: string | null;
+  /** Hovering an activity bar scopes the Knowledge Base when no bucket is pinned. */
+  onKnowledgeActivityBinHover?: (bin: KnowledgeActivityTimeBin | null) => void;
+  /** Pinned activity bucket (click a bar); takes precedence over hover for the Knowledge Base filter. */
+  knowledgeActivityPinnedBin?: KnowledgeActivityTimeBin | null;
+  onKnowledgeActivityPinnedBinChange?: (bin: KnowledgeActivityTimeBin | null) => void;
   /** From Slack member-channels when this workspace id appears in the bot’s conversation list. */
   slackChannelIsPrivate?: boolean | null;
 };
@@ -83,6 +91,9 @@ export function AdminChannelControlPane({
   workspaceTitle,
   founders,
   knowledgeMarkdown,
+  onKnowledgeActivityBinHover,
+  knowledgeActivityPinnedBin,
+  onKnowledgeActivityPinnedBinChange,
   slackChannelIsPrivate,
 }: AdminChannelControlPaneProps) {
   const { setWorkspaceNavbarTrail, setWorkspaceNavbarEndLead } = useWorkspaceNavbarTrail();
@@ -120,37 +131,64 @@ export function AdminChannelControlPane({
     [apiCompany, channel, channelId, companyChannelsApiPrefix, onChannelUpdated],
   );
 
-  const founderIdsNormalized =
-    channel?.owner_ids?.map((id) => id.trim()).filter(Boolean).map((id) => id.toUpperCase()) ?? [];
+  const founderIdsNormalized = useMemo(
+    () => channel?.owner_ids?.map((id) => id.trim()).filter(Boolean).map((id) => id.toUpperCase()) ?? [],
+    [channel?.owner_ids?.join("|")],
+  );
+
+  /** Stable across referential churn on `founders` so navbar context updates do not re-render-loop. */
+  const foundersSignature = useMemo(() => {
+    if (founderIdsNormalized.length === 0) {
+      return "";
+    }
+    return founderIdsNormalized
+      .map((id, i) => {
+        const f = founders?.[i];
+        return `${id}\u0001${f?.displayName ?? ""}\u0001${f?.portraitUrl ?? ""}`;
+      })
+      .join("\u0002");
+  }, [founderIdsNormalized, founders]);
+
+  const founderEntries = useMemo(() => {
+    if (!foundersSignature) {
+      return [] as { id: string; displayName: string; portraitUrl?: string }[];
+    }
+    return foundersSignature.split("\u0002").map((chunk) => {
+      const [id, displayName, portraitUrl] = chunk.split("\u0001");
+      return {
+        id: id ?? "",
+        displayName: displayName || "Member",
+        portraitUrl: portraitUrl || undefined,
+      };
+    });
+  }, [foundersSignature]);
 
   const founderNavbarLead = useMemo(() => {
-    if (founderIdsNormalized.length === 0) {
+    if (founderEntries.length === 0) {
       return null;
     }
     return (
-      <div className="flex min-w-0 items-center justify-end gap-1" aria-label="Company founders">
-        {founderIdsNormalized.map((id, i) => {
-          const f = founders?.[i];
-          return (
-            <span key={`founder-${id}`} className="min-w-0 shrink" title={`Slack user ${id}`}>
-              <SlackPersonChip
-                displayName={f?.displayName ?? "Member"}
-                portraitUrl={f?.portraitUrl}
-                size="nav"
-              />
-            </span>
-          );
-        })}
+      <div className="flex min-h-11 min-w-0 items-center justify-end gap-1" aria-label="Company founders">
+        {founderEntries.map((entry) => (
+          <span key={`founder-${entry.id}`} className="min-w-0 shrink" title={`Slack user ${entry.id}`}>
+            <SlackPersonChip displayName={entry.displayName} portraitUrl={entry.portraitUrl} size="nav" />
+          </span>
+        ))}
       </div>
     );
-  }, [founderIdsNormalized, founders]);
+  }, [founderEntries]);
 
   const activitySection = (
     <div
       className="rounded-xl border border-border/70 bg-gradient-to-br from-muted/60 via-muted/25 to-background p-3.5 shadow-[0_1px_0_0_rgba(0,0,0,0.03)] dark:from-muted/25 dark:via-muted/10 dark:to-card dark:shadow-[0_1px_0_0_rgba(255,255,255,0.04)]"
       aria-label="Message activity from knowledge digest"
     >
-      <AdminChannelKnowledgeActivityChart markdown={knowledgeMarkdown ?? ""} />
+      <AdminChannelKnowledgeActivityChart
+        markdown={knowledgeMarkdown ?? ""}
+        pinnedBin={knowledgeActivityPinnedBin ?? null}
+        onPinnedBinChange={onKnowledgeActivityPinnedBinChange}
+        onBinHover={onKnowledgeActivityBinHover}
+      />
     </div>
   );
 
