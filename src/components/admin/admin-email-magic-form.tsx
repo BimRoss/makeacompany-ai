@@ -7,14 +7,14 @@ export function AdminEmailMagicForm() {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [sent, setSent] = useState(false);
+  const [outcome, setOutcome] = useState<null | "sent" | "not_authorized" | "legacy">(null);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (loading) return;
     setLoading(true);
     setError(null);
-    setSent(false);
+    setOutcome(null);
     try {
       const res = await fetch("/api/admin/auth/email/start", {
         method: "POST",
@@ -22,7 +22,7 @@ export function AdminEmailMagicForm() {
         cache: "no-store",
         body: JSON.stringify({ email: email.trim() }),
       });
-      const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      const data = (await res.json().catch(() => ({}))) as { ok?: boolean; sent?: boolean; error?: string };
       if (res.status === 503 && typeof data.error === "string") {
         setError("Email sign-in is not configured for this site yet. Use Google or contact support.");
         setLoading(false);
@@ -33,7 +33,9 @@ export function AdminEmailMagicForm() {
         setLoading(false);
         return;
       }
-      setSent(true);
+      setOutcome(
+        data.sent === true ? "sent" : data.sent === false ? "not_authorized" : "legacy",
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Network error");
     }
@@ -68,7 +70,23 @@ export function AdminEmailMagicForm() {
           "Email me a sign-in link"
         )}
       </button>
-      {sent ? (
+      {outcome === "sent" ? (
+        <p
+          className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-center text-sm text-muted-foreground"
+          role="status"
+        >
+          Successfully sent email link
+        </p>
+      ) : null}
+      {outcome === "not_authorized" ? (
+        <p
+          className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-center text-sm text-muted-foreground"
+          role="status"
+        >
+          You are not authorized for admin access
+        </p>
+      ) : null}
+      {outcome === "legacy" ? (
         <p
           className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-center text-sm text-muted-foreground"
           role="status"

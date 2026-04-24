@@ -32,7 +32,9 @@ func resendMagicLinkTemplateVariables(cfg Config, linkURL, firstName string) map
 }
 
 // sendEmailViaResendTemplate sends one email from a published Resend template. Do not pass html/text
-// when using this path (Resend rejects mixed payloads). Subject/from override template defaults when set.
+// when using this path (Resend rejects mixed payloads). Non-empty subject/from are sent and override
+// the template's defaults (Resend API rule). Pass empty subject to use the template's subject and
+// preview text from the dashboard.
 func sendEmailViaResendTemplate(apiKey, from, to, subject, templateID string, variables map[string]string) error {
 	apiKey = strings.TrimSpace(apiKey)
 	from = strings.TrimSpace(from)
@@ -48,15 +50,18 @@ func sendEmailViaResendTemplate(apiKey, from, to, subject, templateID string, va
 			vars[k] = v
 		}
 	}
-	return postResendEmail(apiKey, map[string]any{
-		"from":    from,
-		"to":      []string{to},
-		"subject": strings.TrimSpace(subject),
+	body := map[string]any{
+		"from": from,
+		"to":   []string{to},
 		"template": map[string]any{
 			"id":        templateID,
 			"variables": vars,
 		},
-	})
+	}
+	if s := strings.TrimSpace(subject); s != "" {
+		body["subject"] = s
+	}
+	return postResendEmail(apiKey, body)
 }
 
 // sendEmailViaResend sends one transactional email with inline HTML/text (no template).

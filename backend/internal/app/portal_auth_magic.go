@@ -58,9 +58,8 @@ func (s *Server) handlePortalAuthMagicStart(w http.ResponseWriter, r *http.Reque
 		http.Error(w, "company channel error", http.StatusInternalServerError)
 		return
 	}
-	// Do not reveal whether the address is an owner.
 	if !ok {
-		writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+		writeJSON(w, http.StatusOK, map[string]any{"ok": true, "sent": false})
 		return
 	}
 	token, err := randomTokenHex(32)
@@ -83,7 +82,8 @@ func (s *Server) handlePortalAuthMagicStart(w http.ResponseWriter, r *http.Reque
 	var sendErr error
 	if tid := strings.TrimSpace(s.cfg.ResendMagicLinkTemplateID); tid != "" {
 		first := s.store.LookupSlackFirstNameByEmail(r.Context(), email)
-		sendErr = sendEmailViaResendTemplate(s.cfg.ResendAPIKey, s.cfg.PortalAuthEmailFrom, email, subject, tid, resendMagicLinkTemplateVariables(s.cfg, link, first))
+		// Empty subject: Resend uses template subject + preview text; a non-empty subject overrides both.
+		sendErr = sendEmailViaResendTemplate(s.cfg.ResendAPIKey, s.cfg.PortalAuthEmailFrom, email, "", tid, resendMagicLinkTemplateVariables(s.cfg, link, first))
 	} else {
 		sendErr = sendEmailViaResend(s.cfg.ResendAPIKey, s.cfg.PortalAuthEmailFrom, email, subject, plain, html)
 	}
@@ -93,7 +93,7 @@ func (s *Server) handlePortalAuthMagicStart(w http.ResponseWriter, r *http.Reque
 		http.Error(w, "unable to send email", http.StatusBadGateway)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "sent": true})
 }
 
 func (s *Server) handlePortalAuthMagicFinish(w http.ResponseWriter, r *http.Request) {

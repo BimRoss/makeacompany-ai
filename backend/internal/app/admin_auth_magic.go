@@ -41,7 +41,7 @@ func (s *Server) handleAdminAuthMagicStart(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	if !adminSignInEmailAllowed(email) {
-		writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+		writeJSON(w, http.StatusOK, map[string]any{"ok": true, "sent": false})
 		return
 	}
 	token, err := randomTokenHex(32)
@@ -63,7 +63,7 @@ func (s *Server) handleAdminAuthMagicStart(w http.ResponseWriter, r *http.Reques
 	var sendErr error
 	if tid := strings.TrimSpace(s.cfg.ResendMagicLinkTemplateID); tid != "" {
 		first := s.store.LookupSlackFirstNameByEmail(r.Context(), email)
-		sendErr = sendEmailViaResendTemplate(s.cfg.ResendAPIKey, s.cfg.PortalAuthEmailFrom, email, subject, tid, resendMagicLinkTemplateVariables(s.cfg, link, first))
+		sendErr = sendEmailViaResendTemplate(s.cfg.ResendAPIKey, s.cfg.PortalAuthEmailFrom, email, "", tid, resendMagicLinkTemplateVariables(s.cfg, link, first))
 	} else {
 		sendErr = sendEmailViaResend(s.cfg.ResendAPIKey, s.cfg.PortalAuthEmailFrom, email, subject, plain, html)
 	}
@@ -73,7 +73,7 @@ func (s *Server) handleAdminAuthMagicStart(w http.ResponseWriter, r *http.Reques
 		http.Error(w, "unable to send email", http.StatusBadGateway)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "sent": true})
 }
 
 func (s *Server) handleAdminAuthMagicFinish(w http.ResponseWriter, r *http.Request) {
