@@ -80,8 +80,15 @@ func (s *Server) handlePortalAuthMagicStart(w http.ResponseWriter, r *http.Reque
 	subject := "Your company portal sign-in link"
 	plain := fmt.Sprintf("Open this link to sign in (expires in 30 minutes):\n\n%s\n", link)
 	html := fmt.Sprintf(`<p>Sign in to your company portal.</p><p><a href="%s">Continue to portal</a></p><p>This link expires in 30 minutes.</p>`, link)
-	if err := sendEmailViaResend(s.cfg.ResendAPIKey, s.cfg.PortalAuthEmailFrom, email, subject, plain, html); err != nil {
-		s.log.Printf("portal magic resend: %v", err)
+	var sendErr error
+	if tid := strings.TrimSpace(s.cfg.ResendMagicLinkTemplateID); tid != "" {
+		first := s.store.LookupSlackFirstNameByEmail(r.Context(), email)
+		sendErr = sendEmailViaResendTemplate(s.cfg.ResendAPIKey, s.cfg.PortalAuthEmailFrom, email, subject, tid, resendMagicLinkTemplateVariables(s.cfg, link, first))
+	} else {
+		sendErr = sendEmailViaResend(s.cfg.ResendAPIKey, s.cfg.PortalAuthEmailFrom, email, subject, plain, html)
+	}
+	if sendErr != nil {
+		s.log.Printf("portal magic resend: %v", sendErr)
 		_ = s.store.DeletePortalMagicLink(r.Context(), token)
 		http.Error(w, "unable to send email", http.StatusBadGateway)
 		return

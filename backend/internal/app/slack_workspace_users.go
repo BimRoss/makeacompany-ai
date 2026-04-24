@@ -159,6 +159,25 @@ func FetchSlackWorkspaceUsers(ctx context.Context, botToken string) ([]SlackWork
 	return out, nil
 }
 
+// firstGivenNameFromSlackWorkspaceUser returns the first word of real name or display name for greetings, or "".
+func firstGivenNameFromSlackWorkspaceUser(u SlackWorkspaceUser) string {
+	if u.IsBot || u.IsDeleted {
+		return ""
+	}
+	name := strings.TrimSpace(u.RealName)
+	if name == "" {
+		name = strings.TrimSpace(u.DisplayName)
+	}
+	if name == "" {
+		return ""
+	}
+	parts := strings.Fields(name)
+	if len(parts) == 0 {
+		return ""
+	}
+	return parts[0]
+}
+
 func sortKeySlackUser(u SlackWorkspaceUser) string {
 	if s := strings.TrimSpace(u.RealName); s != "" {
 		return strings.ToLower(s)

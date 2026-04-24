@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -43,4 +44,30 @@ func (s *Store) GetSlackUsersSnapshotBytes(ctx context.Context) ([]byte, error) 
 		return nil, err
 	}
 	return []byte(raw), nil
+}
+
+// LookupSlackFirstNameByEmail returns the first token of Slack real_name/display_name for a workspace
+// member whose profile email matches (from the cached users.list snapshot). Returns "" when unknown.
+func (s *Store) LookupSlackFirstNameByEmail(ctx context.Context, email string) string {
+	if s == nil {
+		return ""
+	}
+	raw, err := s.GetSlackUsersSnapshotBytes(ctx)
+	if err != nil {
+		return ""
+	}
+	env, err := ParseSlackUsersSnapshotEnvelope(raw)
+	if err != nil {
+		return ""
+	}
+	want := normalizeProfileEmail(strings.TrimSpace(email))
+	if want == "" {
+		return ""
+	}
+	for i := range env.Users {
+		if normalizeProfileEmail(env.Users[i].Email) == want {
+			return firstGivenNameFromSlackWorkspaceUser(env.Users[i])
+		}
+	}
+	return ""
 }

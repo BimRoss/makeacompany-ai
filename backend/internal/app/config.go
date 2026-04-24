@@ -38,6 +38,12 @@ type Config struct {
 	ResendAPIKey string
 	// PortalAuthEmailFrom is the Resend "from" address for magic links, e.g. "MakeACompany <auth@yourdomain.com>".
 	PortalAuthEmailFrom string
+	// ResendMagicLinkTemplateID, when set (e.g. "account-login"), sends magic links via Resend Templates API instead of inline HTML.
+	ResendMagicLinkTemplateID string
+	// ResendMagicLinkTemplateLinkVar is the template variable key for the magic-link URL (must match the published template; default login_url).
+	ResendMagicLinkTemplateLinkVar string
+	// ResendMagicLinkTemplateFirstNameVar is the key for a first-name greeting (default recipient_first_name). Reserves FIRST_NAME on Resend; use this custom key in the template instead.
+	ResendMagicLinkTemplateFirstNameVar string
 }
 
 func LoadConfig() Config {
@@ -62,6 +68,9 @@ func LoadConfig() Config {
 		GoogleOAuthClientID:                   strings.TrimSpace(os.Getenv("GOOGLE_OAUTH_CLIENT_ID")),
 		ResendAPIKey:                          strings.TrimSpace(os.Getenv("RESEND_API_KEY")),
 		PortalAuthEmailFrom:                   strings.TrimSpace(os.Getenv("PORTAL_AUTH_EMAIL_FROM")),
+		ResendMagicLinkTemplateID:             strings.TrimSpace(os.Getenv("RESEND_MAGIC_LINK_TEMPLATE_ID")),
+		ResendMagicLinkTemplateLinkVar:        strings.TrimSpace(os.Getenv("RESEND_MAGIC_LINK_TEMPLATE_LINK_VAR")),
+		ResendMagicLinkTemplateFirstNameVar:   strings.TrimSpace(os.Getenv("RESEND_MAGIC_LINK_TEMPLATE_FIRST_NAME_VAR")),
 	}
 }
 
