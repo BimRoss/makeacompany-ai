@@ -2,7 +2,6 @@ package app
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
@@ -57,16 +56,7 @@ func (s *Server) handleAdminAuthMagicStart(w http.ResponseWriter, r *http.Reques
 	link := strings.TrimRight(s.cfg.AppBaseURL, "/") + "/api/admin/auth/email/callback?" + url.Values{
 		"token": {token},
 	}.Encode()
-	subject := "Your admin dashboard sign-in link"
-	plain := fmt.Sprintf("Open this link to sign in to the admin dashboard (expires in 30 minutes):\n\n%s\n", link)
-	html := fmt.Sprintf(`<p>Sign in to the makeacompany admin dashboard.</p><p><a href="%s">Continue to admin</a></p><p>This link expires in 30 minutes.</p>`, link)
-	var sendErr error
-	if tid := strings.TrimSpace(s.cfg.ResendMagicLinkTemplateID); tid != "" {
-		first := s.store.LookupSlackFirstNameByEmail(r.Context(), email)
-		sendErr = sendEmailViaResendTemplate(s.cfg.ResendAPIKey, s.cfg.PortalAuthEmailFrom, email, "", tid, resendMagicLinkTemplateVariables(s.cfg, link, first))
-	} else {
-		sendErr = sendEmailViaResend(s.cfg.ResendAPIKey, s.cfg.PortalAuthEmailFrom, email, subject, plain, html)
-	}
+	sendErr := s.sendChannelUserStyleMagicLinkEmail(r.Context(), email, link)
 	if sendErr != nil {
 		s.log.Printf("admin magic resend: %v", sendErr)
 		_ = s.store.DeleteAdminMagicLink(r.Context(), token)

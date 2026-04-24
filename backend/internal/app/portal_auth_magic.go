@@ -3,7 +3,6 @@ package app
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
@@ -76,17 +75,7 @@ func (s *Server) handlePortalAuthMagicStart(w http.ResponseWriter, r *http.Reque
 		"token": {token},
 		"cid":   {chID},
 	}.Encode()
-	subject := "Your company portal sign-in link"
-	plain := fmt.Sprintf("Open this link to sign in (expires in 30 minutes):\n\n%s\n", link)
-	html := fmt.Sprintf(`<p>Sign in to your company portal.</p><p><a href="%s">Continue to portal</a></p><p>This link expires in 30 minutes.</p>`, link)
-	var sendErr error
-	if tid := strings.TrimSpace(s.cfg.ResendMagicLinkTemplateID); tid != "" {
-		first := s.store.LookupSlackFirstNameByEmail(r.Context(), email)
-		// Empty subject: Resend uses template subject + preview text; a non-empty subject overrides both.
-		sendErr = sendEmailViaResendTemplate(s.cfg.ResendAPIKey, s.cfg.PortalAuthEmailFrom, email, "", tid, resendMagicLinkTemplateVariables(s.cfg, link, first))
-	} else {
-		sendErr = sendEmailViaResend(s.cfg.ResendAPIKey, s.cfg.PortalAuthEmailFrom, email, subject, plain, html)
-	}
+	sendErr := s.sendChannelUserStyleMagicLinkEmail(r.Context(), email, link)
 	if sendErr != nil {
 		s.log.Printf("portal magic resend: %v", sendErr)
 		_ = s.store.DeletePortalMagicLink(r.Context(), token)
