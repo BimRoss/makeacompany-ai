@@ -11,7 +11,7 @@ const noStore = {
 } as const;
 
 /**
- * Same payload as `/api/admin/slack-bot-author-profiles`, for signed-in portal users viewing `/[channelId]`.
+ * Same payload as `/api/admin/slack-bot-author-profiles` (including optional per-row `email` from Slack `users.list`), for signed-in portal users viewing `/[channelId]`.
  * Requires a valid portal session (verified with backend).
  */
 export async function GET() {

@@ -49,7 +49,7 @@ export function AdminChannelKnowledgeDigest({ markdown, slackAuthorLookup }: Adm
   const tailStart = useMemo(() => tailStartIndex(bodyLines), [bodyLines]);
 
   const [visibleStart, setVisibleStart] = useState(tailStart);
-  const [view, setView] = useState<DigestView>("thread");
+  const [view, setView] = useState<DigestView>("author");
   const prependingRef = useRef(false);
   const pendingScrollAdjustRef = useRef<PendingScrollAdjust | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -182,8 +182,8 @@ export function AdminChannelKnowledgeDigest({ markdown, slackAuthorLookup }: Adm
           role="tablist"
           aria-label="Message view"
         >
-          {viewBtn("thread", "Threads")}
           {viewBtn("author", "Authors")}
+          {viewBtn("thread", "Threads")}
           {viewBtn("classic", "Markdown")}
         </div>
       </div>

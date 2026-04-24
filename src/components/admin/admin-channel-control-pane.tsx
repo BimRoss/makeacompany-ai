@@ -1,9 +1,10 @@
 "use client";
 
-import { UserRound } from "lucide-react";
 import { useCallback, useState, type ReactNode } from "react";
+import type { SlackTranscriptAuthorLookup } from "@/components/admin/admin-channel-digest-views";
 import type { CompanyChannel } from "@/lib/admin/company-channels";
 import { kickToLoginForUnauthorizedApi } from "@/lib/client-auth-unauthorized-redirect";
+import { SlackPersonChip } from "@/components/admin/slack-person-chip";
 
 type PaneStatus = "loading" | "missing" | "error" | "ready";
 
@@ -23,11 +24,32 @@ type AdminChannelControlPaneProps = {
   companyChannelsApiPrefix?: "admin" | "portal";
   /** Shown in the card header (top row), e.g. display name or channel id while loading. */
   workspaceTitle: string;
-  /** Slack channel id — shown as a pill on the metadata row with founder ids. */
-  workspaceChannelId: string;
-  /** Registry owners resolved to names + portraits; never show raw Slack user ids in the UI. */
+  /** Registry owners resolved to names + portraits; used on portal where in-channel roster is not fetched. */
   founders?: AdminChannelFounder[] | null;
+  /** When set (including `[]`), show a “Humans” row like `/admin` company cards. Omitted for portal or before fetch. */
+  inChannelHumanIds?: string[];
+  /** Resolve in-channel chips by Slack user id (same source as transcript author pills). */
+  humanPillLookup?: SlackTranscriptAuthorLookup;
 };
+
+function looksSlackMemberId(s: string): boolean {
+  return /^U[A-Z0-9]{8,}$/i.test(s.trim());
+}
+
+function humanChipFromLookup(
+  slackUserId: string,
+  lookup: SlackTranscriptAuthorLookup | undefined,
+): { displayName: string; portraitUrl?: string } {
+  const up = slackUserId.trim().toUpperCase();
+  const lu = lookup?.[up];
+  const raw = lu?.displayName?.trim() ?? "";
+  const portrait = lu?.portraitUrl?.trim();
+  const isPlaceholder = !raw || looksSlackMemberId(raw) || raw.toUpperCase() === up;
+  return {
+    displayName: isPlaceholder ? "Member" : raw,
+    portraitUrl: portrait || undefined,
+  };
+}
 
 function ControlToggle({
   enabled,
@@ -67,36 +89,6 @@ function ControlToggle({
   );
 }
 
-function FounderChip({ founder }: { founder: AdminChannelFounder }) {
-  const url = founder.portraitUrl?.trim();
-  return (
-    <span className="inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-full border border-border bg-muted/30 py-0.5 pl-0.5 pr-2.5">
-      <span className="relative size-6 shrink-0 overflow-hidden rounded-full border border-border bg-muted">
-        {url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={url} alt="" className="size-full object-cover" />
-        ) : (
-          <span className="flex size-full items-center justify-center text-muted-foreground" aria-hidden>
-            <UserRound className="size-3" />
-          </span>
-        )}
-      </span>
-      <span className="truncate text-xs font-medium leading-none text-foreground">{founder.displayName}</span>
-    </span>
-  );
-}
-
-function MetadataIdPill({ children, title }: { children: string; title?: string }) {
-  return (
-    <span
-      className="inline-flex max-w-full shrink-0 items-center rounded-full border border-border bg-muted/50 px-2 py-0.5 font-mono text-[11px] font-medium tabular-nums leading-none text-muted-foreground"
-      title={title}
-    >
-      <span className="truncate">{children}</span>
-    </span>
-  );
-}
-
 export function AdminChannelControlPane({
   channelId,
   channel,
@@ -106,8 +98,9 @@ export function AdminChannelControlPane({
   onChannelUpdated,
   companyChannelsApiPrefix = "admin",
   workspaceTitle,
-  workspaceChannelId,
   founders,
+  inChannelHumanIds,
+  humanPillLookup,
 }: AdminChannelControlPaneProps) {
   const [patchError, setPatchError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -143,40 +136,55 @@ export function AdminChannelControlPane({
     [apiCompany, channel, channelId, companyChannelsApiPrefix, onChannelUpdated],
   );
 
-  const foundersRow =
-    founders == null ? null : founders.length === 0 ? (
-      <p className="text-xs leading-snug text-muted-foreground">No founders configured for this channel.</p>
-    ) : (
-      <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-        {founders.map((f, i) => (
-          <FounderChip key={`${f.displayName}-${i}`} founder={f} />
-        ))}
-      </div>
-    );
-
   const founderIdsNormalized =
     channel?.owner_ids?.map((id) => id.trim()).filter(Boolean).map((id) => id.toUpperCase()) ?? [];
 
-  const idsRow = (
-    <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1" aria-label="Slack identifiers">
-      <MetadataIdPill title="Slack channel id">{workspaceChannelId}</MetadataIdPill>
-      {founderIdsNormalized.length > 0
-        ? founderIdsNormalized.map((id) => (
-            <MetadataIdPill key={id} title="Slack user id (founder)">
-              {id}
-            </MetadataIdPill>
-          ))
-        : null}
-    </div>
-  );
+  const portalRosterAsInChannel =
+    companyChannelsApiPrefix === "portal" &&
+    inChannelHumanIds === undefined &&
+    founderIdsNormalized.length > 0;
+
+  const inChannelSection =
+    inChannelHumanIds !== undefined ? (
+      <div className="space-y-1">
+        <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Humans</p>
+        {inChannelHumanIds.length > 0 ? (
+          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+            {inChannelHumanIds.map((sid) => (
+              <span key={`member-${sid}`} title={`Slack user ${sid.trim().toUpperCase()}`}>
+                <SlackPersonChip {...humanChipFromLookup(sid, humanPillLookup)} />
+              </span>
+            ))}
+          </div>
+        ) : (
+          <p className="text-[10px] text-muted-foreground">No human members reported.</p>
+        )}
+      </div>
+    ) : portalRosterAsInChannel ? (
+      <div className="space-y-1">
+        <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Humans</p>
+        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+          {founderIdsNormalized.map((id, i) => {
+            const f = founders?.[i];
+            return (
+              <span key={`portal-roster-${id}`} title={`Slack user ${id}`}>
+                <SlackPersonChip
+                  displayName={f?.displayName ?? "Member"}
+                  portraitUrl={f?.portraitUrl}
+                />
+              </span>
+            );
+          })}
+        </div>
+      </div>
+    ) : null;
 
   const metaBlock = (
     <div className="min-w-0 flex-1 space-y-2">
       <h1 className="min-w-0 max-w-full truncate text-2xl font-semibold tracking-tight text-foreground">
         {workspaceTitle}
       </h1>
-      {foundersRow}
-      {idsRow}
+      {inChannelSection}
     </div>
   );
 

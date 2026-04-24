@@ -102,6 +102,7 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 	s.mux.HandleFunc("/v1/portal/auth/google/finish", s.handlePortalAuthGoogleFinish)
 	s.mux.HandleFunc("/v1/portal/auth/magic/start", s.handlePortalAuthMagicStart)
 	s.mux.HandleFunc("/v1/portal/auth/magic/finish", s.handlePortalAuthMagicFinish)
+	s.mux.HandleFunc("GET /v1/portal/channel-public-label/{channelId}", s.handlePortalChannelPublicLabel)
 	return s, nil
 }
 
@@ -193,6 +194,8 @@ func normalizeMetricRoute(path string) string {
 		return "/v1/portal/auth/magic/start"
 	case path == "/v1/portal/auth/magic/finish":
 		return "/v1/portal/auth/magic/finish"
+	case strings.HasPrefix(path, "/v1/portal/channel-public-label/"):
+		return "/v1/portal/channel-public-label/{channelId}"
 	case strings.HasPrefix(path, "/v1/"):
 		return "/v1/other"
 	default:
@@ -697,10 +700,18 @@ func (s *Server) handleAdminChannelKnowledge(w http.ResponseWriter, r *http.Requ
 		http.Error(w, "channel knowledge error", http.StatusInternalServerError)
 		return
 	}
+	pulse, err := s.store.GetChannelKnowledgePulsecheck(r.Context(), chID)
+	if err != nil {
+		s.log.Printf("admin channel knowledge pulsecheck: %v", err)
+		http.Error(w, "channel knowledge error", http.StatusInternalServerError)
+		return
+	}
 	writeJSON(w, http.StatusOK, map[string]any{
-		"channel_id": chID,
-		"markdown":   md,
-		"empty":      strings.TrimSpace(md) == "",
+		"channel_id":               chID,
+		"markdown":                 md,
+		"empty":                    strings.TrimSpace(md) == "",
+		"company_pulsecheck":       pulse,
+		"company_pulsecheck_empty": strings.TrimSpace(pulse) == "",
 	})
 }
 

@@ -2,21 +2,13 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
 import { portalSessionCookieName } from "@/lib/portal-session-cookies";
+import { resolveBackendBaseURL as resolveBackendBaseURLImpl } from "@/lib/resolve-backend-base-url";
 
 const adminSessionCookieName = "mac_admin_session";
 
 export { portalChannelCookieName, portalSessionCookieName } from "@/lib/portal-session-cookies";
 
-export function resolveBackendBaseURL(): string {
-  const isKubernetes = Boolean(process.env.KUBERNETES_SERVICE_HOST);
-  // Default host port matches docker-compose BACKEND_PORT (8090), not slack-orchestrator (8080).
-  const defaultBackendBase = isKubernetes ? "http://makeacompany-ai-backend:8080" : "http://localhost:8090";
-  return (
-    process.env.BACKEND_INTERNAL_API_BASE_URL ??
-    process.env.NEXT_PUBLIC_BACKEND_API_BASE_URL ??
-    defaultBackendBase
-  );
-}
+export const resolveBackendBaseURL = resolveBackendBaseURLImpl;
 
 /**
  * Bearer from admin session cookie only (for `/api/admin/*` browser requests).

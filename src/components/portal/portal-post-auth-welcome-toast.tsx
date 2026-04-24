@@ -1,53 +1,55 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
-const WELCOME_PARAM = "portal_welcome";
 const TOAST_MS = 6000;
 
-function stripWelcomeParam() {
-  const params = new URLSearchParams(window.location.search);
-  if (!params.has(WELCOME_PARAM)) {
-    return;
-  }
-  params.delete(WELCOME_PARAM);
-  const q = params.toString();
-  const nextURL = `${window.location.pathname}${q ? `?${q}` : ""}${window.location.hash}`;
-  window.history.replaceState({}, "", nextURL);
-}
+export type PortalPostAuthWelcomeToastProps = {
+  /** Set after workspace loads Slack profiles + session email; cleared after timeout or dismiss. */
+  welcome: null | {
+    greeting: string;
+    portraitUrl?: string;
+  };
+  onDismiss: () => void;
+};
 
 /**
- * Pill toast matching the landing checkout return — shown once after OAuth or magic-link sign-in.
+ * Pill toast after OAuth or magic-link sign-in — copy matches landing checkout return styling.
+ * Greeting is built upstream (e.g. name from Slack `users.list` keyed by portal session email).
  */
-export function PortalPostAuthWelcomeToast() {
-  const [message, setMessage] = useState<string | null>(null);
+export function PortalPostAuthWelcomeToast({ welcome, onDismiss }: PortalPostAuthWelcomeToastProps) {
+  const [visible, setVisible] = useState(false);
+  const onDismissRef = useRef(onDismiss);
+  onDismissRef.current = onDismiss;
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get(WELCOME_PARAM)?.trim() !== "1") {
+    if (!welcome) {
+      setVisible(false);
       return;
     }
-    setMessage("Welcome! You're signed in to your company workspace.");
-    stripWelcomeParam();
-  }, []);
-
-  useEffect(() => {
-    if (!message) {
-      return;
-    }
-    const timer = setTimeout(() => setMessage(null), TOAST_MS);
+    setVisible(true);
+    const timer = setTimeout(() => {
+      setVisible(false);
+      onDismissRef.current();
+    }, TOAST_MS);
     return () => clearTimeout(timer);
-  }, [message]);
+  }, [welcome]);
 
-  if (!message) {
+  if (!welcome || !visible) {
     return null;
   }
 
+  const url = welcome.portraitUrl?.trim();
+
   return (
     <div className="pointer-events-none fixed inset-x-0 top-20 z-[60] flex justify-center px-4">
-      <p className="pointer-events-auto rounded-full border border-foreground bg-background px-5 py-2 text-sm font-medium shadow-lg">
-        {message}
-      </p>
+      <div className="pointer-events-auto flex max-w-[min(100%,28rem)] items-center gap-2.5 rounded-full border border-foreground bg-background py-2 pl-2 pr-5 shadow-lg">
+        {url ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={url} alt="" className="size-9 shrink-0 rounded-full border border-border object-cover" />
+        ) : null}
+        <p className="min-w-0 text-sm font-medium leading-snug text-foreground">{welcome.greeting}</p>
+      </div>
     </div>
   );
 }

@@ -124,6 +124,32 @@ function DigestBodyMarkdown({ text }: { text: string }) {
   );
 }
 
+/** Same visual language as transcript author cards (digest thread reply row). */
+export function DigestStyleUserMessageCard({
+  slackUserId,
+  author,
+  bodyMarkdown,
+}: {
+  slackUserId: string;
+  author: SlackTranscriptAuthor | null;
+  bodyMarkdown: string;
+}) {
+  return (
+    <div
+      className="w-full rounded-xl border border-border/80 bg-white py-2.5 pl-2 pr-3 shadow-sm dark:bg-card"
+      role="article"
+    >
+      <div className="flex gap-2.5">
+        <Avatar userId={slackUserId} author={author} />
+        <div className="min-w-0 flex-1">
+          <AuthorHeading author={author} />
+          <DigestBodyMarkdown text={bodyMarkdown} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function pickThreadRoot(unit: ThreadUnit): DigestLine {
   const { messages, threadKey } = unit;
   const byTs = messages.find((m: DigestLine) => m.msgTs === threadKey);
@@ -132,6 +158,11 @@ function pickThreadRoot(unit: ThreadUnit): DigestLine {
   }
   const nonReply = messages.find((m: DigestLine) => !m.isReply);
   return nonReply ?? messages[0]!;
+}
+
+function threadUnitHasReplies(unit: ThreadUnit): boolean {
+  const root = pickThreadRoot(unit);
+  return unit.messages.some((m: DigestLine) => m !== root);
 }
 
 function ThreadReplyCard({
@@ -227,7 +258,7 @@ function ThreadRootListRow({
   const root = pickThreadRoot(unit);
   const threadCount = unit.messages.length;
   const rootAuthor = resolveTranscriptAuthor(root.userId, lookup);
-  const hasThreadStack = threadCount > 1;
+  const hasReplies = threadUnitHasReplies(unit);
 
   return (
     <div role="listitem" className="relative w-full">
@@ -236,14 +267,17 @@ function ThreadRootListRow({
         onClick={onSelect}
         aria-pressed={selected}
         className={clsx(
-          "relative w-full cursor-pointer rounded-xl border p-2.5 pr-2.5 text-left transition-[colors,box-shadow,opacity,ring] [&_*]:cursor-inherit",
+          "relative w-full rounded-xl border p-2.5 pr-2.5 text-left transition-[colors,box-shadow,opacity,ring]",
+          hasReplies
+            ? "cursor-pointer [&_*]:cursor-inherit"
+            : "cursor-not-allowed [&_*]:cursor-not-allowed",
           selected
             ? "border-transparent bg-white opacity-50 shadow-none ring-0 hover:border-transparent hover:bg-white hover:shadow-none dark:bg-background dark:hover:bg-background"
             : clsx(
-                hasThreadStack ? "shadow-lg" : "shadow-sm",
-                hasThreadStack
+                hasReplies ? "shadow-lg" : "shadow-sm",
+                hasReplies
                   ? "border-border/80 bg-card hover:border-border hover:bg-card/50 border-l-[3px] border-l-muted-foreground/40 hover:border-l-muted-foreground/55"
-                  : "border-border/80 bg-card hover:border-border hover:bg-muted/30",
+                  : "border-border/80 bg-card hover:border-border/80 hover:bg-card",
               ),
         )}
       >
@@ -252,7 +286,7 @@ function ThreadRootListRow({
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
               <AuthorHeading author={rootAuthor} />
-              {hasThreadStack ? (
+              {hasReplies ? (
                 <span className="shrink-0 text-[10px] text-muted-foreground">{threadCount} msgs</span>
               ) : null}
               {!unit.hasMeta && unit.messages.some((m: DigestLine) => m.isReply) ? (
@@ -381,7 +415,7 @@ function ThreadRightStickyRoot({
   const root = pickThreadRoot(unit);
   const threadCount = unit.messages.length;
   const rootAuthor = resolveTranscriptAuthor(root.userId, lookup);
-  const hasThreadStack = threadCount > 1;
+  const hasReplies = threadUnitHasReplies(unit);
 
   return (
     <div
@@ -395,7 +429,7 @@ function ThreadRightStickyRoot({
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
               <AuthorHeading author={rootAuthor} />
-              {hasThreadStack ? (
+              {hasReplies ? (
                 <span className="shrink-0 text-[10px] text-muted-foreground">{threadCount} msgs</span>
               ) : null}
               {!unit.hasMeta && unit.messages.some((m: DigestLine) => m.isReply) ? (
@@ -472,9 +506,9 @@ export function DigestThreadView({ markdown, listScrollRef, onListScroll }: Dige
     return buildThreadUnits(lines);
   }, [markdown]);
 
-  /** Left column: one row per channel (non-reply) root; excludes orphan reply-only buckets. */
+  /** Left column: one row per threaded conversation (non-reply root with at least one reply). */
   const channelRootUnits = useMemo(
-    () => units.filter((u) => !pickThreadRoot(u).isReply),
+    () => units.filter((u) => !pickThreadRoot(u).isReply && threadUnitHasReplies(u)),
     [units],
   );
 
@@ -539,33 +573,34 @@ export function DigestThreadView({ markdown, listScrollRef, onListScroll }: Dige
 
   if (channelRootUnitsNewestFirst.length === 0) {
     return (
-      <p className="text-sm text-muted-foreground">No channel-level messages to show in thread view.</p>
+      <p className="text-sm text-muted-foreground">No threads with replies in this digest.</p>
     );
   }
 
   return (
-    <DigestTwoPaneShell
-      leftScrollRef={listScrollRef}
-      onLeftScroll={onListScroll}
-      leftList={
-        <div className="flex flex-col gap-2" role="list" aria-label="Channel messages">
-          {channelRootUnitsNewestFirst.map((u) => (
-            <ThreadRootListRow
-              key={threadUnitListKey(u)}
-              unit={u}
-              selected={u.threadKey === selectedKey}
-              onSelect={() => {
-                if (u.threadKey === selectedKey) {
-                  dismissThreadPanel();
-                } else {
-                  selectThreadRoot(u.threadKey);
-                }
-              }}
-            />
-          ))}
-        </div>
-      }
-      rightPanel={
+    <>
+      <DigestTwoPaneShell
+        leftScrollRef={listScrollRef}
+        onLeftScroll={onListScroll}
+        leftList={
+          <div className="flex flex-col gap-2" role="list" aria-label="Channel messages">
+            {channelRootUnitsNewestFirst.map((u) => (
+              <ThreadRootListRow
+                key={threadUnitListKey(u)}
+                unit={u}
+                selected={u.threadKey === selectedKey}
+                onSelect={() => {
+                  if (u.threadKey === selectedKey) {
+                    dismissThreadPanel();
+                  } else {
+                    selectThreadRoot(u.threadKey);
+                  }
+                }}
+              />
+            ))}
+          </div>
+        }
+        rightPanel={
         !selectedUnit ? (
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">
             <ThreadRightPanelSelectPrompt />
@@ -599,7 +634,8 @@ export function DigestThreadView({ markdown, listScrollRef, onListScroll }: Dige
           </div>
         )
       }
-    />
+      />
+    </>
   );
 }
 
@@ -620,12 +656,14 @@ export function DigestAuthorView({
   const messageScrollRef = useRef<HTMLDivElement | null>(null);
   const pendingMessageScrollAdjustRef = useRef<{ prevH: number; prevT: number } | null>(null);
 
-  const { columns, order } = useMemo(() => {
+  const { columns, order, defaultAuthorUserId } = useMemo(() => {
     const { bodyLines } = splitDigestMarkdown(markdown);
     const lines = parseDigestBodyLines(bodyLines);
     const orderIds = authorColumnOrder(lines);
     const by = groupLinesByAuthor(lines);
-    return { columns: by, order: orderIds };
+    const lastLine = lines.length > 0 ? lines[lines.length - 1]! : null;
+    const defaultAuthorUserId = lastLine?.userId ?? null;
+    return { columns: by, order: orderIds, defaultAuthorUserId };
   }, [markdown]);
 
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
@@ -639,9 +677,12 @@ export function DigestAuthorView({
       if (prev && order.some((id) => id === prev)) {
         return prev;
       }
-      return null;
+      if (defaultAuthorUserId && order.some((id) => id === defaultAuthorUserId)) {
+        return defaultAuthorUserId;
+      }
+      return order[0] ?? null;
     });
-  }, [order]);
+  }, [order, defaultAuthorUserId]);
 
   const dismissAuthorPanel = useCallback(() => {
     setSelectedUserId(null);

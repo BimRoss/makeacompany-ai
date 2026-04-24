@@ -8,6 +8,7 @@ type SlackUsersListResponse = {
     id?: string;
     name?: string;
     profile?: {
+      email?: string;
       real_name?: string;
       display_name?: string;
       image_192?: string;
@@ -97,11 +98,13 @@ async function fetchSlackUsersListProfiles(token: string): Promise<SlackBotAutho
       }
       const displayName = bestSlackDisplayName(member);
       const avatarUrl = bestSlackAvatarUrl(member.profile);
+      const email = String(member.profile?.email ?? "").trim().toLowerCase();
       rows.push({
         slackUserId,
         employeeId: "",
         displayName: displayName || slackUserId,
         portraitUrl: avatarUrl,
+        ...(email ? { email } : {}),
       });
     }
     const next = String(payload.response_metadata?.next_cursor ?? "").trim();

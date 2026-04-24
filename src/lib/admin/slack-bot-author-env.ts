@@ -20,6 +20,8 @@ export type SlackBotAuthorProfile = {
   employeeId: string;
   displayName: string;
   portraitUrl: string;
+  /** Lowercased workspace email from Slack `users.list` when exposed; absent for env-only bot rows. */
+  email?: string;
 };
 
 function looksLikeSlackUserId(value: string): boolean {

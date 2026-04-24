@@ -16,7 +16,7 @@
 |----------------|------------------|--------|
 | `makeacompany:*` | `REDIS_URL` (backend) | Waitlist, checkout idempotency, stats, admin sessions, optional catalog JSON. **Sacred** for paid signups — see [Prod reset](#prod-reset-gut--sacred-vs-rebuildable). |
 | `employee-factory:company_channels` | `COMPANY_CHANNELS_REDIS_URL` if set and different from `REDIS_URL`; else `REDIS_URL` | Per-channel registry JSON. **Rebuild** from Slack via `/admin` discover or [`scripts/company-channels-discover-from-orchestrator.mjs`](../scripts/company-channels-discover-from-orchestrator.mjs). |
-| `employee-factory:channel_knowledge:*`, `employee-factory:capability_routing_events`, `employee-factory:thread_owner:*` | Same as company registry | Rebuildable; see [Prod reset](#prod-reset-gut--sacred-vs-rebuildable). |
+| `employee-factory:channel_knowledge:*` (includes `…:markdown` digest and `…:company_pulsecheck` portal summary), `employee-factory:capability_routing_events`, `employee-factory:thread_owner:*` | Same as company registry | Rebuildable; see [Prod reset](#prod-reset-gut--sacred-vs-rebuildable). |
 
 **Local / single DB:** Leave `COMPANY_CHANNELS_REDIS_URL` unset so the backend uses one Redis client for waitlist + admin + employee-factory keys (sibling **employee-factory** compose defaults to `host.docker.internal:6380`).
 

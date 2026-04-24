@@ -1,5 +1,4 @@
 import { CompanyChannelWorkspaceDetail } from "@/components/company-channel/company-channel-workspace-detail";
-import { PortalPostAuthWelcomeToast } from "@/components/portal/portal-post-auth-welcome-toast";
 
 type Props = {
   params: Promise<{ channelId: string }>;
@@ -8,10 +7,5 @@ type Props = {
 export default async function CompanyChannelPage({ params }: Props) {
   const { channelId } = await params;
   const id = decodeURIComponent((channelId ?? "").trim());
-  return (
-    <>
-      <PortalPostAuthWelcomeToast />
-      <CompanyChannelWorkspaceDetail channelId={id} variant="portal" />
-    </>
-  );
+  return <CompanyChannelWorkspaceDetail channelId={id} variant="portal" />;
 }

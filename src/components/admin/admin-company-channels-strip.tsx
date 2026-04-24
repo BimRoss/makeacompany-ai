@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { Lock, Users } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
+import { SlackPersonChip } from "@/components/admin/slack-person-chip";
 import { channelDisplayTitle, type CompanyChannel, type CompanyChannelsResponse } from "@/lib/admin/company-channels";
 import { kickToLoginForUnauthorizedApi } from "@/lib/client-auth-unauthorized-redirect";
 
@@ -58,6 +60,48 @@ function ownersPill(ch: CompanyChannel) {
 }
 
 const maxDiscoverPolicySyncChannels = 25;
+/** Cap Slack channel-member fetches for human-name pills (orchestrator round-trips). */
+const maxHumanMemberFetchChannels = 50;
+
+function looksSlackMemberId(s: string): boolean {
+  return /^U[A-Z0-9]{8,}$/i.test(s.trim());
+}
+
+type SlackProfileEntry = {
+  displayName: string;
+  portraitUrl?: string;
+};
+
+function resolveHumanDisplayName(
+  slackUserId: string,
+  profileByUserId: Record<string, SlackProfileEntry>,
+): string {
+  const up = slackUserId.trim().toUpperCase();
+  const lu = profileByUserId[up];
+  const raw = lu?.displayName?.trim() ?? "";
+  if (!raw || looksSlackMemberId(raw) || raw.toUpperCase() === up) {
+    return "Member";
+  }
+  return raw;
+}
+
+function personChipProps(
+  slackUserId: string,
+  profileByUserId: Record<string, SlackProfileEntry>,
+): { displayName: string; portraitUrl?: string } {
+  const up = slackUserId.trim().toUpperCase();
+  const lu = profileByUserId[up];
+  const portrait = lu?.portraitUrl?.trim();
+  return {
+    displayName: resolveHumanDisplayName(slackUserId, profileByUserId),
+    portraitUrl: portrait || undefined,
+  };
+}
+
+type HumanPillData = {
+  profileByUserId: Record<string, SlackProfileEntry>;
+  humanIdsByChannelId: Record<string, string[]>;
+};
 
 function needsRegistryPolicySync(row: MergedRow): boolean {
   if (!row.registry) return true;
@@ -111,6 +155,73 @@ async function buildDiscoverChannelsFromSlack(rows: MergedRow[]): Promise<
   return out;
 }
 
+async function loadSlackProfilesForPills(): Promise<Record<string, SlackProfileEntry> | null> {
+  const res = await fetch("/api/admin/slack-bot-author-profiles", { cache: "no-store" });
+  if (kickToLoginForUnauthorizedApi(res.status, "admin")) {
+    return null;
+  }
+  if (!res.ok) {
+    return {};
+  }
+  const payload = (await res.json().catch(() => null)) as
+    | { profiles?: Array<{ slackUserId?: string; displayName?: string; portraitUrl?: string }> }
+    | null;
+  const out: Record<string, SlackProfileEntry> = {};
+  for (const row of payload?.profiles ?? []) {
+    const sid = String(row.slackUserId ?? "").trim().toUpperCase();
+    if (!sid) continue;
+    const dn = String(row.displayName ?? "").trim();
+    const portraitUrl = String(row.portraitUrl ?? "").trim();
+    out[sid] = { displayName: dn || sid, portraitUrl: portraitUrl || undefined };
+  }
+  return out;
+}
+
+/**
+ * Returns null if admin session kicked to login.
+ */
+async function loadHumanIdsByChannel(
+  channelIds: string[],
+): Promise<Record<string, string[]> | null> {
+  const humanIdsByChannelId: Record<string, string[]> = {};
+  const concurrency = 6;
+  for (let i = 0; i < channelIds.length; i += concurrency) {
+    const batch = channelIds.slice(i, i + concurrency);
+    const chunk = await Promise.all(
+      batch.map(async (channel_id) => {
+        try {
+          const res = await fetch(
+            `/api/admin/slack-channel-members?channel_id=${encodeURIComponent(channel_id)}`,
+            { cache: "no-store" },
+          );
+          if (kickToLoginForUnauthorizedApi(res.status, "admin")) {
+            return null;
+          }
+          if (!res.ok) {
+            return { channel_id, ids: undefined };
+          }
+          const data = (await res.json().catch(() => null)) as { human_user_ids?: string[] } | null;
+          const ids = Array.isArray(data?.human_user_ids)
+            ? data!.human_user_ids!.filter((id) => typeof id === "string" && id.trim())
+            : [];
+          return { channel_id, ids };
+        } catch {
+          return { channel_id, ids: undefined };
+        }
+      }),
+    );
+    if (chunk.some((c) => c === null)) {
+      return null;
+    }
+    for (const row of chunk) {
+      if (row && row.ids !== undefined) {
+        humanIdsByChannelId[row.channel_id] = row.ids;
+      }
+    }
+  }
+  return humanIdsByChannelId;
+}
+
 function cardTitle(row: MergedRow): string {
   if (row.registry) {
     return channelDisplayTitle(row.registry);
@@ -119,17 +230,29 @@ function cardTitle(row: MergedRow): string {
   return n.startsWith("#") ? n : `#${n}`;
 }
 
+function stripLeadingHash(title: string): string {
+  return title.startsWith("#") ? title.slice(1) : title;
+}
+
 export function AdminCompanyChannelsStrip() {
   const [state, setState] = useState<LoadState>("idle");
   const [statusText, setStatusText] = useState("");
   const [rows, setRows] = useState<MergedRow[]>([]);
   const [slackTruncated, setSlackTruncated] = useState(false);
   const [infoNote, setInfoNote] = useState<string | null>(null);
+  const [humanPillData, setHumanPillData] = useState<HumanPillData>({
+    profileByUserId: {},
+    humanIdsByChannelId: {},
+  });
 
   const load = useCallback(async () => {
     setState("loading");
     setStatusText("Loading companies…");
     setInfoNote(null);
+    setHumanPillData({
+      profileByUserId: {},
+      humanIdsByChannelId: {},
+    });
     try {
       const [slackRes, redisRes] = await Promise.all([
         fetch("/api/admin/slack-member-channels", { cache: "no-store" }),
@@ -290,6 +413,10 @@ export function AdminCompanyChannelsStrip() {
         setState("error");
         setStatusText(parts.filter(Boolean).join(" · ") || "Failed to load company channels.");
         setRows([]);
+        setHumanPillData({
+          profileByUserId: {},
+          humanIdsByChannelId: {},
+        });
         return;
       }
 
@@ -301,6 +428,43 @@ export function AdminCompanyChannelsStrip() {
         setInfoNote((prev) => [prev, redisError].filter(Boolean).join(" · "));
       }
 
+      let nextHumanPills: HumanPillData = {
+        profileByUserId: {},
+        humanIdsByChannelId: {},
+      };
+      try {
+        const profiles = await loadSlackProfilesForPills();
+        if (profiles === null) {
+          return;
+        }
+        nextHumanPills.profileByUserId = profiles;
+
+        let memberFetchIds = merged.map((r) => r.channel_id);
+        if (memberFetchIds.length > maxHumanMemberFetchChannels) {
+          memberFetchIds = merged
+            .slice(0, maxHumanMemberFetchChannels)
+            .map((r) => r.channel_id);
+          setInfoNote((prev) =>
+            [
+              prev,
+              `Roster pills (Slack channel members) load for up to ${maxHumanMemberFetchChannels} companies per visit.`,
+            ]
+              .filter(Boolean)
+              .join(" "),
+          );
+        }
+        if (memberFetchIds.length > 0) {
+          const idsMap = await loadHumanIdsByChannel(memberFetchIds);
+          if (idsMap === null) {
+            return;
+          }
+          nextHumanPills.humanIdsByChannelId = idsMap;
+        }
+      } catch {
+        /* keep empty maps; registry pills still useful */
+      }
+
+      setHumanPillData(nextHumanPills);
       setRows(merged);
       setState("ready");
       setStatusText("");
@@ -308,6 +472,10 @@ export function AdminCompanyChannelsStrip() {
       setState("error");
       setStatusText("Failed to load company channels.");
       setRows([]);
+      setHumanPillData({
+        profileByUserId: {},
+        humanIdsByChannelId: {},
+      });
     }
   }, []);
 
@@ -348,46 +516,80 @@ export function AdminCompanyChannelsStrip() {
 
       {state === "ready" && rows.length > 0 ? (
         <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {rows.map((row) => (
-            <li key={row.channel_id} className="list-none">
-              <Link
-                href={`/admin/${encodeURIComponent(row.channel_id)}`}
-                className="flex h-full flex-col rounded-xl border border-border bg-card p-4 shadow-sm transition-colors hover:bg-muted/40 focus-visible:outline focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                <div className="min-h-0 flex-1">
-                  <p className="font-semibold leading-tight">{cardTitle(row)}</p>
-                  {cardTitle(row) !== row.channel_id ? (
-                    <p className="mt-1 font-mono text-[11px] text-muted-foreground">{row.channel_id}</p>
-                  ) : null}
-                  {row.is_private ? (
-                    <p className="mt-1 text-[11px] text-muted-foreground">Private channel</p>
-                  ) : null}
-                </div>
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {row.registry ? (
-                    <>
-                      {row.registry.company_slug?.trim() ? (
-                        <span className={pillClassName(false)} title="company_slug">
-                          {row.registry.company_slug}
+          {rows.map((row) => {
+            const channelHumanIds = humanPillData.humanIdsByChannelId[row.channel_id];
+            const { profileByUserId } = humanPillData;
+
+            return (
+              <li key={row.channel_id} className="list-none">
+                <Link
+                  href={`/admin/${encodeURIComponent(row.channel_id)}`}
+                  className="flex h-full flex-col rounded-xl border border-border bg-card p-4 shadow-sm transition-colors hover:bg-muted/40 focus-visible:outline focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <div className="min-h-0 flex-1">
+                    <p className="flex items-center gap-1.5 font-semibold leading-tight">
+                      <span
+                        className="inline-flex shrink-0 text-muted-foreground"
+                        title={row.is_private ? "Private channel" : "Public channel"}
+                        aria-hidden
+                      >
+                        {row.is_private ? (
+                          <Lock className="size-4" strokeWidth={2.25} />
+                        ) : (
+                          <Users className="size-4" strokeWidth={2.25} />
+                        )}
+                      </span>
+                      {!row.is_private ? <span className="sr-only">Public channel: </span> : null}
+                      {row.is_private ? <span className="sr-only">Private channel: </span> : null}
+                      <span>{stripLeadingHash(cardTitle(row))}</span>
+                    </p>
+                  </div>
+                  <div className="mt-4 space-y-2">
+                    <div className="flex flex-wrap gap-2">
+                      {row.registry ? (
+                        <>
+                          {row.registry.company_slug?.trim() ? (
+                            <span className={pillClassName(false)} title="company_slug">
+                              {row.registry.company_slug}
+                            </span>
+                          ) : null}
+                          <span className={pillClassName(!row.registry.general_responses_muted)}>
+                            {!row.registry.general_responses_muted ? "general on" : "general off"}
+                          </span>
+                          <span className={pillClassName(row.registry.general_auto_reaction_enabled)}>
+                            {row.registry.general_auto_reaction_enabled ? "reactions on" : "reactions off"}
+                          </span>
+                          {ownersPill(row.registry)}
+                        </>
+                      ) : (
+                        <span className={pillClassName(false)} title="Not in employee-factory Redis registry yet">
+                          not in registry
                         </span>
-                      ) : null}
-                      <span className={pillClassName(!row.registry.general_responses_muted)}>
-                        {!row.registry.general_responses_muted ? "general on" : "general off"}
-                      </span>
-                      <span className={pillClassName(row.registry.general_auto_reaction_enabled)}>
-                        {row.registry.general_auto_reaction_enabled ? "reactions on" : "reactions off"}
-                      </span>
-                      {ownersPill(row.registry)}
-                    </>
-                  ) : (
-                    <span className={pillClassName(false)} title="Not in employee-factory Redis registry yet">
-                      not in registry
-                    </span>
-                  )}
-                </div>
-              </Link>
-            </li>
-          ))}
+                      )}
+                    </div>
+                    {channelHumanIds !== undefined ? (
+                      <div className="space-y-1">
+                        <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                          Humans
+                        </p>
+                        {channelHumanIds.length > 0 ? (
+                          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                            {channelHumanIds.map((sid) => (
+                              <span key={`member-${sid}`} title={`Slack user ${sid.trim().toUpperCase()}`}>
+                                <SlackPersonChip {...personChipProps(sid, profileByUserId)} />
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-[10px] text-muted-foreground">No human members reported.</p>
+                        )}
+                      </div>
+                    ) : null}
+                  </div>
+                </Link>
+              </li>
+            );
+          })}
         </ul>
       ) : null}
     </section>

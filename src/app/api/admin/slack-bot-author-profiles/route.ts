@@ -11,7 +11,7 @@ const noStore = {
 } as const;
 
 /**
- * Slack user ID → display name + portrait URL for channel transcripts (Slack `users.list`, same workspace data as the Slack Users admin table).
+ * Slack user ID → display name + portrait URL (+ optional email from `users.list`) for channel transcripts — same workspace source as the Slack Users admin table.
  * Env bot IDs fill gaps when `users.list` omits a row (name only; no local headshot assets).
  */
 export async function GET() {
