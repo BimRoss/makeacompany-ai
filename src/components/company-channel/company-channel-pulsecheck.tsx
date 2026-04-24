@@ -46,7 +46,7 @@ export function CompanyChannelPulsecheck({
   return (
     <DigestAuthorLookupProvider lookup={slackAuthorLookup}>
       <div className="flex shrink-0 flex-col gap-2">
-        <h2 className="text-lg font-semibold leading-snug tracking-tight text-foreground">Latest Company News</h2>
+        <h2 className="text-lg font-semibold leading-snug tracking-tight text-foreground">Latest News</h2>
         <DigestStyleUserMessageCard slackUserId={slackUserId} author={author} bodyMarkdown={text} />
       </div>
     </DigestAuthorLookupProvider>

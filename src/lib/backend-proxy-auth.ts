@@ -66,6 +66,36 @@ export function portalProxyNextJson(body: unknown, status: number) {
   return NextResponse.json(body, { status, headers: proxyJsonNoStoreHeaders });
 }
 
+/** Result of validating the browser admin cookie against the backend (Redis session). */
+export type AdminServerSessionVerifyResult = "ok" | "unauthorized" | "unavailable";
+
+/**
+ * Validates the admin session cookie with the backend (same contract as `/v1/admin/auth/me`).
+ * Use from Server Components so protected admin UI is not rendered when the cookie is stale.
+ */
+export async function verifyAdminServerSession(): Promise<AdminServerSessionVerifyResult> {
+  const token = await resolveAdminSessionBearerToken();
+  if (!token) {
+    return "unauthorized";
+  }
+  const backendURL = `${resolveBackendBaseURL().replace(/\/$/, "")}/v1/admin/auth/me`;
+  try {
+    const response = await fetch(backendURL, {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
+    });
+    if (response.ok) {
+      return "ok";
+    }
+    if (response.status === 401 || response.status === 403) {
+      return "unauthorized";
+    }
+    return "unavailable";
+  } catch {
+    return "unavailable";
+  }
+}
+
 /** Rejects requests without a valid admin session. Use on API routes that do not proxy `/v1/admin/*`. */
 export async function requireAdminApiSession(): Promise<NextResponse | null> {
   const token = await resolveAdminSessionBearerToken();

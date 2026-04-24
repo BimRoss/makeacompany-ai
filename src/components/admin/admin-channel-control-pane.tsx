@@ -152,21 +152,21 @@ export function AdminChannelControlPane({
       </span>
     ) : null;
 
-  const metaBlock = (
-    <div className="min-w-0 flex-1 space-y-3">
-      <h1 className="flex min-w-0 max-w-full items-center gap-2 text-2xl font-semibold tracking-tight text-foreground">
-        {visibilityIcon ? (
-          <>
-            {visibilityIcon}
-            {slackChannelIsPrivate === true ? <span className="sr-only">Private Slack channel: </span> : null}
-            {slackChannelIsPrivate === false ? <span className="sr-only">Public channel: </span> : null}
-          </>
-        ) : null}
-        <span className="min-w-0 truncate">{workspaceTitle}</span>
-      </h1>
-      {foundersSection}
-    </div>
+  /** Same floating title treatment as Latest News / Knowledge Base on the workspace page. */
+  const workspaceHeading = (
+    <h2 className="flex min-w-0 max-w-full items-center gap-2 text-lg font-semibold leading-snug tracking-tight text-foreground">
+      {visibilityIcon ? (
+        <>
+          {visibilityIcon}
+          {slackChannelIsPrivate === true ? <span className="sr-only">Private Slack channel: </span> : null}
+          {slackChannelIsPrivate === false ? <span className="sr-only">Public channel: </span> : null}
+        </>
+      ) : null}
+      <span className="min-w-0 truncate">{workspaceTitle}</span>
+    </h2>
   );
+
+  const foundersColumn = <div className="min-w-0 flex-1 space-y-3">{foundersSection}</div>;
 
   const cardShell = "rounded-2xl border border-border bg-card px-4 py-3.5 shadow-sm";
 
@@ -174,36 +174,43 @@ export function AdminChannelControlPane({
     <div className="min-w-0 shrink-0 border-t border-border pt-3 md:border-l md:border-t-0 md:pl-6 md:pt-0">{child}</div>
   );
 
+  const paneShell = (card: ReactNode) => (
+    <div className="flex shrink-0 flex-col gap-2">
+      {workspaceHeading}
+      {card}
+    </div>
+  );
+
   if (status === "loading") {
-    return (
+    return paneShell(
       <section className={cardShell} aria-busy="true" aria-label="Channel workspace">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between md:gap-6">
-          {metaBlock}
+          {foundersColumn}
           {sideShell(<p className="text-xs text-muted-foreground">Loading channel registry…</p>)}
         </div>
-      </section>
+      </section>,
     );
   }
 
   if (status === "error") {
-    return (
+    return paneShell(
       <section
         className="rounded-2xl border border-destructive/40 bg-card px-4 py-3.5 shadow-sm"
         aria-label="Channel workspace"
       >
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between md:gap-6">
-          {metaBlock}
+          {foundersColumn}
           {sideShell(<p className="text-xs text-destructive">{errorMessage ?? "Could not load channel metadata."}</p>)}
         </div>
-      </section>
+      </section>,
     );
   }
 
   if (status === "missing" || !channel) {
-    return (
+    return paneShell(
       <section className={cardShell} aria-label="Channel workspace">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between md:gap-6">
-          {metaBlock}
+          {foundersColumn}
           {sideShell(
             <div className="space-y-1">
               <p className="text-xs text-muted-foreground">
@@ -213,17 +220,17 @@ export function AdminChannelControlPane({
             </div>,
           )}
         </div>
-      </section>
+      </section>,
     );
   }
 
   const reactionsOn = channel.general_auto_reaction_enabled ?? false;
   const generalOn = !channel.general_responses_muted;
 
-  return (
+  return paneShell(
     <section className={cardShell} aria-label="Channel workspace">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between md:gap-6">
-        {metaBlock}
+        {foundersColumn}
         <div
           className="min-w-[min(100%,14rem)] shrink-0 divide-y divide-border border-t border-border md:border-l md:border-t-0 md:pl-6"
           aria-label="Channel controls"
@@ -251,6 +258,6 @@ export function AdminChannelControlPane({
         </div>
       </div>
       {patchError ? <p className="pt-1 text-xs text-destructive">{patchError}</p> : null}
-    </section>
+    </section>,
   );
 }

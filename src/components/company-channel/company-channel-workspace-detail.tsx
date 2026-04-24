@@ -267,13 +267,19 @@ export function CompanyChannelWorkspaceDetail({ channelId, variant }: CompanyCha
       ) : null}
 
       {knowledgeEmpty && state === "ready" && !transcriptError ? (
-        <div className="overflow-hidden rounded-lg border border-border bg-card px-4 py-5 shadow-sm">
-          <p className="text-sm text-muted-foreground">No channel knowledge digest in Redis yet for this channel.</p>
+        <div className="flex shrink-0 flex-col gap-2">
+          <h2 className="text-lg font-semibold leading-snug tracking-tight text-foreground">Knowledge Base</h2>
+          <div className="overflow-hidden rounded-lg border border-border bg-card px-4 py-5 shadow-sm">
+            <p className="text-sm text-muted-foreground">No channel knowledge digest in Redis yet for this channel.</p>
+          </div>
         </div>
       ) : null}
       {!knowledgeEmpty && markdown.trim() ? (
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <AdminChannelKnowledgeDigest markdown={markdown} slackAuthorLookup={slackAuthorLookup} />
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2">
+          <h2 className="shrink-0 text-lg font-semibold leading-snug tracking-tight text-foreground">Knowledge Base</h2>
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+            <AdminChannelKnowledgeDigest markdown={markdown} slackAuthorLookup={slackAuthorLookup} />
+          </div>
         </div>
       ) : null}
     </div>
