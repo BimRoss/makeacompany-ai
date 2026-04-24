@@ -29,10 +29,14 @@ export function HeroSection() {
           <TaoSlackSignalBadges />
         </div>
 
-        <p className="mx-auto mb-4 max-w-xl text-pretty text-lg font-medium leading-relaxed text-muted-foreground sm:mb-8 sm:max-w-2xl sm:text-xl md:text-2xl">
-          <span className="block">{siteDescriptionLine1}</span>
-          <span className="block">{siteDescriptionLine2}</span>
-        </p>
+        <div className="mx-auto mb-4 w-full max-w-4xl space-y-1 text-center sm:mb-8 sm:space-y-1.5">
+          <p className="mx-auto max-w-xl text-pretty text-lg font-medium leading-relaxed text-muted-foreground sm:max-w-2xl sm:text-xl md:text-2xl">
+            {siteDescriptionLine1}
+          </p>
+          <p className="w-full max-w-none text-pretty text-lg font-medium leading-relaxed text-muted-foreground sm:text-xl md:text-2xl">
+            {siteDescriptionLine2}
+          </p>
+        </div>
 
         <div className="mb-5 text-sm text-muted-foreground sm:mb-10">
           <p className="sm:hidden">

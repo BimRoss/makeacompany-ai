@@ -13,7 +13,7 @@ export const siteTagline = `${siteTaglineLine1} — ${siteTaglineLine2}`;
 /** Subhead lines — hero, OG image body */
 export const siteDescriptionLine1 = "Create an AI-native team in seconds.";
 export const siteDescriptionLine2 =
-  "For mid-sized companies who want departments, not agents, at a fraction of the cost.";
+  "For companies who want departments at a fraction of the cost.";
 
 /**
  * Subhead as one string — meta description, manifest, JSON-LD, OG alt.
