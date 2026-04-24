@@ -49,7 +49,7 @@ func testCatalogFixture() CapabilityCatalog {
 			{
 				ID:             "create-company",
 				Label:          "Create Company",
-				Description:    "Start a company with just a name.",
+				Description:    "Start a private company channel from a name (slug); founders default to you plus @mentioned cofounders.",
 				RuntimeTool:    "joanne-create-company",
 				RequiredParams: []string{"name"},
 				OptionalParams: []string{"founders"},

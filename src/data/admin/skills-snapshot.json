@@ -34,7 +34,7 @@
     {
       "id": "create-company",
       "label": "Create Company",
-      "description": "Start a company with just a name.",
+      "description": "Start a private company channel from a name (slug); founders default to you plus @mentioned cofounders.",
       "employeeIds": ["joanne"],
       "requiredParams": ["name"],
       "optionalParams": ["founders"],
