@@ -29,10 +29,45 @@ type MergedRow = {
   registry: CompanyChannel | null;
 };
 
-function pillClassName(emphasis: boolean): string {
-  return emphasis
-    ? "inline-flex rounded-full border border-foreground/20 bg-foreground px-1.5 py-px text-[10px] font-medium uppercase leading-none tracking-wide text-background"
-    : "inline-flex rounded-full border border-border bg-background px-1.5 py-px text-[10px] font-medium uppercase leading-none tracking-wide text-muted-foreground";
+/** Labeled channel policy pills for the companies table (sentence case, no ALL CAPS). */
+function settingsPillClassName(on: boolean): string {
+  return on
+    ? "inline-flex rounded-full border border-foreground/20 bg-foreground px-2 py-0.5 text-[10px] font-medium leading-none text-background"
+    : "inline-flex rounded-full border border-border bg-background px-2 py-0.5 text-[10px] font-medium leading-none text-muted-foreground";
+}
+
+function ChannelSettingsPills({ registry }: { registry: CompanyChannel | null }) {
+  if (!registry) {
+    return (
+      <span className={settingsPillClassName(false)} title="Not in employee-factory Redis registry yet">
+        —
+      </span>
+    );
+  }
+  const followUpOn = !registry.general_responses_muted;
+  const reactionsOn = registry.general_auto_reaction_enabled;
+  const oooOn = registry.out_of_office_enabled ?? false;
+  return (
+    <div className="flex min-w-0 max-w-[14rem] flex-wrap items-center gap-1">
+      <span
+        className={settingsPillClassName(followUpOn)}
+        title="When on, agents may follow up on general messages and in threads. When off, only direct address."
+      >
+        follow up
+      </span>
+      <span
+        className={settingsPillClassName(reactionsOn)}
+        title="When on, sentiment thumbs and reaction mirroring are enabled."
+      >
+        reactions
+      </span>
+      {oooOn ? (
+        <span className={settingsPillClassName(true)} title="Bots skip Socket Mode handling for this channel.">
+          out of office
+        </span>
+      ) : null}
+    </div>
+  );
 }
 
 const maxDiscoverPolicySyncChannels = 25;
@@ -462,14 +497,13 @@ export function AdminCompanyChannelsStrip() {
 
       {state !== "error" && rows.length > 0 ? (
         <div className="overflow-x-auto rounded-xl border border-border">
-          <table className="w-full min-w-[800px] border-collapse text-left text-sm">
+          <table className="w-full min-w-[680px] border-collapse text-left text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
                 <th className="px-3 py-1.5">Company</th>
                 <th className="px-3 py-1.5">Channel ID</th>
                 <th className="px-3 py-1.5">Visibility</th>
-                <th className="px-3 py-1.5">Follow Up</th>
-                <th className="px-3 py-1.5">Reactions</th>
+                <th className="px-3 py-1.5">Settings</th>
                 <th className="px-3 py-1.5">Founders</th>
               </tr>
             </thead>
@@ -507,26 +541,7 @@ export function AdminCompanyChannelsStrip() {
                       </span>
                     </td>
                     <td className="px-3 py-1.5 align-middle">
-                      {row.registry ? (
-                        <span className={pillClassName(!row.registry.general_responses_muted)}>
-                          {!row.registry.general_responses_muted ? "on" : "off"}
-                        </span>
-                      ) : (
-                        <span className={pillClassName(false)} title="Not in employee-factory Redis registry yet">
-                          —
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-3 py-1.5 align-middle">
-                      {row.registry ? (
-                        <span className={pillClassName(row.registry.general_auto_reaction_enabled)}>
-                          {row.registry.general_auto_reaction_enabled ? "on" : "off"}
-                        </span>
-                      ) : (
-                        <span className={pillClassName(false)} title="Not in employee-factory Redis registry yet">
-                          —
-                        </span>
-                      )}
+                      <ChannelSettingsPills registry={row.registry} />
                     </td>
                     <td className="px-3 py-1.5 align-middle">
                       {founderIdsOrdered.length > 0 ? (

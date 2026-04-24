@@ -209,7 +209,10 @@ export function AdminChannelKnowledgeDigest({
             aria-hidden
           />
           <input
-            type="search"
+            type="text"
+            role="searchbox"
+            inputMode="search"
+            enterKeyHint="search"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search messages…"

@@ -24,7 +24,7 @@ export function SkillsCardsGrid({
   const memberNameById = new Map(members.map((member) => [member.id, member.displayName]));
 
   return (
-    <div className="columns-1 gap-x-4 sm:columns-2 xl:columns-3 [column-fill:balance]">
+    <div className="columns-1 gap-x-3 sm:columns-2 xl:columns-3 [column-fill:balance]">
       {skills.map((skill) => {
         const assignedNames = skill.employeeIds
           .map((employeeId) => memberNameById.get(employeeId))
@@ -33,22 +33,22 @@ export function SkillsCardsGrid({
         const required = skill.requiredParams ?? [];
         const optional = skill.optionalParams ?? [];
         const cardMotion = readOnly
-          ? "employees-card-motion mb-4 flex w-full flex-col gap-2.5 break-inside-avoid rounded-xl border border-border bg-card p-4 shadow-sm motion-colors"
-          : "employees-card-motion mb-4 flex w-full flex-col gap-2.5 break-inside-avoid rounded-xl border border-border bg-card p-4 shadow-sm motion-colors md:cursor-pointer md:hover:shadow-md";
+          ? "employees-card-motion mb-3 flex w-full flex-col gap-1.5 break-inside-avoid rounded-lg border border-border bg-card p-3 shadow-sm motion-colors"
+          : "employees-card-motion mb-3 flex w-full flex-col gap-1.5 break-inside-avoid rounded-lg border border-border bg-card p-3 shadow-sm motion-colors md:cursor-pointer md:hover:shadow-md";
 
         return (
           <article key={skill.id} className={cardMotion}>
-            <div className="flex min-w-0 flex-col gap-1.5">
+            <div className="flex min-w-0 flex-col gap-1">
               <h2
                 className={
                   skill.comingSoon
-                    ? "text-base font-semibold tracking-tight text-foreground/50"
-                    : "text-base font-semibold tracking-tight text-foreground"
+                    ? "text-base font-semibold leading-tight tracking-tight text-foreground/50"
+                    : "text-base font-semibold leading-tight tracking-tight text-foreground"
                 }
               >
                 {skill.label}
               </h2>
-              <div className="flex flex-wrap gap-1.5">
+              <div className="flex flex-wrap gap-1">
                 {skill.comingSoon ? (
                   <span className="shrink-0 rounded-full border border-border bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                     Coming soon
@@ -84,11 +84,11 @@ export function SkillsCardsGrid({
             </p>
 
             {showToolParams && (required.length > 0 || optional.length > 0) ? (
-              <div className="flex min-w-0 flex-wrap gap-1.5 border-t border-border/80 pt-2.5">
+              <div className="flex min-w-0 flex-wrap gap-1 border-t border-border/80 pt-2">
                 {required.map((param) => (
                   <code
                     key={`${skill.id}-req-${param}`}
-                    className="rounded-md border border-border bg-muted/60 px-2 py-0.5 font-mono text-[11px] text-foreground"
+                    className="rounded border border-border bg-muted/60 px-1.5 py-px font-mono text-[10px] leading-tight text-foreground"
                   >
                     {param}
                   </code>
@@ -96,7 +96,7 @@ export function SkillsCardsGrid({
                 {optional.map((param) => (
                   <code
                     key={`${skill.id}-opt-${param}`}
-                    className="rounded-md border border-border bg-muted/60 px-2 py-0.5 font-mono text-[11px] text-foreground opacity-50"
+                    className="rounded border border-border bg-muted/60 px-1.5 py-px font-mono text-[10px] leading-tight text-foreground opacity-50"
                   >
                     {param}
                   </code>

@@ -129,13 +129,17 @@ export function AdminChannelKnowledgeActivityChart({
 
     const yAxis = d3.axisLeft(y).ticks(5).tickFormat(d3.format("~s"));
 
-    const yGridTicks = y.ticks(6).filter((v) => v > 0);
+    const gridClearOfBaselinePx = Math.max(5, Math.min(10, innerH * 0.07));
+    const yGridTicks = y
+      .ticks(6)
+      .filter((v) => v > 0)
+      .filter((v) => innerH - y(v) >= gridClearOfBaselinePx);
     g.append("g")
-      .attr("class", "y-grid")
-      .selectAll("line.grid")
+      .attr("class", "activity-chart-y-grid")
+      .selectAll("line.activity-chart-y-gridline")
       .data(yGridTicks)
       .join("line")
-      .attr("class", "grid")
+      .attr("class", "activity-chart-y-gridline")
       .attr("x1", 0)
       .attr("x2", innerW)
       .attr("y1", (d) => y(d))
@@ -174,6 +178,17 @@ export function AdminChannelKnowledgeActivityChart({
       .call((sel) => sel.select(".domain").attr("stroke", "var(--border)"))
       .call((sel) => sel.selectAll(".tick line").attr("stroke", "var(--border)"))
       .call((sel) => sel.selectAll("text").attr("fill", "var(--muted-foreground)").attr("font-size", 9));
+
+    g.append("line")
+      .attr("class", "activity-chart-x-baseline")
+      .attr("x1", 0)
+      .attr("x2", innerW)
+      .attr("y1", innerH)
+      .attr("y2", innerH)
+      .attr("stroke", "var(--border)")
+      .attr("stroke-opacity", 0.85)
+      .attr("stroke-width", 1.5)
+      .attr("stroke-dasharray", "none");
 
     const gap = Math.min(4, innerW / Math.max(histogram.bins.length * 2, 1));
 

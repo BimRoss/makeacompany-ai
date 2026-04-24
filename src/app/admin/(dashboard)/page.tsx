@@ -17,7 +17,7 @@ export default async function AdminPage() {
           <AdminOverviewGrafanaGrid />
           <AdminAgentsAllGrafanaEmbed />
         </div>
-        <section className="space-y-4" aria-labelledby="admin-skills-heading">
+        <section className="space-y-3" aria-labelledby="admin-skills-heading">
           <h2 id="admin-skills-heading" className="text-lg font-semibold leading-snug tracking-tight">
             Skills{" "}
             <span className="font-normal text-muted-foreground tabular-nums">({skills.length})</span>

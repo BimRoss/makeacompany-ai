@@ -180,33 +180,33 @@ export function UserProfilesPanel() {
 
   return (
     <div className="space-y-10">
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="font-display text-xl font-semibold tracking-tight text-foreground">
-          Stripe Users{" "}
-          <span className="font-normal text-muted-foreground tabular-nums">({stripePurchasers.length})</span>
-        </h2>
-        <button
-          type="button"
-          disabled={stripeLoading}
-          onClick={() => void fetchStripePurchasers(true)}
-          className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/60 disabled:opacity-50"
-        >
-          Refresh
-        </button>
-      </div>
+      <section className="space-y-3" aria-labelledby="admin-stripe-users-heading">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 id="admin-stripe-users-heading" className="font-display text-xl font-semibold tracking-tight text-foreground">
+            Stripe Users{" "}
+            <span className="font-normal text-muted-foreground tabular-nums">({stripePurchasers.length})</span>
+          </h2>
+          <button
+            type="button"
+            disabled={stripeLoading}
+            onClick={() => void fetchStripePurchasers(true)}
+            className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/60 disabled:opacity-50"
+          >
+            Refresh
+          </button>
+        </div>
 
-      {stripeError ? (
-        <p className="rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive" role="alert">
-          {stripeError}
-        </p>
-      ) : null}
-      {stripeWriteWarn ? (
-        <p className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-950 dark:text-amber-100" role="status">
-          {stripeWriteWarn}
-        </p>
-      ) : null}
+        {stripeError ? (
+          <p className="rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive" role="alert">
+            {stripeError}
+          </p>
+        ) : null}
+        {stripeWriteWarn ? (
+          <p className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-950 dark:text-amber-100" role="status">
+            {stripeWriteWarn}
+          </p>
+        ) : null}
 
-      <section className="space-y-3" aria-label="Stripe users">
         {stripePurchasers.length === 0 && !stripeError && !stripeLoading ? (
           <p className="text-sm text-muted-foreground">
             No snapshot in Redis yet. Use Refresh to pull from Stripe and write Redis (this page load only reads Redis).
@@ -259,32 +259,32 @@ export function UserProfilesPanel() {
         ) : null}
       </section>
 
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="font-display text-xl font-semibold tracking-tight text-foreground">
-          Slack Users <span className="font-normal text-muted-foreground tabular-nums">({slackUsers.length})</span>
-        </h2>
-        <button
-          type="button"
-          disabled={slackLoading}
-          onClick={() => void fetchSlackUsers(true)}
-          className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/60 disabled:opacity-50"
-        >
-          Refresh
-        </button>
-      </div>
+      <section className="space-y-3" aria-labelledby="admin-slack-users-heading">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 id="admin-slack-users-heading" className="font-display text-xl font-semibold tracking-tight text-foreground">
+            Slack Users <span className="font-normal text-muted-foreground tabular-nums">({slackUsers.length})</span>
+          </h2>
+          <button
+            type="button"
+            disabled={slackLoading}
+            onClick={() => void fetchSlackUsers(true)}
+            className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/60 disabled:opacity-50"
+          >
+            Refresh
+          </button>
+        </div>
 
-      {slackError ? (
-        <p className="rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive" role="alert">
-          {slackError}
-        </p>
-      ) : null}
-      {slackWriteWarn ? (
-        <p className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-950 dark:text-amber-100" role="status">
-          {slackWriteWarn}
-        </p>
-      ) : null}
+        {slackError ? (
+          <p className="rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive" role="alert">
+            {slackError}
+          </p>
+        ) : null}
+        {slackWriteWarn ? (
+          <p className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-950 dark:text-amber-100" role="status">
+            {slackWriteWarn}
+          </p>
+        ) : null}
 
-      <section className="space-y-3" aria-label="Slack users">
         {slackUsers.length === 0 && !slackError && !slackLoading ? (
           <p className="text-sm text-muted-foreground">
             No snapshot in Redis yet. Use Refresh to pull from Slack and write Redis (needs{" "}
