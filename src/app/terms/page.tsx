@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Footer } from "@/components/landing/footer";
+import { Header } from "@/components/landing/header";
 import { siteUrl } from "@/lib/site";
 
 export const metadata: Metadata = {
@@ -34,9 +35,9 @@ function AlphaList({ items }: { items: string[] }) {
 export default function TermsPage() {
   return (
     <main className="min-h-screen bg-background">
+      <Header />
       <section className="mx-auto w-full max-w-3xl px-6 py-16 sm:py-20">
-        <p className="text-sm uppercase tracking-[0.16em] text-muted-foreground">Legal</p>
-        <h1 className="mt-3 text-4xl font-semibold tracking-tight sm:text-5xl">Early Access Terms of Use</h1>
+        <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">Early Access Terms of Use</h1>
         <p className="mt-4 text-sm text-muted-foreground">Last updated: April 26, 2026</p>
 
         <div className="mt-10 space-y-8 text-base leading-7 text-foreground/90">
