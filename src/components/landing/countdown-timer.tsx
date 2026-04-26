@@ -57,13 +57,10 @@ export function CountdownTimer() {
         <p className="mb-8 text-lg text-muted-foreground">
           Lock in your free month before time runs out
         </p>
-        <div className="flex items-center justify-center gap-1 sm:gap-4">
+        <div className="flex items-center justify-center gap-3 sm:gap-6">
           <TimeBox value={timeLeft.days} label="Days" />
-          <Separator />
           <TimeBox value={timeLeft.hours} label="Hours" />
-          <Separator />
           <TimeBox value={timeLeft.minutes} label="Minutes" />
-          <Separator />
           <TimeBox value={timeLeft.seconds} label="Seconds" />
         </div>
       </div>
@@ -81,11 +78,5 @@ function TimeBox({ value, label }: { value: number; label: string }) {
         {label}
       </span>
     </div>
-  );
-}
-
-function Separator() {
-  return (
-    <span className="shrink-0 text-base font-bold text-muted-foreground/50 sm:text-3xl">:</span>
   );
 }
