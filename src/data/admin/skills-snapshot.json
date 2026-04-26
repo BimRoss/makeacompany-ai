@@ -7,7 +7,7 @@
       "label": "Create Email",
       "description": "Design and send email, to one or a hundred. Bulk concurrency handled, HTML supported natively. Requires confirmation before send.",
       "employeeIds": ["joanne"],
-      "requiredParams": ["intent", "to"],
+      "requiredParams": ["intent", "to", "subject"],
       "optionalParams": ["button", "link"],
       "paramDefaults": {
         "to": "Message author (Slack profile; makeacompany slack→email index when configured)",

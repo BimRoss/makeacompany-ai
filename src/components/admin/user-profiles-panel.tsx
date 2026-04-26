@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useCallback, useEffect, useState } from "react";
 
+import { useAdminFlashToast } from "@/components/admin/admin-flash-toast";
 import { kickToLoginForUnauthorizedApi } from "@/lib/client-auth-unauthorized-redirect";
 
 type StripeWaitlistPurchaserRow = {
@@ -89,6 +90,7 @@ function formatStripeAmount(minorUnits: string, currency: string): string {
 
 /** Stripe checkout customers + Slack workspace members. Mount reads Redis snapshots; Refresh pulls live upstream and updates Redis. */
 export function UserProfilesPanel() {
+  const flash = useAdminFlashToast();
   const [stripePurchasers, setStripePurchasers] = useState<StripeWaitlistPurchaserRow[]>([]);
   const [stripeError, setStripeError] = useState<string | null>(null);
   const [stripeLoading, setStripeLoading] = useState(false);
@@ -99,79 +101,95 @@ export function UserProfilesPanel() {
   const [slackLoading, setSlackLoading] = useState(false);
   const [slackWriteWarn, setSlackWriteWarn] = useState<string | null>(null);
 
-  const fetchStripePurchasers = useCallback(async (live: boolean) => {
-    setStripeLoading(true);
-    setStripeError(null);
-    if (!live) setStripeWriteWarn(null);
-    try {
-      const qs = live ? "?source=live" : "";
-      const res = await fetch(`/api/admin/stripe-waitlist-purchasers${qs}`, { cache: "no-store" });
-      if (kickToLoginForUnauthorizedApi(res.status, "admin")) {
-        return;
-      }
-      const body = (await res.json()) as StripePurchasersPayload;
-      if (!res.ok) {
+  const fetchStripePurchasers = useCallback(
+    async (live: boolean) => {
+      setStripeLoading(true);
+      setStripeError(null);
+      if (!live) setStripeWriteWarn(null);
+      try {
+        const qs = live ? "?source=live" : "";
+        const res = await fetch(`/api/admin/stripe-waitlist-purchasers${qs}`, { cache: "no-store" });
+        if (kickToLoginForUnauthorizedApi(res.status, "admin")) {
+          return;
+        }
+        const body = (await res.json()) as StripePurchasersPayload;
+        if (!res.ok) {
+          setStripeWriteWarn(null);
+          const msg = body.message ?? body.error ?? `HTTP ${res.status}`;
+          setStripeError(msg);
+          setStripePurchasers([]);
+          if (live) flash("error", msg);
+          return;
+        }
+        setStripePurchasers(Array.isArray(body.purchasers) ? body.purchasers : []);
+        if (live) {
+          const parts: string[] = [];
+          if (typeof body.redisSaveError === "string")
+            parts.push(`Snapshot not saved to Redis: ${body.redisSaveError} (full page reload will look empty).`);
+          if (typeof body.profileUpsertError === "string" && body.profileUpsertError)
+            parts.push(`Profile merge: ${body.profileUpsertError}`);
+          setStripeWriteWarn(parts.length > 0 ? parts.join(" ") : null);
+          flash("success", "Stripe users refreshed.");
+        } else {
+          setStripeWriteWarn(null);
+        }
+      } catch (e) {
         setStripeWriteWarn(null);
-        setStripeError(body.message ?? body.error ?? `HTTP ${res.status}`);
+        const msg = e instanceof Error ? e.message : "fetch failed";
+        setStripeError(msg);
         setStripePurchasers([]);
-        return;
+        if (live) flash("error", msg);
+      } finally {
+        setStripeLoading(false);
       }
-      setStripePurchasers(Array.isArray(body.purchasers) ? body.purchasers : []);
-      if (live) {
-        const parts: string[] = [];
-        if (typeof body.redisSaveError === "string")
-          parts.push(`Snapshot not saved to Redis: ${body.redisSaveError} (full page reload will look empty).`);
-        if (typeof body.profileUpsertError === "string" && body.profileUpsertError)
-          parts.push(`Profile merge: ${body.profileUpsertError}`);
-        setStripeWriteWarn(parts.length > 0 ? parts.join(" ") : null);
-      } else {
-        setStripeWriteWarn(null);
-      }
-    } catch (e) {
-      setStripeWriteWarn(null);
-      setStripeError(e instanceof Error ? e.message : "fetch failed");
-      setStripePurchasers([]);
-    } finally {
-      setStripeLoading(false);
-    }
-  }, []);
+    },
+    [flash],
+  );
 
-  const fetchSlackUsers = useCallback(async (live: boolean) => {
-    setSlackLoading(true);
-    setSlackError(null);
-    if (!live) setSlackWriteWarn(null);
-    try {
-      const qs = live ? "?source=live" : "";
-      const res = await fetch(`/api/admin/slack-workspace-users${qs}`, { cache: "no-store" });
-      if (kickToLoginForUnauthorizedApi(res.status, "admin")) {
-        return;
-      }
-      const body = (await res.json()) as SlackUsersPayload;
-      if (!res.ok) {
+  const fetchSlackUsers = useCallback(
+    async (live: boolean) => {
+      setSlackLoading(true);
+      setSlackError(null);
+      if (!live) setSlackWriteWarn(null);
+      try {
+        const qs = live ? "?source=live" : "";
+        const res = await fetch(`/api/admin/slack-workspace-users${qs}`, { cache: "no-store" });
+        if (kickToLoginForUnauthorizedApi(res.status, "admin")) {
+          return;
+        }
+        const body = (await res.json()) as SlackUsersPayload;
+        if (!res.ok) {
+          setSlackWriteWarn(null);
+          const msg = body.message ?? body.error ?? `HTTP ${res.status}`;
+          setSlackError(msg);
+          setSlackUsers([]);
+          if (live) flash("error", msg);
+          return;
+        }
+        setSlackUsers(Array.isArray(body.users) ? body.users : []);
+        if (live) {
+          const parts: string[] = [];
+          if (typeof body.redisSaveError === "string")
+            parts.push(`Snapshot not saved to Redis: ${body.redisSaveError} (full page reload will look empty).`);
+          if (typeof body.syncError === "string" && body.syncError)
+            parts.push(`Slack→email index: ${body.syncError}`);
+          setSlackWriteWarn(parts.length > 0 ? parts.join(" ") : null);
+          flash("success", "Slack users refreshed.");
+        } else {
+          setSlackWriteWarn(null);
+        }
+      } catch (e) {
         setSlackWriteWarn(null);
-        setSlackError(body.message ?? body.error ?? `HTTP ${res.status}`);
+        const msg = e instanceof Error ? e.message : "fetch failed";
+        setSlackError(msg);
         setSlackUsers([]);
-        return;
+        if (live) flash("error", msg);
+      } finally {
+        setSlackLoading(false);
       }
-      setSlackUsers(Array.isArray(body.users) ? body.users : []);
-      if (live) {
-        const parts: string[] = [];
-        if (typeof body.redisSaveError === "string")
-          parts.push(`Snapshot not saved to Redis: ${body.redisSaveError} (full page reload will look empty).`);
-        if (typeof body.syncError === "string" && body.syncError)
-          parts.push(`Slack→email index: ${body.syncError}`);
-        setSlackWriteWarn(parts.length > 0 ? parts.join(" ") : null);
-      } else {
-        setSlackWriteWarn(null);
-      }
-    } catch (e) {
-      setSlackWriteWarn(null);
-      setSlackError(e instanceof Error ? e.message : "fetch failed");
-      setSlackUsers([]);
-    } finally {
-      setSlackLoading(false);
-    }
-  }, []);
+    },
+    [flash],
+  );
 
   useEffect(() => {
     void fetchStripePurchasers(false);

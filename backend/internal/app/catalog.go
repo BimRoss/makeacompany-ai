@@ -195,9 +195,10 @@ func builtinSkillDisplayLabel(skillID string) string {
 
 func mergeCreateEmailParamDefaultsMap(incoming map[string]string) map[string]string {
 	def := map[string]string{
-		"to":     "Message author (Slack profile; makeacompany slack→email index when configured)",
-		"button": "none",
-		"link":   "none",
+		"to":      "Message author (Slack profile; makeacompany slack→email index when configured)",
+		"subject": "Derived from intent when omitted; runtime infers a working subject before send (same idea as create-doc title)",
+		"button":  "none",
+		"link":    "none",
 	}
 	out := make(map[string]string, len(def)+len(incoming))
 	for k, v := range def {
@@ -282,7 +283,7 @@ func mergeDeleteCompanyParamDefaultsMap(incoming map[string]string) map[string]s
 func builtinSkillParamDefaults(skillID string) (minRequired, defaultOptional []string) {
 	switch skillID {
 	case "create-email":
-		return []string{"intent", "to"}, []string{"button", "link"}
+		return []string{"intent", "to", "subject"}, []string{"button", "link"}
 	case "create-doc":
 		return []string{"intent", "title", "editors"}, []string{"commenters", "viewers", "type", "length"}
 	case "create-company":

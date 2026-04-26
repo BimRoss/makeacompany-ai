@@ -3,9 +3,12 @@
 import Link from "next/link";
 import { Lock, Users } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useAdminFlashToast } from "@/components/admin/admin-flash-toast";
 import { SlackPersonChip } from "@/components/admin/slack-person-chip";
 import { channelDisplayTitle, type CompanyChannel, type CompanyChannelsResponse } from "@/lib/admin/company-channels";
 import { kickToLoginForUnauthorizedApi } from "@/lib/client-auth-unauthorized-redirect";
+
+type AdminKickFn = (status: number, flow: "admin") => boolean;
 
 type LoadState = "idle" | "loading" | "error" | "ready";
 
@@ -118,9 +121,10 @@ function needsRegistryPolicySync(row: MergedRow): boolean {
   return false;
 }
 
-async function buildDiscoverChannelsFromSlack(rows: MergedRow[]): Promise<
-  Array<{ channel_id: string; name: string; owner_ids: string[] }> | null
-> {
+async function buildDiscoverChannelsFromSlack(
+  rows: MergedRow[],
+  kick: AdminKickFn = kickToLoginForUnauthorizedApi,
+): Promise<Array<{ channel_id: string; name: string; owner_ids: string[] }> | null> {
   const slice = rows.slice(0, maxDiscoverPolicySyncChannels);
   const concurrency = 6;
   const out: Array<{ channel_id: string; name: string; owner_ids: string[] }> = [];
@@ -134,7 +138,7 @@ async function buildDiscoverChannelsFromSlack(rows: MergedRow[]): Promise<
             `/api/admin/slack-channel-members?channel_id=${encodeURIComponent(row.channel_id)}`,
             { cache: "no-store" },
           );
-          if (kickToLoginForUnauthorizedApi(res.status, "admin")) {
+          if (kick(res.status, "admin")) {
             return null;
           }
           if (res.ok) {
@@ -163,9 +167,11 @@ async function buildDiscoverChannelsFromSlack(rows: MergedRow[]): Promise<
   return out;
 }
 
-async function loadSlackProfilesForPills(): Promise<Record<string, SlackProfileEntry> | null> {
+async function loadSlackProfilesForPills(
+  kick: AdminKickFn = kickToLoginForUnauthorizedApi,
+): Promise<Record<string, SlackProfileEntry> | null> {
   const res = await fetch("/api/admin/slack-bot-author-profiles", { cache: "no-store" });
-  if (kickToLoginForUnauthorizedApi(res.status, "admin")) {
+  if (kick(res.status, "admin")) {
     return null;
   }
   if (!res.ok) {
@@ -212,6 +218,8 @@ function uniqueNormalizedOwnerIds(ownerIds: string[] | undefined): string[] {
 }
 
 export function AdminCompanyChannelsStrip() {
+  const flash = useAdminFlashToast();
+  const authKickDuringLoadRef = useRef(false);
   const [state, setState] = useState<LoadState>("idle");
   const [statusText, setStatusText] = useState("");
   const [rows, setRows] = useState<MergedRow[]>([]);
@@ -225,6 +233,13 @@ export function AdminCompanyChannelsStrip() {
   rowsRef.current = rows;
 
   const load = useCallback(async (live: boolean) => {
+    authKickDuringLoadRef.current = false;
+    const guardKick: AdminKickFn = (status, flow) => {
+      const kicked = kickToLoginForUnauthorizedApi(status, flow);
+      if (kicked) authKickDuringLoadRef.current = true;
+      return kicked;
+    };
+
     const seq = ++loadSeq.current;
     const stale = () => seq !== loadSeq.current;
 
@@ -242,7 +257,7 @@ export function AdminCompanyChannelsStrip() {
       const slackQs = live ? "?source=live" : "";
       const slackRes = await fetch(`/api/admin/slack-member-channels${slackQs}`, { cache: "no-store" });
       if (stale()) return;
-      if (kickToLoginForUnauthorizedApi(slackRes.status, "admin")) {
+      if (guardKick(slackRes.status, "admin")) {
         setSnapshotLoading(false);
         setState("idle");
         return;
@@ -269,7 +284,7 @@ export function AdminCompanyChannelsStrip() {
               body: JSON.stringify({ keep_channel_ids: ids }),
               cache: "no-store",
             });
-            if (kickToLoginForUnauthorizedApi(pruneRes.status, "admin")) {
+            if (guardKick(pruneRes.status, "admin")) {
               setSnapshotLoading(false);
               setState("idle");
               return;
@@ -291,7 +306,7 @@ export function AdminCompanyChannelsStrip() {
 
       const redisRes = await fetch("/api/admin/company-channels", { cache: "no-store" });
       if (stale()) return;
-      if (kickToLoginForUnauthorizedApi(redisRes.status, "admin")) {
+      if (guardKick(redisRes.status, "admin")) {
         setSnapshotLoading(false);
         setState("idle");
         return;
@@ -383,14 +398,15 @@ export function AdminCompanyChannelsStrip() {
           slackEmpty && !redisError
             ? "No Slack channels in the member snapshot and no rows in the company registry for this Redis. If you use docker compose, ensure employee-factory and makeacompany-ai share the same REDIS_URL (or run channel discover once)."
             : "";
-        setState("error");
-        setStatusText(
+        const errMsg =
           [parts.filter(Boolean).join(" · "), hint].filter(Boolean).join(" ") ||
-            "Failed to load company channels.",
-        );
+          "Failed to load company channels.";
+        setState("error");
+        setStatusText(errMsg);
         setRows([]);
         setHumanPillData({ profileByUserId: {} });
         setSnapshotLoading(false);
+        if (live) flash("error", errMsg);
         return;
       }
 
@@ -412,7 +428,7 @@ export function AdminCompanyChannelsStrip() {
           const forDiscover = working.filter(needsRegistryPolicySync);
           if (forDiscover.length > 0) {
             try {
-              const channels = await buildDiscoverChannelsFromSlack(forDiscover);
+              const channels = await buildDiscoverChannelsFromSlack(forDiscover, guardKick);
               if (stale()) return;
               if (channels === null) {
                 setEnrichBanner(
@@ -425,13 +441,13 @@ export function AdminCompanyChannelsStrip() {
                   body: JSON.stringify({ channels }),
                   cache: "no-store",
                 });
-                if (kickToLoginForUnauthorizedApi(discoverRes.status, "admin")) {
+                if (guardKick(discoverRes.status, "admin")) {
                   return;
                 }
                 if (stale()) return;
                 if (discoverRes.ok) {
                   const redisRefresh = await fetch("/api/admin/company-channels", { cache: "no-store" });
-                  if (kickToLoginForUnauthorizedApi(redisRefresh.status, "admin")) {
+                  if (guardKick(redisRefresh.status, "admin")) {
                     return;
                   }
                   if (stale()) return;
@@ -461,7 +477,7 @@ export function AdminCompanyChannelsStrip() {
         if (stale()) return;
 
         try {
-          const profiles = await loadSlackProfilesForPills();
+          const profiles = await loadSlackProfilesForPills(guardKick);
           if (stale()) return;
           if (profiles === null) {
             setEnrichBanner(
@@ -483,6 +499,9 @@ export function AdminCompanyChannelsStrip() {
         } finally {
           if (!stale()) {
             setSnapshotLoading(false);
+            if (live && !authKickDuringLoadRef.current) {
+              flash("success", "Companies refreshed.");
+            }
           }
         }
       } else {
@@ -495,9 +514,10 @@ export function AdminCompanyChannelsStrip() {
         setRows([]);
         setHumanPillData({ profileByUserId: {} });
         setSnapshotLoading(false);
+        if (live) flash("error", "Failed to load company channels.");
       }
     }
-  }, []);
+  }, [flash]);
 
   useEffect(() => {
     void load(false);
