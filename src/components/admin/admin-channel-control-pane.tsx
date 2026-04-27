@@ -1,7 +1,7 @@
 "use client";
 
 import { Lock, Users, X } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { CompanyChannel } from "@/lib/admin/company-channels";
 import {
   AdminChannelKnowledgeActivityChart,
@@ -11,6 +11,7 @@ import { useWorkspaceNavbarTrail } from "@/components/workspace-navbar-trail-pro
 import { kickToLoginForUnauthorizedApi } from "@/lib/client-auth-unauthorized-redirect";
 import { useAdminFlashToast } from "@/components/admin/admin-flash-toast";
 import { SlackPersonChip } from "@/components/admin/slack-person-chip";
+import { useIsMdLayout } from "@/hooks/use-is-md-layout";
 
 type PaneStatus = "loading" | "missing" | "error" | "ready";
 
@@ -105,6 +106,9 @@ export function AdminChannelControlPane({
 }: AdminChannelControlPaneProps) {
   const { setWorkspaceNavbarTrail, setWorkspaceNavbarEndLead } = useWorkspaceNavbarTrail();
   const flash = useAdminFlashToast();
+  const isMdLayout = useIsMdLayout();
+  const settingsColumnRef = useRef<HTMLDivElement | null>(null);
+  const [settingsColumnHeightPx, setSettingsColumnHeightPx] = useState<number | null>(null);
   const [patchError, setPatchError] = useState<string | null>(null);
   const flashComingSoon = useCallback(() => {
     flash("success", "Coming Soon!");
@@ -141,6 +145,22 @@ export function AdminChannelControlPane({
     },
     [apiCompany, channel, channelId, companyChannelsApiPrefix, onChannelUpdated],
   );
+
+  useLayoutEffect(() => {
+    if (status !== "ready" || !channel) {
+      setSettingsColumnHeightPx(null);
+      return;
+    }
+    const el = settingsColumnRef.current;
+    if (!el) {
+      return;
+    }
+    const apply = () => setSettingsColumnHeightPx(Math.round(el.getBoundingClientRect().height));
+    apply();
+    const ro = new ResizeObserver(apply);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [status, channelId]);
 
   const ownerIds = channel?.owner_ids;
   const founderIdsNormalized = useMemo(
@@ -243,8 +263,14 @@ export function AdminChannelControlPane({
     return () => setWorkspaceNavbarEndLead(null);
   }, [founderNavbarLead, setWorkspaceNavbarEndLead]);
 
+  const activityMaxHeightStyle =
+    isMdLayout && settingsColumnHeightPx != null ? { maxHeight: settingsColumnHeightPx } : undefined;
+
   const activityColumn = (
-    <div className="relative order-2 flex min-w-0 min-h-0 flex-1 flex-col space-y-3 md:order-1">
+    <div
+      className="relative order-2 flex min-w-0 min-h-0 flex-1 flex-col space-y-3 md:order-1 md:min-h-0"
+      style={activityMaxHeightStyle}
+    >
       {showPinnedActivityClear ? (
         <button
           type="button"
@@ -273,7 +299,7 @@ export function AdminChannelControlPane({
   if (status === "loading") {
     return paneShell(
       <section className={cardShell} aria-busy="true" aria-label="Channel workspace">
-        <div className="flex flex-col gap-3 md:flex-row md:items-stretch md:justify-between md:gap-6">
+        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between md:gap-6">
           {activityColumn}
           {sideShell(<p className="text-xs text-muted-foreground">Loading channel registry…</p>)}
         </div>
@@ -287,7 +313,7 @@ export function AdminChannelControlPane({
         className="rounded-2xl border border-destructive/40 bg-card px-4 py-3.5 shadow-sm"
         aria-label="Channel workspace"
       >
-        <div className="flex flex-col gap-3 md:flex-row md:items-stretch md:justify-between md:gap-6">
+        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between md:gap-6">
           {activityColumn}
           {sideShell(<p className="text-xs text-destructive">{errorMessage ?? "Could not load channel metadata."}</p>)}
         </div>
@@ -298,7 +324,7 @@ export function AdminChannelControlPane({
   if (status === "missing" || !channel) {
     return paneShell(
       <section className={cardShell} aria-label="Channel workspace">
-        <div className="flex flex-col gap-3 md:flex-row md:items-stretch md:justify-between md:gap-6">
+        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between md:gap-6">
           {activityColumn}
           {sideShell(
             <div className="space-y-1">
@@ -318,9 +344,10 @@ export function AdminChannelControlPane({
 
   return paneShell(
     <section className={cardShell} aria-label="Channel workspace">
-      <div className="flex flex-col gap-3 md:flex-row md:items-stretch md:justify-between md:gap-6">
+      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between md:gap-6">
         {activityColumn}
         <div
+          ref={settingsColumnRef}
           className="order-1 min-w-[min(100%,14rem)] shrink-0 border-t border-border max-md:border-t-0 md:order-2 md:border-l md:border-t-0 md:pl-6"
           aria-label="Employee settings"
         >

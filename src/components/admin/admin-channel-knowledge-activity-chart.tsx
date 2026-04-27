@@ -11,7 +11,8 @@ import {
 
 const PLOT_HEIGHT_MOBILE_PX = 128;
 const PLOT_HEIGHT_MD_MIN = 128;
-const PLOT_HEIGHT_MD_MAX = 420;
+/** Upper bound when the container is unusually tall; admin layout caps height from Employee Settings. */
+const PLOT_HEIGHT_MD_MAX = 280;
 
 function formatTimeAxisTick(tsSec: number, granularity: ActivityGranularity, innerW: number): string {
   const d = new Date(tsSec * 1000);
@@ -410,13 +411,13 @@ export function AdminChannelKnowledgeActivityChart({
   const summary = `${total} message${total === 1 ? "" : "s"}, ${binLabel}`;
 
   return (
-    <div className="flex min-h-0 min-w-0 flex-col space-y-2 overflow-x-clip overflow-y-visible max-md:shrink-0 md:flex-1">
+    <div className="flex min-h-0 min-w-0 flex-col space-y-2 overflow-x-clip overflow-y-visible max-md:shrink-0 md:h-full md:min-h-0 md:flex-1 md:overflow-hidden">
       <p className="w-full shrink-0 text-center text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground md:text-left">
         Activity
       </p>
       <div
         ref={plotWrapRef}
-        className="h-32 w-full min-w-0 shrink-0 md:h-auto md:min-h-32 md:flex-1"
+        className="h-32 w-full min-w-0 shrink-0 md:h-auto md:min-h-0 md:max-h-full md:flex-1"
       >
         <svg
           ref={svgRef}
