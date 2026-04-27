@@ -141,20 +141,22 @@ func (s *Store) UpsertUserProfilesFromStripeWaitlistPurchasers(ctx context.Conte
 
 // UserProfileRow is one combined profile for admin UI and integrations.
 type UserProfileRow struct {
-	Email                       string `json:"email"`
-	StripeCustomerID            string `json:"stripeCustomerId"`
-	StripeSubscriptionID        string `json:"stripeSubscriptionId"`
-	StripeSubscriptionStatus    string `json:"stripeSubscriptionStatus"`
-	StripePriceID               string `json:"stripePriceId"`
-	StripeSessionID             string `json:"stripeSessionId"`
-	StripeProductID             string `json:"stripeProductId"`
-	Tier                        string `json:"tier"`
-	SlackUserID                 string `json:"slackUserId"`
-	WaitlistPaymentStatus       string `json:"waitlistPaymentStatus"`
-	ProfileUpdatedAt            string `json:"profileUpdatedAt"`
-	SlackProfileUpdatedAt       string `json:"slackProfileUpdatedAt"`
-	StripeSubscriptionUpdatedAt string `json:"stripeSubscriptionUpdatedAt"`
-	Linked                      bool   `json:"linked"`
+	Email                        string `json:"email"`
+	StripeCustomerID             string `json:"stripeCustomerId"`
+	StripeSubscriptionID         string `json:"stripeSubscriptionId"`
+	StripeSubscriptionStatus     string `json:"stripeSubscriptionStatus"`
+	StripePriceID                string `json:"stripePriceId"`
+	StripeSessionID              string `json:"stripeSessionId"`
+	StripeProductID              string `json:"stripeProductId"`
+	Tier                         string `json:"tier"`
+	SlackUserID                  string `json:"slackUserId"`
+	WaitlistPaymentStatus        string `json:"waitlistPaymentStatus"`
+	ProfileUpdatedAt             string `json:"profileUpdatedAt"`
+	SlackProfileUpdatedAt        string `json:"slackProfileUpdatedAt"`
+	StripeSubscriptionUpdatedAt  string `json:"stripeSubscriptionUpdatedAt"`
+	HumansTermsAcceptedAt        string `json:"humansTermsAcceptedAt,omitempty"`
+	HumansTermsAcceptedMessageTs string `json:"humansTermsAcceptedMessageTs,omitempty"`
+	Linked                       bool   `json:"linked"`
 }
 
 // ListUserProfiles scans profile hashes (PII). Newest profile_updated_at first; capped at maxUserProfileList.
@@ -187,20 +189,22 @@ outer:
 			stripeCust := strings.TrimSpace(vals["stripe_customer_id"])
 			slackID := strings.TrimSpace(vals["slack_user_id"])
 			rows = append(rows, UserProfileRow{
-				Email:                       email,
-				StripeCustomerID:            stripeCust,
-				StripeSubscriptionID:        strings.TrimSpace(vals["stripe_subscription_id"]),
-				StripeSubscriptionStatus:    strings.TrimSpace(vals["stripe_subscription_status"]),
-				StripePriceID:               strings.TrimSpace(vals["stripe_price_id"]),
-				StripeSessionID:             strings.TrimSpace(vals["stripe_session_id"]),
-				StripeProductID:             strings.TrimSpace(vals["stripe_product_id"]),
-				Tier:                        strings.TrimSpace(vals["tier"]),
-				SlackUserID:                 slackID,
-				WaitlistPaymentStatus:       strings.TrimSpace(vals["waitlist_payment_status"]),
-				ProfileUpdatedAt:            strings.TrimSpace(vals["profile_updated_at"]),
-				SlackProfileUpdatedAt:       strings.TrimSpace(vals["slack_profile_updated_at"]),
-				StripeSubscriptionUpdatedAt: strings.TrimSpace(vals["stripe_subscription_updated_at"]),
-				Linked:                      stripeCust != "" && slackID != "",
+				Email:                        email,
+				StripeCustomerID:             stripeCust,
+				StripeSubscriptionID:         strings.TrimSpace(vals["stripe_subscription_id"]),
+				StripeSubscriptionStatus:     strings.TrimSpace(vals["stripe_subscription_status"]),
+				StripePriceID:                strings.TrimSpace(vals["stripe_price_id"]),
+				StripeSessionID:              strings.TrimSpace(vals["stripe_session_id"]),
+				StripeProductID:              strings.TrimSpace(vals["stripe_product_id"]),
+				Tier:                         strings.TrimSpace(vals["tier"]),
+				SlackUserID:                  slackID,
+				WaitlistPaymentStatus:        strings.TrimSpace(vals["waitlist_payment_status"]),
+				ProfileUpdatedAt:             strings.TrimSpace(vals["profile_updated_at"]),
+				SlackProfileUpdatedAt:        strings.TrimSpace(vals["slack_profile_updated_at"]),
+				StripeSubscriptionUpdatedAt:  strings.TrimSpace(vals["stripe_subscription_updated_at"]),
+				HumansTermsAcceptedAt:        strings.TrimSpace(vals["humans_terms_accepted_at"]),
+				HumansTermsAcceptedMessageTs: strings.TrimSpace(vals["humans_terms_accepted_slack_message_ts"]),
+				Linked:                       stripeCust != "" && slackID != "",
 			})
 		}
 		cursor = next
@@ -250,4 +254,62 @@ func (s *Store) UserProfileTierBySlackUser(ctx context.Context, slackUserID stri
 		return email, "", err
 	}
 	return email, strings.TrimSpace(t), nil
+}
+
+// SlackUserIDByProfileEmail returns slack_user_id from the profile hash, or "" if missing/unknown.
+func (s *Store) SlackUserIDByProfileEmail(ctx context.Context, email string) (string, error) {
+	if s == nil {
+		return "", fmt.Errorf("nil store")
+	}
+	email = normalizeProfileEmail(email)
+	if email == "" {
+		return "", nil
+	}
+	v, err := s.rdb.HGet(ctx, userProfileRedisKey(email), "slack_user_id").Result()
+	if err == redis.Nil {
+		return "", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(v), nil
+}
+
+// EnrichSlackWorkspaceUsersWithProfileTerms merges humans terms fields from makeacompany:user_profile into each row
+// (via makeacompany:user_by_slack). Safe when the slack→email index or profile hash is missing.
+func (s *Store) EnrichSlackWorkspaceUsersWithProfileTerms(ctx context.Context, users []SlackWorkspaceUser) {
+	if s == nil || len(users) == 0 {
+		return
+	}
+	for i := range users {
+		if users[i].IsBot || users[i].IsDeleted {
+			continue
+		}
+		sid := strings.TrimSpace(users[i].SlackUserID)
+		if sid == "" {
+			continue
+		}
+		email, err := s.rdb.Get(ctx, userBySlackRedisKey(sid)).Result()
+		if err != nil {
+			continue
+		}
+		em := normalizeProfileEmail(email)
+		if em == "" {
+			continue
+		}
+		vals, err := s.rdb.HMGet(ctx, userProfileRedisKey(em), "humans_terms_accepted_at", "humans_terms_accepted_message_ts").Result()
+		if err != nil || len(vals) < 2 {
+			continue
+		}
+		if vals[0] != nil {
+			if v, ok := vals[0].(string); ok {
+				users[i].HumansTermsAcceptedAt = strings.TrimSpace(v)
+			}
+		}
+		if vals[1] != nil {
+			if v, ok := vals[1].(string); ok {
+				users[i].HumansTermsAcceptedMessageTs = strings.TrimSpace(v)
+			}
+		}
+	}
 }

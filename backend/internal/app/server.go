@@ -81,6 +81,7 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 	s.mux.HandleFunc("/v1/admin/waitlist", s.handleAdminWaitlist)
 	s.mux.HandleFunc("/v1/admin/stripe-waitlist-purchasers", s.handleAdminStripeWaitlistPurchasers)
 	s.mux.HandleFunc("/v1/admin/slack-workspace-users", s.handleAdminSlackWorkspaceUsers)
+	s.mux.HandleFunc("POST /v1/admin/joanne-humans-welcome-trigger", s.handleAdminJoanneHumansWelcomeTrigger)
 	s.mux.HandleFunc("/v1/admin/slack-member-channels", s.handleAdminSlackMemberChannels)
 	s.mux.HandleFunc("/v1/admin/user-profiles", s.handleAdminUserProfiles)
 	s.mux.HandleFunc("/v1/internal/refresh-stripe-waitlist-snapshot", s.handleInternalRefreshStripeWaitlistSnapshot)
@@ -158,6 +159,8 @@ func normalizeMetricRoute(path string) string {
 		return "/v1/admin/stripe-waitlist-purchasers"
 	case path == "/v1/admin/slack-workspace-users":
 		return "/v1/admin/slack-workspace-users"
+	case path == "/v1/admin/joanne-humans-welcome-trigger":
+		return "/v1/admin/joanne-humans-welcome-trigger"
 	case path == "/v1/admin/slack-member-channels":
 		return "/v1/admin/slack-member-channels"
 	case path == "/v1/admin/user-profiles":

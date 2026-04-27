@@ -29,6 +29,10 @@ type Config struct {
 	StripePriceWaitlist string
 	// SlackBotToken is the same env as slack-orchestrator: SLACK_BOT_TOKEN (users:read + users:read.email for admin users.list).
 	SlackBotToken string
+	// JoanneHumansWelcomeTriggerURL is the employee-factory Joanne HTTP root (e.g. http://127.0.0.1:8080) for POST /internal/joanne/humans-welcome/trigger.
+	JoanneHumansWelcomeTriggerURL string
+	// JoanneHumansWelcomeTriggerToken must match JOANNE_HUMANS_WELCOME_TRIGGER_TOKEN on the Joanne pod (Authorization: Bearer).
+	JoanneHumansWelcomeTriggerToken string
 	// OrchestratorDebugBaseURL is slack-orchestrator HTTP root (same as Next ORCHESTRATOR_DEBUG_BASE_URL) for GET /debug/member-channels snapshots.
 	OrchestratorDebugBaseURL string
 	OrchestratorDebugToken   string
@@ -63,6 +67,8 @@ func LoadConfig() Config {
 		StripeWebhookSecret:                   strings.TrimSpace(os.Getenv("STRIPE_WEBHOOK_SECRET")),
 		StripePriceWaitlist:                   strings.TrimSpace(os.Getenv("STRIPE_PRICE_ID_WAITLIST")),
 		SlackBotToken:                         strings.TrimSpace(os.Getenv("SLACK_BOT_TOKEN")),
+		JoanneHumansWelcomeTriggerURL:         strings.TrimSuffix(strings.TrimSpace(os.Getenv("JOANNE_HUMANS_WELCOME_TRIGGER_URL")), "/"),
+		JoanneHumansWelcomeTriggerToken:       strings.TrimSpace(os.Getenv("JOANNE_HUMANS_WELCOME_TRIGGER_TOKEN")),
 		OrchestratorDebugBaseURL:              strings.TrimSpace(os.Getenv("ORCHESTRATOR_DEBUG_BASE_URL")),
 		OrchestratorDebugToken:                strings.TrimSpace(os.Getenv("ORCHESTRATOR_DEBUG_TOKEN")),
 		GoogleOAuthClientID:                   strings.TrimSpace(os.Getenv("GOOGLE_OAUTH_CLIENT_ID")),

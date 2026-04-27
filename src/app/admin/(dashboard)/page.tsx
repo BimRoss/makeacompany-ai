@@ -1,3 +1,4 @@
+import { AdminJoanneWelcomeTriggerCard } from "@/components/admin/admin-joanne-welcome-trigger-card";
 import { AdminCompanyChannelsStrip } from "@/components/admin/admin-company-channels-strip";
 import { AdminAgentsAllGrafanaEmbed } from "@/components/admin/admin-agents-all-grafana-embed";
 import { AdminOverviewGrafanaGrid } from "@/components/admin/admin-overview-grafana-grid";
@@ -13,6 +14,7 @@ export default async function AdminPage() {
   return (
     <AdminShell>
       <div className="space-y-10">
+        <AdminJoanneWelcomeTriggerCard />
         <div className="space-y-4">
           <AdminOverviewGrafanaGrid />
           <AdminAgentsAllGrafanaEmbed />

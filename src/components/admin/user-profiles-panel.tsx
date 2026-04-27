@@ -38,6 +38,9 @@ type SlackWorkspaceUserRow = {
   profileImageUrl?: string;
   isBot: boolean;
   isDeleted: boolean;
+  /** From Redis profile (Joanne #humans terms confirm). */
+  humansTermsAcceptedAt?: string;
+  humansTermsAcceptedMessageTs?: string;
 };
 
 type SlackUsersPayload = {
@@ -313,7 +316,7 @@ export function UserProfilesPanel() {
         ) : null}
         {slackUsers.length > 0 ? (
           <div className="overflow-x-auto rounded-xl border border-border">
-            <table className="w-full min-w-[780px] border-collapse text-left text-sm">
+            <table className="w-full min-w-[920px] border-collapse text-left text-sm">
               <thead>
                 <tr className="border-b border-border bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
                   <th className="w-9 px-2 py-1.5" scope="col">
@@ -324,6 +327,7 @@ export function UserProfilesPanel() {
                   <th className="px-3 py-1.5">Username</th>
                   <th className="px-3 py-1.5">Slack ID</th>
                   <th className="px-3 py-1.5">Team</th>
+                  <th className="px-3 py-1.5">Terms accepted</th>
                   <th className="px-3 py-1.5">Bot</th>
                   <th className="px-3 py-1.5">Deleted</th>
                 </tr>
@@ -361,6 +365,12 @@ export function UserProfilesPanel() {
                     <td className="px-3 py-1.5 align-middle font-mono text-xs">{short(u.username, 28)}</td>
                     <td className="px-3 py-1.5 align-middle font-mono text-xs">{short(u.slackUserId, 16)}</td>
                     <td className="px-3 py-1.5 align-middle font-mono text-xs">{short(u.teamId, 14)}</td>
+                    <td
+                      className="px-3 py-1.5 align-middle text-xs text-muted-foreground"
+                      title={(u.humansTermsAcceptedMessageTs ?? "").trim() || undefined}
+                    >
+                      {(u.humansTermsAcceptedAt ?? "").trim() ? short(u.humansTermsAcceptedAt ?? "", 22) : "—"}
+                    </td>
                     <td className="px-3 py-1.5 align-middle text-xs">{u.isBot ? "yes" : "—"}</td>
                     <td className="px-3 py-1.5 align-middle text-xs">{u.isDeleted ? "yes" : "—"}</td>
                   </tr>

@@ -73,6 +73,7 @@ func (s *Server) tryWarmSlackUsersSnapshotWhenMissing(ctx context.Context) map[s
 		return nil
 	}
 	synced, syncErr := s.store.SyncSlackUserIndexFromWorkspaceUsers(ctx, users)
+	s.store.EnrichSlackWorkspaceUsersWithProfileTerms(ctx, users)
 	if syncErr != nil {
 		s.log.Printf("admin slack users snapshot warm (missing): sync index: %v", syncErr)
 	}
@@ -133,6 +134,8 @@ func (s *Server) handleAdminSlackWorkspaceUsers(w http.ResponseWriter, r *http.R
 			if syncErr != nil {
 				s.log.Printf("admin slack users live sync index: %v", syncErr)
 			}
+			s.store.EnrichSlackWorkspaceUsersWithProfileTerms(r.Context(), users)
+			resp["users"] = users
 		}
 		writeJSONNoStore(w, http.StatusOK, resp)
 		return
@@ -163,6 +166,7 @@ func (s *Server) handleAdminSlackWorkspaceUsers(w http.ResponseWriter, r *http.R
 		writeJSONNoStore(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
 		return
 	}
+	s.store.EnrichSlackWorkspaceUsersWithProfileTerms(r.Context(), env.Users)
 	writeJSONNoStore(w, http.StatusOK, map[string]any{
 		"source":       "snapshot",
 		"fetchedAt":    env.FetchedAt,
