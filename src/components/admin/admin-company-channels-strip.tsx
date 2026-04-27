@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Lock, Users } from "lucide-react";
+import { Copy, Loader2, Lock, RefreshCw, Users } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAdminFlashToast } from "@/components/admin/admin-flash-toast";
 import { SlackPersonChip } from "@/components/admin/slack-person-chip";
@@ -523,6 +523,17 @@ export function AdminCompanyChannelsStrip() {
     void load(false);
   }, [load]);
 
+  const copyCompanyChannelIds = useCallback(async () => {
+    const ids = rows.map((row) => (row.channel_id ?? "").trim()).filter(Boolean);
+    if (ids.length === 0) return;
+    try {
+      await navigator.clipboard.writeText(ids.join(", "));
+      flash("success", "Channel IDs copied.");
+    } catch {
+      flash("error", "Could not copy to clipboard.");
+    }
+  }, [rows, flash]);
+
   return (
     <section className="space-y-3" aria-labelledby="admin-company-channels-heading">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -530,15 +541,31 @@ export function AdminCompanyChannelsStrip() {
           Companies{" "}
           <span className="font-normal text-muted-foreground tabular-nums">({rows.length})</span>
         </h2>
-        <button
-          type="button"
-          disabled={snapshotLoading}
-          aria-busy={snapshotLoading}
-          onClick={() => void load(true)}
-          className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/60 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          Refresh
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            disabled={snapshotLoading || rows.length === 0}
+            onClick={() => void copyCompanyChannelIds()}
+            className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg border border-border bg-card text-foreground hover:bg-muted/60 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50"
+            aria-label="Copy company channel IDs"
+          >
+            <Copy className="size-4" aria-hidden />
+          </button>
+          <button
+            type="button"
+            disabled={snapshotLoading}
+            aria-busy={snapshotLoading}
+            onClick={() => void load(true)}
+            className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg border border-border bg-card text-foreground hover:bg-muted/60 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50"
+            aria-label="Refresh companies from upstream"
+          >
+            {snapshotLoading ? (
+              <Loader2 className="size-4 animate-spin" aria-hidden />
+            ) : (
+              <RefreshCw className="size-4" aria-hidden />
+            )}
+          </button>
+        </div>
       </div>
 
       {state === "error" ? <p className="text-sm text-destructive">{statusText}</p> : null}

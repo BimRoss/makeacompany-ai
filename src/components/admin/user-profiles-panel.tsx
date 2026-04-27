@@ -1,5 +1,6 @@
 "use client";
 
+import { Copy, Loader2, RefreshCw } from "lucide-react";
 import Image from "next/image";
 import { useCallback, useEffect, useState } from "react";
 
@@ -91,7 +92,7 @@ function formatStripeAmount(minorUnits: string, currency: string): string {
   }
 }
 
-/** Stripe checkout customers + Slack workspace members. Mount reads Redis snapshots; Refresh pulls live upstream and updates Redis. */
+/** Stripe checkout customers + Slack workspace members. Mount reads Redis snapshots; live refresh pulls upstream and updates Redis. */
 export function UserProfilesPanel() {
   const flash = useAdminFlashToast();
   const [stripePurchasers, setStripePurchasers] = useState<StripeWaitlistPurchaserRow[]>([]);
@@ -149,6 +150,17 @@ export function UserProfilesPanel() {
     [flash],
   );
 
+  const copyStripeUserEmails = useCallback(async () => {
+    const emails = stripePurchasers.map((row) => (row.email ?? "").trim()).filter(Boolean);
+    if (emails.length === 0) return;
+    try {
+      await navigator.clipboard.writeText(emails.join(", "));
+      flash("success", "Stripe user emails copied.");
+    } catch {
+      flash("error", "Could not copy to clipboard.");
+    }
+  }, [stripePurchasers, flash]);
+
   const fetchSlackUsers = useCallback(
     async (live: boolean) => {
       setSlackLoading(true);
@@ -194,6 +206,17 @@ export function UserProfilesPanel() {
     [flash],
   );
 
+  const copySlackUserIds = useCallback(async () => {
+    const ids = slackUsers.map((u) => (u.slackUserId ?? "").trim()).filter(Boolean);
+    if (ids.length === 0) return;
+    try {
+      await navigator.clipboard.writeText(ids.join(", "));
+      flash("success", "Slack user IDs copied.");
+    } catch {
+      flash("error", "Could not copy to clipboard.");
+    }
+  }, [slackUsers, flash]);
+
   useEffect(() => {
     void fetchStripePurchasers(false);
     void fetchSlackUsers(false);
@@ -207,14 +230,30 @@ export function UserProfilesPanel() {
             Stripe Users{" "}
             <span className="font-normal text-muted-foreground tabular-nums">({stripePurchasers.length})</span>
           </h2>
-          <button
-            type="button"
-            disabled={stripeLoading}
-            onClick={() => void fetchStripePurchasers(true)}
-            className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/60 disabled:opacity-50"
-          >
-            Refresh
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              disabled={stripeLoading || stripePurchasers.length === 0}
+              onClick={() => void copyStripeUserEmails()}
+              className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg border border-border bg-card text-foreground hover:bg-muted/60 disabled:opacity-50"
+              aria-label="Copy Stripe user emails"
+            >
+              <Copy className="size-4" aria-hidden />
+            </button>
+            <button
+              type="button"
+              disabled={stripeLoading}
+              onClick={() => void fetchStripePurchasers(true)}
+              className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg border border-border bg-card text-foreground hover:bg-muted/60 disabled:opacity-50"
+              aria-label="Refresh Stripe users from upstream"
+            >
+              {stripeLoading ? (
+                <Loader2 className="size-4 animate-spin" aria-hidden />
+              ) : (
+                <RefreshCw className="size-4" aria-hidden />
+              )}
+            </button>
+          </div>
         </div>
 
         {stripeError ? (
@@ -230,7 +269,7 @@ export function UserProfilesPanel() {
 
         {stripePurchasers.length === 0 && !stripeError && !stripeLoading ? (
           <p className="text-sm text-muted-foreground">
-            No snapshot in Redis yet. Use Refresh to pull from Stripe and write Redis (this page load only reads Redis).
+            No snapshot in Redis yet. Use the refresh control to pull from Stripe and write Redis (this page load only reads Redis).
           </p>
         ) : null}
         {stripePurchasers.length > 0 ? (
@@ -285,14 +324,30 @@ export function UserProfilesPanel() {
           <h2 id="admin-slack-users-heading" className="font-display text-xl font-semibold tracking-tight text-foreground">
             Slack Users <span className="font-normal text-muted-foreground tabular-nums">({slackUsers.length})</span>
           </h2>
-          <button
-            type="button"
-            disabled={slackLoading}
-            onClick={() => void fetchSlackUsers(true)}
-            className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/60 disabled:opacity-50"
-          >
-            Refresh
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              disabled={slackLoading || slackUsers.length === 0}
+              onClick={() => void copySlackUserIds()}
+              className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg border border-border bg-card text-foreground hover:bg-muted/60 disabled:opacity-50"
+              aria-label="Copy Slack user IDs"
+            >
+              <Copy className="size-4" aria-hidden />
+            </button>
+            <button
+              type="button"
+              disabled={slackLoading}
+              onClick={() => void fetchSlackUsers(true)}
+              className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg border border-border bg-card text-foreground hover:bg-muted/60 disabled:opacity-50"
+              aria-label="Refresh Slack workspace users from upstream"
+            >
+              {slackLoading ? (
+                <Loader2 className="size-4 animate-spin" aria-hidden />
+              ) : (
+                <RefreshCw className="size-4" aria-hidden />
+              )}
+            </button>
+          </div>
         </div>
 
         {slackError ? (
@@ -308,7 +363,7 @@ export function UserProfilesPanel() {
 
         {slackUsers.length === 0 && !slackError && !slackLoading ? (
           <p className="text-sm text-muted-foreground">
-            No snapshot in Redis yet. Use Refresh to pull from Slack and write Redis (needs{" "}
+            No snapshot in Redis yet. Use the refresh control to pull from Slack and write Redis (needs{" "}
             <span className="font-mono">SLACK_BOT_TOKEN</span> — same as slack-orchestrator; copy from{" "}
             <span className="font-mono">.env.dev</span> or <span className="font-mono">.env.prod</span> there). This page
             load only reads Redis.

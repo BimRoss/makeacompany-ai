@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import clsx from "clsx";
 
 import type { AdminSkill, TeamMember } from "@/lib/admin/catalog";
 import {
@@ -17,9 +18,17 @@ type TeamMemberCardProps = {
   className?: string;
   /** When true, do not resolve `/headshots/{id}.png`; use generated initials only (e.g. public /employees). */
   skipLocalPortraits?: boolean;
+  /** Flat profile block inside a parent card (e.g. /employees grid); no outer border, radius, or shadow. */
+  embedded?: boolean;
 };
 
-export function TeamMemberCard({ member, skillsById, className, skipLocalPortraits }: TeamMemberCardProps) {
+export function TeamMemberCard({
+  member,
+  skillsById,
+  className,
+  skipLocalPortraits,
+  embedded = false,
+}: TeamMemberCardProps) {
   const [headshotFailed, setHeadshotFailed] = useState(false);
   const headshotUrl = headshotFailed
     ? getAdminHeadshotGeneratedUrl(member)
@@ -27,12 +36,13 @@ export function TeamMemberCard({ member, skillsById, className, skipLocalPortrai
   const mappedSkills = member.skillIds
     .map((skillId) => skillsById.get(skillId))
     .filter((skill): skill is AdminSkill => Boolean(skill));
-  const articleClassName = [
-    "employees-card-motion group relative overflow-hidden rounded-2xl border border-border bg-card p-4 shadow-sm motion-colors sm:p-5 md:cursor-pointer md:hover:shadow-lg",
-    className,
-  ]
-    .filter(Boolean)
-    .join(" ");
+  const articleClassName = clsx(
+    "employees-card-motion group relative overflow-hidden motion-colors",
+    embedded
+      ? "rounded-none border-0 bg-transparent p-0 shadow-none md:cursor-default md:hover:translate-y-0 md:hover:shadow-none"
+      : "rounded-2xl border border-border bg-card p-4 shadow-sm sm:p-5 md:cursor-pointer md:hover:shadow-lg",
+    className
+  );
 
   return (
     <article className={articleClassName}>
