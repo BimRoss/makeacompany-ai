@@ -11,7 +11,7 @@ import {
 
 const PLOT_HEIGHT_MOBILE_PX = 128;
 const PLOT_HEIGHT_MD_MIN = 128;
-/** Upper bound when the container is unusually tall; admin layout caps height from Employee Settings. */
+/** Upper bound when the container is unusually tall; admin layout caps height from Team Settings. */
 const PLOT_HEIGHT_MD_MAX = 280;
 
 function formatTimeAxisTick(tsSec: number, granularity: ActivityGranularity, innerW: number): string {

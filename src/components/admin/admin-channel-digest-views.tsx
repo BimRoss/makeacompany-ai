@@ -525,7 +525,7 @@ function DigestTwoPaneShell({
         className={clsx(
           "grid min-h-0 w-full gap-0",
           isMdLayout
-            ? "h-full max-h-full flex-1 grid-cols-2 grid-rows-1 divide-x divide-border/80"
+            ? "h-full max-h-full flex-1 grid-cols-2 grid-rows-1"
             : "h-auto flex-none grid-cols-1 grid-rows-1",
         )}
       >
@@ -854,7 +854,7 @@ export function DigestAuthorView({
       onCloseDetail={dismissAuthorPanel}
       detailTitle={detailTitle}
       leftList={
-        <div className="flex flex-col gap-1.5 md:gap-2" role="list" aria-label="Employees">
+        <div className="flex flex-col gap-1.5 md:gap-2" role="list" aria-label="Team">
           {order.map((uid) => {
             const msgs = columns.get(uid) ?? [];
             const author = resolveTranscriptAuthor(uid, lookup);

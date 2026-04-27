@@ -15,7 +15,7 @@ import { useIsMdLayout } from "@/hooks/use-is-md-layout";
 
 type PaneStatus = "loading" | "missing" | "error" | "ready";
 
-export type AdminChannelFounder = {
+export type ChannelWorkspaceViewerChip = {
   displayName: string;
   portraitUrl?: string;
 };
@@ -31,8 +31,8 @@ type AdminChannelControlPaneProps = {
   companyChannelsApiPrefix?: "admin" | "portal";
   /** Shown in the card header (top row), e.g. display name or channel id while loading. */
   workspaceTitle: string;
-  /** Registry `owner_ids` resolved to names + portraits; shown in the site header from `md` up. */
-  founders?: AdminChannelFounder[] | null;
+  /** Signed-in admin/portal user for the site header chip (from session + optional Slack profile match). */
+  viewerNavbarIdentity?: ChannelWorkspaceViewerChip | null;
   /** Channel digest markdown (same payload as Knowledge Base) for the activity chart. */
   knowledgeMarkdown?: string | null;
   /** Pinned activity bucket (click a bar); scopes the Knowledge Base until unpinned. */
@@ -95,7 +95,7 @@ export function AdminChannelControlPane({
   onChannelUpdated,
   companyChannelsApiPrefix = "admin",
   workspaceTitle,
-  founders,
+  viewerNavbarIdentity,
   knowledgeMarkdown,
   knowledgeActivityPinnedBin,
   onKnowledgeActivityPinnedBinChange,
@@ -159,52 +159,23 @@ export function AdminChannelControlPane({
     return () => ro.disconnect();
   }, [status, channelId]);
 
-  const ownerIds = channel?.owner_ids;
-  const founderIdsNormalized = useMemo(
-    () => ownerIds?.map((id) => id.trim()).filter(Boolean).map((id) => id.toUpperCase()) ?? [],
-    [ownerIds],
-  );
-
-  const foundersSignature = useMemo(() => {
-    if (founderIdsNormalized.length === 0) {
-      return "";
+  const viewerNavbarLead = useMemo(() => {
+    const v = viewerNavbarIdentity;
+    if (!v) {
+      return null;
     }
-    return founderIdsNormalized
-      .map((id, i) => {
-        const f = founders?.[i];
-        return `${id}\u0001${f?.displayName ?? ""}\u0001${f?.portraitUrl ?? ""}`;
-      })
-      .join("\u0002");
-  }, [founderIdsNormalized, founders]);
-
-  const founderEntries = useMemo(() => {
-    if (!foundersSignature) {
-      return [] as { id: string; displayName: string; portraitUrl?: string }[];
-    }
-    return foundersSignature.split("\u0002").map((chunk) => {
-      const [id, displayName, portraitUrl] = chunk.split("\u0001");
-      return {
-        id: id ?? "",
-        displayName: displayName || "Member",
-        portraitUrl: portraitUrl || undefined,
-      };
-    });
-  }, [foundersSignature]);
-
-  const founderNavbarLead = useMemo(() => {
-    if (founderEntries.length === 0) {
+    const name = v.displayName.trim();
+    if (!name) {
       return null;
     }
     return (
-      <div className="flex min-h-11 min-w-0 items-center justify-end gap-1" aria-label="Company founders">
-        {founderEntries.map((entry) => (
-          <span key={`founder-${entry.id}`} className="min-w-0 shrink" title={`Slack user ${entry.id}`}>
-            <SlackPersonChip displayName={entry.displayName} portraitUrl={entry.portraitUrl} size="nav" />
-          </span>
-        ))}
+      <div className="flex min-h-11 min-w-0 items-center justify-end gap-1" aria-label="Signed-in user">
+        <span className="min-w-0 shrink">
+          <SlackPersonChip displayName={name} portraitUrl={v.portraitUrl} size="nav" />
+        </span>
       </div>
     );
-  }, [founderEntries]);
+  }, [viewerNavbarIdentity]);
 
   const clearPinnedActivity = useCallback(() => {
     onKnowledgeActivityPinnedBinChange?.(null);
@@ -256,9 +227,9 @@ export function AdminChannelControlPane({
   }, [navbarTrail, setWorkspaceNavbarTrail]);
 
   useEffect(() => {
-    setWorkspaceNavbarEndLead(founderNavbarLead);
+    setWorkspaceNavbarEndLead(viewerNavbarLead);
     return () => setWorkspaceNavbarEndLead(null);
-  }, [founderNavbarLead, setWorkspaceNavbarEndLead]);
+  }, [viewerNavbarLead, setWorkspaceNavbarEndLead]);
 
   const activityMaxHeightStyle =
     isMdLayout && settingsColumnHeightPx != null ? { maxHeight: settingsColumnHeightPx } : undefined;
@@ -346,12 +317,12 @@ export function AdminChannelControlPane({
         <div
           ref={settingsColumnRef}
           className="order-1 min-w-[min(100%,14rem)] shrink-0 border-t border-border max-md:border-t-0 md:order-2 md:border-l md:border-t-0 md:pl-6"
-          aria-label="Employee settings"
+          aria-label="Team settings"
         >
           <p className="mb-2 w-full shrink-0 text-left text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-            Employee Settings
+            Team Settings
           </p>
-          <div className="divide-y divide-border" aria-label="Employee setting toggles">
+          <div className="divide-y divide-border" aria-label="Team setting toggles">
             <div className="flex flex-wrap items-center justify-between gap-2 py-1.5">
             <span
               className="max-w-[11rem] text-xs font-medium text-foreground"

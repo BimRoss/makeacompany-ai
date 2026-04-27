@@ -229,7 +229,7 @@ export function AdminChannelKnowledgeDigest({
       className={clsx(
         "flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-border bg-card shadow-sm",
         // Desktop: avoid a fixed 42rem floor so the workspace fits in the viewport and the site footer stays visible;
-        // Employees / Messages / Transcript scroll inside this card via the inner flex + overflow chain.
+        // Team / Messages / Transcript scroll inside this card via the inner flex + overflow chain.
         view === "classic" ? "min-h-[42rem] md:min-h-0" : "min-h-0",
       )}
     >
@@ -288,7 +288,7 @@ export function AdminChannelKnowledgeDigest({
             role="tablist"
             aria-label="Knowledge base view"
           >
-            {viewTab("author", "Employees", "Employees by author", Users)}
+            {viewTab("author", "Team", "Team by author", Users)}
             {viewTab("thread", "Messages", "Messages by thread", MessageSquare)}
             {viewTab("classic", "Transcript", "Transcript", FileText)}
           </div>

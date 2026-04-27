@@ -52,7 +52,12 @@ export function SlackPersonChip({
       >
         {url ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={url} alt="" className="block size-full object-cover" />
+          <img
+            src={url}
+            alt=""
+            referrerPolicy="no-referrer"
+            className="block size-full object-cover"
+          />
         ) : (
           <span className="flex size-full items-center justify-center text-muted-foreground" aria-hidden>
             <UserRound className={s.icon} />

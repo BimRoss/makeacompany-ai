@@ -1,8 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
-import { AdminChannelControlPane, type AdminChannelFounder } from "@/components/admin/admin-channel-control-pane";
+import {
+  AdminChannelControlPane,
+  type ChannelWorkspaceViewerChip,
+} from "@/components/admin/admin-channel-control-pane";
 import { AdminChannelKnowledgeDigest } from "@/components/admin/admin-channel-knowledge-digest";
 import type { SlackTranscriptAuthorLookup } from "@/components/admin/admin-channel-digest-views";
 import { CompanyChannelPageLoader } from "@/components/company-channel/company-channel-page-loader";
@@ -11,6 +14,7 @@ import { companyChannelWorkspaceTitle, type CompanyChannel } from "@/lib/admin/c
 import { kickToLoginForUnauthorizedApi } from "@/lib/client-auth-unauthorized-redirect";
 import { peekPortalWelcomeParam, stripPortalWelcomeParam } from "@/lib/portal-welcome-param";
 import type { KnowledgeActivityTimeBin } from "@/lib/channel-knowledge-activity";
+import { displayNameFromAuthEmail } from "@/lib/auth-email-display-name";
 
 type LoadState = "idle" | "loading" | "error" | "ready";
 
@@ -22,10 +26,6 @@ export type CompanyChannelWorkspaceDetailProps = {
   variant: CompanyChannelWorkspaceVariant;
 };
 
-function looksSlackMemberId(s: string): boolean {
-  return /^U[A-Z0-9]{8,}$/i.test(s.trim());
-}
-
 /**
  * Single company-channel workspace: metadata, toggles, transcript.
  * Used from `/admin/[channelId]` (admin-only) and `/[channelId]` (portal owners) — same UI, different auth + API prefix.
@@ -35,6 +35,15 @@ type SlackProfileRow = {
   displayName?: string;
   portraitUrl?: string;
   email?: string;
+};
+
+/** Same shape as `/api/admin/slack-workspace-users` rows (Redis snapshot / live Slack users.list). */
+type SlackWorkspaceUserRow = {
+  slackUserId?: string;
+  email?: string;
+  displayName?: string;
+  realName?: string;
+  profileImageUrl?: string;
 };
 
 type SlackMemberChannelsPayload = {
@@ -74,6 +83,7 @@ export function CompanyChannelWorkspaceDetail({ channelId, variant }: CompanyCha
   /** Click a bar to pin; Knowledge Base stays on this bucket until unpinned (click again or Escape). */
   const [knowledgeActivityPinnedBin, setKnowledgeActivityPinnedBin] = useState<KnowledgeActivityTimeBin | null>(null);
   const knowledgeDigestActivityBin = knowledgeActivityPinnedBin;
+  const [viewerNavbarIdentity, setViewerNavbarIdentity] = useState<ChannelWorkspaceViewerChip | null>(null);
 
   const apiPrefix = variant === "admin" ? "admin" : "portal";
   const profilesUrl =
@@ -88,28 +98,39 @@ export function CompanyChannelWorkspaceDetail({ channelId, variant }: CompanyCha
     setTranscriptError(null);
     setChannelStatus("loading");
     setSlackChannelIsPrivate(null);
+    setViewerNavbarIdentity(null);
     const enc = encodeURIComponent(channelId);
     const wantPortalWelcome = variant === "portal" && peekPortalWelcomeParam();
-    const mePromise = wantPortalWelcome ? fetch("/api/portal/auth/me", { cache: "no-store" }) : null;
 
     try {
-      const [chRes, knRes, profRes, slackMcRes] = await Promise.all([
+      const [chRes, knRes, profRes, slackMcRes, meRes, slackUsersRes] = await Promise.all([
         fetch(`/api/${apiPrefix}/company-channels/${enc}`, { cache: "no-store" }),
         fetch(`/api/${apiPrefix}/channel-knowledge/${enc}`, { cache: "no-store" }),
         fetch(profilesUrl, { cache: "no-store" }),
         fetch(`/api/${apiPrefix}/slack-member-channels`, { cache: "no-store" }),
+        fetch(`/api/${apiPrefix}/auth/me`, { cache: "no-store" }),
+        variant === "admin"
+          ? fetch("/api/admin/slack-workspace-users", { cache: "no-store" })
+          : Promise.resolve(null as Response | null),
       ]);
-      const meRes = mePromise ? await mePromise : null;
 
       const flow = variant === "admin" ? "admin" : "portal";
       if (
         kickToLoginForUnauthorizedApi(chRes.status, flow, channelId) ||
         kickToLoginForUnauthorizedApi(knRes.status, flow, channelId) ||
         kickToLoginForUnauthorizedApi(profRes.status, flow, channelId) ||
-        kickToLoginForUnauthorizedApi(slackMcRes.status, flow, channelId)
+        kickToLoginForUnauthorizedApi(slackMcRes.status, flow, channelId) ||
+        kickToLoginForUnauthorizedApi(meRes.status, flow, channelId) ||
+        (variant === "admin" &&
+          slackUsersRes != null &&
+          kickToLoginForUnauthorizedApi(slackUsersRes.status, flow, channelId))
       ) {
         return;
       }
+
+      type AuthMePayload = { authenticated?: boolean; email?: string };
+      const meJson = (await meRes.json().catch(() => null)) as AuthMePayload | null;
+      const sessionEmail = String(meJson?.email ?? "").trim().toLowerCase();
 
       const slackPayload = (await slackMcRes.json().catch(() => null)) as SlackMemberChannelsPayload | null;
       setSlackChannelIsPrivate(slackPrivateForChannelId(slackPayload, channelId));
@@ -169,31 +190,77 @@ export function CompanyChannelWorkspaceDetail({ channelId, variant }: CompanyCha
           };
         }
       }
+
+      let slackWorkspaceUsers: SlackWorkspaceUserRow[] = [];
+      if (variant === "admin" && slackUsersRes?.ok) {
+        const su = (await slackUsersRes.json().catch(() => null)) as { users?: SlackWorkspaceUserRow[] } | null;
+        slackWorkspaceUsers = Array.isArray(su?.users) ? su.users : [];
+      }
+
+      let viewerChip: ChannelWorkspaceViewerChip | null = null;
+      if (sessionEmail) {
+        let displayName = "";
+        let portraitUrl: string | undefined;
+
+        const workspaceUser =
+          variant === "admin" && slackWorkspaceUsers.length > 0
+            ? slackWorkspaceUsers.find((u) => String(u.email ?? "").trim().toLowerCase() === sessionEmail)
+            : undefined;
+
+        if (workspaceUser) {
+          const pic = String(workspaceUser.profileImageUrl ?? "").trim();
+          if (pic) {
+            portraitUrl = pic;
+          }
+        }
+
+        if (Array.isArray(rows)) {
+          const profileRow = rows.find((r) => String(r.email ?? "").trim().toLowerCase() === sessionEmail);
+          if (profileRow) {
+            const dn = String(profileRow.displayName ?? "").trim();
+            if (dn) {
+              displayName = dn;
+            }
+            const pu = String(profileRow.portraitUrl ?? "").trim();
+            if (pu && !portraitUrl) {
+              portraitUrl = pu;
+            }
+          }
+        }
+
+        if (!displayName && workspaceUser) {
+          displayName =
+            String(workspaceUser.displayName ?? "").trim() ||
+            String(workspaceUser.realName ?? "").trim();
+        }
+        if (!displayName) {
+          displayName = displayNameFromAuthEmail(sessionEmail);
+        }
+
+        viewerChip = { displayName, ...(portraitUrl ? { portraitUrl } : {}) };
+      }
+      setViewerNavbarIdentity(viewerChip);
       setSlackAuthorLookup(nextLookup);
 
       if (wantPortalWelcome) {
         stripPortalWelcomeParam();
         let greeting = "Welcome! You're signed in to your company workspace.";
         let portraitUrl: string | undefined;
-        if (meRes?.ok) {
-          const meJson = (await meRes.json().catch(() => null)) as { email?: string } | null;
-          const sessionEmail = String(meJson?.email ?? "").trim().toLowerCase();
-          if (sessionEmail && Array.isArray(rows)) {
-            for (const row of rows) {
-              const rowEmail = String(row.email ?? "").trim().toLowerCase();
-              if (!rowEmail || rowEmail !== sessionEmail) {
-                continue;
-              }
-              const displayName = String(row.displayName ?? "").trim();
-              if (displayName) {
-                greeting = `Welcome, ${displayName}!`;
-                const pu = String(row.portraitUrl ?? "").trim();
-                if (pu) {
-                  portraitUrl = pu;
-                }
-              }
-              break;
+        if (sessionEmail && Array.isArray(rows)) {
+          for (const row of rows) {
+            const rowEmail = String(row.email ?? "").trim().toLowerCase();
+            if (!rowEmail || rowEmail !== sessionEmail) {
+              continue;
             }
+            const displayName = String(row.displayName ?? "").trim();
+            if (displayName) {
+              greeting = `Welcome, ${displayName}!`;
+              const pu = String(row.portraitUrl ?? "").trim();
+              if (pu) {
+                portraitUrl = pu;
+              }
+            }
+            break;
           }
         }
         setPortalWelcome({ greeting, portraitUrl });
@@ -204,6 +271,7 @@ export function CompanyChannelWorkspaceDetail({ channelId, variant }: CompanyCha
       setState("error");
       setSlackAuthorLookup({});
       setSlackChannelIsPrivate(null);
+      setViewerNavbarIdentity(null);
       setTranscriptError("Network error loading transcript.");
       setChannelStatus("error");
       setChannelError("Network error.");
@@ -229,20 +297,6 @@ export function CompanyChannelWorkspaceDetail({ channelId, variant }: CompanyCha
 
   const pageTitle =
     channel && channelStatus === "ready" ? companyChannelWorkspaceTitle(channel) : channelId;
-  const foundersForHeader = useMemo((): AdminChannelFounder[] | undefined => {
-    if (channelStatus !== "ready" || !channel) return undefined;
-    const ids = channel.owner_ids?.map((id) => id.trim()).filter(Boolean) ?? [];
-    return ids.map((id) => {
-      const up = id.toUpperCase();
-      const lu = slackAuthorLookup[up];
-      const raw = lu?.displayName?.trim() ?? "";
-      const isPlaceholder = !raw || looksSlackMemberId(raw) || raw.toUpperCase() === up;
-      return {
-        displayName: isPlaceholder ? "Member" : raw,
-        portraitUrl: lu?.portraitUrl?.trim() || undefined,
-      };
-    });
-  }, [channel, channelStatus, slackAuthorLookup]);
 
   if (state === "loading" || state === "idle") {
     return <CompanyChannelPageLoader srLabel="Loading channel workspace" />;
@@ -265,7 +319,7 @@ export function CompanyChannelWorkspaceDetail({ channelId, variant }: CompanyCha
           onChannelUpdated={setChannel}
           companyChannelsApiPrefix={variant === "portal" ? "portal" : "admin"}
           workspaceTitle={pageTitle}
-          founders={foundersForHeader}
+          viewerNavbarIdentity={viewerNavbarIdentity}
           knowledgeMarkdown={markdown}
           knowledgeActivityPinnedBin={knowledgeActivityPinnedBin}
           onKnowledgeActivityPinnedBinChange={setKnowledgeActivityPinnedBin}
