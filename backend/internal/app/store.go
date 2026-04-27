@@ -842,7 +842,7 @@ func slugFromSlackChannelDisplayName(name string) string {
 
 const channelKnowledgeRedisKeyFmt = "employee-factory:channel_knowledge:%s:markdown"
 
-// GetChannelKnowledgeMarkdown returns the stored hourly digest markdown for a Slack channel id
+// GetChannelKnowledgeMarkdown returns the stored full digest markdown for a Slack channel id
 // (same key employee-factory uses in Redis). Empty string with no error if missing.
 func (s *Store) GetChannelKnowledgeMarkdown(ctx context.Context, channelID string) (string, error) {
 	rdb := s.companyChannelsRedis()
