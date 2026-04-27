@@ -10,15 +10,13 @@ import (
 	"time"
 )
 
-// joanneHumansWelcomeTestEmail is the profile used to resolve slack_user_id for the admin “fake join” trigger (dev + prod).
-const joanneHumansWelcomeTestEmail = "grantdfoster@gmail.com"
-
 type joanneWelcomeTriggerBody struct {
-	Force *bool `json:"force"`
+	Email string `json:"email"`
+	Force *bool  `json:"force"`
 }
 
 // handleAdminJoanneHumansWelcomeTrigger proxies to employee-factory Joanne to post the #humans welcome + terms thread.
-// Always targets slack_user_id from makeacompany:user_profile for joanneHumansWelcomeTestEmail (admin session still required).
+// Resolves slack_user_id from makeacompany:user_profile for the requested email (admin session still required).
 func (s *Server) handleAdminJoanneHumansWelcomeTrigger(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -48,7 +46,16 @@ func (s *Server) handleAdminJoanneHumansWelcomeTrigger(w http.ResponseWriter, r 
 
 	var body joanneWelcomeTriggerBody
 	_ = json.NewDecoder(r.Body).Decode(&body)
-	slackUID, err := s.store.SlackUserIDByProfileEmail(r.Context(), joanneHumansWelcomeTestEmail)
+	email := strings.TrimSpace(body.Email)
+	if email == "" {
+		writeJSONNoStore(w, http.StatusBadRequest, map[string]any{"error": "email is required"})
+		return
+	}
+	if !strings.Contains(email, "@") {
+		writeJSONNoStore(w, http.StatusBadRequest, map[string]any{"error": "invalid email"})
+		return
+	}
+	slackUID, err := s.store.SlackUserIDByProfileEmail(r.Context(), email)
 	if err != nil {
 		s.log.Printf("admin joanne welcome trigger: profile slack lookup: %v", err)
 		writeJSONNoStore(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
@@ -56,7 +63,7 @@ func (s *Server) handleAdminJoanneHumansWelcomeTrigger(w http.ResponseWriter, r 
 	}
 	if slackUID == "" {
 		writeJSONNoStore(w, http.StatusBadRequest, map[string]any{
-			"error": "no slack_user_id on makeacompany:user_profile for " + joanneHumansWelcomeTestEmail + " — run Slack users snapshot / index sync so the profile is populated",
+			"error": "no slack_user_id on makeacompany:user_profile for " + email + " — run Slack users snapshot / index sync so the profile is populated",
 		})
 		return
 	}
@@ -100,7 +107,7 @@ func (s *Server) handleAdminJoanneHumansWelcomeTrigger(w http.ResponseWriter, r 
 		}
 	}
 	parsed["slackUserId"] = slackUID
-	parsed["testProfileEmail"] = joanneHumansWelcomeTestEmail
+	parsed["profileEmail"] = email
 	parsed["proxiedFrom"] = url
 	writeJSONNoStore(w, resp.StatusCode, parsed)
 }

@@ -5,17 +5,28 @@ import { useCallback, useState } from "react";
 import { useAdminFlashToast } from "@/components/admin/admin-flash-toast";
 import { kickToLoginForUnauthorizedApi } from "@/lib/client-auth-unauthorized-redirect";
 
+function looksLikeEmail(value: string): boolean {
+  const t = value.trim();
+  return t.length > 0 && t.includes("@") && !t.startsWith("@") && !t.endsWith("@");
+}
+
 export function AdminJoanneWelcomeTriggerCard() {
   const flash = useAdminFlashToast();
   const [loading, setLoading] = useState(false);
+  const [email, setEmail] = useState("");
 
   const trigger = useCallback(async () => {
+    const trimmed = email.trim();
+    if (!looksLikeEmail(trimmed)) {
+      flash("error", "Enter a valid user email to match their profile.");
+      return;
+    }
     setLoading(true);
     try {
       const res = await fetch("/api/admin/joanne-humans-welcome-trigger", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ force: true }),
+        body: JSON.stringify({ email: trimmed, force: true }),
         cache: "no-store",
       });
       if (kickToLoginForUnauthorizedApi(res.status, "admin")) {
@@ -37,17 +48,37 @@ export function AdminJoanneWelcomeTriggerCard() {
     } finally {
       setLoading(false);
     }
-  }, [flash]);
+  }, [email, flash]);
+
+  const canSubmit = looksLikeEmail(email);
 
   return (
-    <button
-      type="button"
-      disabled={loading}
-      onClick={() => void trigger()}
-      className="rounded-xl border border-border bg-muted/50 px-4 py-2 text-sm font-semibold text-foreground hover:bg-muted disabled:opacity-50"
-      aria-label="Trigger Joanne humans channel welcome message (test)"
-    >
-      {loading ? "Sending…" : "Trigger welcome message"}
-    </button>
+    <div className="flex flex-wrap items-center gap-3">
+      <label className="sr-only" htmlFor="admin-joanne-welcome-email">
+        User email for welcome trigger
+      </label>
+      <input
+        id="admin-joanne-welcome-email"
+        type="email"
+        name="email"
+        inputMode="email"
+        autoComplete="email"
+        placeholder="user@example.com"
+        value={email}
+        disabled={loading}
+        onChange={(e) => setEmail(e.target.value)}
+        className="min-w-[min(100%,16rem)] max-w-md flex-1 rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground shadow-sm outline-none ring-offset-background placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+        aria-label="User email for welcome trigger"
+      />
+      <button
+        type="button"
+        disabled={loading || !canSubmit}
+        onClick={() => void trigger()}
+        className="rounded-xl border border-border bg-muted/50 px-4 py-2 text-sm font-semibold text-foreground hover:bg-muted disabled:opacity-50"
+        aria-label="Trigger Joanne humans channel welcome message (test)"
+      >
+        {loading ? "Sending…" : "Trigger welcome message"}
+      </button>
+    </div>
   );
 }
