@@ -277,18 +277,6 @@ export function AdminChannelKnowledgeActivityChart({
 
     const pinK = pinnedBin ? binKey(pinnedBin) : null;
 
-    const barTooltip = (b: KnowledgeActivityTimeBin) => {
-      const pinHint = onPinnedBinChange
-        ? "\nClick to pin this range for the Knowledge Base (use the clear button, click the bar again, or Escape to clear)."
-        : "";
-      if (!histogram.hasRealTs) {
-        return `${b.count} message${b.count === 1 ? "" : "s"} in this slice${pinHint}`;
-      }
-      const a = formatTimeAxisTick(b.t0, histogram.granularity, innerW);
-      const z = formatTimeAxisTick(Math.min(b.t1, histogram.tEnd), histogram.granularity, innerW);
-      return `${b.count} message${b.count === 1 ? "" : "s"} — ${a} → ${z}${pinHint}`;
-    };
-
     const bars = g
       .selectAll("rect.bar")
       .data(histogram.bins)
@@ -384,14 +372,7 @@ export function AdminChannelKnowledgeActivityChart({
             return;
           }
           onPinnedBinChange(d);
-        })
-        .append("title")
-        .text((b) => barTooltip(b));
-    }
-
-    bars.select("title").remove();
-    if (!interactive) {
-      bars.append("title").text((b) => barTooltip(b));
+        });
     }
 
     if (!histogram.hasRealTs) {
