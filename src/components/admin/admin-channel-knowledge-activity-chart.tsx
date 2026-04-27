@@ -9,12 +9,20 @@ import {
   type KnowledgeActivityTimeBin,
 } from "@/lib/channel-knowledge-activity";
 
-function formatTimeAxisTick(tsSec: number, granularity: ActivityGranularity): string {
+const PLOT_HEIGHT_MOBILE_PX = 128;
+const PLOT_HEIGHT_MD_MIN = 128;
+const PLOT_HEIGHT_MD_MAX = 420;
+
+function formatTimeAxisTick(tsSec: number, granularity: ActivityGranularity, innerW: number): string {
   const d = new Date(tsSec * 1000);
   if (Number.isNaN(d.getTime())) {
     return "";
   }
+  const compact = innerW < 440;
   if (granularity === "second") {
+    if (compact) {
+      return d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit", second: "2-digit" });
+    }
     return d.toLocaleString(undefined, {
       month: "short",
       day: "numeric",
@@ -24,9 +32,15 @@ function formatTimeAxisTick(tsSec: number, granularity: ActivityGranularity): st
     });
   }
   if (granularity === "minute") {
+    if (compact) {
+      return d.toLocaleString(undefined, { month: "numeric", day: "numeric", hour: "numeric", minute: "2-digit" });
+    }
     return d.toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
   }
   if (granularity === "hour") {
+    if (compact) {
+      return d.toLocaleString(undefined, { month: "numeric", day: "numeric", hour: "numeric" });
+    }
     return d.toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric" });
   }
   if (granularity === "day" || granularity === "week") {
@@ -60,11 +74,8 @@ function binKey(b: KnowledgeActivityTimeBin): string {
 
 type AdminChannelKnowledgeActivityChartProps = {
   markdown: string;
-  /** While a bar is hovered (and nothing is pinned), parent can filter the Knowledge Base to this bucket. */
   onBinHover?: (bin: KnowledgeActivityTimeBin | null) => void;
-  /** When set, this bucket stays selected for the Knowledge Base until cleared (click bar again or Escape from parent). */
   pinnedBin?: KnowledgeActivityTimeBin | null;
-  /** Toggle pin on the clicked bucket; pass `null` to clear. */
   onPinnedBinChange?: (bin: KnowledgeActivityTimeBin | null) => void;
 };
 
@@ -74,10 +85,10 @@ export function AdminChannelKnowledgeActivityChart({
   pinnedBin = null,
   onPinnedBinChange,
 }: AdminChannelKnowledgeActivityChartProps) {
-  const wrapRef = useRef<HTMLDivElement>(null);
+  const plotWrapRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const hoverClearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [width, setWidth] = useState(320);
+  const [plotSize, setPlotSize] = useState({ width: 320, height: PLOT_HEIGHT_MOBILE_PX });
 
   const histogram = useMemo(() => buildKnowledgeActivityHistogram(markdown), [markdown]);
   const total = useMemo(() => histogram?.bins.reduce((a, b) => a + b.count, 0) ?? 0, [histogram]);
@@ -85,28 +96,44 @@ export function AdminChannelKnowledgeActivityChart({
   const interactive = Boolean(onBinHover || onPinnedBinChange);
 
   useLayoutEffect(() => {
-    const el = wrapRef.current;
+    const el = plotWrapRef.current;
     if (!el) {
       return;
     }
+    const mdMq = window.matchMedia("(min-width: 768px)");
     let raf = 0;
-    const apply = (w: number) => {
-      if (typeof w !== "number" || !Number.isFinite(w) || w <= 0) {
-        return;
+    const applyFromRect = () => {
+      const r = el.getBoundingClientRect();
+      const w = r.width;
+      const h = r.height;
+      const desktop = mdMq.matches;
+      const nextW = typeof w === "number" && Number.isFinite(w) && w > 0 ? Math.floor(w) : 320;
+      let nextH = PLOT_HEIGHT_MOBILE_PX;
+      if (desktop) {
+        nextH =
+          typeof h === "number" && Number.isFinite(h) && h > 0
+            ? Math.min(PLOT_HEIGHT_MD_MAX, Math.max(PLOT_HEIGHT_MD_MIN, Math.floor(h)))
+            : PLOT_HEIGHT_MD_MIN;
       }
-      const next = Math.floor(w);
-      setWidth((prev) => (prev === next ? prev : next));
+      setPlotSize((prev) =>
+        prev.width === nextW && prev.height === nextH ? prev : { width: nextW, height: nextH },
+      );
     };
-    const ro = new ResizeObserver((entries) => {
-      const w = entries[0]?.contentRect.width;
+    const scheduleApply = () => {
       cancelAnimationFrame(raf);
-      raf = requestAnimationFrame(() => apply(w));
+      raf = requestAnimationFrame(() => applyFromRect());
+    };
+    const ro = new ResizeObserver(() => {
+      scheduleApply();
     });
     ro.observe(el);
-    apply(el.getBoundingClientRect().width || 320);
+    const onMq = () => scheduleApply();
+    mdMq.addEventListener("change", onMq);
+    scheduleApply();
     return () => {
       cancelAnimationFrame(raf);
       ro.disconnect();
+      mdMq.removeEventListener("change", onMq);
     };
   }, []);
 
@@ -116,8 +143,12 @@ export function AdminChannelKnowledgeActivityChart({
       return;
     }
 
-    const margin = { top: 8, right: 8, bottom: 26, left: 34 };
-    const height = 120;
+    const { width, height } = plotSize;
+
+    const isWideChart = width >= 768;
+    // Keep room for x tick text + tick line; tighter than d3 defaults need so the card does not look padded under the axis.
+    const bottomAxis = isWideChart ? (height >= 200 ? 26 : 22) : height >= 160 ? 22 : 18;
+    const margin = { top: height >= 200 ? 10 : 8, right: 4, bottom: bottomAxis, left: 18 };
     const innerW = Math.max(120, width - margin.left - margin.right);
     const innerH = height - margin.top - margin.bottom;
 
@@ -133,12 +164,12 @@ export function AdminChannelKnowledgeActivityChart({
       .nice();
 
     const root = d3.select(svgEl);
-    root.attr("viewBox", `0 0 ${width} ${height}`).attr("preserveAspectRatio", "xMinYMid meet");
+    root.attr("viewBox", `0 0 ${width} ${height}`).attr("preserveAspectRatio", "none");
     root.selectAll("*").remove();
 
     const g = root.append("g").attr("transform", `translate(${margin.left},${margin.top})`);
 
-    const yAxis = d3.axisLeft(y).ticks(5).tickFormat(d3.format("~s"));
+    const yAxis = d3.axisLeft(y).ticks(5).tickSize(4).tickPadding(2).tickFormat(d3.format("~s"));
 
     const gridClearOfBaselinePx = Math.max(5, Math.min(10, innerH * 0.07));
     const yGridTicks = y
@@ -160,16 +191,46 @@ export function AdminChannelKnowledgeActivityChart({
       .attr("stroke-dasharray", "2 4");
 
     if (histogram.hasRealTs) {
+      const [d0, d1] = x.domain();
+      let tickValues: number[];
+      if (Math.abs(d1 - d0) < 1e-9) {
+        tickValues = [d0];
+      } else if (isWideChart) {
+        const approxCount = Math.min(8, Math.max(4, Math.floor(innerW / 76)));
+        tickValues = d3.ticks(d0, d1, approxCount);
+        if (tickValues.length === 0) {
+          tickValues = [d0, d1];
+        }
+      } else {
+        tickValues = [d0, d1];
+      }
       const xAxis = d3
         .axisBottom(x)
-        .ticks(Math.min(6, histogram.bins.length))
-        .tickFormat((d) => formatTimeAxisTick(Number(d), histogram.granularity));
-      g.append("g")
-        .attr("transform", `translate(0,${innerH})`)
-        .call(xAxis)
-        .call((sel) => sel.select(".domain").remove())
-        .call((sel) => sel.selectAll(".tick line").attr("stroke", "var(--border)"))
-        .call((sel) => sel.selectAll("text").attr("fill", "var(--muted-foreground)").attr("font-size", 9));
+        .tickValues(tickValues)
+        .tickFormat((d) => formatTimeAxisTick(Number(d), histogram.granularity, innerW))
+        .tickSize(3)
+        .tickSizeOuter(0);
+      const xAxisG = g.append("g").attr("transform", `translate(0,${innerH})`).call(xAxis);
+      xAxisG.call((sel) => sel.select(".domain").remove());
+      xAxisG.call((sel) => sel.selectAll(".tick line").attr("stroke", "var(--border)"));
+      xAxisG.call((sel) => {
+        const texts = sel.selectAll<SVGTextElement, number>(".tick text");
+        const fs = isWideChart ? 8 : 9;
+        texts.attr("fill", "var(--muted-foreground)").attr("font-size", fs).attr("dy", "0.71em").attr("transform", null);
+        const n = tickValues.length;
+        texts.each(function (_, i) {
+          const t = d3.select(this);
+          if (n <= 1) {
+            t.attr("text-anchor", "middle").attr("dx", "0");
+          } else if (i === 0) {
+            t.attr("text-anchor", "start").attr("dx", "0");
+          } else if (i === n - 1) {
+            t.attr("text-anchor", "end").attr("dx", "0");
+          } else {
+            t.attr("text-anchor", "middle").attr("dx", "0");
+          }
+        });
+      });
     } else {
       g.append("g")
         .attr("transform", `translate(0,${innerH})`)
@@ -177,7 +238,9 @@ export function AdminChannelKnowledgeActivityChart({
           d3
             .axisBottom(x)
             .tickValues([histogram.tStart, histogram.tEnd])
-            .tickFormat((_, i) => (i === 0 ? "older" : "newer")),
+            .tickFormat((_, i) => (i === 0 ? "older" : "newer"))
+            .tickSize(3)
+            .tickSizeOuter(0),
         )
         .call((sel) => sel.select(".domain").remove())
         .call((sel) => sel.selectAll(".tick line").attr("stroke", "var(--border)"))
@@ -188,7 +251,9 @@ export function AdminChannelKnowledgeActivityChart({
       .call(yAxis)
       .call((sel) => sel.select(".domain").attr("stroke", "var(--border)"))
       .call((sel) => sel.selectAll(".tick line").attr("stroke", "var(--border)"))
-      .call((sel) => sel.selectAll("text").attr("fill", "var(--muted-foreground)").attr("font-size", 9));
+      .call((sel) =>
+        sel.selectAll("text").attr("fill", "var(--muted-foreground)").attr("font-size", 8).attr("font-weight", "500"),
+      );
 
     g.append("line")
       .attr("class", "activity-chart-x-baseline")
@@ -214,13 +279,13 @@ export function AdminChannelKnowledgeActivityChart({
 
     const barTooltip = (b: KnowledgeActivityTimeBin) => {
       const pinHint = onPinnedBinChange
-        ? "\nClick to pin this range for the Knowledge Base (× on the bar, click the bar again, or Escape to clear)."
+        ? "\nClick to pin this range for the Knowledge Base (use the clear button, click the bar again, or Escape to clear)."
         : "";
       if (!histogram.hasRealTs) {
         return `${b.count} message${b.count === 1 ? "" : "s"} in this slice${pinHint}`;
       }
-      const a = formatTimeAxisTick(b.t0, histogram.granularity);
-      const z = formatTimeAxisTick(Math.min(b.t1, histogram.tEnd), histogram.granularity);
+      const a = formatTimeAxisTick(b.t0, histogram.granularity, innerW);
+      const z = formatTimeAxisTick(Math.min(b.t1, histogram.tEnd), histogram.granularity, innerW);
       return `${b.count} message${b.count === 1 ? "" : "s"} — ${a} → ${z}${pinHint}`;
     };
 
@@ -329,72 +394,6 @@ export function AdminChannelKnowledgeActivityChart({
       bars.append("title").text((b) => barTooltip(b));
     }
 
-    if (pinK && onPinnedBinChange) {
-      const pb = histogram.bins.find((b) => binKey(b) === pinK);
-      if (pb) {
-        const bx0 = x(pb.t0);
-        const bx1 = x(Math.min(pb.t1, histogram.tEnd));
-        const barX = bx0 + gap / 2;
-        const barW = Math.max(1, bx1 - bx0 - gap);
-        const barTop = pb.count === 0 ? innerH - 1 : y(pb.count);
-        const cx = barX + barW / 2;
-        const cy = Math.max(8, barTop - 10);
-
-        const dismiss = g
-          .append("g")
-          .attr("class", "activity-pinned-dismiss")
-          .attr("transform", `translate(${cx},${cy})`)
-          .style("cursor", "pointer")
-          .attr("role", "button")
-          .attr("tabindex", "0")
-          .attr("aria-label", "Clear pinned time range")
-          .on("click", (ev) => {
-            ev.stopPropagation();
-            ev.preventDefault();
-            onPinnedBinChange(null);
-            onBinHover?.(null);
-            cancelHoverClearTimer();
-            updateBarOpacity(null);
-          })
-          .on("keydown", (ev) => {
-            if (ev.key === "Enter" || ev.key === " ") {
-              ev.preventDefault();
-              ev.stopPropagation();
-              onPinnedBinChange(null);
-              onBinHover?.(null);
-              cancelHoverClearTimer();
-              updateBarOpacity(null);
-            }
-          });
-
-        dismiss
-          .append("circle")
-          .attr("r", 12)
-          .attr("fill", "transparent")
-          .attr("pointer-events", "all");
-        dismiss
-          .append("circle")
-          .attr("r", 9)
-          .attr("fill", "var(--background)")
-          .attr("stroke", "var(--border)")
-          .attr("stroke-width", 1)
-          .attr("pointer-events", "none");
-        const xr = 3.25;
-        dismiss
-          .append("path")
-          .attr(
-            "d",
-            `M ${-xr},${-xr} L ${xr},${xr} M ${xr},${-xr} L ${-xr},${xr}`,
-          )
-          .attr("stroke", "var(--foreground)")
-          .attr("stroke-opacity", 0.72)
-          .attr("stroke-width", 1.65)
-          .attr("stroke-linecap", "round")
-          .attr("pointer-events", "none");
-        dismiss.append("title").text("Clear pinned time range");
-      }
-    }
-
     if (!histogram.hasRealTs) {
       g.append("text")
         .attr("x", innerW / 2)
@@ -413,7 +412,7 @@ export function AdminChannelKnowledgeActivityChart({
         updateBarOpacity(null);
       }
     };
-  }, [histogram, total, width, onBinHover, pinnedBin, onPinnedBinChange, interactive]);
+  }, [histogram, total, plotSize, onBinHover, pinnedBin, onPinnedBinChange, interactive]);
 
   if (!histogram || total === 0) {
     return (
@@ -430,16 +429,23 @@ export function AdminChannelKnowledgeActivityChart({
   const summary = `${total} message${total === 1 ? "" : "s"}, ${binLabel}`;
 
   return (
-    <div className="min-w-0 space-y-2 overflow-hidden" ref={wrapRef}>
-      <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Activity</p>
-      <svg
-        ref={svgRef}
-        width="100%"
-        height={120}
-        className="block overflow-visible text-foreground"
-        role="img"
-        aria-label={summary}
-      />
+    <div className="flex min-h-0 min-w-0 flex-col space-y-2 overflow-x-clip overflow-y-visible max-md:shrink-0 md:flex-1">
+      <p className="w-full shrink-0 text-center text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground md:text-left">
+        Activity
+      </p>
+      <div
+        ref={plotWrapRef}
+        className="h-32 w-full min-w-0 shrink-0 md:h-auto md:min-h-32 md:flex-1"
+      >
+        <svg
+          ref={svgRef}
+          width="100%"
+          height="100%"
+          className="block h-full w-full overflow-visible text-foreground"
+          role="img"
+          aria-label={summary}
+        />
+      </div>
     </div>
   );
 }

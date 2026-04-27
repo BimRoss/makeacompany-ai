@@ -1,7 +1,7 @@
 "use client";
 
 import clsx from "clsx";
-import { Search, X } from "lucide-react";
+import { FileText, MessageSquare, Search, Users, X, type LucideIcon } from "lucide-react";
 import { useCallback, useLayoutEffect, useMemo, useRef, useState, type UIEventHandler } from "react";
 import ReactMarkdown from "react-markdown";
 import {
@@ -184,28 +184,41 @@ export function AdminChannelKnowledgeDigest({
     tryPrependOlderDigestSlice(el);
   }, [visibleStart, tryPrependOlderDigestSlice]);
 
-  const viewBtn = (id: DigestView, label: string) => (
+  const viewTab = (id: DigestView, label: string, ariaLabel: string, Icon: LucideIcon) => (
     <button
       key={id}
       type="button"
+      role="tab"
+      aria-selected={view === id}
+      aria-label={ariaLabel}
+      title={label}
       onClick={() => setView(id)}
       className={clsx(
-        "rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
+        "inline-flex shrink-0 items-center justify-center rounded-md font-medium transition-colors",
+        "size-10 md:size-auto md:px-2.5 md:py-1 md:text-xs",
         view === id
           ? "bg-background text-foreground shadow-sm"
           : "text-muted-foreground hover:text-foreground",
       )}
     >
-      {label}
+      <Icon className="size-[1.15rem] md:hidden" strokeWidth={2} aria-hidden />
+      <span className="hidden md:inline">{label}</span>
     </button>
   );
 
   return (
-    <div className="flex min-h-[42rem] flex-1 flex-col overflow-hidden rounded-lg border border-border bg-card shadow-sm">
-      <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-border bg-muted/20 px-3 py-2 sm:px-4">
-        <div className="relative min-h-8 min-w-0 flex-1 sm:max-w-md">
+    <div
+      className={clsx(
+        "flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-border bg-card shadow-sm",
+        // Desktop: avoid a fixed 42rem floor so the workspace fits in the viewport and the site footer stays visible;
+        // Employees / Messages / Markdown scroll inside this card via the inner flex + overflow chain.
+        view === "classic" ? "min-h-[42rem] md:min-h-0" : "min-h-0",
+      )}
+    >
+      <div className="flex shrink-0 flex-nowrap items-center gap-2 border-b border-border bg-muted/20 px-2 py-2 sm:gap-3 sm:px-4 md:justify-between">
+        <div className="relative min-h-10 min-w-0 flex-1 md:min-h-8 md:max-w-md md:flex-[0_1_28rem]">
           <Search
-            className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
+            className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground md:left-2.5 md:size-3.5"
             aria-hidden
           />
           <input
@@ -216,7 +229,7 @@ export function AdminChannelKnowledgeDigest({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search messages…"
-            className="h-8 w-full min-w-0 rounded-lg border border-border bg-background py-1 pl-8 pr-8 text-sm text-foreground shadow-sm placeholder:text-muted-foreground focus-visible:outline focus-visible:ring-2 focus-visible:ring-ring"
+            className="h-10 w-full min-w-0 rounded-lg border border-border bg-background py-2 pl-10 pr-10 text-base text-foreground shadow-sm placeholder:text-muted-foreground outline-none ring-0 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 md:h-8 md:py-1 md:pl-8 md:pr-8 md:text-sm"
             aria-label="Search knowledge base"
             autoComplete="off"
             spellCheck={false}
@@ -225,28 +238,29 @@ export function AdminChannelKnowledgeDigest({
             <button
               type="button"
               onClick={() => setSearchQuery("")}
-              className="absolute right-1 top-1/2 flex size-7 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              className="absolute right-1 top-1/2 flex size-9 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:size-7"
               aria-label="Clear search"
             >
-              <X className="size-3.5" strokeWidth={2.25} />
+              <X className="size-4 md:size-3.5" strokeWidth={2.25} />
             </button>
           ) : null}
         </div>
         <div
-          className="inline-flex shrink-0 rounded-lg bg-muted/40 p-0.5"
+          className="inline-flex shrink-0 items-center gap-0.5 rounded-lg bg-muted/40 p-0.5"
           role="tablist"
           aria-label="Knowledge base view"
         >
-          {viewBtn("author", "Employees")}
-          {viewBtn("thread", "Messages")}
-          {viewBtn("classic", "Markdown")}
+          {viewTab("author", "Employees", "Employees by author", Users)}
+          {viewTab("thread", "Messages", "Messages by thread", MessageSquare)}
+          {viewTab("classic", "Markdown", "Markdown digest", FileText)}
         </div>
       </div>
       <div
         ref={view === "classic" ? scrollRef : undefined}
         onScroll={view === "classic" ? onClassicScroll : undefined}
         className={clsx(
-          "flex min-h-0 min-w-0 flex-1 basis-0 flex-col items-stretch px-3 py-3 sm:px-4",
+          "flex min-h-0 min-w-0 flex-1 basis-0 flex-col items-stretch px-2 py-2 sm:px-4 sm:py-3",
+          view !== "classic" && "max-md:flex-none max-md:basis-auto max-md:min-h-0",
           view === "classic"
             ? "overflow-y-auto [&_h1]:mb-3 [&_h1]:text-lg [&_h1]:font-semibold [&_li]:my-1 [&_p]:my-2 [&_strong]:font-semibold [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-6"
             : "overflow-hidden",
@@ -259,12 +273,12 @@ export function AdminChannelKnowledgeDigest({
             </article>
           ) : null}
           {view === "thread" ? (
-            <div className="flex h-full min-h-0 min-w-0 w-full flex-1 basis-0 flex-col overflow-hidden">
+            <div className="flex h-full min-h-0 min-w-0 w-full max-md:h-auto max-md:flex-none max-md:basis-auto flex-1 basis-0 flex-col overflow-hidden">
               <DigestThreadView markdown={visibleMarkdown} listScrollRef={scrollRef} onListScroll={onThreadListScroll} />
             </div>
           ) : null}
           {view === "author" ? (
-            <div className="flex h-full min-h-0 min-w-0 w-full flex-1 basis-0 flex-col overflow-hidden">
+            <div className="flex h-full min-h-0 min-w-0 w-full max-md:h-auto max-md:flex-none max-md:basis-auto flex-1 basis-0 flex-col overflow-hidden">
               <DigestAuthorView
                 markdown={visibleMarkdown}
                 canLoadOlderDigest={visibleStart > 0}

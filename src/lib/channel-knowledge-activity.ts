@@ -131,7 +131,8 @@ export function buildKnowledgeActivityHistogram(markdown: string): KnowledgeActi
       const u1 = (i + 1) / SYNTHETIC_BIN_COUNT;
       bins.push({ t0: tStart + span * u0, t1: tStart + span * u1, count: 0 });
     }
-    for (const t of tPerLine) {
+    for (let i = 0; i < tPerLine.length; i++) {
+      const t = tPerLine[i]!;
       const u = Math.min(1, Math.max(0, (t - tStart) / span));
       const idx = Math.min(SYNTHETIC_BIN_COUNT - 1, Math.floor(u * SYNTHETIC_BIN_COUNT));
       bins[idx]!.count += 1;

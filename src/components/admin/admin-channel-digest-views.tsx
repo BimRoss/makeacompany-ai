@@ -6,6 +6,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -15,6 +16,9 @@ import {
   type UIEvent,
   type UIEventHandler,
 } from "react";
+import { createPortal } from "react-dom";
+
+import { readIsMdLayoutViewport, useIsMdLayout } from "@/hooks/use-is-md-layout";
 
 /** Author right column (newest at top): load older digest slice when scrolled near the bottom. */
 const AUTHOR_MESSAGES_BOTTOM_SCROLL_THRESHOLD_PX = 80;
@@ -283,7 +287,7 @@ function ThreadRootListRow({
         onClick={onSelect}
         aria-pressed={selected}
         className={clsx(
-          "relative w-full rounded-xl p-2.5 pr-2.5 text-left transition-[background-color,border-color,box-shadow]",
+          "relative w-full rounded-xl p-2 pr-2 text-left transition-[background-color,border-color,box-shadow] md:p-2.5 md:pr-2.5",
           hasReplies
             ? "cursor-pointer [&_*]:cursor-inherit"
             : "cursor-not-allowed [&_*]:cursor-not-allowed",
@@ -345,7 +349,7 @@ function AuthorEmployeeListRow({
         onClick={onSelect}
         aria-pressed={selected}
         className={clsx(
-          "relative w-full cursor-pointer rounded-xl p-2.5 pr-2.5 text-left transition-[background-color,border-color,box-shadow] [&_*]:cursor-inherit",
+          "relative w-full cursor-pointer rounded-xl p-2 pr-2 text-left transition-[background-color,border-color,box-shadow] md:p-2.5 md:pr-2.5 [&_*]:cursor-inherit",
           selected
             ? "border-0 bg-white shadow-none hover:bg-white dark:bg-white dark:text-foreground dark:hover:bg-white"
             : clsx(
@@ -379,39 +383,110 @@ export type DigestThreadViewProps = {
   onListScroll?: UIEventHandler<HTMLDivElement>;
 };
 
-/** Shared two-pane chrome for Threads + Authors so height and flex behavior match exactly. */
+/** Shared two-pane chrome for Threads + Authors; on narrow viewports the right pane opens as a full-screen sheet. */
 function DigestTwoPaneShell({
+  isMdLayout,
+  detailOpen,
+  onCloseDetail,
+  detailTitle,
   leftScrollRef,
   onLeftScroll,
   leftList,
   rightPanel,
 }: {
+  isMdLayout: boolean;
+  detailOpen: boolean;
+  onCloseDetail: () => void;
+  detailTitle: ReactNode;
   leftScrollRef?: RefObject<HTMLDivElement | null>;
   onLeftScroll?: UIEventHandler<HTMLDivElement>;
   leftList: ReactNode;
   rightPanel: ReactNode;
 }) {
-  return (
-    <div className="grid h-full max-h-full min-h-0 w-full flex-1 grid-cols-1 grid-rows-[minmax(0,1fr)_minmax(0,1fr)] gap-0 divide-y divide-border/80 md:grid-cols-2 md:grid-rows-1 md:divide-y-0">
-      <div className="flex h-full min-h-0 min-w-0 flex-col">
-        <div
-          ref={leftScrollRef}
-          onScroll={onLeftScroll}
-          className="digest-view-scroll h-full min-h-0 flex-1 overflow-y-auto overscroll-y-contain border-b border-border/60 bg-muted/10 px-2 py-2 md:border-b-0 md:bg-transparent md:px-3 md:py-3 [scrollbar-gutter:stable]"
-        >
-          {leftList}
-        </div>
-      </div>
-      <div className="flex h-full min-h-0 min-w-0 flex-col">
-        <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden px-2 py-2 md:px-3 md:py-3">
-          {rightPanel}
-        </div>
-      </div>
+  const rightChrome = (
+    <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden px-1.5 py-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))] md:px-3 md:py-3">
+      {rightPanel}
     </div>
+  );
+
+  useEffect(() => {
+    if (!detailOpen || isMdLayout) {
+      return;
+    }
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onCloseDetail();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = prev;
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [detailOpen, isMdLayout, onCloseDetail]);
+
+  const mobileOverlay =
+    !isMdLayout && detailOpen ? (
+      <div
+        className="fixed inset-0 z-[100] flex flex-col bg-background"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="digest-detail-sheet-title"
+      >
+        <div className="flex shrink-0 items-center gap-3 border-b border-border bg-card/95 px-3 py-3 shadow-sm backdrop-blur-md supports-[backdrop-filter]:bg-card/80 pt-[max(0.75rem,env(safe-area-inset-top))] pr-[max(0.75rem,env(safe-area-inset-right))] pl-[max(0.75rem,env(safe-area-inset-left))]">
+          <div id="digest-detail-sheet-title" className="min-w-0 flex-1">
+            {detailTitle}
+          </div>
+          <button
+            type="button"
+            onClick={onCloseDetail}
+            className="flex size-11 shrink-0 items-center justify-center rounded-full border border-border bg-muted/40 text-foreground shadow-sm transition-colors hover:bg-muted/70 active:scale-[0.98]"
+            aria-label="Close"
+          >
+            <X className="size-5 stroke-[2.25]" strokeLinecap="round" />
+          </button>
+        </div>
+        <div className="min-h-0 min-w-0 flex-1 overflow-hidden">{rightChrome}</div>
+      </div>
+    ) : null;
+
+  return (
+    <>
+      <div
+        className={clsx(
+          "grid min-h-0 w-full gap-0",
+          isMdLayout
+            ? "h-full max-h-full flex-1 grid-cols-2 grid-rows-1 divide-x divide-border/80"
+            : "h-auto flex-none grid-cols-1 grid-rows-1",
+        )}
+      >
+        <div
+          className={clsx("flex min-w-0 flex-col", isMdLayout ? "h-full min-h-0" : "h-auto shrink-0")}
+        >
+          <div
+            ref={leftScrollRef}
+            onScroll={onLeftScroll}
+            className={clsx(
+              "digest-view-scroll overscroll-y-contain bg-muted/10 px-1.5 py-1.5 [scrollbar-gutter:stable] md:bg-transparent md:px-3 md:py-3",
+              isMdLayout
+                ? "h-full min-h-0 flex-1 overflow-y-auto"
+                : "max-h-[min(70dvh,28rem)] overflow-y-auto",
+            )}
+          >
+            {leftList}
+          </div>
+        </div>
+        {isMdLayout ? <div className="flex h-full min-h-0 min-w-0 flex-col">{rightChrome}</div> : null}
+      </div>
+      {mobileOverlay && typeof document !== "undefined" ? createPortal(mobileOverlay, document.body) : null}
+    </>
   );
 }
 
 export function DigestThreadView({ markdown, listScrollRef, onListScroll }: DigestThreadViewProps) {
+  const isMdLayout = useIsMdLayout();
   const units = useMemo(() => {
     const { bodyLines } = splitDigestMarkdown(markdown);
     const lines = parseDigestBodyLines(bodyLines);
@@ -433,19 +508,26 @@ export function DigestThreadView({ markdown, listScrollRef, onListScroll }: Dige
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const rightThreadScrollRef = useRef<HTMLDivElement | null>(null);
 
-  /** Keep selection if still in the visible slice; otherwise default to newest thread (same idea as Authors). */
+  /** Keep selection if still in the visible slice; on `md+` default to newest thread; on narrow viewports start with no selection (sheet on tap). */
   useLayoutEffect(() => {
     if (channelRootUnitsNewestFirst.length === 0) {
       setSelectedKey(null);
       return;
     }
+    const md = readIsMdLayoutViewport();
     setSelectedKey((prev) => {
+      if (!md) {
+        if (prev && channelRootUnitsNewestFirst.some((u) => u.threadKey === prev)) {
+          return prev;
+        }
+        return null;
+      }
       if (prev && channelRootUnitsNewestFirst.some((u) => u.threadKey === prev)) {
         return prev;
       }
       return channelRootUnitsNewestFirst[0]!.threadKey;
     });
-  }, [channelRootUnitsNewestFirst]);
+  }, [channelRootUnitsNewestFirst, isMdLayout]);
 
   const dismissThreadPanel = useCallback(() => {
     setSelectedKey(null);
@@ -489,13 +571,35 @@ export function DigestThreadView({ markdown, listScrollRef, onListScroll }: Dige
     );
   }
 
+  const threadDetailRoot = selectedUnit ? pickThreadRoot(selectedUnit) : null;
+  const detailTitle = threadDetailRoot ? (
+    <div className="flex min-w-0 items-center gap-2.5 pr-1">
+      <Avatar
+        userId={threadDetailRoot.userId}
+        author={resolveTranscriptAuthor(threadDetailRoot.userId, lookup)}
+      />
+      <div className="min-w-0 flex-1">
+        <AuthorHeading author={resolveTranscriptAuthor(threadDetailRoot.userId, lookup)} />
+        <p className="line-clamp-1 text-left text-xs text-muted-foreground">
+          {threadDetailRoot.body.replace(/\s+/g, " ").trim()}
+        </p>
+      </div>
+    </div>
+  ) : (
+    <span className="text-sm font-medium text-muted-foreground">Thread</span>
+  );
+
   return (
     <>
       <DigestTwoPaneShell
+        isMdLayout={isMdLayout}
+        detailOpen={Boolean(selectedKey)}
+        onCloseDetail={dismissThreadPanel}
+        detailTitle={detailTitle}
         leftScrollRef={listScrollRef}
         onLeftScroll={onListScroll}
         leftList={
-          <div className="flex flex-col gap-2" role="list" aria-label="Channel messages">
+          <div className="flex flex-col gap-1.5 md:gap-2" role="list" aria-label="Channel messages">
             {channelRootUnitsNewestFirst.map((u) => (
               <ThreadRootListRow
                 key={threadUnitListKey(u)}
@@ -524,15 +628,15 @@ export function DigestThreadView({ markdown, listScrollRef, onListScroll }: Dige
               className="digest-view-scroll min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-1 [scrollbar-gutter:stable]"
             >
               {replies.length > 0 ? (
-                <div className="flex flex-col gap-2.5 pb-1" aria-label="Message replies">
+                <div className="flex flex-col gap-2 pb-1 md:gap-2.5" aria-label="Message replies">
                   {replies.map((r, i) => (
                     <ThreadReplyCard
                       key={r.order}
                       line={r}
                       author={resolveTranscriptAuthor(r.userId, lookup)}
                       staggerIndex={i}
-                      onClose={i === 0 ? dismissThreadPanel : undefined}
-                      closeAriaLabel={i === 0 ? "Close thread" : undefined}
+                      onClose={isMdLayout && i === 0 ? dismissThreadPanel : undefined}
+                      closeAriaLabel={isMdLayout && i === 0 ? "Close thread" : undefined}
                     />
                   ))}
                 </div>
@@ -565,18 +669,17 @@ export function DigestAuthorView({
   canLoadOlderDigest = false,
   onTryLoadOlderDigest,
 }: DigestAuthorViewProps) {
+  const isMdLayout = useIsMdLayout();
   const lookup = useDigestAuthorLookup();
   const messageScrollRef = useRef<HTMLDivElement | null>(null);
   const pendingMessageScrollAdjustRef = useRef<{ prevH: number; prevT: number } | null>(null);
 
-  const { columns, order, defaultAuthorUserId } = useMemo(() => {
+  const { columns, order } = useMemo(() => {
     const { bodyLines } = splitDigestMarkdown(markdown);
     const lines = parseDigestBodyLines(bodyLines);
     const orderIds = authorColumnOrder(lines);
     const by = groupLinesByAuthor(lines);
-    const lastLine = lines.length > 0 ? lines[lines.length - 1]! : null;
-    const defaultAuthorUserId = lastLine?.userId ?? null;
-    return { columns: by, order: orderIds, defaultAuthorUserId };
+    return { columns: by, order: orderIds };
   }, [markdown]);
 
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
@@ -586,16 +689,21 @@ export function DigestAuthorView({
       setSelectedUserId(null);
       return;
     }
+    const md = readIsMdLayoutViewport();
     setSelectedUserId((prev) => {
+      if (!md) {
+        if (prev && order.some((id) => id === prev)) {
+          return prev;
+        }
+        return null;
+      }
       if (prev && order.some((id) => id === prev)) {
         return prev;
       }
-      if (defaultAuthorUserId && order.some((id) => id === defaultAuthorUserId)) {
-        return defaultAuthorUserId;
-      }
+      // Match sidebar: `authorColumnOrder` is first appearance in digest (top row = order[0]).
       return order[0] ?? null;
     });
-  }, [order, defaultAuthorUserId]);
+  }, [order, isMdLayout]);
 
   const dismissAuthorPanel = useCallback(() => {
     setSelectedUserId(null);
@@ -662,10 +770,24 @@ export function DigestAuthorView({
     return <p className="text-sm text-muted-foreground">No parsed messages in this digest.</p>;
   }
 
+  const selectedAuthor = selectedUserId ? resolveTranscriptAuthor(selectedUserId, lookup) : null;
+  const detailTitle = selectedUserId ? (
+    <div className="flex min-w-0 items-center gap-2.5 pr-1">
+      <Avatar userId={selectedUserId} author={selectedAuthor} />
+      <AuthorHeading author={selectedAuthor} />
+    </div>
+  ) : (
+    <span className="text-sm font-medium text-muted-foreground">Employee</span>
+  );
+
   return (
     <DigestTwoPaneShell
+      isMdLayout={isMdLayout}
+      detailOpen={Boolean(selectedUserId)}
+      onCloseDetail={dismissAuthorPanel}
+      detailTitle={detailTitle}
       leftList={
-        <div className="flex flex-col gap-2" role="list" aria-label="Employees">
+        <div className="flex flex-col gap-1.5 md:gap-2" role="list" aria-label="Employees">
           {order.map((uid) => {
             const msgs = columns.get(uid) ?? [];
             const author = resolveTranscriptAuthor(uid, lookup);
@@ -701,15 +823,15 @@ export function DigestAuthorView({
               className="digest-view-scroll min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-1 [scrollbar-gutter:stable]"
             >
               {selectedMsgsNewestFirst.length > 0 ? (
-                <div className="flex flex-col gap-2.5 pb-1" aria-label="Employee messages">
+                <div className="flex flex-col gap-2 pb-1 md:gap-2.5" aria-label="Employee messages">
                   {selectedMsgsNewestFirst.map((line, i) => (
                     <ThreadReplyCard
                       key={line.order}
                       line={line}
                       author={resolveTranscriptAuthor(line.userId, lookup)}
                       staggerIndex={i}
-                      onClose={i === 0 ? dismissAuthorPanel : undefined}
-                      closeAriaLabel={i === 0 ? "Close author" : undefined}
+                      onClose={isMdLayout && i === 0 ? dismissAuthorPanel : undefined}
+                      closeAriaLabel={isMdLayout && i === 0 ? "Close author" : undefined}
                     />
                   ))}
                 </div>

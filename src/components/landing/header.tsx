@@ -28,25 +28,36 @@ export function Header({ endSlot }: HeaderProps = {}) {
           <div className="absolute -left-1/3 top-0 h-full w-1/3 -skew-x-12 bg-gradient-to-r from-transparent via-white/45 to-transparent opacity-0 motion-all group-hover:translate-x-[360%] group-hover:opacity-100 dark:via-white/20" />
         </div>
         <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
-          <Link href="/" aria-label="Go to homepage" className="flex shrink-0 items-center gap-3">
+          <Link
+            href="/"
+            aria-label={workspaceNavbarTrail ? "Go to homepage" : "makeacompany.ai home"}
+            className="flex shrink-0 items-center gap-2 sm:gap-3"
+          >
             <Image
               src="/logo.png"
-              alt="makeacompany.ai logo"
+              alt=""
               width={40}
               height={40}
               className="h-10 w-10 rounded-md object-contain"
             />
-            <p className="font-display text-lg font-semibold tracking-[-0.03em] text-muted-foreground opacity-95 motion-colors sm:text-xl">
+            <p
+              className={[
+                "font-display text-lg font-semibold tracking-[-0.03em] text-muted-foreground opacity-95 motion-colors sm:text-xl",
+                workspaceNavbarTrail ? "hidden md:block" : "",
+              ]
+                .filter(Boolean)
+                .join(" ")}
+            >
               makeacompany.ai
             </p>
           </Link>
           {workspaceNavbarTrail ? (
-            <div className="min-w-0 flex-1">{workspaceNavbarTrail}</div>
+            <div className="min-w-0 flex-1 border-l border-border/60 pl-2 sm:pl-3">{workspaceNavbarTrail}</div>
           ) : null}
         </div>
         <div className="flex min-w-0 shrink-0 items-center gap-1.5 sm:gap-2.5">
           {workspaceNavbarEndLead ? (
-            <div className="flex min-h-11 min-w-0 max-w-[min(100vw-12rem,14rem)] items-center justify-end gap-1 sm:max-w-[18rem]">
+            <div className="hidden min-h-11 min-w-0 max-w-[min(100vw-12rem,14rem)] items-center justify-end gap-1 sm:max-w-[18rem] md:flex">
               {workspaceNavbarEndLead}
             </div>
           ) : null}

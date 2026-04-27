@@ -1,6 +1,6 @@
 "use client";
 
-import { Lock, Users } from "lucide-react";
+import { Lock, Users, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { CompanyChannel } from "@/lib/admin/company-channels";
 import {
@@ -9,6 +9,7 @@ import {
 } from "@/components/admin/admin-channel-knowledge-activity-chart";
 import { useWorkspaceNavbarTrail } from "@/components/workspace-navbar-trail-provider";
 import { kickToLoginForUnauthorizedApi } from "@/lib/client-auth-unauthorized-redirect";
+import { useAdminFlashToast } from "@/components/admin/admin-flash-toast";
 import { SlackPersonChip } from "@/components/admin/slack-person-chip";
 
 type PaneStatus = "loading" | "missing" | "error" | "ready";
@@ -29,7 +30,7 @@ type AdminChannelControlPaneProps = {
   companyChannelsApiPrefix?: "admin" | "portal";
   /** Shown in the card header (top row), e.g. display name or channel id while loading. */
   workspaceTitle: string;
-  /** Registry `owner_ids` resolved to names + portraits for the founders row. */
+  /** Registry `owner_ids` resolved to names + portraits; shown in the site header from `md` up. */
   founders?: AdminChannelFounder[] | null;
   /** Channel digest markdown (same payload as Knowledge Base) for the activity chart. */
   knowledgeMarkdown?: string | null;
@@ -48,26 +49,32 @@ function ControlToggle({
   busy,
   onToggle,
   ariaLabel,
+  comingSoon,
 }: {
   enabled: boolean;
   disabled: boolean;
   busy?: boolean;
   onToggle: () => void;
   ariaLabel: string;
+  /** Looks disabled but stays clickable so `onToggle` can run (e.g. toast). */
+  comingSoon?: boolean;
 }) {
+  const domDisabled = comingSoon ? false : disabled || (busy ?? false);
+  const dimmed = comingSoon || disabled || (busy ?? false);
   return (
     <button
       type="button"
       role="switch"
       aria-checked={enabled}
       aria-busy={busy ?? false}
+      aria-disabled={comingSoon ? true : undefined}
       aria-label={ariaLabel}
-      disabled={disabled || (busy ?? false)}
+      disabled={domDisabled}
       onClick={onToggle}
       className={[
         "relative inline-flex h-7 w-12 shrink-0 rounded-full border transition-colors focus-visible:outline focus-visible:ring-2 focus-visible:ring-ring",
         enabled ? "border-foreground/30 bg-foreground" : "border-border bg-muted/60",
-        disabled || busy ? "cursor-not-allowed opacity-60" : "cursor-pointer",
+        dimmed ? "cursor-not-allowed opacity-60" : "cursor-pointer",
       ].join(" ")}
     >
       <span
@@ -97,7 +104,11 @@ export function AdminChannelControlPane({
   slackChannelIsPrivate,
 }: AdminChannelControlPaneProps) {
   const { setWorkspaceNavbarTrail, setWorkspaceNavbarEndLead } = useWorkspaceNavbarTrail();
+  const flash = useAdminFlashToast();
   const [patchError, setPatchError] = useState<string | null>(null);
+  const flashComingSoon = useCallback(() => {
+    flash("success", "Coming Soon!");
+  }, [flash]);
   const [busy, setBusy] = useState(false);
   const apiCompany = `/api/${companyChannelsApiPrefix}/company-channels`;
 
@@ -137,7 +148,6 @@ export function AdminChannelControlPane({
     [ownerIds],
   );
 
-  /** Stable across referential churn on `founders` so navbar context updates do not re-render-loop. */
   const foundersSignature = useMemo(() => {
     if (founderIdsNormalized.length === 0) {
       return "";
@@ -179,9 +189,18 @@ export function AdminChannelControlPane({
     );
   }, [founderEntries]);
 
+  const clearPinnedActivity = useCallback(() => {
+    onKnowledgeActivityPinnedBinChange?.(null);
+    onKnowledgeActivityBinHover?.(null);
+  }, [onKnowledgeActivityPinnedBinChange, onKnowledgeActivityBinHover]);
+
+  const showPinnedActivityClear = Boolean(
+    knowledgeActivityPinnedBin && onKnowledgeActivityPinnedBinChange,
+  );
+
   const activitySection = (
     <div
-      className="rounded-xl border border-border/70 bg-gradient-to-br from-muted/60 via-muted/25 to-background p-3.5 shadow-[0_1px_0_0_rgba(0,0,0,0.03)] dark:from-muted/25 dark:via-muted/10 dark:to-card dark:shadow-[0_1px_0_0_rgba(255,255,255,0.04)]"
+      className="flex min-w-0 max-md:shrink-0 flex-col -ml-2 max-md:-mr-0.5 md:mx-0 md:flex-1 md:min-h-0"
       aria-label="Message activity from knowledge digest"
     >
       <AdminChannelKnowledgeActivityChart
@@ -224,20 +243,37 @@ export function AdminChannelControlPane({
     return () => setWorkspaceNavbarEndLead(null);
   }, [founderNavbarLead, setWorkspaceNavbarEndLead]);
 
-  const activityColumn = <div className="min-w-0 flex-1 space-y-3">{activitySection}</div>;
-
-  const cardShell = "rounded-2xl border border-border bg-card px-4 py-3.5 shadow-sm";
-
-  const sideShell = (child: ReactNode) => (
-    <div className="min-w-0 shrink-0 border-t border-border pt-3 md:border-l md:border-t-0 md:pl-6 md:pt-0">{child}</div>
+  const activityColumn = (
+    <div className="relative order-2 flex min-w-0 min-h-0 flex-1 flex-col space-y-3 md:order-1">
+      {showPinnedActivityClear ? (
+        <button
+          type="button"
+          onClick={clearPinnedActivity}
+          className="pointer-events-auto absolute right-2 top-2 z-20 flex size-10 items-center justify-center rounded-full border border-border bg-background/95 text-foreground shadow-md backdrop-blur-[2px] transition-[background-color,transform] hover:bg-muted/90 active:scale-[0.97] md:size-9"
+          aria-label="Clear pinned time range"
+          title="Clear pinned time range"
+        >
+          <X className="size-5 md:size-4" strokeWidth={2.25} strokeLinecap="round" />
+        </button>
+      ) : null}
+      {activitySection}
+    </div>
   );
 
-  const paneShell = (card: ReactNode) => <div className="flex shrink-0 flex-col gap-2">{card}</div>;
+  const cardShell = "rounded-2xl border border-border bg-card px-4 py-3 shadow-sm";
+
+  const sideShell = (child: ReactNode) => (
+    <div className="order-1 min-w-0 shrink-0 border-t border-border pt-3 max-md:border-t-0 max-md:pt-0 md:order-2 md:border-l md:border-t-0 md:pl-6 md:pt-0">
+      {child}
+    </div>
+  );
+
+  const paneShell = (card: ReactNode) => <div className="flex shrink-0 flex-col">{card}</div>;
 
   if (status === "loading") {
     return paneShell(
       <section className={cardShell} aria-busy="true" aria-label="Channel workspace">
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between md:gap-6">
+        <div className="flex flex-col gap-3 md:flex-row md:items-stretch md:justify-between md:gap-6">
           {activityColumn}
           {sideShell(<p className="text-xs text-muted-foreground">Loading channel registry…</p>)}
         </div>
@@ -251,7 +287,7 @@ export function AdminChannelControlPane({
         className="rounded-2xl border border-destructive/40 bg-card px-4 py-3.5 shadow-sm"
         aria-label="Channel workspace"
       >
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between md:gap-6">
+        <div className="flex flex-col gap-3 md:flex-row md:items-stretch md:justify-between md:gap-6">
           {activityColumn}
           {sideShell(<p className="text-xs text-destructive">{errorMessage ?? "Could not load channel metadata."}</p>)}
         </div>
@@ -262,7 +298,7 @@ export function AdminChannelControlPane({
   if (status === "missing" || !channel) {
     return paneShell(
       <section className={cardShell} aria-label="Channel workspace">
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between md:gap-6">
+        <div className="flex flex-col gap-3 md:flex-row md:items-stretch md:justify-between md:gap-6">
           {activityColumn}
           {sideShell(
             <div className="space-y-1">
@@ -282,28 +318,36 @@ export function AdminChannelControlPane({
 
   return paneShell(
     <section className={cardShell} aria-label="Channel workspace">
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between md:gap-6">
+      <div className="flex flex-col gap-3 md:flex-row md:items-stretch md:justify-between md:gap-6">
         {activityColumn}
         <div
-          className="min-w-[min(100%,14rem)] shrink-0 divide-y divide-border border-t border-border md:border-l md:border-t-0 md:pl-6"
-          aria-label="Channel controls"
+          className="order-1 min-w-[min(100%,14rem)] shrink-0 border-t border-border max-md:border-t-0 md:order-2 md:border-l md:border-t-0 md:pl-6"
+          aria-label="Employee settings"
         >
-          <div className="flex flex-wrap items-center justify-between gap-2 py-1.5">
+          <p className="mb-2 w-full shrink-0 text-left text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+            Employee Settings
+          </p>
+          <div className="divide-y divide-border" aria-label="Employee setting toggles">
+            <div className="flex flex-wrap items-center justify-between gap-2 py-1.5">
             <span
               className="max-w-[11rem] text-xs font-medium text-foreground"
-              title="When off, agents only reply when directly addressed (@mention, @here, @channel, @everyone). When on, agents may follow up on general channel messages and in threads."
+              title="When off, agents only reply when directly addressed (@mention, @here, @channel, @everyone). When on, agents may join general channel messages and threads (last to speak)."
             >
-              Follow Up
+              Last To Speak
             </span>
             <ControlToggle
               enabled={generalOn}
               disabled={false}
               busy={busy}
               onToggle={() => void patchChannel({ general_responses_muted: generalOn })}
-              ariaLabel={generalOn ? "Turn off follow up on general messages and threads" : "Turn on follow up"}
+              ariaLabel={
+                generalOn
+                  ? "Turn off last to speak on general messages and threads"
+                  : "Turn on last to speak on general messages and threads"
+              }
             />
-          </div>
-          <div className="flex flex-wrap items-center justify-between gap-2 py-1.5">
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-2 py-1.5">
             <span
               className="max-w-[11rem] text-xs font-medium text-foreground"
               title="When off, no agent reactions (no sentiment thumbs on general messages, no mirroring). When on, sentiment and reaction mirroring are enabled."
@@ -317,33 +361,37 @@ export function AdminChannelControlPane({
               onToggle={() => void patchChannel({ general_auto_reaction_enabled: !reactionsOn })}
               ariaLabel={reactionsOn ? "Turn off reactions" : "Turn on reactions"}
             />
-          </div>
-          <div className="flex flex-wrap items-center justify-between gap-2 py-1.5">
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-2 py-1.5">
             <span className="text-xs font-medium text-muted-foreground">Emotions</span>
             <ControlToggle
               enabled={false}
-              disabled
-              onToggle={() => {}}
+              disabled={false}
+              comingSoon
+              onToggle={flashComingSoon}
               ariaLabel="Emotions (coming soon)"
             />
-          </div>
-          <div className="flex flex-wrap items-center justify-between gap-2 py-1.5">
-            <span className="text-xs font-medium text-muted-foreground">Banter</span>
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-2 py-1.5">
+            <span className="text-xs font-medium text-muted-foreground">Passive Banter</span>
             <ControlToggle
               enabled={false}
-              disabled
-              onToggle={() => {}}
-              ariaLabel="Banter (coming soon)"
+              disabled={false}
+              comingSoon
+              onToggle={flashComingSoon}
+              ariaLabel="Passive Banter (coming soon)"
             />
-          </div>
-          <div className="flex flex-wrap items-center justify-between gap-2 py-1.5">
-            <span className="text-xs font-medium text-muted-foreground">War Room</span>
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-2 py-1.5">
+            <span className="text-xs font-medium text-muted-foreground">Out of Office</span>
             <ControlToggle
               enabled={false}
-              disabled
-              onToggle={() => {}}
-              ariaLabel="War Room (coming soon)"
+              disabled={false}
+              comingSoon
+              onToggle={flashComingSoon}
+              ariaLabel="Out of Office (coming soon)"
             />
+            </div>
           </div>
         </div>
       </div>
