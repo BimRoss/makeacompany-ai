@@ -71,11 +71,9 @@ export function CompanyChannelWorkspaceDetail({ channelId, variant }: CompanyCha
   const [portalWelcome, setPortalWelcome] = useState<{ greeting: string; portraitUrl?: string } | null>(null);
   /** Resolved from orchestrator member-channels; null if unknown or not listed. */
   const [slackChannelIsPrivate, setSlackChannelIsPrivate] = useState<boolean | null>(null);
-  /** Hover preview when no pin (clears when pointer leaves chart). */
-  const [knowledgeActivityHoverBin, setKnowledgeActivityHoverBin] = useState<KnowledgeActivityTimeBin | null>(null);
   /** Click a bar to pin; Knowledge Base stays on this bucket until unpinned (click again or Escape). */
   const [knowledgeActivityPinnedBin, setKnowledgeActivityPinnedBin] = useState<KnowledgeActivityTimeBin | null>(null);
-  const knowledgeDigestActivityBin = knowledgeActivityPinnedBin ?? knowledgeActivityHoverBin;
+  const knowledgeDigestActivityBin = knowledgeActivityPinnedBin;
 
   const apiPrefix = variant === "admin" ? "admin" : "portal";
   const profilesUrl =
@@ -271,7 +269,6 @@ export function CompanyChannelWorkspaceDetail({ channelId, variant }: CompanyCha
           knowledgeMarkdown={markdown}
           knowledgeActivityPinnedBin={knowledgeActivityPinnedBin}
           onKnowledgeActivityPinnedBinChange={setKnowledgeActivityPinnedBin}
-          onKnowledgeActivityBinHover={setKnowledgeActivityHoverBin}
           slackChannelIsPrivate={slackChannelIsPrivate}
         />
 

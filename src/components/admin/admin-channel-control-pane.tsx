@@ -35,9 +35,7 @@ type AdminChannelControlPaneProps = {
   founders?: AdminChannelFounder[] | null;
   /** Channel digest markdown (same payload as Knowledge Base) for the activity chart. */
   knowledgeMarkdown?: string | null;
-  /** Hovering an activity bar scopes the Knowledge Base when no bucket is pinned. */
-  onKnowledgeActivityBinHover?: (bin: KnowledgeActivityTimeBin | null) => void;
-  /** Pinned activity bucket (click a bar); takes precedence over hover for the Knowledge Base filter. */
+  /** Pinned activity bucket (click a bar); scopes the Knowledge Base until unpinned. */
   knowledgeActivityPinnedBin?: KnowledgeActivityTimeBin | null;
   onKnowledgeActivityPinnedBinChange?: (bin: KnowledgeActivityTimeBin | null) => void;
   /** From Slack member-channels when this workspace id appears in the bot’s conversation list. */
@@ -99,7 +97,6 @@ export function AdminChannelControlPane({
   workspaceTitle,
   founders,
   knowledgeMarkdown,
-  onKnowledgeActivityBinHover,
   knowledgeActivityPinnedBin,
   onKnowledgeActivityPinnedBinChange,
   slackChannelIsPrivate,
@@ -211,8 +208,7 @@ export function AdminChannelControlPane({
 
   const clearPinnedActivity = useCallback(() => {
     onKnowledgeActivityPinnedBinChange?.(null);
-    onKnowledgeActivityBinHover?.(null);
-  }, [onKnowledgeActivityPinnedBinChange, onKnowledgeActivityBinHover]);
+  }, [onKnowledgeActivityPinnedBinChange]);
 
   const showPinnedActivityClear = Boolean(
     knowledgeActivityPinnedBin && onKnowledgeActivityPinnedBinChange,
@@ -227,7 +223,6 @@ export function AdminChannelControlPane({
         markdown={knowledgeMarkdown ?? ""}
         pinnedBin={knowledgeActivityPinnedBin ?? null}
         onPinnedBinChange={onKnowledgeActivityPinnedBinChange}
-        onBinHover={onKnowledgeActivityBinHover}
       />
     </div>
   );

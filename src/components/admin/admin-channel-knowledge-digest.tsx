@@ -1,18 +1,18 @@
 "use client";
 
 import clsx from "clsx";
-import { FileText, MessageSquare, Search, Users, X, type LucideIcon } from "lucide-react";
+import { Copy, FileText, MessageSquare, Search, Users, X, type LucideIcon } from "lucide-react";
 import { useCallback, useLayoutEffect, useMemo, useRef, useState, type UIEventHandler } from "react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import {
+  ClassicDigestMarkdownView,
   DigestAuthorLookupProvider,
   DigestAuthorView,
   DigestThreadView,
   digestMarkdownForClassic,
   type SlackTranscriptAuthorLookup,
 } from "@/components/admin/admin-channel-digest-views";
-import { splitDigestMarkdown } from "@/lib/channel-digest-parse";
+import { parseDigestBodyLines, splitDigestMarkdown } from "@/lib/channel-digest-parse";
+import { useAdminFlashToast } from "@/components/admin/admin-flash-toast";
 import {
   filterDigestMarkdownByActivityBin,
   filterDigestMarkdownBySearchQuery,
@@ -58,6 +58,7 @@ export function AdminChannelKnowledgeDigest({
   slackAuthorLookup,
   activityTimeBinFilter = null,
 }: AdminChannelKnowledgeDigestProps) {
+  const flash = useAdminFlashToast();
   const [searchQuery, setSearchQuery] = useState("");
 
   const activityFilteredMarkdown = useMemo(
@@ -109,6 +110,8 @@ export function AdminChannelKnowledgeDigest({
     setVisibleStart((s) => Math.min(s, authorTailStart));
   }, [view, bodyLines]);
 
+  const filteredMessageCount = useMemo(() => parseDigestBodyLines(bodyLines).length, [bodyLines]);
+
   const visibleBodyText = useMemo(() => bodyLines.slice(visibleStart).join("\n"), [bodyLines, visibleStart]);
 
   const visibleMarkdown = useMemo(() => {
@@ -122,6 +125,20 @@ export function AdminChannelKnowledgeDigest({
   }, [header, visibleBodyText]);
 
   const classicSource = useMemo(() => digestMarkdownForClassic(visibleMarkdown), [visibleMarkdown]);
+
+  const [copyMarkdownState, setCopyMarkdownState] = useState<"idle" | "copied" | "error">("idle");
+  const copyClassicMarkdown = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(classicSource);
+      setCopyMarkdownState("copied");
+      flash("success", "Transcript markdown copied to clipboard.");
+      window.setTimeout(() => setCopyMarkdownState("idle"), 2000);
+    } catch {
+      setCopyMarkdownState("error");
+      flash("error", "Could not copy to clipboard.");
+      window.setTimeout(() => setCopyMarkdownState("idle"), 2500);
+    }
+  }, [classicSource, flash]);
 
   useLayoutEffect(() => {
     const el = scrollRef.current;
@@ -212,55 +229,95 @@ export function AdminChannelKnowledgeDigest({
       className={clsx(
         "flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-border bg-card shadow-sm",
         // Desktop: avoid a fixed 42rem floor so the workspace fits in the viewport and the site footer stays visible;
-        // Employees / Messages / Markdown scroll inside this card via the inner flex + overflow chain.
+        // Employees / Messages / Transcript scroll inside this card via the inner flex + overflow chain.
         view === "classic" ? "min-h-[42rem] md:min-h-0" : "min-h-0",
       )}
     >
       <div className="flex shrink-0 flex-nowrap items-center gap-2 border-b border-border bg-muted/20 px-2 py-2 sm:gap-3 sm:px-4 md:justify-between">
-        <div className="relative min-h-10 min-w-0 flex-1 md:min-h-8 md:max-w-md md:flex-[0_1_28rem]">
-          <Search
-            className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground md:left-2.5 md:size-3.5"
-            aria-hidden
-          />
-          <input
-            type="text"
-            role="searchbox"
-            inputMode="search"
-            enterKeyHint="search"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search messages…"
-            className="h-10 w-full min-w-0 rounded-lg border border-border bg-background py-2 pl-10 pr-10 text-base text-foreground shadow-sm placeholder:text-muted-foreground outline-none ring-0 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 md:h-8 md:py-1 md:pl-8 md:pr-8 md:text-sm"
-            aria-label="Search knowledge base"
-            autoComplete="off"
-            spellCheck={false}
-          />
-          {searchQuery ? (
-            <button
-              type="button"
-              onClick={() => setSearchQuery("")}
-              className="absolute right-1 top-1/2 flex size-9 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:size-7"
-              aria-label="Clear search"
-            >
-              <X className="size-4 md:size-3.5" strokeWidth={2.25} />
-            </button>
-          ) : null}
+        <div className="flex min-w-0 flex-1 items-center gap-2 md:max-w-md md:flex-[0_1_28rem]">
+          <div className="relative min-h-10 min-w-0 flex-1 md:min-h-8">
+            <Search
+              className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground md:left-2.5 md:size-3.5"
+              aria-hidden
+            />
+            <input
+              type="text"
+              role="searchbox"
+              inputMode="search"
+              enterKeyHint="search"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search messages…"
+              className="h-10 w-full min-w-0 rounded-lg border border-border bg-background py-2 pl-10 pr-10 text-base text-foreground shadow-sm placeholder:text-muted-foreground outline-none ring-0 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 md:h-8 md:py-1 md:pl-8 md:pr-8 md:text-sm"
+              aria-label="Search knowledge base"
+              autoComplete="off"
+              spellCheck={false}
+            />
+            {searchQuery ? (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                className="absolute right-1 top-1/2 flex size-9 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:size-7"
+                aria-label="Clear search"
+              >
+                <X className="size-4 md:size-3.5" strokeWidth={2.25} />
+              </button>
+            ) : null}
+          </div>
+          <span
+            className="inline-flex h-8 shrink-0 items-center rounded-full border border-border bg-muted/60 px-2.5 text-xs font-medium tabular-nums text-muted-foreground md:h-7 md:px-2 md:text-[0.6875rem]"
+            title={
+              searchQuery.trim()
+                ? `${filteredMessageCount.toLocaleString()} message${filteredMessageCount === 1 ? "" : "s"} match this search`
+                : `${filteredMessageCount.toLocaleString()} message${filteredMessageCount === 1 ? "" : "s"} in view`
+            }
+            aria-label={
+              searchQuery.trim()
+                ? `${filteredMessageCount.toLocaleString()} message${filteredMessageCount === 1 ? "" : "s"} match search`
+                : `${filteredMessageCount.toLocaleString()} message${filteredMessageCount === 1 ? "" : "s"}`
+            }
+            aria-live="polite"
+            aria-atomic="true"
+          >
+            {filteredMessageCount.toLocaleString()}
+          </span>
         </div>
-        <div
-          className="inline-flex shrink-0 items-center gap-0.5 rounded-lg bg-muted/40 p-0.5"
-          role="tablist"
-          aria-label="Knowledge base view"
-        >
-          {viewTab("author", "Employees", "Employees by author", Users)}
-          {viewTab("thread", "Messages", "Messages by thread", MessageSquare)}
-          {viewTab("classic", "Markdown", "Markdown digest", FileText)}
+        <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+          <div
+            className="inline-flex shrink-0 items-center gap-0.5 rounded-lg bg-muted/40 p-0.5"
+            role="tablist"
+            aria-label="Knowledge base view"
+          >
+            {viewTab("author", "Employees", "Employees by author", Users)}
+            {viewTab("thread", "Messages", "Messages by thread", MessageSquare)}
+            {viewTab("classic", "Transcript", "Transcript", FileText)}
+          </div>
+          <button
+            type="button"
+            onClick={copyClassicMarkdown}
+            title="Copy transcript as plain text (Slack user ids, matches saved digest format)"
+            className={clsx(
+              "inline-flex size-10 shrink-0 items-center justify-center rounded-lg border border-border bg-background text-foreground shadow-sm transition-colors",
+              "hover:bg-muted/60 active:scale-[0.98] md:size-9",
+            )}
+            aria-label={
+              copyMarkdownState === "copied"
+                ? "Copied to clipboard"
+                : copyMarkdownState === "error"
+                  ? "Copy failed"
+                  : "Copy transcript to clipboard"
+            }
+          >
+            <Copy className="size-4 shrink-0 opacity-80 md:size-3.5" strokeWidth={2} aria-hidden />
+          </button>
         </div>
       </div>
       <div
         ref={view === "classic" ? scrollRef : undefined}
         onScroll={view === "classic" ? onClassicScroll : undefined}
         className={clsx(
-          "flex min-h-0 min-w-0 flex-1 basis-0 flex-col items-stretch px-2 py-2 sm:px-4 sm:py-3",
+          "flex min-h-0 min-w-0 flex-1 basis-0 flex-col items-stretch py-2 sm:py-3",
+          view === "classic" ? "px-4 sm:px-6" : "px-2 sm:px-4",
           view !== "classic" && "max-md:flex-none max-md:basis-auto max-md:min-h-0",
           view === "classic"
             ? "overflow-y-auto"
@@ -282,7 +339,7 @@ export function AdminChannelKnowledgeDigest({
                 "prose-blockquote:border-l-muted-foreground/40 prose-blockquote:text-muted-foreground",
               )}
             >
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>{classicSource}</ReactMarkdown>
+              <ClassicDigestMarkdownView markdown={classicSource} />
             </article>
           ) : null}
           {view === "thread" ? (

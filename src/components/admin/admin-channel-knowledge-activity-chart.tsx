@@ -75,14 +75,12 @@ function binKey(b: KnowledgeActivityTimeBin): string {
 
 type AdminChannelKnowledgeActivityChartProps = {
   markdown: string;
-  onBinHover?: (bin: KnowledgeActivityTimeBin | null) => void;
   pinnedBin?: KnowledgeActivityTimeBin | null;
   onPinnedBinChange?: (bin: KnowledgeActivityTimeBin | null) => void;
 };
 
 export function AdminChannelKnowledgeActivityChart({
   markdown,
-  onBinHover,
   pinnedBin = null,
   onPinnedBinChange,
 }: AdminChannelKnowledgeActivityChartProps) {
@@ -94,7 +92,7 @@ export function AdminChannelKnowledgeActivityChart({
   const histogram = useMemo(() => buildKnowledgeActivityHistogram(markdown), [markdown]);
   const total = useMemo(() => histogram?.bins.reduce((a, b) => a + b.count, 0) ?? 0, [histogram]);
 
-  const interactive = Boolean(onBinHover || onPinnedBinChange);
+  const interactive = Boolean(onPinnedBinChange);
 
   useLayoutEffect(() => {
     const el = plotWrapRef.current;
@@ -297,7 +295,7 @@ export function AdminChannelKnowledgeActivityChart({
       .attr("height", (b) => (b.count === 0 ? 1 : innerH - y(b.count)))
       .attr("rx", 2)
       .attr("fill", (b) => (b.count === 0 ? "var(--muted-foreground)" : "var(--foreground)"))
-      .attr("fill-opacity", (b) => (b.count === 0 ? 0.08 : 0.28));
+      .attr("fill-opacity", (b) => (b.count === 0 ? 0.04 : 0.14));
 
     const updateBarOpacity = (hovered: KnowledgeActivityTimeBin | null) => {
       const hovK = hovered ? binKey(hovered) : null;
@@ -305,17 +303,17 @@ export function AdminChannelKnowledgeActivityChart({
         const k = binKey(b);
         if (pinK) {
           if (k === pinK) {
-            return b.count === 0 ? 0.18 : 0.56;
+            return b.count === 0 ? 0.09 : 0.28;
           }
           if (hovK && k === hovK) {
-            return b.count === 0 ? 0.12 : 0.34;
+            return b.count === 0 ? 0.06 : 0.17;
           }
-          return b.count === 0 ? 0.06 : 0.14;
+          return b.count === 0 ? 0.03 : 0.07;
         }
         if (hovK && k === hovK) {
-          return b.count === 0 ? 0.15 : 0.5;
+          return b.count === 0 ? 0.075 : 0.25;
         }
-        return b.count === 0 ? 0.08 : 0.28;
+        return b.count === 0 ? 0.04 : 0.14;
       });
     };
 
@@ -325,14 +323,10 @@ export function AdminChannelKnowledgeActivityChart({
         updateBarOpacity(null);
         return;
       }
-      if (!onBinHover) {
-        return;
-      }
       cancelHoverClearTimer();
       hoverClearTimerRef.current = setTimeout(() => {
         hoverClearTimerRef.current = null;
         updateBarOpacity(null);
-        onBinHover(null);
       }, 45);
     };
 
@@ -353,9 +347,6 @@ export function AdminChannelKnowledgeActivityChart({
         .style("cursor", onPinnedBinChange ? "pointer" : "default")
         .on("pointerenter", (_ev, d) => {
           cancelHoverClearTimer();
-          if (!pinK) {
-            onBinHover?.(d);
-          }
           updateBarOpacity(d);
         })
         .on("pointerleave", scheduleHoverClear)
@@ -367,7 +358,6 @@ export function AdminChannelKnowledgeActivityChart({
           const dk = binKey(d);
           if (pinK && pinK === dk) {
             onPinnedBinChange(null);
-            onBinHover?.(null);
             cancelHoverClearTimer();
             updateBarOpacity(null);
             return;
@@ -394,7 +384,7 @@ export function AdminChannelKnowledgeActivityChart({
         updateBarOpacity(null);
       }
     };
-  }, [histogram, total, plotSize, onBinHover, pinnedBin, onPinnedBinChange, interactive]);
+  }, [histogram, total, plotSize, pinnedBin, onPinnedBinChange, interactive]);
 
   if (!histogram || total === 0) {
     return (

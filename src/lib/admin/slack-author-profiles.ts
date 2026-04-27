@@ -11,6 +11,8 @@ type SlackUsersListResponse = {
       email?: string;
       real_name?: string;
       display_name?: string;
+      image_512?: string;
+      image_original?: string;
       image_192?: string;
       image_72?: string;
       image_48?: string;
@@ -38,9 +40,25 @@ function bestSlackDisplayName(member: { name?: string; profile?: { real_name?: s
 }
 
 function bestSlackAvatarUrl(
-  profile: { image_192?: string; image_72?: string; image_48?: string; image_32?: string } | undefined,
+  profile:
+    | {
+        image_512?: string;
+        image_original?: string;
+        image_192?: string;
+        image_72?: string;
+        image_48?: string;
+        image_32?: string;
+      }
+    | undefined,
 ): string {
-  const candidates = [profile?.image_192, profile?.image_72, profile?.image_48, profile?.image_32];
+  const candidates = [
+    profile?.image_512,
+    profile?.image_original,
+    profile?.image_192,
+    profile?.image_72,
+    profile?.image_48,
+    profile?.image_32,
+  ];
   for (const value of candidates) {
     const url = String(value ?? "").trim();
     if (url) {
@@ -48,6 +66,85 @@ function bestSlackAvatarUrl(
     }
   }
   return "";
+}
+
+const SLACK_USERS_INFO_URL = "https://slack.com/api/users.info";
+
+type SlackUserInfoResponse = {
+  ok?: boolean;
+  error?: string;
+  user?: {
+    id?: string;
+    profile?: {
+      real_name?: string;
+      display_name?: string;
+      image_512?: string;
+      image_original?: string;
+      image_192?: string;
+      image_72?: string;
+      image_48?: string;
+      image_32?: string;
+    };
+  };
+};
+
+/** Fills `profile.image_*` when `users.list` omits them (common for bot users). */
+async function fetchSlackUserInfoPortrait(token: string, slackUserId: string): Promise<string> {
+  const id = slackUserId.trim();
+  if (!id) {
+    return "";
+  }
+  const body = new URLSearchParams();
+  body.set("user", id);
+  const response = await fetch(SLACK_USERS_INFO_URL, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: body.toString(),
+    cache: "no-store",
+  });
+  if (!response.ok) {
+    return "";
+  }
+  const payload = (await response.json().catch(() => null)) as SlackUserInfoResponse | null;
+  if (!payload?.ok || !payload.user) {
+    return "";
+  }
+  return bestSlackAvatarUrl(payload.user.profile);
+}
+
+async function enrichMissingPortraitsFromUserInfo(
+  token: string,
+  bySlackUser: Map<string, SlackBotAuthorProfile>,
+): Promise<void> {
+  const missing = [...bySlackUser.values()].filter((r) => !String(r.portraitUrl ?? "").trim());
+  /** Small workspace cap; each user is one Slack HTTP round-trip. */
+  const cap = 48;
+  const slice = missing.slice(0, cap);
+  const concurrency = 6;
+  for (let i = 0; i < slice.length; i += concurrency) {
+    const chunk = slice.slice(i, i + concurrency);
+    await Promise.all(
+      chunk.map(async (row) => {
+        try {
+          const url = await fetchSlackUserInfoPortrait(token, row.slackUserId);
+          if (!url) {
+            return;
+          }
+          const k = row.slackUserId.trim().toUpperCase();
+          const cur = bySlackUser.get(k);
+          if (!cur) {
+            return;
+          }
+          bySlackUser.set(k, { ...cur, portraitUrl: url });
+        } catch {
+          // best-effort per user
+        }
+      }),
+    );
+  }
 }
 
 function mergeProfile(
@@ -120,7 +217,9 @@ async function fetchSlackUsersListProfiles(token: string): Promise<SlackBotAutho
  * Transcript author lookup:
  * 1) Slack `users.list` — names + profile images for the workspace (same source as the admin Slack Users table).
  * 2) Env mappings (`*_SLACK_BOT_ID`, `MULTIAGENT_BOT_USER_IDS`) only for Slack user IDs missing from that list
- *    (display name from env; portrait left empty so the UI shows initials until Slack can supply one).
+ *    (display name from env; portrait left empty until step 3 when possible).
+ * 3) Slack `users.info` per user still missing `portraitUrl` — `users.list` often omits `image_*` for bots;
+ *    this fills transcript avatars without bundling static assets.
  */
 export async function getSlackAuthorProfiles(opts?: { slackToken?: string | null }): Promise<SlackBotAuthorProfile[]> {
   const bySlackUser = new Map<string, SlackBotAuthorProfile>();
@@ -138,6 +237,14 @@ export async function getSlackAuthorProfiles(opts?: { slackToken?: string | null
 
   for (const row of getSlackBotAuthorProfilesFromEnv()) {
     mergeProfile(bySlackUser, row, true);
+  }
+
+  if (token) {
+    try {
+      await enrichMissingPortraitsFromUserInfo(token, bySlackUser);
+    } catch {
+      // best-effort enrichment
+    }
   }
 
   return [...bySlackUser.values()];

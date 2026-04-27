@@ -23,9 +23,11 @@ import { readIsMdLayoutViewport, useIsMdLayout } from "@/hooks/use-is-md-layout"
 /** Author right column (newest at top): load older digest slice when scrolled near the bottom. */
 const AUTHOR_MESSAGES_BOTTOM_SCROLL_THRESHOLD_PX = 80;
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import {
   authorColumnOrder,
   buildThreadUnits,
+  DIGEST_MARKDOWN_BULLET_LINE_RE,
   groupLinesByAuthor,
   parseDigestBodyLines,
   splitDigestMarkdown,
@@ -78,21 +80,57 @@ function avatarHue(userId: string): number {
   return h;
 }
 
-function Avatar({ userId, author }: { userId: string; author: SlackTranscriptAuthor | null }) {
-  if (author?.portraitUrl) {
-    return (
-      <div className="relative size-9 shrink-0 overflow-hidden rounded-md border border-border bg-muted shadow-inner">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={author.portraitUrl} alt="" className="size-full object-cover" />
-      </div>
-    );
-  }
+type AvatarVariant = "card" | "row";
+
+function Avatar({
+  userId,
+  author,
+  variant = "card",
+}: {
+  userId: string;
+  author: SlackTranscriptAuthor | null;
+  /** `row`: smaller circle for classic digest (Markdown tab). */
+  variant?: AvatarVariant;
+}) {
+  const [imgBroken, setImgBroken] = useState(false);
+  useEffect(() => {
+    setImgBroken(false);
+  }, [author?.portraitUrl, userId]);
+
+  const isRow = variant === "row";
   const hue = avatarHue(userId);
   const label =
     userId.length <= 2 ? userId.toUpperCase() : userId.replace(/^U/, "").slice(-2).toUpperCase();
+
+  const portrait = String(author?.portraitUrl ?? "").trim();
+  if (portrait && !imgBroken) {
+    return (
+      <div
+        className={clsx(
+          "relative shrink-0 overflow-hidden border border-border/80 bg-muted shadow-sm",
+          isRow ? "size-7 rounded-full" : "size-9 rounded-md shadow-inner",
+        )}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={portrait}
+          alt=""
+          className="size-full object-cover"
+          referrerPolicy="no-referrer"
+          loading="lazy"
+          decoding="async"
+          onError={() => setImgBroken(true)}
+        />
+      </div>
+    );
+  }
+
   return (
     <div
-      className="flex size-9 shrink-0 items-center justify-center rounded-md text-[11px] font-bold tracking-tight text-white shadow-inner"
+      className={clsx(
+        "flex shrink-0 items-center justify-center font-bold tracking-tight text-white shadow-inner",
+        isRow ? "size-7 rounded-full text-[10px]" : "size-9 rounded-md text-[11px]",
+      )}
       style={{ backgroundColor: `hsl(${hue} 42% 36%)` }}
       aria-hidden
     >
@@ -101,16 +139,36 @@ function Avatar({ userId, author }: { userId: string; author: SlackTranscriptAut
   );
 }
 
-function AuthorHeading({ author }: { author: SlackTranscriptAuthor | null }) {
+function AuthorHeading({
+  author,
+  className,
+  as: Comp = "p",
+}: {
+  author: SlackTranscriptAuthor | null;
+  className?: string;
+  /** `span` keeps the label on one line with following transcript text (classic digest). */
+  as?: "p" | "span";
+}) {
   const label = author?.displayName?.trim() || "Unknown participant";
   return (
-    <p className="truncate text-sm font-semibold tracking-tight text-foreground" title={label}>
+    <Comp
+      className={clsx("truncate text-sm font-semibold tracking-tight text-foreground", className)}
+      title={label}
+    >
       {label}
-    </p>
+    </Comp>
   );
 }
 
-function DigestBodyMarkdown({ text }: { text: string }) {
+function DigestBodyMarkdown({
+  text,
+  variant = "default",
+}: {
+  text: string;
+  /** First paragraph flows after the author name on one row; later blocks stack (classic digest). */
+  /** `transcript`: body under the author heading; paragraphs align with the name (Transcript tab). */
+  variant?: "default" | "classicInline" | "transcript";
+}) {
   const lookup = useDigestAuthorLookup();
   const processed = useMemo(() => {
     if (!lookup) {
@@ -122,7 +180,16 @@ function DigestBodyMarkdown({ text }: { text: string }) {
     });
   }, [text, lookup]);
   return (
-    <div className="digest-card-md text-[13px] leading-relaxed text-foreground [&_em]:italic [&_p]:my-1 [&_strong]:font-semibold">
+    <div
+      className={clsx(
+        "digest-card-md text-[13px] text-foreground [&_em]:italic [&_strong]:font-semibold",
+        variant === "classicInline"
+          ? "min-w-0 flex-1 basis-0 leading-snug [&_p]:m-0 [&_p:first-of-type]:inline [&_p:not(:first-of-type)]:mt-0.5 [&_p:not(:first-of-type)]:block [&_ul]:my-0 [&_ol]:my-0 [&_li]:my-0"
+          : variant === "transcript"
+            ? "min-w-0 text-left leading-snug [&_p]:my-0 [&_p:not(:first-of-type)]:mt-2 [&_ul]:my-1 [&_ol]:my-1 [&_li]:my-0.5"
+            : "leading-relaxed [&_p]:my-1",
+      )}
+    >
       <ReactMarkdown>{processed}</ReactMarkdown>
     </div>
   );
@@ -850,15 +917,67 @@ export function DigestAuthorView({
   );
 }
 
+/**
+ * Markdown tab preview: when author lookup is populated, each digest bullet is shown as
+ * avatar + display name + rendered body; otherwise falls back to plain `ReactMarkdown`.
+ * Clipboard "copy markdown" should use the raw digest string (`digestMarkdownForClassic` output), not this tree.
+ */
+export function ClassicDigestMarkdownView({ markdown }: { markdown: string }) {
+  const lookup = useDigestAuthorLookup();
+  const useRich = Boolean(lookup && Object.keys(lookup).length > 0);
+
+  if (!useRich) {
+    return <ReactMarkdown remarkPlugins={[remarkGfm]}>{markdown}</ReactMarkdown>;
+  }
+
+  const lines = markdown.split("\n");
+  return (
+    <div className="not-prose flex flex-col gap-0" aria-label="Channel digest preview">
+      {lines.map((raw, i) => {
+        const line = raw.trimEnd();
+        if (line === "") {
+          return <div key={`blank-${i}`} className="h-0.5 shrink-0" aria-hidden />;
+        }
+        const m = line.match(DIGEST_MARKDOWN_BULLET_LINE_RE);
+        if (!m) {
+          return (
+            <div key={i} className="text-[13px] leading-relaxed text-foreground">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{line}</ReactMarkdown>
+            </div>
+          );
+        }
+        const isReply = Boolean(m[1]);
+        const userId = m[2]!.trim();
+        const body = stripDigestThreadMarkers(m[3] ?? "");
+        const author = resolveTranscriptAuthor(userId, lookup);
+        return (
+          <div key={i} className="min-w-0 py-1.5 sm:py-2">
+            <div className="flex min-w-0 items-start gap-2 sm:gap-3">
+              <div className="shrink-0 pt-0.5">
+                <Avatar userId={userId} author={author} variant="row" />
+              </div>
+              <div className="min-w-0 flex-1 py-0.5">
+                <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                  <AuthorHeading author={author} as="p" className="m-0 text-[13px] leading-snug" />
+                  {isReply ? (
+                    <span className="rounded bg-muted/80 px-1.5 py-0 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                      reply
+                    </span>
+                  ) : null}
+                </div>
+                <DigestBodyMarkdown text={body} variant="transcript" />
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Classic Markdown tab: message body only (no leading `# Channel digest …` title). */
 export function digestMarkdownForClassic(markdown: string): string {
-  const { header, bodyLines } = splitDigestMarkdown(markdown);
+  const { bodyLines } = splitDigestMarkdown(markdown);
   const strippedLines = bodyLines.map((ln) => stripDigestThreadMarkers(ln));
-  const body = strippedLines.join("\n");
-  if (!header) {
-    return body;
-  }
-  if (!body.trim()) {
-    return header;
-  }
-  return `${header}\n\n${body}`;
+  return strippedLines.join("\n");
 }

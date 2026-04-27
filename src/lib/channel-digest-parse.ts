@@ -29,7 +29,8 @@ export type ThreadUnit = {
   hasMeta: boolean;
 };
 
-const DIGEST_LINE_RE = /^(  )?- \*\*([^*]+)\*\*: (.*)$/;
+/** `- **U…**: message` (optional two-space indent for thread replies). Used by parser and classic digest UI. */
+export const DIGEST_MARKDOWN_BULLET_LINE_RE = /^(  )?- \*\*([^*]+)\*\*: (.*)$/;
 
 export function splitDigestMarkdown(markdown: string): { header: string; bodyLines: string[] } {
   const lines = markdown.split("\n");
@@ -53,7 +54,7 @@ export function parseDigestBodyLines(bodyLines: string[]): DigestLine[] {
     if (line === "") {
       continue;
     }
-    const m = line.match(DIGEST_LINE_RE);
+    const m = line.match(DIGEST_MARKDOWN_BULLET_LINE_RE);
     if (!m) {
       continue;
     }
