@@ -14,7 +14,6 @@ export default async function EmployeesPage() {
   return (
     <AdminShell>
       <section className="space-y-4">
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">Employees</h1>
         {members.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-border bg-card p-8 text-center">
             <p className="text-base font-medium text-foreground">No team cards found yet.</p>

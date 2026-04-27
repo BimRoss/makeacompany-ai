@@ -23,9 +23,6 @@ export function Footer() {
             <Link href="/terms" className="motion-colors hover:text-foreground">
               Terms
             </Link>
-            <a href="mailto:hello@makeacompany.ai" className="motion-colors hover:text-foreground">
-              Contact
-            </a>
             <Link href="/admin" className="motion-colors hover:text-foreground">
               Admin
             </Link>

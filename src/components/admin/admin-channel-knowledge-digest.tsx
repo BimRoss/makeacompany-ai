@@ -4,6 +4,7 @@ import clsx from "clsx";
 import { FileText, MessageSquare, Search, Users, X, type LucideIcon } from "lucide-react";
 import { useCallback, useLayoutEffect, useMemo, useRef, useState, type UIEventHandler } from "react";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import {
   DigestAuthorLookupProvider,
   DigestAuthorView,
@@ -262,14 +263,26 @@ export function AdminChannelKnowledgeDigest({
           "flex min-h-0 min-w-0 flex-1 basis-0 flex-col items-stretch px-2 py-2 sm:px-4 sm:py-3",
           view !== "classic" && "max-md:flex-none max-md:basis-auto max-md:min-h-0",
           view === "classic"
-            ? "overflow-y-auto [&_h1]:mb-3 [&_h1]:text-lg [&_h1]:font-semibold [&_li]:my-1 [&_p]:my-2 [&_strong]:font-semibold [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-6"
+            ? "overflow-y-auto"
             : "overflow-hidden",
         )}
       >
         <DigestAuthorLookupProvider lookup={slackAuthorLookup}>
           {view === "classic" ? (
-            <article>
-              <ReactMarkdown>{classicSource}</ReactMarkdown>
+            <article
+              className={clsx(
+                "prose prose-sm sm:prose-base max-w-none pb-1",
+                "prose-neutral dark:prose-invert",
+                "prose-headings:scroll-mt-20 prose-headings:font-semibold prose-headings:tracking-tight prose-headings:text-foreground",
+                "prose-p:text-foreground prose-li:marker:text-muted-foreground prose-li:text-foreground prose-strong:text-foreground",
+                "prose-a:text-foreground prose-a:underline prose-a:decoration-muted-foreground/50 prose-a:underline-offset-[3px] hover:prose-a:decoration-foreground/80",
+                "prose-code:rounded-md prose-code:border prose-code:border-border/80 prose-code:bg-muted/50 prose-code:px-1.5 prose-code:py-0.5 prose-code:text-[0.9em] prose-code:font-normal prose-code:before:content-none prose-code:after:content-none",
+                "prose-pre:bg-muted/30 prose-pre:border prose-pre:border-border",
+                "prose-hr:border-border",
+                "prose-blockquote:border-l-muted-foreground/40 prose-blockquote:text-muted-foreground",
+              )}
+            >
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{classicSource}</ReactMarkdown>
             </article>
           ) : null}
           {view === "thread" ? (

@@ -67,17 +67,17 @@ export function AdminJoanneWelcomeTriggerCard() {
         value={email}
         disabled={loading}
         onChange={(e) => setEmail(e.target.value)}
-        className="min-w-[min(100%,16rem)] max-w-md flex-1 rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground shadow-sm outline-none ring-offset-background placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+        className="h-10 w-full max-w-[14rem] rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground shadow-sm outline-none ring-offset-background placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 sm:max-w-[16rem]"
         aria-label="User email for welcome trigger"
       />
       <button
         type="button"
         disabled={loading || !canSubmit}
         onClick={() => void trigger()}
-        className="rounded-xl border border-border bg-muted/50 px-4 py-2 text-sm font-semibold text-foreground hover:bg-muted disabled:opacity-50"
-        aria-label="Trigger Joanne humans channel welcome message (test)"
+        className="shrink-0 rounded-xl border border-border bg-muted/50 px-4 py-2 text-sm font-semibold text-foreground hover:bg-muted disabled:opacity-50"
+        aria-label="Accept terms message: post Joanne welcome thread in #humans"
       >
-        {loading ? "Sending…" : "Trigger welcome message"}
+        {loading ? "Sending…" : "Accept Terms Message"}
       </button>
     </div>
   );

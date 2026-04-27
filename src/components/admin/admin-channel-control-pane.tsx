@@ -234,20 +234,22 @@ export function AdminChannelControlPane({
 
   const navbarTrail = useMemo(
     () => (
-      <span className="flex min-w-0 items-center gap-1.5 text-base font-semibold leading-snug tracking-tight text-foreground motion-colors sm:text-lg">
-        {slackChannelIsPrivate === true ? (
-          <span className="inline-flex shrink-0 text-muted-foreground" title="Private Slack channel" aria-hidden>
-            <Lock className="size-3.5 stroke-[2.25]" />
-          </span>
-        ) : null}
-        {slackChannelIsPrivate === true ? <span className="sr-only">Private Slack channel: </span> : null}
-        {slackChannelIsPrivate === false ? (
-          <span className="inline-flex shrink-0 text-muted-foreground" title="Public channel" aria-hidden>
-            <Users className="size-3.5 stroke-[2.25]" />
-          </span>
-        ) : null}
-        {slackChannelIsPrivate === false ? <span className="sr-only">Public channel: </span> : null}
-        <span className="min-w-0 truncate font-display tracking-[-0.02em]">{workspaceTitle}</span>
+      <span className="flex min-w-0 flex-1 items-center gap-2 text-base font-semibold leading-snug tracking-tight text-foreground motion-colors sm:gap-3 sm:text-lg">
+        <span className="flex min-w-0 flex-1 items-center gap-1.5">
+          {slackChannelIsPrivate === true ? (
+            <span className="inline-flex shrink-0 text-muted-foreground" title="Private Slack channel" aria-hidden>
+              <Lock className="size-3.5 stroke-[2.25]" />
+            </span>
+          ) : null}
+          {slackChannelIsPrivate === true ? <span className="sr-only">Private Slack channel: </span> : null}
+          {slackChannelIsPrivate === false ? (
+            <span className="inline-flex shrink-0 text-muted-foreground" title="Public channel" aria-hidden>
+              <Users className="size-3.5 stroke-[2.25]" />
+            </span>
+          ) : null}
+          {slackChannelIsPrivate === false ? <span className="sr-only">Public channel: </span> : null}
+          <span className="min-w-0 truncate font-display tracking-[-0.02em]">{workspaceTitle}</span>
+        </span>
       </span>
     ),
     [slackChannelIsPrivate, workspaceTitle],
