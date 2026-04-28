@@ -485,7 +485,8 @@ func normalizeCompanyChannel(e CompanyChannel, hashField string) CompanyChannel 
 }
 
 // ListCompanyChannels reads the shared Redis HASH used by employee-factory (field = channel id, value = JSON).
-// Results are sorted by company_slug then channel_id. If more than maxCompanyChannelsList entries exist, truncated is true.
+// Results are sorted by company_slug then channel_id and bounded to maxCompanyChannelsList via HSCAN to avoid full HGETALL scans.
+// If more than maxCompanyChannelsList entries exist, truncated is true.
 func (s *Store) ListCompanyChannels(ctx context.Context, hashKey string) ([]CompanyChannel, bool, error) {
 	rdb := s.companyChannelsRedis()
 	if s == nil || rdb == nil {
@@ -495,31 +496,57 @@ func (s *Store) ListCompanyChannels(ctx context.Context, hashKey string) ([]Comp
 	if k == "" {
 		k = "employee-factory:company_channels"
 	}
-	raw, err := rdb.HGetAll(ctx, k).Result()
-	if err != nil {
-		return nil, false, err
+	const scanCount int64 = 256
+	out := make([]CompanyChannel, 0, maxCompanyChannelsList)
+	seen := map[string]struct{}{}
+	truncated := false
+	var cursor uint64
+	for {
+		entries, next, err := rdb.HScan(ctx, k, cursor, "", scanCount).Result()
+		if err != nil {
+			return nil, false, err
+		}
+		for i := 0; i+1 < len(entries); i += 2 {
+			field := strings.TrimSpace(entries[i])
+			if field == "" {
+				continue
+			}
+			if _, exists := seen[field]; exists {
+				continue
+			}
+			seen[field] = struct{}{}
+			val := strings.TrimSpace(entries[i+1])
+			if val == "" {
+				continue
+			}
+			var e CompanyChannel
+			if err := json.Unmarshal([]byte(val), &e); err != nil {
+				continue
+			}
+			e = normalizeCompanyChannel(e, field)
+			if e.ChannelID == "" {
+				continue
+			}
+			if e.ChannelID != field {
+				continue
+			}
+			out = append(out, e)
+			if len(out) > maxCompanyChannelsList {
+				truncated = true
+				out = out[:maxCompanyChannelsList]
+				break
+			}
+		}
+		if truncated {
+			break
+		}
+		cursor = next
+		if cursor == 0 {
+			break
+		}
 	}
-	if len(raw) == 0 {
+	if len(out) == 0 {
 		return []CompanyChannel{}, false, nil
-	}
-	out := make([]CompanyChannel, 0, len(raw))
-	for field, val := range raw {
-		val = strings.TrimSpace(val)
-		if val == "" {
-			continue
-		}
-		var e CompanyChannel
-		if err := json.Unmarshal([]byte(val), &e); err != nil {
-			continue
-		}
-		e = normalizeCompanyChannel(e, field)
-		if e.ChannelID == "" {
-			continue
-		}
-		if e.ChannelID != strings.TrimSpace(field) {
-			continue
-		}
-		out = append(out, e)
 	}
 	sort.Slice(out, func(i, j int) bool {
 		if out[i].CompanySlug != out[j].CompanySlug {
@@ -527,10 +554,6 @@ func (s *Store) ListCompanyChannels(ctx context.Context, hashKey string) ([]Comp
 		}
 		return out[i].ChannelID < out[j].ChannelID
 	})
-	truncated := len(out) > maxCompanyChannelsList
-	if truncated {
-		out = out[:maxCompanyChannelsList]
-	}
 	return out, truncated, nil
 }
 
