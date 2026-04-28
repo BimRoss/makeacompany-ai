@@ -777,25 +777,15 @@ func (s *Server) handleRuntimeCapabilityCatalog(w http.ResponseWriter, r *http.R
 		return
 	}
 	expectedToken := strings.TrimSpace(s.cfg.CapabilityCatalogReadToken)
+	if s.cfg.RequireCapabilityCatalogReadToken && expectedToken == "" {
+		http.Error(w, "runtime catalog token is required but not configured", http.StatusServiceUnavailable)
+		return
+	}
 	if expectedToken != "" {
 		got := strings.TrimSpace(capabilityCatalogTokenFromRequest(r))
 		if got == "" || got != expectedToken {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
-		}
-	}
-	if orchURL := strings.TrimSpace(s.cfg.SlackOrchestratorCapabilityCatalogURL); orchURL != "" {
-		cat, err := FetchCapabilityCatalogFromOrchestrator(r.Context(), orchURL)
-		if err != nil {
-			s.log.Printf("runtime capability catalog: orchestrator fetch failed, using redis: %v", err)
-		} else {
-			cat = normalizeCapabilityCatalog(cat)
-			if err := validateCapabilityCatalog(cat); err != nil {
-				s.log.Printf("runtime capability catalog: orchestrator payload invalid (%v), using redis", err)
-			} else {
-				writeJSON(w, http.StatusOK, cat)
-				return
-			}
 		}
 	}
 

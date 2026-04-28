@@ -16,6 +16,9 @@ type Config struct {
 	AppBaseURL                      string
 	AdminCatalogToken               string
 	CapabilityCatalogReadToken      string
+	// RequireCapabilityCatalogReadToken enforces a non-empty runtime catalog bearer token at /v1/runtime/capability-catalog.
+	// Defaults true in production (APP_ENV=production), false otherwise. Can be overridden via REQUIRE_CAPABILITY_CATALOG_READ_TOKEN.
+	RequireCapabilityCatalogReadToken bool
 	// SlackOrchestratorCapabilityCatalogURL, when set: GET /v1/runtime/capability-catalog prefers live JSON from
 	// slack-orchestrator (e.g. .../debug/capability-catalog); missing Redis catalog key seeds from it; GET /v1/admin/catalog
 	// merges in new skills from a cached orchestrator fetch so older Redis snapshots stay aligned.
@@ -51,6 +54,7 @@ type Config struct {
 }
 
 func LoadConfig() Config {
+	requireCatalogReadTokenDefault := strings.EqualFold(strings.TrimSpace(os.Getenv("APP_ENV")), "production")
 	return Config{
 		Port:                                  envInt("PORT", 8080),
 		RedisURL:                              envString("REDIS_URL", "redis://localhost:6379/0"),
@@ -60,6 +64,7 @@ func LoadConfig() Config {
 		AppBaseURL:                            strings.TrimRight(envString("APP_BASE_URL", "http://localhost:3000"), "/"),
 		AdminCatalogToken:                     strings.TrimSpace(os.Getenv("ADMIN_CATALOG_TOKEN")),
 		CapabilityCatalogReadToken:            strings.TrimSpace(os.Getenv("CAPABILITY_CATALOG_READ_TOKEN")),
+		RequireCapabilityCatalogReadToken:     envBool("REQUIRE_CAPABILITY_CATALOG_READ_TOKEN", requireCatalogReadTokenDefault),
 		SlackOrchestratorCapabilityCatalogURL: strings.TrimSpace(os.Getenv("SLACK_ORCHESTRATOR_CAPABILITY_CATALOG_URL")),
 		BackendInternalServiceToken:           strings.TrimSpace(os.Getenv("BACKEND_INTERNAL_SERVICE_TOKEN")),
 		AdminSessionTTLSec:                    envInt("ADMIN_SESSION_TTL_SEC", 259200),
@@ -97,4 +102,19 @@ func envInt(key string, fallback int) int {
 		return fallback
 	}
 	return n
+}
+
+func envBool(key string, fallback bool) bool {
+	v := strings.ToLower(strings.TrimSpace(os.Getenv(key)))
+	if v == "" {
+		return fallback
+	}
+	switch v {
+	case "1", "true", "yes", "on":
+		return true
+	case "0", "false", "no", "off":
+		return false
+	default:
+		return fallback
+	}
 }
