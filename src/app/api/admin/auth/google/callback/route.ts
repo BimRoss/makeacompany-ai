@@ -78,7 +78,7 @@ export async function GET(request: Request) {
       return NextResponse.redirect(new URL(`${loginBase}?auth=failed`, origin));
     }
 
-    const redirectResponse = NextResponse.redirect(new URL("/admin", origin));
+    const redirectResponse = NextResponse.redirect(new URL("/admin?admin_welcome=1", origin));
     const expires = payload.expiresAt ? new Date(payload.expiresAt) : undefined;
     redirectResponse.cookies.set(adminSessionCookieName, payload.sessionToken, {
       httpOnly: true,

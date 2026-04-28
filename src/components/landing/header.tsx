@@ -34,11 +34,18 @@ export function Header({ endSlot }: HeaderProps = {}) {
             className="flex shrink-0 items-center gap-2 sm:gap-3"
           >
             <Image
-              src="/logo.png"
+              src="/mac-logo-light.png"
               alt=""
               width={40}
               height={40}
-              className="h-10 w-10 rounded-md object-contain"
+              className="h-10 w-10 rounded-md object-contain dark:hidden"
+            />
+            <Image
+              src="/mac-logo-dark.jpg"
+              alt=""
+              width={40}
+              height={40}
+              className="hidden h-10 w-10 rounded-md object-contain dark:block"
             />
             <p
               className={[

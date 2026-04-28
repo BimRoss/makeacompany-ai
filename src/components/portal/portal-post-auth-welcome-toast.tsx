@@ -15,7 +15,7 @@ export type PortalPostAuthWelcomeToastProps = {
 
 /**
  * Pill toast after OAuth or magic-link sign-in — copy matches landing checkout return styling.
- * Greeting is built upstream (e.g. name from Slack `users.list` keyed by portal session email).
+ * Greeting is built upstream (session email + Slack profiles / workspace user + email local-part fallback).
  */
 export function PortalPostAuthWelcomeToast({ welcome, onDismiss }: PortalPostAuthWelcomeToastProps) {
   const [visible, setVisible] = useState(false);

@@ -355,9 +355,7 @@ function ThreadRootListRow({
         aria-pressed={selected}
         className={clsx(
           "relative w-full rounded-xl p-2 pr-2 text-left transition-[background-color,border-color,box-shadow] md:p-2.5 md:pr-2.5",
-          hasReplies
-            ? "cursor-pointer [&_*]:cursor-inherit"
-            : "cursor-not-allowed [&_*]:cursor-not-allowed",
+          "cursor-pointer [&_*]:cursor-inherit",
           selected
             ? "border-0 bg-white shadow-none hover:bg-white dark:bg-white dark:text-foreground dark:hover:bg-white"
             : clsx(
@@ -523,14 +521,14 @@ function DigestTwoPaneShell({
     <>
       <div
         className={clsx(
-          "grid min-h-0 w-full gap-0",
+          "min-h-0 w-full gap-0",
           isMdLayout
-            ? "h-full max-h-full flex-1 grid-cols-2 grid-rows-1"
-            : "h-auto flex-none grid-cols-1 grid-rows-1",
+            ? "grid h-full max-h-full flex-1 grid-cols-2 grid-rows-1"
+            : "flex min-h-0 w-full min-w-0 flex-1 flex-col",
         )}
       >
         <div
-          className={clsx("flex min-w-0 flex-col", isMdLayout ? "h-full min-h-0" : "h-auto shrink-0")}
+          className={clsx("flex min-w-0 flex-col", isMdLayout ? "h-full min-h-0" : "min-h-0 flex-1")}
         >
           <div
             ref={leftScrollRef}
@@ -539,7 +537,7 @@ function DigestTwoPaneShell({
               "digest-view-scroll overscroll-y-contain bg-muted/10 px-1.5 py-1.5 [scrollbar-gutter:stable] md:bg-transparent md:px-3 md:py-3",
               isMdLayout
                 ? "h-full min-h-0 flex-1 overflow-y-auto"
-                : "max-h-[min(70dvh,28rem)] overflow-y-auto",
+                : "min-h-0 flex-1 overflow-y-auto max-h-[min(70dvh,28rem)]",
             )}
           >
             {leftList}
@@ -560,9 +558,9 @@ export function DigestThreadView({ markdown, listScrollRef, onListScroll }: Dige
     return buildThreadUnits(lines);
   }, [markdown]);
 
-  /** Left column: one row per threaded conversation (non-reply root with at least one reply). */
+  /** Left column: one row per channel root (top-level message), including standalones with no replies. */
   const channelRootUnits = useMemo(
-    () => units.filter((u) => !pickThreadRoot(u).isReply && threadUnitHasReplies(u)),
+    () => units.filter((u) => !pickThreadRoot(u).isReply),
     [units],
   );
 
@@ -633,9 +631,7 @@ export function DigestThreadView({ markdown, listScrollRef, onListScroll }: Dige
   }
 
   if (channelRootUnitsNewestFirst.length === 0) {
-    return (
-      <p className="text-sm text-muted-foreground">No threads with replies in this digest.</p>
-    );
+    return <p className="text-sm text-muted-foreground">No channel messages in this digest.</p>;
   }
 
   const threadDetailRoot = selectedUnit ? pickThreadRoot(selectedUnit) : null;
@@ -657,7 +653,7 @@ export function DigestThreadView({ markdown, listScrollRef, onListScroll }: Dige
   );
 
   return (
-    <>
+    <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col">
       <DigestTwoPaneShell
         isMdLayout={isMdLayout}
         detailOpen={Boolean(selectedKey)}
@@ -707,6 +703,17 @@ export function DigestThreadView({ markdown, listScrollRef, onListScroll }: Dige
                     />
                   ))}
                 </div>
+              ) : threadDetailRoot ? (
+                <div className="flex flex-col gap-2 pb-1 md:gap-2.5" aria-label="Channel message">
+                  <ThreadReplyCard
+                    key={threadDetailRoot.order}
+                    line={threadDetailRoot}
+                    author={resolveTranscriptAuthor(threadDetailRoot.userId, lookup)}
+                    staggerIndex={0}
+                    onClose={isMdLayout ? dismissThreadPanel : undefined}
+                    closeAriaLabel={isMdLayout ? "Close thread" : undefined}
+                  />
+                </div>
               ) : (
                 <div className="min-h-[6rem] flex-1">
                   <div className="digest-thread-reply-in" style={{ animationDelay: "0ms" }}>
@@ -719,7 +726,7 @@ export function DigestThreadView({ markdown, listScrollRef, onListScroll }: Dige
         )
       }
       />
-    </>
+    </div>
   );
 }
 
@@ -848,7 +855,8 @@ export function DigestAuthorView({
   );
 
   return (
-    <DigestTwoPaneShell
+    <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col">
+      <DigestTwoPaneShell
       isMdLayout={isMdLayout}
       detailOpen={Boolean(selectedUserId)}
       onCloseDetail={dismissAuthorPanel}
@@ -913,7 +921,8 @@ export function DigestAuthorView({
           </div>
         )
       }
-    />
+      />
+    </div>
   );
 }
 

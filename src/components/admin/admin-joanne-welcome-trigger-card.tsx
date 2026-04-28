@@ -10,10 +10,17 @@ function looksLikeEmail(value: string): boolean {
   return t.length > 0 && t.includes("@") && !t.startsWith("@") && !t.endsWith("@");
 }
 
+function defaultWelcomeEmailFromEnv(): string {
+  if (String(process.env.NEXT_PUBLIC_COMPOSE_PROFILE_LOCAL ?? "").trim() !== "1") {
+    return "";
+  }
+  return String(process.env.NEXT_PUBLIC_LOCAL_DOCKER_AUTO_HUMANS_WELCOME_EMAIL ?? "").trim();
+}
+
 export function AdminJoanneWelcomeTriggerCard() {
   const flash = useAdminFlashToast();
   const [loading, setLoading] = useState(false);
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(defaultWelcomeEmailFromEnv);
 
   const trigger = useCallback(async () => {
     const trimmed = email.trim();

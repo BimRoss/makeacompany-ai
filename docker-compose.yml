@@ -98,6 +98,9 @@ services:
       NEXT_PUBLIC_LINKEDIN_PARTNER_ID: ${NEXT_PUBLIC_LINKEDIN_PARTNER_ID:-}
       NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY:-${STRIPE_PUBLISHABLE_KEY:-}}
       NEXT_TELEMETRY_DISABLED: "1"
+      # /admin: after Slack workspace users include this email, auto POST Joanne #humans welcome once per tab
+      NEXT_PUBLIC_COMPOSE_PROFILE_LOCAL: "1"
+      NEXT_PUBLIC_LOCAL_DOCKER_AUTO_HUMANS_WELCOME_EMAIL: "grantdfoster@gmail.com"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:

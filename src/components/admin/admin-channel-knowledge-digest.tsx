@@ -227,10 +227,9 @@ export function AdminChannelKnowledgeDigest({
   return (
     <div
       className={clsx(
-        "flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-border bg-card shadow-sm",
-        // Desktop: avoid a fixed 42rem floor so the workspace fits in the viewport and the site footer stays visible;
-        // Team / Messages / Transcript scroll inside this card via the inner flex + overflow chain.
-        view === "classic" ? "min-h-[42rem] md:min-h-0" : "min-h-0",
+        "flex flex-1 flex-col overflow-hidden rounded-lg border border-border bg-card shadow-sm",
+        // Mobile: at least half the viewport so search + list stay a usable size; md+ follows parent flex.
+        "min-h-[50dvh] md:min-h-0",
       )}
     >
       <div className="flex shrink-0 flex-nowrap items-center gap-2 border-b border-border bg-muted/20 px-2 py-2 sm:gap-3 sm:px-4 md:justify-between">
@@ -318,7 +317,6 @@ export function AdminChannelKnowledgeDigest({
         className={clsx(
           "flex min-h-0 min-w-0 flex-1 basis-0 flex-col items-stretch py-2 sm:py-3",
           view === "classic" ? "px-4 sm:px-6" : "px-2 sm:px-4",
-          view !== "classic" && "max-md:flex-none max-md:basis-auto max-md:min-h-0",
           view === "classic"
             ? "overflow-y-auto"
             : "overflow-hidden",
@@ -343,12 +341,12 @@ export function AdminChannelKnowledgeDigest({
             </article>
           ) : null}
           {view === "thread" ? (
-            <div className="flex h-full min-h-0 min-w-0 w-full max-md:h-auto max-md:flex-none max-md:basis-auto flex-1 basis-0 flex-col overflow-hidden">
+            <div className="flex h-full min-h-0 min-w-0 w-full flex-1 basis-0 flex-col overflow-hidden">
               <DigestThreadView markdown={visibleMarkdown} listScrollRef={scrollRef} onListScroll={onThreadListScroll} />
             </div>
           ) : null}
           {view === "author" ? (
-            <div className="flex h-full min-h-0 min-w-0 w-full max-md:h-auto max-md:flex-none max-md:basis-auto flex-1 basis-0 flex-col overflow-hidden">
+            <div className="flex h-full min-h-0 min-w-0 w-full flex-1 basis-0 flex-col overflow-hidden">
               <DigestAuthorView
                 markdown={visibleMarkdown}
                 canLoadOlderDigest={visibleStart > 0}

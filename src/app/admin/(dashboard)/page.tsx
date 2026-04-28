@@ -1,3 +1,5 @@
+import { AdminLocalDockerHumansWelcomeAuto } from "@/components/admin/admin-local-docker-humans-welcome-auto";
+import { AdminPostAuthWelcomeBoundary } from "@/components/admin/admin-post-auth-welcome-toast";
 import { AdminJoanneWelcomeTriggerCard } from "@/components/admin/admin-joanne-welcome-trigger-card";
 import { AdminCompanyChannelsStrip } from "@/components/admin/admin-company-channels-strip";
 import { AdminAgentsAllGrafanaEmbed } from "@/components/admin/admin-agents-all-grafana-embed";
@@ -13,6 +15,8 @@ export default async function AdminPage() {
 
   return (
     <AdminShell>
+      <AdminPostAuthWelcomeBoundary />
+      <AdminLocalDockerHumansWelcomeAuto />
       <div className="space-y-10">
         <AdminJoanneWelcomeTriggerCard />
         <div className="space-y-4">

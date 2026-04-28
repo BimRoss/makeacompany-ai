@@ -14,7 +14,11 @@ import { companyChannelWorkspaceTitle, type CompanyChannel } from "@/lib/admin/c
 import { kickToLoginForUnauthorizedApi } from "@/lib/client-auth-unauthorized-redirect";
 import { peekPortalWelcomeParam, stripPortalWelcomeParam } from "@/lib/portal-welcome-param";
 import type { KnowledgeActivityTimeBin } from "@/lib/channel-knowledge-activity";
-import { displayNameFromAuthEmail } from "@/lib/auth-email-display-name";
+import {
+  buildSessionViewerIdentity,
+  type SlackProfileRowForIdentity,
+  type SlackWorkspaceUserRowForIdentity,
+} from "@/lib/session-viewer-identity";
 
 type LoadState = "idle" | "loading" | "error" | "ready";
 
@@ -30,21 +34,8 @@ export type CompanyChannelWorkspaceDetailProps = {
  * Single company-channel workspace: metadata, toggles, transcript.
  * Used from `/admin/[channelId]` (admin-only) and `/[channelId]` (portal owners) — same UI, different auth + API prefix.
  */
-type SlackProfileRow = {
-  slackUserId?: string;
-  displayName?: string;
-  portraitUrl?: string;
-  email?: string;
-};
 
-/** Same shape as `/api/admin/slack-workspace-users` rows (Redis snapshot / live Slack users.list). */
-type SlackWorkspaceUserRow = {
-  slackUserId?: string;
-  email?: string;
-  displayName?: string;
-  realName?: string;
-  profileImageUrl?: string;
-};
+type SlackWorkspaceUserRow = SlackWorkspaceUserRowForIdentity;
 
 type SlackMemberChannelsPayload = {
   channels?: Array<{ channel_id?: string; is_private?: boolean }>;
@@ -171,9 +162,9 @@ export function CompanyChannelWorkspaceDetail({ channelId, variant }: CompanyCha
         setTranscriptError(null);
       }
 
-      let profPayload: { profiles?: SlackProfileRow[] } | null = null;
+      let profPayload: { profiles?: SlackProfileRowForIdentity[] } | null = null;
       if (profRes.ok) {
-        profPayload = (await profRes.json().catch(() => null)) as { profiles?: SlackProfileRow[] } | null;
+        profPayload = (await profRes.json().catch(() => null)) as { profiles?: SlackProfileRowForIdentity[] } | null;
       }
 
       const nextLookup: SlackTranscriptAuthorLookup = {};
@@ -197,73 +188,36 @@ export function CompanyChannelWorkspaceDetail({ channelId, variant }: CompanyCha
         slackWorkspaceUsers = Array.isArray(su?.users) ? su.users : [];
       }
 
+      const workspaceUserForSession =
+        sessionEmail && variant === "admin" && slackWorkspaceUsers.length > 0
+          ? slackWorkspaceUsers.find((u) => String(u.email ?? "").trim().toLowerCase() === sessionEmail)
+          : undefined;
+
       let viewerChip: ChannelWorkspaceViewerChip | null = null;
       if (sessionEmail) {
-        let displayName = "";
-        let portraitUrl: string | undefined;
-
-        const workspaceUser =
-          variant === "admin" && slackWorkspaceUsers.length > 0
-            ? slackWorkspaceUsers.find((u) => String(u.email ?? "").trim().toLowerCase() === sessionEmail)
-            : undefined;
-
-        if (workspaceUser) {
-          const pic = String(workspaceUser.profileImageUrl ?? "").trim();
-          if (pic) {
-            portraitUrl = pic;
-          }
-        }
-
-        if (Array.isArray(rows)) {
-          const profileRow = rows.find((r) => String(r.email ?? "").trim().toLowerCase() === sessionEmail);
-          if (profileRow) {
-            const dn = String(profileRow.displayName ?? "").trim();
-            if (dn) {
-              displayName = dn;
-            }
-            const pu = String(profileRow.portraitUrl ?? "").trim();
-            if (pu && !portraitUrl) {
-              portraitUrl = pu;
-            }
-          }
-        }
-
-        if (!displayName && workspaceUser) {
-          displayName =
-            String(workspaceUser.displayName ?? "").trim() ||
-            String(workspaceUser.realName ?? "").trim();
-        }
-        if (!displayName) {
-          displayName = displayNameFromAuthEmail(sessionEmail);
-        }
-
-        viewerChip = { displayName, ...(portraitUrl ? { portraitUrl } : {}) };
+        viewerChip = buildSessionViewerIdentity(sessionEmail, {
+          profileRows: rows,
+          workspaceUser: workspaceUserForSession,
+        });
       }
       setViewerNavbarIdentity(viewerChip);
       setSlackAuthorLookup(nextLookup);
 
       if (wantPortalWelcome) {
         stripPortalWelcomeParam();
-        let greeting = "Welcome! You're signed in to your company workspace.";
-        let portraitUrl: string | undefined;
-        if (sessionEmail && Array.isArray(rows)) {
-          for (const row of rows) {
-            const rowEmail = String(row.email ?? "").trim().toLowerCase();
-            if (!rowEmail || rowEmail !== sessionEmail) {
-              continue;
-            }
-            const displayName = String(row.displayName ?? "").trim();
-            if (displayName) {
-              greeting = `Welcome, ${displayName}!`;
-              const pu = String(row.portraitUrl ?? "").trim();
-              if (pu) {
-                portraitUrl = pu;
-              }
-            }
-            break;
-          }
-        }
-        setPortalWelcome({ greeting, portraitUrl });
+        const welcomeIdentity = sessionEmail
+          ? buildSessionViewerIdentity(sessionEmail, {
+              profileRows: rows,
+              workspaceUser: workspaceUserForSession,
+            })
+          : null;
+        const greeting = welcomeIdentity
+          ? `Welcome, ${welcomeIdentity.displayName}!`
+          : "Welcome! You're signed in to your company workspace.";
+        setPortalWelcome({
+          greeting,
+          portraitUrl: welcomeIdentity?.portraitUrl,
+        });
       }
 
       setState("ready");
