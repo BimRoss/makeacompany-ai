@@ -4,7 +4,7 @@ import { createContext, useContext, useMemo, useState, type Dispatch, type React
 
 type WorkspaceNavbarTrailContextValue = {
   trail: ReactNode | null;
-  /** Shown in the header actions row, immediately before `endSlot` (e.g. logout). */
+  /** Shown in the header actions row, before the theme toggle and `endSlot` (e.g. logout). */
   endLead: ReactNode | null;
   setWorkspaceNavbarTrail: Dispatch<SetStateAction<ReactNode | null>>;
   setWorkspaceNavbarEndLead: Dispatch<SetStateAction<ReactNode | null>>;

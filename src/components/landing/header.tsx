@@ -68,7 +68,6 @@ export function Header({ endSlot }: HeaderProps = {}) {
               {workspaceNavbarEndLead}
             </div>
           ) : null}
-          {endSlot}
           <button
             type="button"
             onClick={() => setTheme(isDark ? "light" : "dark")}
@@ -90,6 +89,7 @@ export function Header({ endSlot }: HeaderProps = {}) {
               </>
             )}
           </button>
+          {endSlot}
         </div>
       </div>
     </header>

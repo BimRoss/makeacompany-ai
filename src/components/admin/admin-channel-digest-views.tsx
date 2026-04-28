@@ -534,10 +534,12 @@ function DigestTwoPaneShell({
             ref={leftScrollRef}
             onScroll={onLeftScroll}
             className={clsx(
-              "digest-view-scroll overscroll-y-contain bg-muted/10 px-1.5 py-1.5 [scrollbar-gutter:stable] md:bg-transparent md:px-3 md:py-3",
+              "digest-view-scroll flex min-h-0 flex-col items-stretch justify-start [scrollbar-gutter:stable] overscroll-y-contain",
+              "bg-muted/10 px-1.5 pb-1.5 pt-1.5",
+              "md:bg-transparent md:px-3 md:py-3",
               isMdLayout
-                ? "h-full min-h-0 flex-1 overflow-y-auto"
-                : "min-h-0 flex-1 overflow-y-auto max-h-[min(70dvh,28rem)]",
+                ? "h-full flex-1 overflow-y-auto"
+                : "max-h-[min(70dvh,28rem)] flex-1 overflow-y-auto",
             )}
           >
             {leftList}
@@ -662,7 +664,11 @@ export function DigestThreadView({ markdown, listScrollRef, onListScroll }: Dige
         leftScrollRef={listScrollRef}
         onLeftScroll={onListScroll}
         leftList={
-          <div className="flex flex-col gap-1.5 md:gap-2" role="list" aria-label="Channel messages">
+          <div
+            className="flex w-full min-h-min shrink-0 flex-col justify-start gap-0.5 sm:gap-1.5 md:gap-2"
+            role="list"
+            aria-label="Channel messages"
+          >
             {channelRootUnitsNewestFirst.map((u) => (
               <ThreadRootListRow
                 key={threadUnitListKey(u)}
@@ -688,10 +694,13 @@ export function DigestThreadView({ markdown, listScrollRef, onListScroll }: Dige
           <div key={selectedUnit.threadKey} className="flex min-h-0 min-w-0 flex-1 flex-col">
             <div
               ref={rightThreadScrollRef}
-              className="digest-view-scroll min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-1 [scrollbar-gutter:stable]"
+              className="digest-view-scroll flex min-h-0 flex-1 flex-col items-stretch justify-start overflow-y-auto overscroll-y-contain px-1 pt-1.5 [scrollbar-gutter:stable]"
             >
               {replies.length > 0 ? (
-                <div className="flex flex-col gap-2 pb-1 md:gap-2.5" aria-label="Message replies">
+                <div
+                  className="flex w-full min-h-min shrink-0 flex-col justify-start gap-0.5 pb-0.5 sm:gap-2 sm:pb-1 md:gap-2.5"
+                  aria-label="Message replies"
+                >
                   {replies.map((r, i) => (
                     <ThreadReplyCard
                       key={r.order}
@@ -704,7 +713,10 @@ export function DigestThreadView({ markdown, listScrollRef, onListScroll }: Dige
                   ))}
                 </div>
               ) : threadDetailRoot ? (
-                <div className="flex flex-col gap-2 pb-1 md:gap-2.5" aria-label="Channel message">
+                <div
+                  className="flex w-full min-h-min shrink-0 flex-col justify-start gap-0.5 pb-0.5 sm:gap-2 sm:pb-1 md:gap-2.5"
+                  aria-label="Channel message"
+                >
                   <ThreadReplyCard
                     key={threadDetailRoot.order}
                     line={threadDetailRoot}
@@ -862,7 +874,11 @@ export function DigestAuthorView({
       onCloseDetail={dismissAuthorPanel}
       detailTitle={detailTitle}
       leftList={
-        <div className="flex flex-col gap-1.5 md:gap-2" role="list" aria-label="Team">
+        <div
+          className="flex w-full min-h-min shrink-0 flex-col justify-start gap-0.5 sm:gap-1.5 md:gap-2"
+          role="list"
+          aria-label="Team"
+        >
           {order.map((uid) => {
             const msgs = columns.get(uid) ?? [];
             const author = resolveTranscriptAuthor(uid, lookup);
@@ -895,10 +911,13 @@ export function DigestAuthorView({
             <div
               ref={messageScrollRef}
               onScroll={onMessagesScroll}
-              className="digest-view-scroll min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-1 [scrollbar-gutter:stable]"
+              className="digest-view-scroll flex min-h-0 flex-1 flex-col items-stretch justify-start overflow-y-auto overscroll-y-contain px-1 pt-1.5 [scrollbar-gutter:stable]"
             >
               {selectedMsgsNewestFirst.length > 0 ? (
-                <div className="flex flex-col gap-2 pb-1 md:gap-2.5" aria-label="Employee messages">
+                <div
+                  className="flex w-full min-h-min shrink-0 flex-col justify-start gap-0.5 pb-0.5 sm:gap-2 sm:pb-1 md:gap-2.5"
+                  aria-label="Employee messages"
+                >
                   {selectedMsgsNewestFirst.map((line, i) => (
                     <ThreadReplyCard
                       key={line.order}

@@ -18,7 +18,6 @@ import {
   filterDigestMarkdownBySearchQuery,
   type KnowledgeActivityTimeBin,
 } from "@/lib/channel-knowledge-activity";
-
 /** First paint: show the tail of the digest so recent channel activity is visible. */
 const INITIAL_VISIBLE_LINES = 120;
 /**
@@ -131,7 +130,7 @@ export function AdminChannelKnowledgeDigest({
     try {
       await navigator.clipboard.writeText(classicSource);
       setCopyMarkdownState("copied");
-      flash("success", "Transcript markdown copied to clipboard.");
+      flash("success", "Successfully copied transcript");
       window.setTimeout(() => setCopyMarkdownState("idle"), 2000);
     } catch {
       setCopyMarkdownState("error");
@@ -264,7 +263,7 @@ export function AdminChannelKnowledgeDigest({
             ) : null}
           </div>
           <span
-            className="inline-flex h-8 shrink-0 items-center rounded-full border border-border bg-muted/60 px-2.5 text-xs font-medium tabular-nums text-muted-foreground md:h-7 md:px-2 md:text-[0.6875rem]"
+            className="hidden h-7 shrink-0 items-center rounded-full border border-border bg-muted/60 px-2 text-[0.6875rem] font-medium tabular-nums text-muted-foreground md:inline-flex md:px-2"
             title={
               searchQuery.trim()
                 ? `${filteredMessageCount.toLocaleString()} message${filteredMessageCount === 1 ? "" : "s"} match this search`
@@ -295,10 +294,7 @@ export function AdminChannelKnowledgeDigest({
             type="button"
             onClick={copyClassicMarkdown}
             title="Copy transcript as plain text (Slack user ids, matches saved digest format)"
-            className={clsx(
-              "inline-flex size-10 shrink-0 items-center justify-center rounded-lg border border-border bg-background text-foreground shadow-sm transition-colors",
-              "hover:bg-muted/60 active:scale-[0.98] md:size-9",
-            )}
+            className="relative hidden min-h-11 min-w-11 items-center justify-center rounded-full text-foreground/70 motion-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/25 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent active:scale-[0.97] md:inline-flex"
             aria-label={
               copyMarkdownState === "copied"
                 ? "Copied to clipboard"
@@ -307,7 +303,11 @@ export function AdminChannelKnowledgeDigest({
                   : "Copy transcript to clipboard"
             }
           >
-            <Copy className="size-4 shrink-0 opacity-80 md:size-3.5" strokeWidth={2} aria-hidden />
+            <Copy
+              className="h-[1.125rem] w-[1.125rem] shrink-0"
+              strokeWidth={2}
+              aria-hidden
+            />
           </button>
         </div>
       </div>
@@ -315,8 +315,11 @@ export function AdminChannelKnowledgeDigest({
         ref={view === "classic" ? scrollRef : undefined}
         onScroll={view === "classic" ? onClassicScroll : undefined}
         className={clsx(
-          "flex min-h-0 min-w-0 flex-1 basis-0 flex-col items-stretch py-2 sm:py-3",
-          view === "classic" ? "px-4 sm:px-6" : "px-2 sm:px-4",
+          "flex min-h-0 min-w-0 flex-1 basis-0 flex-col items-stretch",
+          // Classic: padding around transcript; thread/author rely on inner scroll `pt-1.5` for first row.
+          view === "classic"
+            ? "px-4 pt-2.5 pb-2 sm:px-6 sm:pt-3 sm:pb-3"
+            : "px-2 pb-2 pt-0 sm:px-4 sm:pb-3",
           view === "classic"
             ? "overflow-y-auto"
             : "overflow-hidden",
