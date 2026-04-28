@@ -13,6 +13,7 @@ import {
 } from "@/components/admin/admin-channel-digest-views";
 import { parseDigestBodyLines, splitDigestMarkdown } from "@/lib/channel-digest-parse";
 import { useAdminFlashToast } from "@/components/admin/admin-flash-toast";
+import { useIsMdLayout } from "@/hooks/use-is-md-layout";
 import {
   filterDigestMarkdownByActivityBin,
   filterDigestMarkdownBySearchQuery,
@@ -73,6 +74,7 @@ export function AdminChannelKnowledgeDigest({
 
   const [visibleStart, setVisibleStart] = useState(tailStart);
   const [view, setView] = useState<DigestView>("author");
+  const isMdLayout = useIsMdLayout();
   const prependingRef = useRef(false);
   const pendingScrollAdjustRef = useRef<PendingScrollAdjust | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -93,6 +95,12 @@ export function AdminChannelKnowledgeDigest({
   useLayoutEffect(() => {
     didInitialScrollRef.current = false;
   }, [searchQuery, activityTimeBinFilter]);
+
+  useLayoutEffect(() => {
+    if (!isMdLayout && view === "thread") {
+      setView("author");
+    }
+  }, [isMdLayout, view]);
 
   useLayoutEffect(() => {
     const prev = prevViewRef.current;
@@ -201,7 +209,13 @@ export function AdminChannelKnowledgeDigest({
     tryPrependOlderDigestSlice(el);
   }, [visibleStart, tryPrependOlderDigestSlice]);
 
-  const viewTab = (id: DigestView, label: string, ariaLabel: string, Icon: LucideIcon) => (
+  const viewTab = (
+    id: DigestView,
+    label: string,
+    ariaLabel: string,
+    Icon: LucideIcon,
+    tabOptions?: { hideOnNarrow?: boolean },
+  ) => (
     <button
       key={id}
       type="button"
@@ -211,7 +225,8 @@ export function AdminChannelKnowledgeDigest({
       title={label}
       onClick={() => setView(id)}
       className={clsx(
-        "inline-flex shrink-0 items-center justify-center rounded-md font-medium transition-colors",
+        tabOptions?.hideOnNarrow ? "hidden md:inline-flex" : "inline-flex",
+        "shrink-0 items-center justify-center rounded-md font-medium transition-colors",
         "size-10 md:size-auto md:px-2.5 md:py-1 md:text-xs",
         view === id
           ? "bg-background text-foreground shadow-sm"
@@ -263,7 +278,7 @@ export function AdminChannelKnowledgeDigest({
             ) : null}
           </div>
           <span
-            className="hidden h-7 shrink-0 items-center rounded-full border border-border bg-muted/60 px-2 text-[0.6875rem] font-medium tabular-nums text-muted-foreground md:inline-flex md:px-2"
+            className="inline-flex h-7 shrink-0 items-center rounded-full border border-border bg-muted/60 px-2 text-[0.6875rem] font-medium tabular-nums text-muted-foreground"
             title={
               searchQuery.trim()
                 ? `${filteredMessageCount.toLocaleString()} message${filteredMessageCount === 1 ? "" : "s"} match this search`
@@ -287,14 +302,14 @@ export function AdminChannelKnowledgeDigest({
             aria-label="Knowledge base view"
           >
             {viewTab("author", "Team", "Team by author", Users)}
-            {viewTab("thread", "Messages", "Messages by thread", MessageSquare)}
+            {viewTab("thread", "Messages", "Messages by thread", MessageSquare, { hideOnNarrow: true })}
             {viewTab("classic", "Transcript", "Transcript", FileText)}
           </div>
           <button
             type="button"
             onClick={copyClassicMarkdown}
             title="Copy transcript as plain text (Slack user ids, matches saved digest format)"
-            className="relative hidden min-h-11 min-w-11 items-center justify-center rounded-full text-foreground/70 motion-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/25 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent active:scale-[0.97] md:inline-flex"
+            className="relative inline-flex min-h-11 min-w-11 items-center justify-center rounded-full text-foreground/70 motion-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/25 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent active:scale-[0.97]"
             aria-label={
               copyMarkdownState === "copied"
                 ? "Copied to clipboard"
