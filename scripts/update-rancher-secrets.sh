@@ -203,8 +203,8 @@ if [[ -n "${CAPABILITY_CATALOG_READ_TOKEN_EFFECTIVE}" ]]; then
   secret_args+=(--from-literal=CAPABILITY_CATALOG_READ_TOKEN="${CAPABILITY_CATALOG_READ_TOKEN_EFFECTIVE}")
 fi
 
-# Optional orchestrator debug token used by backend fallback to GET
-# SLACK_ORCHESTRATOR_CAPABILITY_CATALOG_URL (/debug/capability-catalog).
+# Optional orchestrator debug token used when SLACK_ORCHESTRATOR_CAPABILITY_CATALOG_URL
+# points at a protected debug endpoint instead of /v1/public/capability-catalog.
 ORCHESTRATOR_DEBUG_TOKEN_EFFECTIVE="${ORCHESTRATOR_DEBUG_TOKEN:-}"
 if [[ -z "${ORCHESTRATOR_DEBUG_TOKEN_EFFECTIVE}" ]]; then
   ORCHESTRATOR_DEBUG_TOKEN_EFFECTIVE="$(read_existing_secret_key ORCHESTRATOR_DEBUG_TOKEN)"

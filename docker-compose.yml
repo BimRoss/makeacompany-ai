@@ -45,8 +45,8 @@ services:
       # employee-factory:* keys (registry, channel-knowledge digest for /admin Transcript) — set in env file; see .env.example
       APP_BASE_URL: ${APP_BASE_URL:-http://localhost:3000}
       # When set, GET /v1/runtime/capability-catalog proxies slack-orchestrator (live Skills on /admin), no auth.
-      # Default matches ORCHESTRATOR_DEBUG: orchestrator on host SLACK_ORCHESTRATOR_PORT (8080). Override with '' to disable.
-      SLACK_ORCHESTRATOR_CAPABILITY_CATALOG_URL: ${SLACK_ORCHESTRATOR_CAPABILITY_CATALOG_URL:-http://host.docker.internal:${SLACK_ORCHESTRATOR_PORT:-8080}/debug/capability-catalog}
+      # Default points to orchestrator's public contract route on host SLACK_ORCHESTRATOR_PORT (8080). Override with '' to disable.
+      SLACK_ORCHESTRATOR_CAPABILITY_CATALOG_URL: ${SLACK_ORCHESTRATOR_CAPABILITY_CATALOG_URL:-http://host.docker.internal:${SLACK_ORCHESTRATOR_PORT:-8080}/v1/public/capability-catalog}
       # Same host as Next ORCHESTRATOR_DEBUG_* — backend hourly/startup snapshot for /admin Companies strip.
       ORCHESTRATOR_DEBUG_BASE_URL: ${ORCHESTRATOR_DEBUG_BASE_URL:-http://host.docker.internal:${SLACK_ORCHESTRATOR_PORT:-8080}}
       ORCHESTRATOR_DEBUG_TOKEN: ${ORCHESTRATOR_DEBUG_TOKEN:-}
