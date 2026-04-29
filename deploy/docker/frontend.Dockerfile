@@ -15,7 +15,8 @@ EXPOSE 3000
 
 CMD ["npm", "run", "dev", "--", "--hostname", "0.0.0.0", "--port", "3000"]
 
-FROM node:22-alpine AS production
+# Builder: full `npm ci` + `next build` (standalone output) — not shipped to the registry.
+FROM node:22-alpine AS builder
 
 WORKDIR /app
 
@@ -35,10 +36,25 @@ ENV NEXT_PUBLIC_BACKEND_API_BASE_URL=$NEXT_PUBLIC_BACKEND_API_BASE_URL
 ENV NEXT_PUBLIC_GA_MEASUREMENT_ID=$NEXT_PUBLIC_GA_MEASUREMENT_ID
 ENV NEXT_PUBLIC_LINKEDIN_PARTNER_ID=$NEXT_PUBLIC_LINKEDIN_PARTNER_ID
 ENV NEXT_TELEMETRY_DISABLED=1
-ENV PORT=3000
 
-RUN npm run build
+# Install devDependencies for the compile; `next build` runs as production.
+RUN NODE_ENV=production npm run build
+
+# Production: only standalone server + static assets (smaller layers, fewer Docker Hub upload failures).
+FROM node:22-alpine AS production
+
+WORKDIR /app
+
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV PORT=3000
+# Next standalone `server.js` (see https://nextjs.org/docs/app/api-reference/config/next-config-js/output)
+ENV HOSTNAME=0.0.0.0
+
+COPY --from=builder /app/public ./public
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
 
 EXPOSE 3000
 
-CMD ["npm", "run", "start", "--", "--hostname", "0.0.0.0", "--port", "3000"]
+CMD ["node", "server.js"]

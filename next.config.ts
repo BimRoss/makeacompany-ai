@@ -1,6 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Small runtime image: deploy/docker/frontend.Dockerfile copies `.next/standalone` only.
+  output: "standalone",
   async redirects() {
     return [
       {
