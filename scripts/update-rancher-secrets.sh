@@ -18,7 +18,7 @@ set -euo pipefail
 #   STRIPE_WEBHOOK_SECRET (required)
 #   STRIPE_PRICE_ID_WAITLIST
 #   STRIPE_PUBLISHABLE_KEY and/or NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY (optional; both written when either is set)
-#   BACKEND_INTERNAL_SERVICE_TOKEN (optional; Go /v1/internal/* maintenance endpoints only)
+#   BACKEND_INTERNAL_SERVICE_TOKEN (required in production; Go /v1/internal/* maintenance endpoints only)
 #   SLACK_BOT_TOKEN (optional; same as slack-orchestrator .env for /admin Slack Users users.list)
 #   CAPABILITY_CATALOG_READ_TOKEN (optional; preserve existing token when omitted from .env.prod)
 #   COOKIE_HEALTH_TOKEN (optional in .env, but preserved from existing runtime secret when present)
@@ -159,6 +159,10 @@ fi
 BACKEND_INTERNAL_SERVICE_TOKEN_EFFECTIVE="${BACKEND_INTERNAL_SERVICE_TOKEN:-}"
 if [[ -z "${BACKEND_INTERNAL_SERVICE_TOKEN_EFFECTIVE}" ]]; then
   BACKEND_INTERNAL_SERVICE_TOKEN_EFFECTIVE="$(read_existing_secret_key BACKEND_INTERNAL_SERVICE_TOKEN)"
+fi
+if [[ -z "${BACKEND_INTERNAL_SERVICE_TOKEN_EFFECTIVE}" ]]; then
+  echo "need BACKEND_INTERNAL_SERVICE_TOKEN in ${ENV_FILE} (or already present in cluster secret ${SECRET_NAME})" >&2
+  exit 1
 fi
 if [[ -n "${BACKEND_INTERNAL_SERVICE_TOKEN_EFFECTIVE}" ]]; then
   secret_args+=(--from-literal=BACKEND_INTERNAL_SERVICE_TOKEN="${BACKEND_INTERNAL_SERVICE_TOKEN_EFFECTIVE}")
