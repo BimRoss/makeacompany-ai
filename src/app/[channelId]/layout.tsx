@@ -6,6 +6,7 @@ import { AdminFlashToastProvider } from "@/components/admin/admin-flash-toast";
 import { Footer } from "@/components/landing/footer";
 import { Header } from "@/components/landing/header";
 import { PortalHeaderLogoutSlot } from "@/components/portal/portal-header-logout-slot";
+import { getPortalLoginCompanyLabel } from "@/lib/portal/portal-login-channel-label";
 import { validSlackChannelId } from "@/lib/slack-channel-id";
 
 type Props = { children: ReactNode; params: Promise<{ channelId: string }> };
@@ -13,8 +14,9 @@ type Props = { children: ReactNode; params: Promise<{ channelId: string }> };
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { channelId } = await params;
   const id = decodeURIComponent((channelId ?? "").trim());
+  const { label } = await getPortalLoginCompanyLabel(id);
   return {
-    title: validSlackChannelId(id) ? `Company ${id}` : "Company",
+    title: validSlackChannelId(id) ? `${label} Dashboard` : "Dashboard",
     robots: { index: false, follow: false },
   };
 }
