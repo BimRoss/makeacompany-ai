@@ -20,6 +20,7 @@ set -euo pipefail
 #   STRIPE_PUBLISHABLE_KEY and/or NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY (optional; both written when either is set)
 #   BACKEND_INTERNAL_SERVICE_TOKEN (optional; Go /v1/internal/* maintenance endpoints only)
 #   SLACK_BOT_TOKEN (optional; same as slack-orchestrator .env for /admin Slack Users users.list)
+#   CAPABILITY_CATALOG_READ_TOKEN (optional; preserve existing token when omitted from .env.prod)
 #   COOKIE_HEALTH_TOKEN (optional in .env, but preserved from existing runtime secret when present)
 #   Portal login (optional; preserved from cluster when not in .env.prod — same Secret is envFrom on frontend + backend):
 #   GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET, PORTAL_GOOGLE_OAUTH_STATE_SECRET (optional),
@@ -174,6 +175,15 @@ if [[ -z "${SLACK_BOT_TOKEN_EFFECTIVE}" ]]; then
 fi
 if [[ -n "${SLACK_BOT_TOKEN_EFFECTIVE}" ]]; then
   secret_args+=(--from-literal=SLACK_BOT_TOKEN="${SLACK_BOT_TOKEN_EFFECTIVE}")
+fi
+
+# Optional runtime catalog read token. Preserve existing cluster value when not present in ENV_FILE.
+CAPABILITY_CATALOG_READ_TOKEN_EFFECTIVE="${CAPABILITY_CATALOG_READ_TOKEN:-}"
+if [[ -z "${CAPABILITY_CATALOG_READ_TOKEN_EFFECTIVE}" ]]; then
+  CAPABILITY_CATALOG_READ_TOKEN_EFFECTIVE="$(read_existing_secret_key CAPABILITY_CATALOG_READ_TOKEN)"
+fi
+if [[ -n "${CAPABILITY_CATALOG_READ_TOKEN_EFFECTIVE}" ]]; then
+  secret_args+=(--from-literal=CAPABILITY_CATALOG_READ_TOKEN="${CAPABILITY_CATALOG_READ_TOKEN_EFFECTIVE}")
 fi
 
 # Optional portal auth keys (Google OAuth + Resend magic links). If absent from ENV_FILE, keep existing cluster values
