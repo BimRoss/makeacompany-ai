@@ -96,6 +96,27 @@ export async function verifyAdminServerSession(): Promise<AdminServerSessionVeri
   }
 }
 
+/**
+ * True when a valid admin session cookie is present and `/v1/admin/auth/me` succeeds.
+ * For conditional responses (e.g. Grafana public embeds + gated backend health).
+ */
+export async function hasValidAdminApiSession(): Promise<boolean> {
+  const token = await resolveAdminSessionBearerToken();
+  if (!token) {
+    return false;
+  }
+  const backendURL = `${resolveBackendBaseURL().replace(/\/$/, "")}/v1/admin/auth/me`;
+  try {
+    const response = await fetch(backendURL, {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
 /** Rejects requests without a valid admin session. Use on API routes that do not proxy `/v1/admin/*`. */
 export async function requireAdminApiSession(): Promise<NextResponse | null> {
   const token = await resolveAdminSessionBearerToken();

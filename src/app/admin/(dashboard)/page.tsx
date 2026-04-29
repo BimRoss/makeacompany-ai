@@ -8,16 +8,22 @@ import { AdminShell } from "@/components/admin/admin-shell";
 import { SkillsCardsGrid } from "@/components/admin/skills-cards-grid";
 import { OrchestratorDebugPanel } from "@/components/orchestrator/orchestrator-debug-panel";
 import { UserProfilesPanel } from "@/components/admin/user-profiles-panel";
+import { AdminCatalogErrorBanner } from "@/components/admin/admin-catalog-error-banner";
 import { getAdminCatalogData } from "@/lib/admin/catalog";
 
 export default async function AdminPage() {
-  const { skills, members } = await getAdminCatalogData();
+  const catalogResult = await getAdminCatalogData();
+  const skills = catalogResult.ok ? catalogResult.skills : [];
+  const members = catalogResult.ok ? catalogResult.members : [];
 
   return (
     <AdminShell>
       <AdminPostAuthWelcomeBoundary />
       <AdminLocalDockerHumansWelcomeAuto />
       <div className="space-y-10">
+        {catalogResult.ok ? null : (
+          <AdminCatalogErrorBanner error={catalogResult.error} />
+        )}
         <AdminJoanneWelcomeTriggerCard />
         <div className="space-y-4">
           <AdminOverviewGrafanaGrid />
@@ -28,16 +34,16 @@ export default async function AdminPage() {
             Skills{" "}
             <span className="font-normal text-muted-foreground tabular-nums">({skills.length})</span>
           </h2>
-          {skills.length === 0 ? (
+          {catalogResult.ok && skills.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-border bg-card p-8 text-center">
               <p className="text-base font-medium text-foreground">No skills in the catalog yet.</p>
               <p className="mt-2 text-sm text-muted-foreground">
-                Seed or update Redis upstream, or rely on backend defaults after deploy.
+                The backend returned an empty skills list. Check Redis and orchestrator seeding.
               </p>
             </div>
-          ) : (
+          ) : catalogResult.ok ? (
             <SkillsCardsGrid skills={skills} members={members} readOnly showToolParams />
-          )}
+          ) : null}
         </section>
         <AdminCompanyChannelsStrip />
         <UserProfilesPanel />

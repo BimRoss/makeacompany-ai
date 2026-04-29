@@ -44,12 +44,7 @@ export function AdminJoanneWelcomeTriggerCard() {
         flash("error", body.error ?? `Welcome trigger failed (HTTP ${res.status})`);
         return;
       }
-      flash(
-        "success",
-        body.slackUserId
-          ? `Welcome sent for Slack user ${body.slackUserId}.`
-          : "Joanne posted the welcome + terms thread in #humans.",
-      );
+      flash("success", "Successfully sent");
     } catch (e) {
       flash("error", e instanceof Error ? e.message : "Welcome trigger request failed");
     } finally {

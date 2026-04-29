@@ -1,9 +1,20 @@
+import { AdminCatalogErrorBanner } from "@/components/admin/admin-catalog-error-banner";
 import { AdminShell } from "@/components/admin/admin-shell";
 import { SkillsCardsGrid } from "@/components/admin/skills-cards-grid";
 import { getAdminCatalogData } from "@/lib/admin/catalog";
 
 export default async function SkillsPage() {
-  const { skills, members } = await getAdminCatalogData();
+  const result = await getAdminCatalogData();
+  if (!result.ok) {
+    return (
+      <AdminShell>
+        <section className="space-y-4">
+          <AdminCatalogErrorBanner error={result.error} />
+        </section>
+      </AdminShell>
+    );
+  }
+  const { skills, members } = result;
 
   return (
     <AdminShell>
@@ -12,7 +23,7 @@ export default async function SkillsPage() {
           <div className="rounded-2xl border border-dashed border-border bg-card p-8 text-center">
             <p className="text-base font-medium text-foreground">No skills in the catalog yet.</p>
             <p className="mt-2 text-sm text-muted-foreground">
-              Seed or update Redis upstream, or rely on backend defaults after deploy.
+              The backend returned an empty skills list. Check Redis and orchestrator seeding.
             </p>
           </div>
         ) : (

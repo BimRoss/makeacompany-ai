@@ -96,6 +96,8 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 	s.mux.HandleFunc("PATCH /v1/admin/company-channels/{channelId}", s.handleAdminCompanyChannelPatch)
 	s.mux.HandleFunc("GET /v1/admin/channel-knowledge/{channelId}", s.handleAdminChannelKnowledge)
 	s.mux.HandleFunc("GET /v1/admin/capability-routing-events", s.handleAdminCapabilityRoutingEvents)
+	// Unauthenticated read-only JSON for the public website (/skills). Same payload as /v1/runtime/capability-catalog; no secrets in the body.
+	s.mux.HandleFunc("/v1/public/capability-catalog", s.handlePublicCapabilityCatalog)
 	s.mux.HandleFunc("/v1/runtime/capability-catalog", s.handleRuntimeCapabilityCatalog)
 	s.mux.HandleFunc("/v1/admin/auth/me", s.handleAdminAuthMe)
 	s.mux.HandleFunc("/v1/admin/auth/logout", s.handleAdminAuthLogout)
@@ -187,6 +189,8 @@ func normalizeMetricRoute(path string) string {
 		return "/v1/admin/channel-knowledge/{channelId}"
 	case path == "/v1/admin/capability-routing-events":
 		return "/v1/admin/capability-routing-events"
+	case path == "/v1/public/capability-catalog":
+		return "/v1/public/capability-catalog"
 	case path == "/v1/runtime/capability-catalog":
 		return "/v1/runtime/capability-catalog"
 	case path == "/v1/admin/auth/me":
@@ -769,6 +773,20 @@ func (s *Server) catalogServiceWriteAuthorized(r *http.Request) bool {
 	}
 	provided := strings.TrimSpace(r.Header.Get("X-Admin-Token"))
 	return provided != "" && provided == expected
+}
+
+func (s *Server) handlePublicCapabilityCatalog(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	catalog, err := s.store.GetCapabilityCatalog(r.Context())
+	if err != nil {
+		s.log.Printf("public capability catalog get: %v", err)
+		http.Error(w, "catalog error", http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, http.StatusOK, catalog)
 }
 
 func (s *Server) handleRuntimeCapabilityCatalog(w http.ResponseWriter, r *http.Request) {

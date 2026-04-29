@@ -91,3 +91,41 @@ func TestRuntimeCatalogReadsRedisWithoutServerSideOrchestratorFetch(t *testing.T
 		t.Fatalf("orchestrator fetches: got %d want 0", got)
 	}
 }
+
+func TestPublicCapabilityCatalogNoToken(t *testing.T) {
+	t.Parallel()
+
+	mr, err := miniredis.Run()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(mr.Close)
+
+	store, err := NewStore("redis://"+mr.Addr()+"/0", "", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = store.Close() })
+
+	catalog := CapabilityContractLikeOrchestrator(t)
+	if err := store.PutCapabilityCatalog(context.Background(), catalog); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := LoadConfig()
+	cfg.RequireCapabilityCatalogReadToken = true
+	cfg.CapabilityCatalogReadToken = "secret"
+
+	srv, err := NewServer(cfg, log.Default(), store)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/v1/public/capability-catalog", nil)
+	rr := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("public catalog status: got %d want %d body=%q", rr.Code, http.StatusOK, rr.Body.String())
+	}
+}

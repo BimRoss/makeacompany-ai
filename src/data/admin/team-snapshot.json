@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-04-14T01:22:29.313Z",
-  "source": "slack-factory/manifests + slack-orchestrator capability contract",
+  "generatedAt": "2026-04-29T00:00:00.000Z",
+  "source": "slack-factory/manifests + slack-orchestrator DefaultCapabilityContractV1 employeeSkillIds (offline fallback)",
   "employees": [
     {
       "id": "alex",
@@ -13,7 +13,7 @@
       "backgroundColor": "#000000",
       "status": "active",
       "sourceManifest": "slack-factory/manifests/alex/app-manifest.json",
-      "skillIds": []
+      "skillIds": ["read-internet"]
     },
     {
       "id": "tim",
@@ -26,7 +26,7 @@
       "backgroundColor": "#000000",
       "status": "active",
       "sourceManifest": "slack-factory/manifests/tim/app-manifest.json",
-      "skillIds": []
+      "skillIds": ["read-internet"]
     },
     {
       "id": "ross",
@@ -39,7 +39,7 @@
       "backgroundColor": "#000000",
       "status": "active",
       "sourceManifest": "slack-factory/manifests/ross/app-manifest.json",
-      "skillIds": []
+      "skillIds": ["read-internet"]
     },
     {
       "id": "garth",
@@ -52,10 +52,7 @@
       "backgroundColor": "#1a1a2e",
       "status": "active",
       "sourceManifest": "slack-factory/manifests/garth/app-manifest.json",
-      "skillIds": [
-        "read-trends",
-        "read-twitter"
-      ]
+      "skillIds": ["read-internet", "read-trends", "read-twitter"]
     },
     {
       "id": "joanne",
@@ -69,13 +66,15 @@
       "status": "active",
       "sourceManifest": "slack-factory/manifests/joanne/app-manifest.json",
       "skillIds": [
+        "create-company",
+        "create-doc",
+        "create-email",
+        "delete-company",
         "read-company",
+        "read-internet",
         "read-skills",
         "read-user",
-        "create-company",
-        "delete-company",
-        "create-email",
-        "create-doc"
+        "update-terms"
       ]
     }
   ]

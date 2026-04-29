@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-04-22T00:00:00.000Z",
-  "source": "slack-orchestrator internal/inbound.DefaultCapabilityContractV1 (offline fallback; live local uses GET /debug/capability-catalog)",
+  "generatedAt": "2026-04-29T00:00:00.000Z",
+  "source": "slack-orchestrator internal/inbound.DefaultCapabilityContractV1 (offline fallback; live uses GET /v1/runtime/capability-catalog or /v1/admin/catalog)",
   "skills": [
     {
       "id": "create-email",
@@ -63,6 +63,14 @@
       "optionalParams": []
     },
     {
+      "id": "read-internet",
+      "label": "Read Internet",
+      "description": "Search the public web (internet) for current events and external references.",
+      "employeeIds": ["alex", "garth", "joanne", "ross", "tim"],
+      "requiredParams": ["query"],
+      "optionalParams": ["count"]
+    },
+    {
       "id": "read-skills",
       "label": "Read Skills",
       "description": "Display the skills of the team",
@@ -91,6 +99,14 @@
       "label": "Read Trends",
       "description": "Show the latest trends",
       "employeeIds": ["garth"],
+      "requiredParams": [],
+      "optionalParams": []
+    },
+    {
+      "id": "update-terms",
+      "label": "Update Terms",
+      "description": "Show platform terms of use; record I Agree / I Do Not Agree on the operator profile (same confirm control as #humans onboarding).",
+      "employeeIds": ["joanne"],
       "requiredParams": [],
       "optionalParams": []
     }
