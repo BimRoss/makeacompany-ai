@@ -499,7 +499,6 @@ func (s *Store) ListCompanyChannels(ctx context.Context, hashKey string) ([]Comp
 	const scanCount int64 = 256
 	out := make([]CompanyChannel, 0, maxCompanyChannelsList)
 	seen := map[string]struct{}{}
-	truncated := false
 	var cursor uint64
 	for {
 		entries, next, err := rdb.HScan(ctx, k, cursor, "", scanCount).Result()
@@ -531,14 +530,6 @@ func (s *Store) ListCompanyChannels(ctx context.Context, hashKey string) ([]Comp
 				continue
 			}
 			out = append(out, e)
-			if len(out) > maxCompanyChannelsList {
-				truncated = true
-				out = out[:maxCompanyChannelsList]
-				break
-			}
-		}
-		if truncated {
-			break
 		}
 		cursor = next
 		if cursor == 0 {
@@ -554,6 +545,10 @@ func (s *Store) ListCompanyChannels(ctx context.Context, hashKey string) ([]Comp
 		}
 		return out[i].ChannelID < out[j].ChannelID
 	})
+	truncated := len(out) > maxCompanyChannelsList
+	if truncated {
+		out = out[:maxCompanyChannelsList]
+	}
 	return out, truncated, nil
 }
 
