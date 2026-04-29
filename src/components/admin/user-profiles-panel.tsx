@@ -92,18 +92,13 @@ function formatStripeAmount(minorUnits: string, currency: string): string {
   }
 }
 
-/** Stripe checkout customers + Slack workspace members. Mount reads Redis snapshots; live refresh pulls upstream and updates Redis. */
-export function UserProfilesPanel() {
+/** Stripe waitlist / checkout customers. Mount reads Redis snapshots; live refresh pulls upstream and updates Redis. */
+export function AdminStripeUsersTable() {
   const flash = useAdminFlashToast();
   const [stripePurchasers, setStripePurchasers] = useState<StripeWaitlistPurchaserRow[]>([]);
   const [stripeError, setStripeError] = useState<string | null>(null);
   const [stripeLoading, setStripeLoading] = useState(false);
   const [stripeWriteWarn, setStripeWriteWarn] = useState<string | null>(null);
-
-  const [slackUsers, setSlackUsers] = useState<SlackWorkspaceUserRow[]>([]);
-  const [slackError, setSlackError] = useState<string | null>(null);
-  const [slackLoading, setSlackLoading] = useState(false);
-  const [slackWriteWarn, setSlackWriteWarn] = useState<string | null>(null);
 
   const fetchStripePurchasers = useCallback(
     async (live: boolean) => {
@@ -161,69 +156,11 @@ export function UserProfilesPanel() {
     }
   }, [stripePurchasers, flash]);
 
-  const fetchSlackUsers = useCallback(
-    async (live: boolean) => {
-      setSlackLoading(true);
-      setSlackError(null);
-      if (!live) setSlackWriteWarn(null);
-      try {
-        const qs = live ? "?source=live" : "";
-        const res = await fetch(`/api/admin/slack-workspace-users${qs}`, { cache: "no-store" });
-        if (kickToLoginForUnauthorizedApi(res.status, "admin")) {
-          return;
-        }
-        const body = (await res.json()) as SlackUsersPayload;
-        if (!res.ok) {
-          setSlackWriteWarn(null);
-          const msg = body.message ?? body.error ?? `HTTP ${res.status}`;
-          setSlackError(msg);
-          setSlackUsers([]);
-          if (live) flash("error", msg);
-          return;
-        }
-        setSlackUsers(Array.isArray(body.users) ? body.users : []);
-        if (live) {
-          const parts: string[] = [];
-          if (typeof body.redisSaveError === "string")
-            parts.push(`Snapshot not saved to Redis: ${body.redisSaveError} (full page reload will look empty).`);
-          if (typeof body.syncError === "string" && body.syncError)
-            parts.push(`Slack→email index: ${body.syncError}`);
-          setSlackWriteWarn(parts.length > 0 ? parts.join(" ") : null);
-          flash("success", "Slack users refreshed.");
-        } else {
-          setSlackWriteWarn(null);
-        }
-      } catch (e) {
-        setSlackWriteWarn(null);
-        const msg = e instanceof Error ? e.message : "fetch failed";
-        setSlackError(msg);
-        setSlackUsers([]);
-        if (live) flash("error", msg);
-      } finally {
-        setSlackLoading(false);
-      }
-    },
-    [flash],
-  );
-
-  const copySlackUserIds = useCallback(async () => {
-    const ids = slackUsers.map((u) => (u.slackUserId ?? "").trim()).filter(Boolean);
-    if (ids.length === 0) return;
-    try {
-      await navigator.clipboard.writeText(ids.join(", "));
-      flash("success", "Slack user IDs copied.");
-    } catch {
-      flash("error", "Could not copy to clipboard.");
-    }
-  }, [slackUsers, flash]);
-
   useEffect(() => {
     void fetchStripePurchasers(false);
-    void fetchSlackUsers(false);
-  }, [fetchStripePurchasers, fetchSlackUsers]);
+  }, [fetchStripePurchasers]);
 
   return (
-    <div className="space-y-10">
       <section className="space-y-3" aria-labelledby="admin-stripe-users-heading">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h2 id="admin-stripe-users-heading" className="font-display text-xl font-semibold tracking-tight text-foreground">
@@ -318,7 +255,77 @@ export function UserProfilesPanel() {
           </div>
         ) : null}
       </section>
+  );
+}
 
+/** Slack workspace members (users.list). Mount reads Redis snapshots; live refresh pulls upstream and updates Redis. */
+export function AdminSlackUsersTable() {
+  const flash = useAdminFlashToast();
+  const [slackUsers, setSlackUsers] = useState<SlackWorkspaceUserRow[]>([]);
+  const [slackError, setSlackError] = useState<string | null>(null);
+  const [slackLoading, setSlackLoading] = useState(false);
+  const [slackWriteWarn, setSlackWriteWarn] = useState<string | null>(null);
+
+  const fetchSlackUsers = useCallback(
+    async (live: boolean) => {
+      setSlackLoading(true);
+      setSlackError(null);
+      if (!live) setSlackWriteWarn(null);
+      try {
+        const qs = live ? "?source=live" : "";
+        const res = await fetch(`/api/admin/slack-workspace-users${qs}`, { cache: "no-store" });
+        if (kickToLoginForUnauthorizedApi(res.status, "admin")) {
+          return;
+        }
+        const body = (await res.json()) as SlackUsersPayload;
+        if (!res.ok) {
+          setSlackWriteWarn(null);
+          const msg = body.message ?? body.error ?? `HTTP ${res.status}`;
+          setSlackError(msg);
+          setSlackUsers([]);
+          if (live) flash("error", msg);
+          return;
+        }
+        setSlackUsers(Array.isArray(body.users) ? body.users : []);
+        if (live) {
+          const parts: string[] = [];
+          if (typeof body.redisSaveError === "string")
+            parts.push(`Snapshot not saved to Redis: ${body.redisSaveError} (full page reload will look empty).`);
+          if (typeof body.syncError === "string" && body.syncError) parts.push(`Slack→email index: ${body.syncError}`);
+          setSlackWriteWarn(parts.length > 0 ? parts.join(" ") : null);
+          flash("success", "Slack users refreshed.");
+        } else {
+          setSlackWriteWarn(null);
+        }
+      } catch (e) {
+        setSlackWriteWarn(null);
+        const msg = e instanceof Error ? e.message : "fetch failed";
+        setSlackError(msg);
+        setSlackUsers([]);
+        if (live) flash("error", msg);
+      } finally {
+        setSlackLoading(false);
+      }
+    },
+    [flash],
+  );
+
+  const copySlackUserIds = useCallback(async () => {
+    const ids = slackUsers.map((u) => (u.slackUserId ?? "").trim()).filter(Boolean);
+    if (ids.length === 0) return;
+    try {
+      await navigator.clipboard.writeText(ids.join(", "));
+      flash("success", "Slack user IDs copied.");
+    } catch {
+      flash("error", "Could not copy to clipboard.");
+    }
+  }, [slackUsers, flash]);
+
+  useEffect(() => {
+    void fetchSlackUsers(false);
+  }, [fetchSlackUsers]);
+
+  return (
       <section className="space-y-3" aria-labelledby="admin-slack-users-heading">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h2 id="admin-slack-users-heading" className="font-display text-xl font-semibold tracking-tight text-foreground">
@@ -436,6 +443,5 @@ export function UserProfilesPanel() {
           </div>
         ) : null}
       </section>
-    </div>
   );
 }

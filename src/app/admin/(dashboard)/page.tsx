@@ -8,7 +8,7 @@ import { AdminOverviewGrafanaGrid } from "@/components/admin/admin-overview-graf
 import { AdminShell } from "@/components/admin/admin-shell";
 import { SkillsCardsGrid } from "@/components/admin/skills-cards-grid";
 import { OrchestratorDebugPanel } from "@/components/orchestrator/orchestrator-debug-panel";
-import { UserProfilesPanel } from "@/components/admin/user-profiles-panel";
+import { AdminSlackUsersTable, AdminStripeUsersTable } from "@/components/admin/user-profiles-panel";
 import { AdminCatalogErrorBanner } from "@/components/admin/admin-catalog-error-banner";
 import { getAdminCatalogData } from "@/lib/admin/catalog";
 
@@ -47,8 +47,9 @@ export default async function AdminPage() {
             <SkillsCardsGrid skills={skills} members={members} readOnly showToolParams />
           ) : null}
         </section>
+        <AdminSlackUsersTable />
         <AdminCompanyChannelsStrip />
-        <UserProfilesPanel />
+        <AdminStripeUsersTable />
         <OrchestratorDebugPanel />
       </div>
     </AdminShell>
