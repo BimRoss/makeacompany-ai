@@ -3,6 +3,7 @@ import { AdminPostAuthWelcomeBoundary } from "@/components/admin/admin-post-auth
 import { AdminJoanneWelcomeTriggerCard } from "@/components/admin/admin-joanne-welcome-trigger-card";
 import { AdminCompanyChannelsStrip } from "@/components/admin/admin-company-channels-strip";
 import { AdminAgentsAllGrafanaEmbed } from "@/components/admin/admin-agents-all-grafana-embed";
+import { AdminCronJobsGrafanaEmbed } from "@/components/admin/admin-cronjobs-grafana-embed";
 import { AdminOverviewGrafanaGrid } from "@/components/admin/admin-overview-grafana-grid";
 import { AdminShell } from "@/components/admin/admin-shell";
 import { SkillsCardsGrid } from "@/components/admin/skills-cards-grid";
@@ -28,6 +29,7 @@ export default async function AdminPage() {
         <div className="space-y-4">
           <AdminOverviewGrafanaGrid />
           <AdminAgentsAllGrafanaEmbed />
+          <AdminCronJobsGrafanaEmbed />
         </div>
         <section className="space-y-3" aria-labelledby="admin-skills-heading">
           <h2 id="admin-skills-heading" className="text-lg font-semibold leading-snug tracking-tight">

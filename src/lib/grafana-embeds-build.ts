@@ -3,7 +3,7 @@ type GrafanaEmbed = {
   panelId: string;
   title: string;
   dashboardUrl: string | null;
-  source: "twitter" | "app";
+  source: "twitter" | "app" | "cron";
 };
 
 const defaultTwitterPanelTitles = ["Indexer throughput", "Worker throughput"];
@@ -23,6 +23,8 @@ export const DEFAULT_GRAFANA_DASHBOARD_PATH =
 const DEFAULT_SLACK_ORCHESTRATOR_PATH =
   "/grafana/d/makeacompany-slack-orchestrator/makeacompany-slack-orchestrator?orgId=1";
 const DEFAULT_AGENTS_PATH = "/grafana/d/makeacompany-agents/makeacompany-agents?orgId=1";
+/** K8s CronJob / Job panels (kube-state or app metrics). Provision this dashboard in Grafana, then align panel ids via env. */
+const DEFAULT_CRON_PATH = "/grafana/d/makeacompany-cronjobs/makeacompany-cronjobs?orgId=1";
 
 const defaultSlackOrchestratorPanelTitles = [
   "Events API acks /s",
@@ -32,6 +34,12 @@ const defaultSlackOrchestratorPanelTitles = [
 ];
 
 const defaultAgentsPanelTitles = ["Activities", "All agents (goroutines)"];
+
+const defaultCronPanelTitles = [
+  "CronJob — last schedule / next run",
+  "Job success vs failure (by CronJob)",
+  "Job or pod run duration",
+];
 
 function buildDefaultGrafanaDashboardUrl(
   requestHost: string | null,
@@ -128,7 +136,7 @@ function parseList(value: string | null | undefined, fallback: string[]): string
 
 function buildGrafanaEmbeds(
   dashboardUrl: string | null,
-  source: "twitter" | "app",
+  source: "twitter" | "app" | "cron",
   panelIds: string[],
   panelTitles: string[]
 ): GrafanaEmbed[] {
@@ -153,10 +161,12 @@ export function buildGrafanaHealthEmbeds(
   twitterGrafanaDashboardUrl: string | null;
   slackOrchestratorGrafanaDashboardUrl: string | null;
   agentsGrafanaDashboardUrl: string | null;
+  cronjobGrafanaDashboardUrl: string | null;
   grafanaEmbeds: GrafanaEmbed[];
   adminGrafanaEmbeds: GrafanaEmbed[];
   slackOrchestratorGrafanaEmbeds: GrafanaEmbed[];
   agentsGrafanaEmbeds: GrafanaEmbed[];
+  cronjobGrafanaEmbeds: GrafanaEmbed[];
 } {
   const configuredDashboardUrl = process.env.HEALTH_GRAFANA_DASHBOARD_URL?.trim() || null;
   const grafanaDashboardUrl =
@@ -212,6 +222,16 @@ export function buildGrafanaHealthEmbeds(
     defaultAgentsPanelTitles
   );
 
+  const cronjobConfigured = process.env.HEALTH_GRAFANA_CRON_DASHBOARD_URL?.trim() || null;
+  const cronjobDashboardUrl =
+    normalizeGrafanaDashboardUrl(cronjobConfigured, requestHost, requestProto) ??
+    buildDefaultGrafanaPathUrl(requestHost, requestProto, DEFAULT_CRON_PATH);
+  const cronjobPanelIds = parseList(process.env.HEALTH_GRAFANA_CRON_PANEL_IDS, ["1", "2", "3"]);
+  const cronjobPanelTitles = parseList(
+    process.env.HEALTH_GRAFANA_CRON_PANEL_TITLES,
+    defaultCronPanelTitles
+  );
+
   const grafanaEmbeds = buildGrafanaEmbeds(
     twitterDashboardUrl,
     "twitter",
@@ -236,15 +256,23 @@ export function buildGrafanaHealthEmbeds(
     agentsPanelIds,
     agentsPanelTitles
   );
+  const cronjobGrafanaEmbeds = buildGrafanaEmbeds(
+    cronjobDashboardUrl,
+    "cron",
+    cronjobPanelIds,
+    cronjobPanelTitles
+  );
 
   return {
     grafanaDashboardUrl,
     twitterGrafanaDashboardUrl: twitterDashboardUrl,
     slackOrchestratorGrafanaDashboardUrl: slackOrchestratorDashboardUrl,
     agentsGrafanaDashboardUrl: agentsDashboardUrl,
+    cronjobGrafanaDashboardUrl: cronjobDashboardUrl,
     grafanaEmbeds,
     adminGrafanaEmbeds,
     slackOrchestratorGrafanaEmbeds,
     agentsGrafanaEmbeds,
+    cronjobGrafanaEmbeds,
   };
 }

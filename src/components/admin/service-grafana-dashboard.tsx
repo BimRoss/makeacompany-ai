@@ -43,13 +43,15 @@ function asGrafanaEmbedUrl(
 
 type ServiceGrafanaDashboardProps = {
   /** Key on /api/admin/health JSON (e.g. slackOrchestratorGrafanaEmbeds) */
-  embedsKey: "slackOrchestratorGrafanaEmbeds" | "agentsGrafanaEmbeds";
+  embedsKey: "slackOrchestratorGrafanaEmbeds" | "agentsGrafanaEmbeds" | "cronjobGrafanaEmbeds";
   /** Optional; omit to show only Grafana embeds (panel titles come from Grafana). */
   title?: string;
   description?: string;
   gridClassName?: string;
   /** When set, only matching panels are rendered (e.g. “All agents” on `/admin`). */
   embedFilter?: (embed: GrafanaEmbed) => boolean;
+  /** Use `h2` when embedding under a page that already has a primary `h1` (e.g. `/admin`). */
+  titleAs?: "h1" | "h2";
 };
 
 export function ServiceGrafanaDashboard({
@@ -58,6 +60,7 @@ export function ServiceGrafanaDashboard({
   description,
   gridClassName = "grid grid-cols-1 gap-2 md:grid-cols-2",
   embedFilter,
+  titleAs = "h1",
 }: ServiceGrafanaDashboardProps) {
   const { resolvedTheme } = useTheme();
   const [loopback, setLoopback] = useState<boolean | null>(null);
@@ -125,13 +128,15 @@ export function ServiceGrafanaDashboard({
     return null;
   }
 
+  const TitleTag = titleAs;
+
   if (!healthFetched) {
     return (
       <section className="space-y-3">
         {showPageHeading ? (
           <div className="space-y-1 px-0.5">
             {title?.trim() ? (
-              <h1 className="font-display text-xl font-semibold tracking-tight text-foreground">{title}</h1>
+              <TitleTag className="font-display text-xl font-semibold tracking-tight text-foreground">{title}</TitleTag>
             ) : null}
             {description?.trim() ? (
               <p className="text-sm text-muted-foreground">{description}</p>
@@ -150,7 +155,7 @@ export function ServiceGrafanaDashboard({
       {showPageHeading ? (
         <div className="space-y-1 px-0.5">
           {title?.trim() ? (
-            <h1 className="font-display text-xl font-semibold tracking-tight text-foreground">{title}</h1>
+            <TitleTag className="font-display text-xl font-semibold tracking-tight text-foreground">{title}</TitleTag>
           ) : null}
           {description?.trim() ? (
             <p className="text-sm text-muted-foreground">{description}</p>
