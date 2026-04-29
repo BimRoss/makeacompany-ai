@@ -18,7 +18,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { channelId } = await params;
   const { label } = await getPortalLoginCompanyLabel(channelId ?? "");
   return {
-    title: `${label} Company Portal — Login`,
+    title: `${label} Dashboard — Login`,
     robots: { index: false, follow: false },
   };
 }
