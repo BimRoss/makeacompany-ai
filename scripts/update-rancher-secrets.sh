@@ -22,6 +22,8 @@ set -euo pipefail
 #   SLACK_BOT_TOKEN (optional; same as slack-orchestrator .env for /admin Slack Users users.list)
 #   CAPABILITY_CATALOG_READ_TOKEN (optional; preserve existing token when omitted from .env.prod)
 #   COOKIE_HEALTH_TOKEN (optional in .env, but preserved from existing runtime secret when present)
+#   ORCHESTRATOR_DEBUG_TOKEN (optional; Bearer for slack-orchestrator /debug/* used by catalog fallback;
+#   preserve existing cluster value when omitted)
 #   Portal login (optional; preserved from cluster when not in .env.prod — same Secret is envFrom on frontend + backend):
 #   GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET, PORTAL_GOOGLE_OAUTH_STATE_SECRET (optional),
 #   RESEND_API_KEY, PORTAL_AUTH_EMAIL_FROM,
@@ -199,6 +201,16 @@ if [[ -z "${CAPABILITY_CATALOG_READ_TOKEN_EFFECTIVE}" ]]; then
 fi
 if [[ -n "${CAPABILITY_CATALOG_READ_TOKEN_EFFECTIVE}" ]]; then
   secret_args+=(--from-literal=CAPABILITY_CATALOG_READ_TOKEN="${CAPABILITY_CATALOG_READ_TOKEN_EFFECTIVE}")
+fi
+
+# Optional orchestrator debug token used by backend fallback to GET
+# SLACK_ORCHESTRATOR_CAPABILITY_CATALOG_URL (/debug/capability-catalog).
+ORCHESTRATOR_DEBUG_TOKEN_EFFECTIVE="${ORCHESTRATOR_DEBUG_TOKEN:-}"
+if [[ -z "${ORCHESTRATOR_DEBUG_TOKEN_EFFECTIVE}" ]]; then
+  ORCHESTRATOR_DEBUG_TOKEN_EFFECTIVE="$(read_existing_secret_key ORCHESTRATOR_DEBUG_TOKEN)"
+fi
+if [[ -n "${ORCHESTRATOR_DEBUG_TOKEN_EFFECTIVE}" ]]; then
+  secret_args+=(--from-literal=ORCHESTRATOR_DEBUG_TOKEN="${ORCHESTRATOR_DEBUG_TOKEN_EFFECTIVE}")
 fi
 
 # Optional portal auth keys (Google OAuth + Resend magic links). If absent from ENV_FILE, keep existing cluster values
