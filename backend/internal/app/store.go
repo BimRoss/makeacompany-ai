@@ -125,7 +125,7 @@ func (s *Store) orchestratorMergeBaseline(ctx context.Context) CapabilityCatalog
 	if len(s.baselineMerge.Skills) > 0 && time.Now().Before(s.baselineExpiry) {
 		return s.baselineMerge
 	}
-	cat, err := FetchCapabilityCatalogFromOrchestrator(ctx, url, s.orchestratorDebugToken)
+	cat, err := FetchCapabilityCatalogFromOrchestrator(ctx, url)
 	if err != nil {
 		if len(s.baselineMerge.Skills) > 0 {
 			return s.baselineMerge

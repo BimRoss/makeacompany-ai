@@ -11,9 +11,8 @@ import (
 )
 
 // FetchCapabilityCatalogFromOrchestrator performs GET rawURL (typically slack-orchestrator
-// GET /debug/capability-catalog). If bearerToken is set, it is sent as Authorization: Bearer
-// for clusters where orchestrator debug routes require auth.
-func FetchCapabilityCatalogFromOrchestrator(ctx context.Context, rawURL, bearerToken string) (CapabilityCatalog, error) {
+// GET /v1/public/capability-catalog).
+func FetchCapabilityCatalogFromOrchestrator(ctx context.Context, rawURL string) (CapabilityCatalog, error) {
 	rawURL = strings.TrimSpace(rawURL)
 	if rawURL == "" {
 		return CapabilityCatalog{}, fmt.Errorf("orchestrator catalog url empty")
@@ -21,9 +20,6 @@ func FetchCapabilityCatalogFromOrchestrator(ctx context.Context, rawURL, bearerT
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
 	if err != nil {
 		return CapabilityCatalog{}, err
-	}
-	if token := strings.TrimSpace(bearerToken); token != "" {
-		req.Header.Set("Authorization", "Bearer "+token)
 	}
 
 	client := &http.Client{Timeout: 15 * time.Second}

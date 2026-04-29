@@ -11,10 +11,10 @@ import (
 	"time"
 )
 
-const orchestratorChannelMembersPath = "/debug/channel-members"
+const orchestratorChannelMembersPath = "/v1/public/channel-members"
 
 // FetchOrchestratorChannelHumanUserIDs returns human_user_ids from slack-orchestrator
-// GET /debug/channel-members?channel_id=C....
+// GET /v1/public/channel-members?channel_id=C....
 func FetchOrchestratorChannelHumanUserIDs(ctx context.Context, baseURL, bearerToken, channelID string) ([]string, error) {
 	chID := strings.TrimSpace(channelID)
 	if chID == "" {

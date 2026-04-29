@@ -11,9 +11,9 @@ import (
 	"time"
 )
 
-const orchestratorMemberChannelsPath = "/debug/member-channels"
+const orchestratorMemberChannelsPath = "/v1/public/member-channels"
 
-// FetchOrchestratorMemberChannels returns the raw JSON body from slack-orchestrator GET /debug/member-channels.
+// FetchOrchestratorMemberChannels returns the raw JSON body from slack-orchestrator GET /v1/public/member-channels.
 func FetchOrchestratorMemberChannels(ctx context.Context, baseURL, bearerToken string) ([]byte, error) {
 	base := strings.TrimRight(strings.TrimSpace(baseURL), "/")
 	if base == "" {

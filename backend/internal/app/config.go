@@ -20,7 +20,7 @@ type Config struct {
 	// Defaults true in production (APP_ENV=production), false otherwise. Can be overridden via REQUIRE_CAPABILITY_CATALOG_READ_TOKEN.
 	RequireCapabilityCatalogReadToken bool
 	// SlackOrchestratorCapabilityCatalogURL, when set: GET /v1/runtime/capability-catalog prefers live JSON from
-	// slack-orchestrator (e.g. .../debug/capability-catalog); missing Redis catalog key seeds from it; GET /v1/admin/catalog
+	// slack-orchestrator (e.g. .../v1/public/capability-catalog); missing Redis catalog key seeds from it; GET /v1/admin/catalog
 	// merges in new skills from a cached orchestrator fetch so older Redis snapshots stay aligned.
 	SlackOrchestratorCapabilityCatalogURL string
 	// BackendInternalServiceToken gates /v1/internal/* maintenance endpoints only.
@@ -36,7 +36,8 @@ type Config struct {
 	JoanneHumansWelcomeTriggerURL string
 	// JoanneHumansWelcomeTriggerToken must match JOANNE_HUMANS_WELCOME_TRIGGER_TOKEN on the Joanne pod (Authorization: Bearer).
 	JoanneHumansWelcomeTriggerToken string
-	// OrchestratorDebugBaseURL is slack-orchestrator HTTP root (same as Next ORCHESTRATOR_DEBUG_BASE_URL) for GET /debug/member-channels snapshots.
+	// OrchestratorDebugBaseURL is slack-orchestrator HTTP root (same as Next ORCHESTRATOR_DEBUG_BASE_URL)
+	// for member-channel and channel-member sync reads.
 	OrchestratorDebugBaseURL string
 	OrchestratorDebugToken   string
 	// GoogleOAuthClientID is the Google OAuth Web client id (used as id_token audience for /v1/portal/auth/google/finish).

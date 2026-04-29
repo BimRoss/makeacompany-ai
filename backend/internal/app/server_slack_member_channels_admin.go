@@ -18,7 +18,7 @@ func (s *Server) handleInternalRefreshSlackMemberChannelsSnapshot(w http.Respons
 		return
 	}
 	if strings.TrimSpace(s.cfg.OrchestratorDebugBaseURL) == "" {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "ORCHESTRATOR_DEBUG_BASE_URL is not set (same URL Next uses for /debug/member-channels)"})
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "ORCHESTRATOR_DEBUG_BASE_URL is not set (same base URL used for orchestrator member-channel reads)"})
 		return
 	}
 	body, err := FetchOrchestratorMemberChannels(r.Context(), s.cfg.OrchestratorDebugBaseURL, s.cfg.OrchestratorDebugToken)
@@ -151,7 +151,7 @@ func (s *Server) writeAdminSlackMemberChannelsLive(w http.ResponseWriter, r *htt
 		writeJSONNoStore(w, http.StatusBadGateway, map[string]any{"error": mErr.Error()})
 		return
 	}
-	resp["snapshotNote"] = "Queried slack-orchestrator GET /debug/member-channels; snapshot written to Redis."
+	resp["snapshotNote"] = "Queried slack-orchestrator GET /v1/public/member-channels; snapshot written to Redis."
 	if svErr := s.store.SaveSlackMemberChannelsSnapshot(r.Context(), fetchedAt, body); svErr != nil {
 		s.log.Printf("admin slack member channels live save snapshot: %v", svErr)
 		resp["redisSaveError"] = svErr.Error()
