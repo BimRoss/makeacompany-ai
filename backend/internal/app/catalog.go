@@ -541,8 +541,7 @@ func validateCapabilityCatalog(c CapabilityCatalog) error {
 }
 
 func (s *Store) GetCapabilityCatalog(ctx context.Context) (CapabilityCatalog, error) {
-	raw, err := s.rdb.Get(ctx, capabilityCatalogRedisKey).Bytes()
-	if err == redis.Nil {
+	loadFromOrchestrator := func() (CapabilityCatalog, error) {
 		url := strings.TrimSpace(s.orchestratorCatalogURL)
 		if url == "" {
 			return CapabilityCatalog{}, fmt.Errorf("capability catalog: redis key missing; set SLACK_ORCHESTRATOR_CAPABILITY_CATALOG_URL to seed from slack-orchestrator or PUT /v1/admin/catalog")
@@ -563,18 +562,26 @@ func (s *Store) GetCapabilityCatalog(ctx context.Context) (CapabilityCatalog, er
 		}
 		return catalog, nil
 	}
+
+	raw, err := s.rdb.Get(ctx, capabilityCatalogRedisKey).Bytes()
+	if err == redis.Nil {
+		return loadFromOrchestrator()
+	}
 	if err != nil {
-		return CapabilityCatalog{}, err
+		// Keep /skills and /admin catalog alive from slack-orchestrator source-of-truth when Redis is degraded.
+		return loadFromOrchestrator()
 	}
 	var catalog CapabilityCatalog
 	if err := json.Unmarshal(raw, &catalog); err != nil {
-		return CapabilityCatalog{}, fmt.Errorf("decode catalog: %w", err)
+		// Corrupted Redis payload should not blank the catalog UI if orchestrator is available.
+		return loadFromOrchestrator()
 	}
 	baseline := s.orchestratorMergeBaseline(ctx)
 	catalog = mergeCapabilityCatalogWithDefaults(catalog, baseline)
 	catalog = normalizeCapabilityCatalog(catalog)
 	if err := validateCapabilityCatalog(catalog); err != nil {
-		return CapabilityCatalog{}, err
+		// Invalid Redis payload should fall back to orchestrator (then rewrite Redis on success).
+		return loadFromOrchestrator()
 	}
 	catalog.Source = "redis"
 	return catalog, nil
