@@ -547,7 +547,7 @@ func (s *Store) GetCapabilityCatalog(ctx context.Context) (CapabilityCatalog, er
 		if url == "" {
 			return CapabilityCatalog{}, fmt.Errorf("capability catalog: redis key missing; set SLACK_ORCHESTRATOR_CAPABILITY_CATALOG_URL to seed from slack-orchestrator or PUT /v1/admin/catalog")
 		}
-		catalog, err := FetchCapabilityCatalogFromOrchestrator(ctx, url)
+		catalog, err := FetchCapabilityCatalogFromOrchestrator(ctx, url, s.orchestratorDebugToken)
 		if err != nil {
 			return CapabilityCatalog{}, fmt.Errorf("capability catalog seed from orchestrator: %w", err)
 		}

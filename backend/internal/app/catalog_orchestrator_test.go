@@ -23,7 +23,7 @@ func TestFetchCapabilityCatalogFromOrchestrator_OK(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
-	got, err := FetchCapabilityCatalogFromOrchestrator(context.Background(), srv.URL)
+	got, err := FetchCapabilityCatalogFromOrchestrator(context.Background(), srv.URL, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -42,9 +42,27 @@ func TestFetchCapabilityCatalogFromOrchestrator_Unauthorized(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
-	_, err := FetchCapabilityCatalogFromOrchestrator(context.Background(), srv.URL)
+	_, err := FetchCapabilityCatalogFromOrchestrator(context.Background(), srv.URL, "")
 	if err == nil {
 		t.Fatal("expected error")
+	}
+}
+
+func TestFetchCapabilityCatalogFromOrchestrator_SendsBearerToken(t *testing.T) {
+	t.Parallel()
+	sample := CapabilityContractLikeOrchestrator(t)
+	const wantToken = "orchestrator-debug-token"
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.Header.Get("Authorization"); got != "Bearer "+wantToken {
+			t.Fatalf("authorization header: got %q want %q", got, "Bearer "+wantToken)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(sample)
+	}))
+	t.Cleanup(srv.Close)
+
+	if _, err := FetchCapabilityCatalogFromOrchestrator(context.Background(), srv.URL, wantToken); err != nil {
+		t.Fatal(err)
 	}
 }
 

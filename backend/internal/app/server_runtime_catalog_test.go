@@ -20,7 +20,7 @@ func TestRuntimeCatalogRequiresTokenWhenConfigured(t *testing.T) {
 	}
 	t.Cleanup(mr.Close)
 
-	store, err := NewStore("redis://"+mr.Addr()+"/0", "", "")
+	store, err := NewStore("redis://"+mr.Addr()+"/0", "", "", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -53,7 +53,7 @@ func TestRuntimeCatalogReadsRedisWithoutServerSideOrchestratorFetch(t *testing.T
 	}
 	t.Cleanup(mr.Close)
 
-	store, err := NewStore("redis://"+mr.Addr()+"/0", "", "")
+	store, err := NewStore("redis://"+mr.Addr()+"/0", "", "", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -101,7 +101,7 @@ func TestPublicCapabilityCatalogNoToken(t *testing.T) {
 	}
 	t.Cleanup(mr.Close)
 
-	store, err := NewStore("redis://"+mr.Addr()+"/0", "", "")
+	store, err := NewStore("redis://"+mr.Addr()+"/0", "", "", "")
 	if err != nil {
 		t.Fatal(err)
 	}

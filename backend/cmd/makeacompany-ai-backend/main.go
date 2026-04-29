@@ -17,7 +17,12 @@ import (
 func main() {
 	logger := log.New(os.Stdout, "", log.LstdFlags)
 	cfg := app.LoadConfig()
-	store, err := app.NewStore(cfg.RedisURL, cfg.CompanyChannelsRedisURL, cfg.SlackOrchestratorCapabilityCatalogURL)
+	store, err := app.NewStore(
+		cfg.RedisURL,
+		cfg.CompanyChannelsRedisURL,
+		cfg.SlackOrchestratorCapabilityCatalogURL,
+		cfg.OrchestratorDebugToken,
+	)
 	if err != nil {
 		logger.Fatalf("redis: %v", err)
 	}

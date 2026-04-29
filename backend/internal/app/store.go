@@ -73,6 +73,7 @@ type Store struct {
 	rdb                    *redis.Client
 	companyChannelsRdb     *redis.Client // optional second Redis for shared employee-factory registry; nil = use rdb
 	orchestratorCatalogURL string        // SLACK_ORCHESTRATOR_CAPABILITY_CATALOG_URL — seed empty Redis + merge baseline
+	orchestratorDebugToken string        // optional Authorization: Bearer for locked /debug/* endpoints
 
 	baselineMu     sync.Mutex
 	baselineMerge  CapabilityCatalog
@@ -83,14 +84,18 @@ const orchestratorCatalogBaselineTTL = 2 * time.Minute
 
 // NewStore opens the primary Redis client. If companyChannelsRedisURL is non-empty and differs from redisURL,
 // a second client is used only for ListCompanyChannels (same pattern as employee-factory vs makeacompany-ai split).
-func NewStore(redisURL, companyChannelsRedisURL, orchestratorCatalogURL string) (*Store, error) {
+func NewStore(redisURL, companyChannelsRedisURL, orchestratorCatalogURL, orchestratorDebugToken string) (*Store, error) {
 	opts, err := redis.ParseURL(redisURL)
 	if err != nil {
 		return nil, fmt.Errorf("parse redis url: %w", err)
 	}
 	primary := redis.NewClient(opts)
 	orchURL := strings.TrimSpace(orchestratorCatalogURL)
-	st := &Store{rdb: primary, orchestratorCatalogURL: orchURL}
+	st := &Store{
+		rdb:                    primary,
+		orchestratorCatalogURL: orchURL,
+		orchestratorDebugToken: strings.TrimSpace(orchestratorDebugToken),
+	}
 	ccURL := strings.TrimSpace(companyChannelsRedisURL)
 	if ccURL == "" || ccURL == strings.TrimSpace(redisURL) {
 		return st, nil
@@ -120,7 +125,7 @@ func (s *Store) orchestratorMergeBaseline(ctx context.Context) CapabilityCatalog
 	if len(s.baselineMerge.Skills) > 0 && time.Now().Before(s.baselineExpiry) {
 		return s.baselineMerge
 	}
-	cat, err := FetchCapabilityCatalogFromOrchestrator(ctx, url)
+	cat, err := FetchCapabilityCatalogFromOrchestrator(ctx, url, s.orchestratorDebugToken)
 	if err != nil {
 		if len(s.baselineMerge.Skills) > 0 {
 			return s.baselineMerge
