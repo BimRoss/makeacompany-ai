@@ -15,6 +15,8 @@ type TeamCardsGridProps = {
   requestLoopbackHost?: boolean;
   /** Omit curated `/headshots/*.png` so avatars are initials-only (used on `/employees`). */
   skipLocalPortraits?: boolean;
+  /** On public routes, do not redirect to admin login when health API returns unauthorized. */
+  redirectUnauthorizedToAdminLogin?: boolean;
 };
 
 type GrafanaEmbed = {
@@ -90,6 +92,7 @@ export function TeamCardsGrid({
   skills,
   requestLoopbackHost = false,
   skipLocalPortraits = false,
+  redirectUnauthorizedToAdminLogin = true,
 }: TeamCardsGridProps) {
   const { resolvedTheme } = useTheme();
   const [healthPayload, setHealthPayload] = useState<HealthPayload | null>(null);
@@ -107,7 +110,13 @@ export function TeamCardsGrid({
     const load = async () => {
       try {
         const response = await fetch("/api/admin/health", { cache: "no-store" });
-        if (kickToLoginForUnauthorizedApi(response.status, "admin")) {
+        if (redirectUnauthorizedToAdminLogin && kickToLoginForUnauthorizedApi(response.status, "admin")) {
+          return;
+        }
+        if (!response.ok) {
+          if (!cancelled) {
+            setHealthPayload({ grafanaEmbeds: [] });
+          }
           return;
         }
         const payload = (await response.json()) as HealthPayload;

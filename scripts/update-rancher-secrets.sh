@@ -97,6 +97,10 @@ if [[ ! -f "${ENV_FILE}" ]]; then
   exit 1
 fi
 
+if [[ "${SKIP_PROD_ENV_CHECK:-false}" != "true" ]]; then
+  "${ROOT}/scripts/check-prod-env.sh" "${ENV_FILE}"
+fi
+
 set -a
 # shellcheck source=/dev/null
 source "${ENV_FILE}"
@@ -108,6 +112,13 @@ if [[ -n "${KUBECONFIG_HOST_PATH:-}" && -f "${KUBECONFIG_HOST_PATH}" ]]; then
 fi
 if [[ -n "${KUBECONFIG_CONTEXT:-}" && -z "${KUBE_CONTEXT:-}" ]]; then
   export KUBE_CONTEXT="${KUBECONFIG_CONTEXT}"
+fi
+
+# Guardrail: REDIS_URL is configured from rancher-admin ConfigMap (not this runtime Secret),
+# but require it in .env.prod to keep env parity and avoid silent catalog failures.
+if [[ -z "${REDIS_URL:-}" ]]; then
+  echo "need REDIS_URL in ${ENV_FILE} (must match rancher-admin/admin/apps/makeacompany-ai/configmap.yaml)" >&2
+  exit 1
 fi
 
 if [[ -z "${STRIPE_SECRET_KEY:-}" ]]; then
