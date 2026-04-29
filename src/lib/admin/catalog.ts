@@ -283,6 +283,49 @@ function buildLoadError(attempts: AdminCatalogLoadAttempt[]): AdminCatalogLoadEr
   return { message, hint, attempts };
 }
 
+function buildPublicLoadError(attempt: AdminCatalogLoadAttempt): AdminCatalogLoadError {
+  const status = attempt.status;
+  if (status === 401 || status === 403) {
+    return {
+      message: "The public skills catalog is unexpectedly protected.",
+      hint: "GET /v1/public/capability-catalog must be public with no auth checks in front of it (proxy, middleware, or backend route).",
+      attempts: [attempt],
+    };
+  }
+  if (status === 500 || (status && status >= 500)) {
+    return {
+      message: "The backend failed while reading the public skills catalog.",
+      hint: "Check backend logs, Redis connectivity, and catalog seeding from slack-orchestrator.",
+      attempts: [attempt],
+    };
+  }
+  return {
+    message: "The public skills catalog request failed.",
+    hint: "Confirm the Next.js app can reach the Go backend at BACKEND_INTERNAL_API_BASE_URL / NEXT_PUBLIC_BACKEND_API_BASE_URL and that /v1/public/capability-catalog responds.",
+    attempts: [attempt],
+  };
+}
+
+export async function getPublicCatalogData(): Promise<AdminCatalogDataResult> {
+  const base = resolveBackendBaseURL().replace(/\/$/, "");
+  const r0 = await fetchCatalogFromBackend(
+    base,
+    "/v1/public/capability-catalog",
+    "GET /v1/public/capability-catalog (public)",
+    undefined
+  );
+  if (r0.catalog) {
+    const { members, skills } = normalizeCatalogToAdminData(r0.catalog);
+    return { ok: true, source: "public", members, skills };
+  }
+  return {
+    ok: false,
+    members: [],
+    skills: [],
+    error: buildPublicLoadError(r0.attempt),
+  };
+}
+
 export async function getAdminCatalogData(): Promise<AdminCatalogDataResult> {
   const base = resolveBackendBaseURL().replace(/\/$/, "");
   const runtimeReadToken = process.env.CAPABILITY_CATALOG_READ_TOKEN?.trim();

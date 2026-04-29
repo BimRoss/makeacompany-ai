@@ -233,15 +233,6 @@ export function UserProfilesPanel() {
           <div className="flex items-center gap-2">
             <button
               type="button"
-              disabled={stripeLoading || stripePurchasers.length === 0}
-              onClick={() => void copyStripeUserEmails()}
-              className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg border border-border bg-card text-foreground hover:bg-muted/60 disabled:opacity-50"
-              aria-label="Copy Stripe user emails"
-            >
-              <Copy className="size-4" aria-hidden />
-            </button>
-            <button
-              type="button"
               disabled={stripeLoading}
               onClick={() => void fetchStripePurchasers(true)}
               className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg border border-border bg-card text-foreground hover:bg-muted/60 disabled:opacity-50"
@@ -252,6 +243,15 @@ export function UserProfilesPanel() {
               ) : (
                 <RefreshCw className="size-4" aria-hidden />
               )}
+            </button>
+            <button
+              type="button"
+              disabled={stripeLoading || stripePurchasers.length === 0}
+              onClick={() => void copyStripeUserEmails()}
+              className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg border border-border bg-card text-foreground hover:bg-muted/60 disabled:opacity-50"
+              aria-label="Copy Stripe user emails"
+            >
+              <Copy className="size-4" aria-hidden />
             </button>
           </div>
         </div>
@@ -327,15 +327,6 @@ export function UserProfilesPanel() {
           <div className="flex items-center gap-2">
             <button
               type="button"
-              disabled={slackLoading || slackUsers.length === 0}
-              onClick={() => void copySlackUserIds()}
-              className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg border border-border bg-card text-foreground hover:bg-muted/60 disabled:opacity-50"
-              aria-label="Copy Slack user IDs"
-            >
-              <Copy className="size-4" aria-hidden />
-            </button>
-            <button
-              type="button"
               disabled={slackLoading}
               onClick={() => void fetchSlackUsers(true)}
               className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg border border-border bg-card text-foreground hover:bg-muted/60 disabled:opacity-50"
@@ -346,6 +337,15 @@ export function UserProfilesPanel() {
               ) : (
                 <RefreshCw className="size-4" aria-hidden />
               )}
+            </button>
+            <button
+              type="button"
+              disabled={slackLoading || slackUsers.length === 0}
+              onClick={() => void copySlackUserIds()}
+              className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg border border-border bg-card text-foreground hover:bg-muted/60 disabled:opacity-50"
+              aria-label="Copy Slack user IDs"
+            >
+              <Copy className="size-4" aria-hidden />
             </button>
           </div>
         </div>

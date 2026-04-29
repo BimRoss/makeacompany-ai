@@ -1,10 +1,10 @@
 import { AdminCatalogErrorBanner } from "@/components/admin/admin-catalog-error-banner";
 import { AdminShell } from "@/components/admin/admin-shell";
 import { SkillsCardsGrid } from "@/components/admin/skills-cards-grid";
-import { getAdminCatalogData } from "@/lib/admin/catalog";
+import { getPublicCatalogData } from "@/lib/admin/catalog";
 
 export default async function SkillsPage() {
-  const result = await getAdminCatalogData();
+  const result = await getPublicCatalogData();
   if (!result.ok) {
     return (
       <AdminShell>

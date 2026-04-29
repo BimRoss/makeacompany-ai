@@ -544,15 +544,6 @@ export function AdminCompanyChannelsStrip() {
         <div className="flex items-center gap-2">
           <button
             type="button"
-            disabled={snapshotLoading || rows.length === 0}
-            onClick={() => void copyCompanyChannelIds()}
-            className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg border border-border bg-card text-foreground hover:bg-muted/60 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50"
-            aria-label="Copy company channel IDs"
-          >
-            <Copy className="size-4" aria-hidden />
-          </button>
-          <button
-            type="button"
             disabled={snapshotLoading}
             aria-busy={snapshotLoading}
             onClick={() => void load(true)}
@@ -564,6 +555,15 @@ export function AdminCompanyChannelsStrip() {
             ) : (
               <RefreshCw className="size-4" aria-hidden />
             )}
+          </button>
+          <button
+            type="button"
+            disabled={snapshotLoading || rows.length === 0}
+            onClick={() => void copyCompanyChannelIds()}
+            className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg border border-border bg-card text-foreground hover:bg-muted/60 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50"
+            aria-label="Copy company channel IDs"
+          >
+            <Copy className="size-4" aria-hidden />
           </button>
         </div>
       </div>
