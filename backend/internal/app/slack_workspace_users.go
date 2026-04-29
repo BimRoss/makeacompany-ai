@@ -25,10 +25,10 @@ type SlackWorkspaceUser struct {
 	ProfileImageURL string `json:"profileImageUrl,omitempty"`
 	IsBot           bool   `json:"isBot"`
 	IsDeleted       bool   `json:"isDeleted"`
-	// HumansTermsAcceptedAt is merged from makeacompany:user_profile (Joanne #humans terms flow); not from Slack API.
-	HumansTermsAcceptedAt string `json:"humansTermsAcceptedAt,omitempty"`
-	// HumansTermsAcceptedMessageTs is the Slack message_ts of the terms prompt when accepted.
-	HumansTermsAcceptedMessageTs string `json:"humansTermsAcceptedMessageTs,omitempty"`
+	// Terms is merged from makeacompany:user_profile (Joanne #humans terms flow); not from Slack API.
+	Terms string `json:"terms,omitempty"`
+	// TermsMessageTs is the Slack message_ts of the terms prompt when accepted.
+	TermsMessageTs string `json:"termsMessageTs,omitempty"`
 }
 
 type slackUsersListResponse struct {

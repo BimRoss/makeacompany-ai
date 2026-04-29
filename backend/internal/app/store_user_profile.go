@@ -297,18 +297,18 @@ func (s *Store) EnrichSlackWorkspaceUsersWithProfileTerms(ctx context.Context, u
 		if em == "" {
 			continue
 		}
-		vals, err := s.rdb.HMGet(ctx, userProfileRedisKey(em), "humans_terms_accepted_at", "humans_terms_accepted_message_ts").Result()
+		vals, err := s.rdb.HMGet(ctx, userProfileRedisKey(em), "humans_terms_accepted_at", "humans_terms_accepted_slack_message_ts").Result()
 		if err != nil || len(vals) < 2 {
 			continue
 		}
 		if vals[0] != nil {
 			if v, ok := vals[0].(string); ok {
-				users[i].HumansTermsAcceptedAt = strings.TrimSpace(v)
+				users[i].Terms = strings.TrimSpace(v)
 			}
 		}
 		if vals[1] != nil {
 			if v, ok := vals[1].(string); ok {
-				users[i].HumansTermsAcceptedMessageTs = strings.TrimSpace(v)
+				users[i].TermsMessageTs = strings.TrimSpace(v)
 			}
 		}
 	}

@@ -40,8 +40,8 @@ type SlackWorkspaceUserRow = {
   isBot: boolean;
   isDeleted: boolean;
   /** From Redis profile (Joanne #humans terms confirm). */
-  humansTermsAcceptedAt?: string;
-  humansTermsAcceptedMessageTs?: string;
+  terms?: string;
+  termsMessageTs?: string;
 };
 
 type SlackUsersPayload = {
@@ -382,7 +382,7 @@ export function UserProfilesPanel() {
                   <th className="px-3 py-1.5">Username</th>
                   <th className="px-3 py-1.5">Slack ID</th>
                   <th className="px-3 py-1.5">Team</th>
-                  <th className="px-3 py-1.5">Terms accepted</th>
+                  <th className="px-3 py-1.5">Terms</th>
                   <th className="px-3 py-1.5">Bot</th>
                   <th className="px-3 py-1.5">Deleted</th>
                 </tr>
@@ -422,9 +422,9 @@ export function UserProfilesPanel() {
                     <td className="px-3 py-1.5 align-middle font-mono text-xs">{short(u.teamId, 14)}</td>
                     <td
                       className="px-3 py-1.5 align-middle text-xs text-muted-foreground"
-                      title={(u.humansTermsAcceptedMessageTs ?? "").trim() || undefined}
+                      title={(u.termsMessageTs ?? "").trim() || undefined}
                     >
-                      {(u.humansTermsAcceptedAt ?? "").trim() ? short(u.humansTermsAcceptedAt ?? "", 22) : "—"}
+                      {(u.terms ?? "").trim() ? short(u.terms ?? "", 22) : "—"}
                     </td>
                     <td className="px-3 py-1.5 align-middle text-xs">{u.isBot ? "yes" : "—"}</td>
                     <td className="px-3 py-1.5 align-middle text-xs">{u.isDeleted ? "yes" : "—"}</td>
