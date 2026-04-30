@@ -45,7 +45,12 @@ func FetchOrchestratorMemberChannels(ctx context.Context, baseURL, bearerToken s
 		if len(msg) > 500 {
 			msg = msg[:500]
 		}
-		return nil, fmt.Errorf("orchestrator member-channels: HTTP %d: %s", res.StatusCode, msg)
+		return nil, &UpstreamHTTPError{
+			Source:      "orchestrator member-channels",
+			StatusCode:  res.StatusCode,
+			RetryAfter:  strings.TrimSpace(res.Header.Get("Retry-After")),
+			BodySnippet: msg,
+		}
 	}
 	var probe map[string]any
 	if err := json.Unmarshal(body, &probe); err != nil {

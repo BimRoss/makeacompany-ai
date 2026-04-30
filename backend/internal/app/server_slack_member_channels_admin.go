@@ -23,12 +23,12 @@ func (s *Server) handleInternalRefreshSlackMemberChannelsSnapshot(w http.Respons
 	}
 	body, err := FetchOrchestratorMemberChannels(r.Context(), s.cfg.OrchestratorDebugBaseURL, s.cfg.OrchestratorDebugToken)
 	if err != nil {
-		s.log.Printf("refresh slack member channels snapshot: %v", err)
-		writeJSON(w, http.StatusBadGateway, map[string]any{"error": err.Error()})
+		s.writeSlackRefreshError(w, "member_channels", err)
 		return
 	}
 	fetchedAt := time.Now().UTC().Format(time.RFC3339)
 	if err := s.store.SaveSlackMemberChannelsSnapshot(r.Context(), fetchedAt, body); err != nil {
+		s.recordSlackRefreshFailure("member_channels")
 		s.log.Printf("save slack member channels snapshot: %v", err)
 		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
 		return
@@ -38,6 +38,7 @@ func (s *Server) handleInternalRefreshSlackMemberChannelsSnapshot(w http.Respons
 		Truncated bool              `json:"truncated"`
 	}
 	_ = json.Unmarshal(body, &meta)
+	s.recordSlackRefreshSuccess("member_channels")
 	writeJSON(w, http.StatusOK, map[string]any{
 		"ok":          true,
 		"fetchedAt":   fetchedAt,

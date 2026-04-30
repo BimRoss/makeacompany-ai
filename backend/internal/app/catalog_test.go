@@ -169,6 +169,61 @@ func TestMergeCapabilityCatalogWithDefaultsRestoresNewEmployees(t *testing.T) {
 	}
 }
 
+func TestNormalizeCatalogSkillIDCanonicalizesReadWebAliases(t *testing.T) {
+	cases := []string{
+		"read-internet",
+		"readinternet",
+		"read_google",
+		"read-google",
+		"readgoogle",
+		"read_web",
+		"read web",
+	}
+	for _, in := range cases {
+		if got := normalizeCatalogSkillID(in); got != "read-web" {
+			t.Fatalf("expected %q to normalize to read-web, got %q", in, got)
+		}
+	}
+}
+
+func TestNormalizeCapabilityCatalogCanonicalizesLegacyReadWebSkill(t *testing.T) {
+	catalog := testCatalogFixture()
+	catalog.Skills = append(catalog.Skills, CapabilityCatalogSkill{
+		ID:             "read-internet",
+		Label:          "Read Internet",
+		Description:    "Legacy alias should normalize to canonical read-web",
+		RuntimeTool:    "alex-read-internet",
+		RequiredParams: []string{"query"},
+		OptionalParams: []string{"count"},
+	})
+	catalog.EmployeeSkillIDs["alex"] = []string{"read-internet"}
+
+	normalized := normalizeCapabilityCatalog(catalog)
+
+	var found bool
+	for _, s := range normalized.Skills {
+		if s.ID != "read-web" {
+			continue
+		}
+		found = true
+		if s.Label != "Read Web" {
+			t.Fatalf("expected read-web label Read Web, got %q", s.Label)
+		}
+		if s.RuntimeTool != "alex-read-web" {
+			t.Fatalf("expected runtime tool alex-read-web, got %q", s.RuntimeTool)
+		}
+	}
+	if !found {
+		t.Fatalf("expected canonical read-web skill in normalized catalog")
+	}
+	if !containsString(normalized.EmployeeSkillIDs["alex"], "read-web") {
+		t.Fatalf("expected alex skill list to include read-web, got %#v", normalized.EmployeeSkillIDs["alex"])
+	}
+	if containsString(normalized.EmployeeSkillIDs["alex"], "read-internet") {
+		t.Fatalf("expected alex skill list to exclude read-internet, got %#v", normalized.EmployeeSkillIDs["alex"])
+	}
+}
+
 func containsString(list []string, want string) bool {
 	for _, s := range list {
 		if normalizeCatalogSkillID(s) == want {

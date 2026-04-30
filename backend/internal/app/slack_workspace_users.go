@@ -104,7 +104,12 @@ func FetchSlackWorkspaceUsers(ctx context.Context, botToken string) ([]SlackWork
 			return nil, err
 		}
 		if resp.StatusCode != http.StatusOK {
-			return nil, fmt.Errorf("slack users.list http %d: %s", resp.StatusCode, strings.TrimSpace(string(snippetBytes(body, 300))))
+			return nil, &UpstreamHTTPError{
+				Source:      "slack users.list",
+				StatusCode:  resp.StatusCode,
+				RetryAfter:  strings.TrimSpace(resp.Header.Get("Retry-After")),
+				BodySnippet: strings.TrimSpace(string(snippetBytes(body, 300))),
+			}
 		}
 		var parsed slackUsersListResponse
 		if err := json.Unmarshal(body, &parsed); err != nil {

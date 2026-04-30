@@ -24,8 +24,7 @@ func (s *Server) handleInternalRefreshSlackUsersSnapshot(w http.ResponseWriter, 
 	}
 	users, err := FetchSlackWorkspaceUsers(r.Context(), s.cfg.SlackBotToken)
 	if err != nil {
-		s.log.Printf("refresh slack users snapshot: %v", err)
-		writeJSON(w, http.StatusBadGateway, map[string]any{"error": err.Error()})
+		s.writeSlackRefreshError(w, "workspace_users", err)
 		return
 	}
 	blob, err := MarshalSlackUsersSnapshot(users)
@@ -34,6 +33,7 @@ func (s *Server) handleInternalRefreshSlackUsersSnapshot(w http.ResponseWriter, 
 		return
 	}
 	if err := s.store.SaveSlackUsersSnapshot(r.Context(), blob); err != nil {
+		s.recordSlackRefreshFailure("workspace_users")
 		s.log.Printf("save slack users snapshot: %v", err)
 		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
 		return
@@ -42,6 +42,7 @@ func (s *Server) handleInternalRefreshSlackUsersSnapshot(w http.ResponseWriter, 
 	if syncErr != nil {
 		s.log.Printf("sync slack user index from workspace users: %v", syncErr)
 	}
+	s.recordSlackRefreshSuccess("workspace_users")
 	fetchedAt := time.Now().UTC().Format(time.RFC3339)
 	writeJSON(w, http.StatusOK, map[string]any{
 		"ok":                  true,

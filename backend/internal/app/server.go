@@ -36,10 +36,29 @@ var (
 		},
 		[]string{"method", "route"},
 	)
+	slackRefreshRunsTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "makeacompany_slack_refresh_runs_total",
+			Help: "Total Slack snapshot refresh runs by snapshot and result.",
+		},
+		[]string{"snapshot", "result"},
+	)
+	slackRefreshUpstreamHTTPStatusTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "makeacompany_slack_refresh_upstream_http_status_total",
+			Help: "Upstream HTTP statuses seen during Slack snapshot refreshes.",
+		},
+		[]string{"snapshot", "status_code"},
+	)
 )
 
 func init() {
-	prometheus.MustRegister(httpRequestsTotal, httpRequestDuration)
+	prometheus.MustRegister(
+		httpRequestsTotal,
+		httpRequestDuration,
+		slackRefreshRunsTotal,
+		slackRefreshUpstreamHTTPStatusTotal,
+	)
 }
 
 func errStringOrNil(err error) any {

@@ -56,6 +56,18 @@ func resolveRuntimeTool(runtimeTool, skillID string, owners []string) string {
 	skillID = normalizeCatalogSkillID(skillID)
 	rt := strings.ToLower(strings.TrimSpace(runtimeTool))
 	if rt != "" {
+		if skillID == "read-web" {
+			switch {
+			case strings.HasSuffix(rt, "-read-internet"):
+				rt = strings.TrimSuffix(rt, "-read-internet") + "-read-web"
+			case strings.HasSuffix(rt, "-read_google"):
+				rt = strings.TrimSuffix(rt, "-read_google") + "-read-web"
+			case strings.HasSuffix(rt, "-read-google"):
+				rt = strings.TrimSuffix(rt, "-read-google") + "-read-web"
+			case strings.HasSuffix(rt, "-read_web"):
+				rt = strings.TrimSuffix(rt, "-read_web") + "-read-web"
+			}
+		}
 		return rt
 	}
 	if len(owners) > 0 {
@@ -184,10 +196,16 @@ func mergeCapabilityCatalogWithDefaults(c CapabilityCatalog, def CapabilityCatal
 	return c
 }
 
-// normalizeCatalogSkillID trims skill IDs. Canonical IDs come from the slack-orchestrator
-// capability contract (DefaultCapabilityContractV1); this backend does not remap legacy aliases.
+// normalizeCatalogSkillID trims skill IDs and maps known legacy aliases to canonical IDs so
+// stale Redis snapshots do not leak deprecated names into /skills.
 func normalizeCatalogSkillID(raw string) string {
-	return strings.TrimSpace(raw)
+	trimmed := strings.TrimSpace(raw)
+	switch strings.ToLower(trimmed) {
+	case "read-internet", "readinternet", "read_google", "read-google", "readgoogle", "read_web", "read web":
+		return "read-web"
+	default:
+		return trimmed
+	}
 }
 
 func normalizeCatalogSkillParamName(raw string) string {
@@ -404,6 +422,7 @@ func normalizeCapabilityCatalog(c CapabilityCatalog) CapabilityCatalog {
 		UpdatedAt:        c.UpdatedAt,
 		Source:           c.Source,
 	}
+	seenSkillIDs := map[string]struct{}{}
 
 	for _, employee := range c.CoreEmployees {
 		id := strings.ToLower(strings.TrimSpace(employee.ID))
@@ -422,6 +441,10 @@ func normalizeCapabilityCatalog(c CapabilityCatalog) CapabilityCatalog {
 		if id == "read-server" || id == "" {
 			continue
 		}
+		if _, exists := seenSkillIDs[id]; exists {
+			continue
+		}
+		seenSkillIDs[id] = struct{}{}
 		required := normalizeCatalogParamList(skill.RequiredParams)
 		optional := normalizeCatalogParamList(skill.OptionalParams)
 		required = normalizeCatalogParamList(mapCatalogParams(required))
@@ -429,6 +452,12 @@ func normalizeCapabilityCatalog(c CapabilityCatalog) CapabilityCatalog {
 		required, optional = mergeSkillParamsWithDefaults(id, required, optional)
 
 		lbl := strings.TrimSpace(skill.Label)
+		if id == "read-web" {
+			switch strings.ToLower(lbl) {
+			case "", "read internet", "read google", "read_google", "read-google", "read web", "read_web":
+				lbl = "Read Web"
+			}
+		}
 		if lbl == "" {
 			lbl = builtinSkillDisplayLabel(id)
 		}
