@@ -162,7 +162,13 @@ func normalizeCatalogSkillID(raw string) string {
 }
 
 func normalizeCatalogSkillParamName(raw string) string {
-	return strings.TrimSpace(raw)
+	switch strings.TrimSpace(raw) {
+	case "issue_number":
+		// Backward-compat alias: normalize legacy update-issue field to canonical "number".
+		return "number"
+	default:
+		return strings.TrimSpace(raw)
+	}
 }
 
 // builtinSkillDisplayLabel returns default UI labels for known skill ids when the stored label is empty.
@@ -188,6 +194,8 @@ func builtinSkillDisplayLabel(skillID string) string {
 		return "Read Twitter"
 	case "read-trends":
 		return "Read Trends"
+	case "update-issue":
+		return "Update Issue"
 	default:
 		return ""
 	}
@@ -296,6 +304,8 @@ func builtinSkillParamDefaults(skillID string) (minRequired, defaultOptional []s
 		return []string{"query"}, []string{"count"}
 	case "read-trends":
 		return nil, nil
+	case "update-issue":
+		return []string{"number"}, []string{"repository", "title", "body", "status"}
 	default:
 		return nil, nil
 	}

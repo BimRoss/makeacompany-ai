@@ -44,6 +44,14 @@
       }
     },
     {
+      "id": "create-issue",
+      "label": "Create Issue",
+      "description": "Create a company issue with a title and body from the Slack thread. New issues land in Backlog on the team board. Requires confirmation before publish.",
+      "employeeIds": ["ross"],
+      "requiredParams": ["body", "title"],
+      "optionalParams": []
+    },
+    {
       "id": "delete-company",
       "label": "Delete Company",
       "description": "Removes a company and sends it to the archive. Requires confirmation.",
@@ -63,8 +71,8 @@
       "optionalParams": []
     },
     {
-      "id": "read-internet",
-      "label": "Read Internet",
+      "id": "read-web",
+      "label": "Read Web",
       "description": "Search the public web (internet) for current events and external references.",
       "employeeIds": ["alex", "garth", "joanne", "ross", "tim"],
       "requiredParams": ["query"],
@@ -105,10 +113,21 @@
     {
       "id": "update-terms",
       "label": "Update Terms",
-      "description": "Show platform terms of use; record I Agree / I Do Not Agree on the operator profile (same confirm control as #humans onboarding).",
+      "description": "Show platform terms of use for users to agree (or not). Automatically recorded",
       "employeeIds": ["joanne"],
       "requiredParams": [],
       "optionalParams": []
+    },
+    {
+      "id": "update-issue",
+      "label": "Update Issue",
+      "description": "Update a company issue, including the title, body, or status.  Requires confirmation before write.",
+      "employeeIds": ["ross"],
+      "requiredParams": ["number"],
+      "optionalParams": ["body", "title", "status"],
+      "paramDefaults": {
+        "status": "Match an existing Project Status option (for example Backlog, In Progress, Done)"
+      }
     }
   ]
 }

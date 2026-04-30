@@ -13,7 +13,7 @@
       "backgroundColor": "#000000",
       "status": "active",
       "sourceManifest": "slack-factory/manifests/alex/app-manifest.json",
-      "skillIds": ["read-internet"]
+      "skillIds": ["read-web"]
     },
     {
       "id": "tim",
@@ -26,7 +26,7 @@
       "backgroundColor": "#000000",
       "status": "active",
       "sourceManifest": "slack-factory/manifests/tim/app-manifest.json",
-      "skillIds": ["read-internet"]
+      "skillIds": ["read-web"]
     },
     {
       "id": "ross",
@@ -39,7 +39,7 @@
       "backgroundColor": "#000000",
       "status": "active",
       "sourceManifest": "slack-factory/manifests/ross/app-manifest.json",
-      "skillIds": ["read-internet"]
+      "skillIds": ["read-web", "update-issue"]
     },
     {
       "id": "garth",
@@ -52,7 +52,7 @@
       "backgroundColor": "#1a1a2e",
       "status": "active",
       "sourceManifest": "slack-factory/manifests/garth/app-manifest.json",
-      "skillIds": ["read-internet", "read-trends", "read-twitter"]
+      "skillIds": ["read-web", "read-trends", "read-twitter"]
     },
     {
       "id": "joanne",
@@ -71,7 +71,7 @@
         "create-email",
         "delete-company",
         "read-company",
-        "read-internet",
+        "read-web",
         "read-skills",
         "read-user",
         "update-terms"
