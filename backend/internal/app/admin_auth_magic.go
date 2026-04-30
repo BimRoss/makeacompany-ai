@@ -39,7 +39,7 @@ func (s *Server) handleAdminAuthMagicStart(w http.ResponseWriter, r *http.Reques
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
 	}
-	if !adminSignInEmailAllowed(email) {
+	if !s.adminSignInEmailAllowed(email) {
 		writeJSON(w, http.StatusOK, map[string]any{"ok": true, "sent": false})
 		return
 	}
@@ -90,7 +90,7 @@ func (s *Server) handleAdminAuthMagicFinish(w http.ResponseWriter, r *http.Reque
 		http.Error(w, "unable to verify link", http.StatusInternalServerError)
 		return
 	}
-	if !adminSignInEmailAllowed(email) {
+	if !s.adminSignInEmailAllowed(email) {
 		http.Error(w, "unauthorized email", http.StatusForbidden)
 		return
 	}

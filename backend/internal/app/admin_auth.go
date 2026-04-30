@@ -13,18 +13,12 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-// adminSignInAllowlist is the only emails that may complete admin Google or magic-link sign-in.
-// Hardcoded (not env) so dev and prod stay aligned.
-var adminSignInAllowlist = []string{
-	"grant@bimross.com",
-}
-
-func adminSignInEmailAllowed(email string) bool {
+func (s *Server) adminSignInEmailAllowed(email string) bool {
 	email = normalizeProfileEmail(email)
 	if email == "" {
 		return false
 	}
-	for _, allowed := range adminSignInAllowlist {
+	for _, allowed := range s.cfg.AdminSignInAllowlist {
 		if normalizeProfileEmail(allowed) == email {
 			return true
 		}
@@ -51,7 +45,7 @@ func randomTokenHex(sizeBytes int) (string, error) {
 
 func (s *Server) writeAdminMintResponse(w http.ResponseWriter, r *http.Request, email string) {
 	email = normalizeProfileEmail(email)
-	if email == "" || !adminSignInEmailAllowed(email) {
+	if email == "" || !s.adminSignInEmailAllowed(email) {
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
 	}
@@ -130,7 +124,7 @@ func tokenFromAuthHeader(r *http.Request) string {
 }
 
 func (s *Server) adminAuthEnabled() bool {
-	return len(adminSignInAllowlist) > 0
+	return len(s.cfg.AdminSignInAllowlist) > 0
 }
 
 func (s *Server) validateAdminSession(ctx context.Context, token string) (AdminSession, error) {
@@ -150,7 +144,7 @@ func (s *Server) validateAdminSession(ctx context.Context, token string) (AdminS
 		_ = s.store.DeleteAdminSession(ctx, token)
 		return AdminSession{}, fmt.Errorf("expired session")
 	}
-	if !adminSignInEmailAllowed(session.Email) {
+	if !s.adminSignInEmailAllowed(session.Email) {
 		return AdminSession{}, fmt.Errorf("unauthorized session")
 	}
 	return session, nil

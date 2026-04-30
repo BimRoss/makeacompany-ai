@@ -25,9 +25,11 @@ type Config struct {
 	SlackOrchestratorCapabilityCatalogURL string
 	// BackendInternalServiceToken gates /v1/internal/* maintenance endpoints only.
 	BackendInternalServiceToken string
-	AdminSessionTTLSec          int
-	StripeSecretKey             string
-	StripeWebhookSecret         string
+	// AdminSignInAllowlist contains normalized emails that may complete /admin sign-in flows.
+	AdminSignInAllowlist []string
+	AdminSessionTTLSec   int
+	StripeSecretKey      string
+	StripeWebhookSecret  string
 	// StripePriceWaitlist is the waitlist checkout price for this deployment (test or live); see STRIPE_PRICE_ID_WAITLIST.
 	StripePriceWaitlist string
 	// SlackBotToken is the same env as slack-orchestrator: SLACK_BOT_TOKEN (users:read + users:read.email for admin users.list).
@@ -68,6 +70,7 @@ func LoadConfig() Config {
 		RequireCapabilityCatalogReadToken:     envBool("REQUIRE_CAPABILITY_CATALOG_READ_TOKEN", requireCatalogReadTokenDefault),
 		SlackOrchestratorCapabilityCatalogURL: strings.TrimSpace(os.Getenv("SLACK_ORCHESTRATOR_CAPABILITY_CATALOG_URL")),
 		BackendInternalServiceToken:           strings.TrimSpace(os.Getenv("BACKEND_INTERNAL_SERVICE_TOKEN")),
+		AdminSignInAllowlist:                  envCSV("ADMIN_SIGN_IN_ALLOWLIST"),
 		AdminSessionTTLSec:                    envInt("ADMIN_SESSION_TTL_SEC", 259200),
 		StripeSecretKey:                       strings.TrimSpace(os.Getenv("STRIPE_SECRET_KEY")),
 		StripeWebhookSecret:                   strings.TrimSpace(os.Getenv("STRIPE_WEBHOOK_SECRET")),
@@ -118,4 +121,29 @@ func envBool(key string, fallback bool) bool {
 	default:
 		return fallback
 	}
+}
+
+func envCSV(key string) []string {
+	raw := strings.TrimSpace(os.Getenv(key))
+	if raw == "" {
+		return nil
+	}
+	parts := strings.Split(raw, ",")
+	out := make([]string, 0, len(parts))
+	seen := map[string]struct{}{}
+	for _, p := range parts {
+		v := strings.ToLower(strings.TrimSpace(p))
+		if v == "" {
+			continue
+		}
+		if _, ok := seen[v]; ok {
+			continue
+		}
+		seen[v] = struct{}{}
+		out = append(out, v)
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }

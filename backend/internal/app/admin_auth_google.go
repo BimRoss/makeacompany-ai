@@ -51,7 +51,7 @@ func (s *Server) handleAdminAuthGoogleFinish(w http.ResponseWriter, r *http.Requ
 		http.Error(w, "email not verified with google", http.StatusForbidden)
 		return
 	}
-	if !adminSignInEmailAllowed(email) {
+	if !s.adminSignInEmailAllowed(email) {
 		http.Error(w, "unauthorized email", http.StatusForbidden)
 		return
 	}

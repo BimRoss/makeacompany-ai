@@ -27,7 +27,7 @@ func TestLookupSlackFirstNameByEmail(t *testing.T) {
 
 	blob, err := MarshalSlackUsersSnapshot([]SlackWorkspaceUser{
 		{SlackUserID: "U1", Email: "ada@example.com", RealName: "Ada Lovelace", IsBot: false, IsDeleted: false},
-		{SlackUserID: "U2", Email: "grant@bimross.com", DisplayName: "grant", RealName: "", IsBot: false, IsDeleted: false},
+		{SlackUserID: "U2", Email: "grace@example.com", DisplayName: "grace", RealName: "", IsBot: false, IsDeleted: false},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -39,7 +39,7 @@ func TestLookupSlackFirstNameByEmail(t *testing.T) {
 	if got := store.LookupSlackFirstNameByEmail(ctx, "Ada@Example.com"); got != "Ada" {
 		t.Fatalf("got %q want Ada", got)
 	}
-	if got := store.LookupSlackFirstNameByEmail(ctx, "grant@bimross.com"); got != "grant" {
-		t.Fatalf("got %q want grant", got)
+	if got := store.LookupSlackFirstNameByEmail(ctx, "grace@example.com"); got != "grace" {
+		t.Fatalf("got %q want grace", got)
 	}
 }
