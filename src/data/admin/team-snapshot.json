@@ -88,7 +88,7 @@
       "backgroundColor": "#000000",
       "status": "active",
       "sourceManifest": "slack-factory/manifests/anna/app-manifest.json",
-      "skillIds": ["create-image"]
+      "skillIds": ["create-image", "read-web"]
     }
   ]
 }

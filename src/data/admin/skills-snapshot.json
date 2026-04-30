@@ -82,7 +82,7 @@
       "id": "read-web",
       "label": "Read Web",
       "description": "Search the public web (internet) for current events and external references.",
-      "employeeIds": ["alex", "garth", "joanne", "ross", "tim"],
+      "employeeIds": ["alex", "anna", "garth", "joanne", "ross", "tim"],
       "requiredParams": ["query"],
       "optionalParams": ["count"]
     },
