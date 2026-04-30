@@ -2,7 +2,7 @@ import type { TeamMember } from "@/lib/admin/catalog";
 
 const LOCAL_HEADSHOT_BASE_PATH = "/headshots";
 
-const LOCAL_HEADSHOT_KEYS = new Set(["alex", "garth", "joanne", "ross", "tim"]);
+const LOCAL_HEADSHOT_KEYS = new Set(["alex", "anna", "garth", "joanne", "ross", "tim"]);
 
 function normalizeHeadshotKey(value: string | undefined): string {
   if (!value) {

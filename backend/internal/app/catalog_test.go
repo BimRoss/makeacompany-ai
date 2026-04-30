@@ -129,6 +129,46 @@ func TestMergeCapabilityCatalogWithDefaultsRestoresNewSkills(t *testing.T) {
 	}
 }
 
+func TestMergeCapabilityCatalogWithDefaultsRestoresNewEmployees(t *testing.T) {
+	def := testCatalogFixture()
+	def.CoreEmployees = append(def.CoreEmployees, CapabilityCatalogEmployee{
+		ID:          "anna",
+		Label:       "Anna",
+		Description: "Head of Creative specializing in image concepts and generation workflows.",
+	})
+	def.Skills = append(def.Skills, CapabilityCatalogSkill{
+		ID:             "create-image",
+		Label:          "Create Image",
+		Description:    "Generate an original image from a text prompt using Anna's creative workflow.",
+		RuntimeTool:    "anna-create-image",
+		RequiredParams: []string{"intent"},
+		OptionalParams: []string{"style", "ratio", "size"},
+	})
+	def.EmployeeSkillIDs["anna"] = []string{"create-image"}
+
+	catalog := testCatalogFixture()
+	merged := normalizeCapabilityCatalog(mergeCapabilityCatalogWithDefaults(catalog, def))
+	if err := validateCapabilityCatalog(merged); err != nil {
+		t.Fatalf("expected merged catalog to validate, got %v", err)
+	}
+	if _, ok := merged.EmployeeSkillIDs["anna"]; !ok {
+		t.Fatalf("expected merged employeeSkillIds to include anna")
+	}
+	foundAnna := false
+	for _, employee := range merged.CoreEmployees {
+		if employee.ID == "anna" {
+			foundAnna = true
+			break
+		}
+	}
+	if !foundAnna {
+		t.Fatalf("expected merged coreEmployees to include anna")
+	}
+	if !containsString(merged.EmployeeSkillIDs["anna"], "create-image") {
+		t.Fatalf("expected anna to include create-image, got %#v", merged.EmployeeSkillIDs["anna"])
+	}
+}
+
 func containsString(list []string, want string) bool {
 	for _, s := range list {
 		if normalizeCatalogSkillID(s) == want {

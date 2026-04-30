@@ -76,6 +76,19 @@
         "read-user",
         "update-terms"
       ]
+    },
+    {
+      "id": "anna",
+      "displayName": "Anna",
+      "botDisplayName": "Anna",
+      "lane": "operations",
+      "roleTitle": "Head of Creative",
+      "shortDescription": "Head of Creative specializing in image concepts and generation workflows.",
+      "longDescription": "Head of Creative specializing in image concepts and generation workflows.",
+      "backgroundColor": "#000000",
+      "status": "active",
+      "sourceManifest": "slack-factory/manifests/anna/app-manifest.json",
+      "skillIds": ["create-image"]
     }
   ]
 }

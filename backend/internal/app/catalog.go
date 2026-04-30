@@ -98,6 +98,26 @@ func ownersBySkillID(employeeSkillIDs map[string][]string) map[string][]string {
 // backend is configured with SLACK_ORCHESTRATOR_CAPABILITY_CATALOG_URL, def is a cached fetch
 // from slack-orchestrator so older Redis snapshots pick up new skills without a manual migration.
 func mergeCapabilityCatalogWithDefaults(c CapabilityCatalog, def CapabilityCatalog) CapabilityCatalog {
+	originalEmployeeIDs := map[string]struct{}{}
+	for _, e := range c.CoreEmployees {
+		id := strings.ToLower(strings.TrimSpace(e.ID))
+		if id == "" {
+			continue
+		}
+		originalEmployeeIDs[id] = struct{}{}
+	}
+	for _, de := range def.CoreEmployees {
+		id := strings.ToLower(strings.TrimSpace(de.ID))
+		if id == "" {
+			continue
+		}
+		if _, ok := originalEmployeeIDs[id]; ok {
+			continue
+		}
+		c.CoreEmployees = append(c.CoreEmployees, de)
+		originalEmployeeIDs[id] = struct{}{}
+	}
+
 	originalSkillIDs := map[string]struct{}{}
 	for _, s := range c.Skills {
 		id := normalizeCatalogSkillID(s.ID)
@@ -151,6 +171,15 @@ func mergeCapabilityCatalogWithDefaults(c CapabilityCatalog, def CapabilityCatal
 		}
 		sort.Strings(cur)
 		c.EmployeeSkillIDs[empID] = cur
+	}
+	for _, de := range def.CoreEmployees {
+		empID := strings.ToLower(strings.TrimSpace(de.ID))
+		if empID == "" {
+			continue
+		}
+		if _, ok := c.EmployeeSkillIDs[empID]; !ok {
+			c.EmployeeSkillIDs[empID] = []string{}
+		}
 	}
 	return c
 }

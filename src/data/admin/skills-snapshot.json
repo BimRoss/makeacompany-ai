@@ -16,6 +16,14 @@
       }
     },
     {
+      "id": "create-image",
+      "label": "Create Image",
+      "description": "Generate an original image from a text prompt using Anna's creative workflow.",
+      "employeeIds": ["anna"],
+      "requiredParams": ["intent"],
+      "optionalParams": ["style", "ratio", "size"]
+    },
+    {
       "id": "create-doc",
       "label": "Create Doc",
       "description": "Create Google documents, outlines, and game plans. Pair with search skills to produce research documents in seconds.",

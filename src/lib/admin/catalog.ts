@@ -105,6 +105,8 @@ function roleForEmployee(id: string): Pick<TeamMember, "lane" | "roleTitle"> {
       return { lane: "internship", roleTitle: "Head of Interns" };
     case "joanne":
       return { lane: "operations", roleTitle: "Head of Executive Operations" };
+    case "anna":
+      return { lane: "operations", roleTitle: "Head of Creative" };
     default:
       return { lane: "general", roleTitle: "AI Employee" };
   }
