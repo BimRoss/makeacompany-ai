@@ -40,6 +40,7 @@ const defaultCronPanelTitles = [
   "Job success vs failure (by CronJob)",
   "Job or pod run duration",
 ];
+const allowedCronPanelIds = new Set(["1", "2", "3"]);
 
 function buildDefaultGrafanaDashboardUrl(
   requestHost: string | null,
@@ -226,7 +227,9 @@ export function buildGrafanaHealthEmbeds(
   const cronjobDashboardUrl =
     normalizeGrafanaDashboardUrl(cronjobConfigured, requestHost, requestProto) ??
     buildDefaultGrafanaPathUrl(requestHost, requestProto, DEFAULT_CRON_PATH);
-  const cronjobPanelIds = parseList(process.env.HEALTH_GRAFANA_CRON_PANEL_IDS, ["1", "2", "3"]);
+  const rawCronjobPanelIds = parseList(process.env.HEALTH_GRAFANA_CRON_PANEL_IDS, ["1", "2", "3"]);
+  const cronjobPanelIds = rawCronjobPanelIds.filter((panelId) => allowedCronPanelIds.has(panelId));
+  const normalizedCronjobPanelIds = cronjobPanelIds.length > 0 ? cronjobPanelIds : ["1", "2", "3"];
   const cronjobPanelTitles = parseList(
     process.env.HEALTH_GRAFANA_CRON_PANEL_TITLES,
     defaultCronPanelTitles
@@ -259,7 +262,7 @@ export function buildGrafanaHealthEmbeds(
   const cronjobGrafanaEmbeds = buildGrafanaEmbeds(
     cronjobDashboardUrl,
     "cron",
-    cronjobPanelIds,
+    normalizedCronjobPanelIds,
     cronjobPanelTitles
   );
 
