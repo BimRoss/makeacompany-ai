@@ -95,7 +95,7 @@ func (s *Server) handleAdminSlackWorkspaceUsers(w http.ResponseWriter, r *http.R
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	ok, svcUnavail := s.adminReadAuthorized(r)
+	ok, svcUnavail := s.adminReadOrInternalServiceAuthorized(r)
 	if !ok {
 		if svcUnavail {
 			http.Error(w, "admin auth disabled", http.StatusServiceUnavailable)

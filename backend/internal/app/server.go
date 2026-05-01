@@ -449,7 +449,7 @@ func (s *Server) handleAdminWaitlist(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	ok, svcUnavail := s.adminReadAuthorized(r)
+	ok, svcUnavail := s.adminReadOrInternalServiceAuthorized(r)
 	if !ok {
 		if svcUnavail {
 			http.Error(w, "admin auth disabled", http.StatusServiceUnavailable)
@@ -473,7 +473,7 @@ func (s *Server) handleAdminUserProfiles(w http.ResponseWriter, r *http.Request)
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	ok, svcUnavail := s.adminReadAuthorized(r)
+	ok, svcUnavail := s.adminReadOrInternalServiceAuthorized(r)
 	if !ok {
 		if svcUnavail {
 			http.Error(w, "admin auth disabled", http.StatusServiceUnavailable)
@@ -513,7 +513,7 @@ func (s *Server) handleAdminCatalog(w http.ResponseWriter, r *http.Request) {
 	serviceWriteAuthorized := r.Method == http.MethodPut && s.catalogServiceWriteAuthorized(r)
 	if !serviceWriteAuthorized {
 		if r.Method == http.MethodGet {
-			ok, svcUnavail := s.adminReadAuthorized(r)
+			ok, svcUnavail := s.adminReadOrInternalServiceAuthorized(r)
 			if !ok {
 				if svcUnavail {
 					http.Error(w, "admin auth disabled", http.StatusServiceUnavailable)
@@ -576,7 +576,7 @@ func (s *Server) handleAdminCompanyChannels(w http.ResponseWriter, r *http.Reque
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	ok, svcUnavail := s.companyRegistryReadAuthorized(r)
+	ok, svcUnavail := s.adminReadOrInternalServiceAuthorized(r)
 	if !ok {
 		if svcUnavail {
 			http.Error(w, "admin auth disabled", http.StatusServiceUnavailable)
@@ -701,7 +701,8 @@ func (s *Server) handleAdminCompanyChannelGet(w http.ResponseWriter, r *http.Req
 		http.Error(w, "bad channel id", http.StatusBadRequest)
 		return
 	}
-	if !s.authorizedForCompanyChannelRead(r, chID) {
+	ok, _ := s.adminReadOrInternalServiceAuthorized(r)
+	if !ok && !s.authorizedForCompanyChannelRead(r, chID) {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
@@ -765,7 +766,8 @@ func (s *Server) handleAdminChannelKnowledge(w http.ResponseWriter, r *http.Requ
 		http.Error(w, "bad channel id", http.StatusBadRequest)
 		return
 	}
-	if !s.authorizedForCompanyChannelRead(r, chID) {
+	ok, _ := s.adminReadOrInternalServiceAuthorized(r)
+	if !ok && !s.authorizedForCompanyChannelRead(r, chID) {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}

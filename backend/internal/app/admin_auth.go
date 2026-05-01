@@ -106,6 +106,18 @@ func (s *Server) companyChannelPatchAuthorized(r *http.Request) (ok bool, servic
 	return s.adminReadAuthorized(r)
 }
 
+// adminReadOrInternalServiceAuthorized allows admin read requests when either:
+// 1) a valid admin session is present, or
+// 2) Authorization Bearer matches BACKEND_INTERNAL_SERVICE_TOKEN (service caller, e.g. in-cluster jobs/bots).
+//
+// This is intentionally read-only and should not be used for mutating /admin routes.
+func (s *Server) adminReadOrInternalServiceAuthorized(r *http.Request) (ok bool, serviceUnavailable bool) {
+	if s.internalServiceBearerAuthorized(r) {
+		return true, false
+	}
+	return s.adminReadAuthorized(r)
+}
+
 func tokenFromAuthHeader(r *http.Request) string {
 	if r == nil {
 		return ""
