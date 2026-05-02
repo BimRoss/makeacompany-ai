@@ -3,10 +3,35 @@ package app
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
 )
+
+// adminStripeCheckoutPriceSlots returns base plan plus optional waitlist-deposit price for admin Stripe snapshots.
+func (s *Server) adminStripeCheckoutPriceSlots() ([]AdminStripeCheckoutPriceSlot, []string, error) {
+	base, err := s.basePlanPriceID()
+	if err != nil {
+		return nil, nil, err
+	}
+	slots := []AdminStripeCheckoutPriceSlot{
+		{PriceID: base, Role: StripeCheckoutPriceRoleBasePlan},
+	}
+	ids := []string{base}
+
+	dep := strings.TrimSpace(s.cfg.StripePriceWaitlistDeposit)
+	if dep != "" {
+		if !strings.HasPrefix(dep, "price_") {
+			return nil, nil, fmt.Errorf("STRIPE_PRICE_ID_WAITLIST_DEPOSIT must be a Stripe price_ id")
+		}
+		if dep != base {
+			slots = append(slots, AdminStripeCheckoutPriceSlot{PriceID: dep, Role: StripeCheckoutPriceRoleWaitlistDeposit})
+			ids = append(ids, dep)
+		}
+	}
+	return slots, ids, nil
+}
 
 func (s *Server) internalServiceBearerAuthorized(r *http.Request) bool {
 	want := strings.TrimSpace(s.cfg.BackendInternalServiceToken)
@@ -47,18 +72,18 @@ func (s *Server) handleInternalRefreshStripeWaitlistSnapshot(w http.ResponseWrit
 		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "stripe is not configured"})
 		return
 	}
-	priceID, err := s.basePlanPriceID()
+	slots, priceIDs, err := s.adminStripeCheckoutPriceSlots()
 	if err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
 		return
 	}
-	purchasers, err := FetchStripeWaitlistPurchasers(r.Context(), priceID)
+	purchasers, err := FetchStripeAdminCheckoutPurchasers(r.Context(), slots)
 	if err != nil {
 		s.log.Printf("refresh stripe waitlist snapshot: %v", err)
 		writeJSON(w, http.StatusBadGateway, map[string]any{"error": err.Error()})
 		return
 	}
-	blob, err := MarshalStripeWaitlistSnapshot(priceID, purchasers)
+	blob, err := MarshalStripeWaitlistSnapshot(priceIDs, purchasers)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
 		return
@@ -76,7 +101,8 @@ func (s *Server) handleInternalRefreshStripeWaitlistSnapshot(w http.ResponseWrit
 	writeJSON(w, http.StatusOK, map[string]any{
 		"ok":                 true,
 		"rowCount":           len(purchasers),
-		"priceId":            priceID,
+		"priceId":            priceIDs[0],
+		"priceIds":           priceIDs,
 		"fetchedAt":          fetchedAt,
 		"profileUpserts":     profN,
 		"profileUpsertError": errStringOrNil(profErr),
@@ -89,17 +115,17 @@ func (s *Server) tryWarmStripeWaitlistSnapshotWhenMissing(ctx context.Context) m
 	if strings.TrimSpace(s.cfg.StripeSecretKey) == "" {
 		return nil
 	}
-	priceID, err := s.basePlanPriceID()
+	slots, priceIDs, err := s.adminStripeCheckoutPriceSlots()
 	if err != nil {
 		s.log.Printf("admin stripe waitlist snapshot warm (missing): price id: %v", err)
 		return nil
 	}
-	purchasers, err := FetchStripeWaitlistPurchasers(ctx, priceID)
+	purchasers, err := FetchStripeAdminCheckoutPurchasers(ctx, slots)
 	if err != nil {
 		s.log.Printf("admin stripe waitlist snapshot warm (missing): stripe: %v", err)
 		return nil
 	}
-	blob, mErr := MarshalStripeWaitlistSnapshot(priceID, purchasers)
+	blob, mErr := MarshalStripeWaitlistSnapshot(priceIDs, purchasers)
 	if mErr != nil {
 		s.log.Printf("admin stripe waitlist snapshot warm (missing): marshal: %v", mErr)
 		return nil
@@ -116,7 +142,8 @@ func (s *Server) tryWarmStripeWaitlistSnapshotWhenMissing(ctx context.Context) m
 	return map[string]any{
 		"source":             "snapshot",
 		"fetchedAt":          fetchedAt,
-		"priceId":            priceID,
+		"priceId":            priceIDs[0],
+		"priceIds":           priceIDs,
 		"purchasers":         purchasers,
 		"snapshotNote":       "Filled from Stripe (Redis waitlist snapshot was missing).",
 		"profileUpserts":     profN,
@@ -176,12 +203,12 @@ func (s *Server) handleAdminStripeWaitlistPurchasers(w http.ResponseWriter, r *h
 			writeJSONNoStore(w, http.StatusBadRequest, map[string]any{"error": "stripe is not configured"})
 			return
 		}
-		priceID, err := s.basePlanPriceID()
+		slots, priceIDs, err := s.adminStripeCheckoutPriceSlots()
 		if err != nil {
 			writeJSONNoStore(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
 			return
 		}
-		purchasers, err := FetchStripeWaitlistPurchasers(r.Context(), priceID)
+		purchasers, err := FetchStripeAdminCheckoutPurchasers(r.Context(), slots)
 		if err != nil {
 			s.log.Printf("admin stripe waitlist live: %v", err)
 			writeJSONNoStore(w, http.StatusBadGateway, map[string]any{"error": err.Error()})
@@ -190,11 +217,12 @@ func (s *Server) handleAdminStripeWaitlistPurchasers(w http.ResponseWriter, r *h
 		resp := map[string]any{
 			"source":       "live",
 			"fetchedAt":    time.Now().UTC().Format(time.RFC3339),
-			"priceId":      priceID,
+			"priceId":      priceIDs[0],
+			"priceIds":     priceIDs,
 			"purchasers":   purchasers,
 			"snapshotNote": "Queried Stripe API; snapshot and user_profile hashes written to Redis (same data paths as internal refresh).",
 		}
-		if blob, mErr := MarshalStripeWaitlistSnapshot(priceID, purchasers); mErr != nil {
+		if blob, mErr := MarshalStripeWaitlistSnapshot(priceIDs, purchasers); mErr != nil {
 			s.log.Printf("admin stripe waitlist live marshal: %v", mErr)
 			resp["redisSaveError"] = mErr.Error()
 		} else if svErr := s.store.SaveStripeWaitlistSnapshot(r.Context(), blob); svErr != nil {
@@ -223,6 +251,7 @@ func (s *Server) handleAdminStripeWaitlistPurchasers(w http.ResponseWriter, r *h
 				"source":       "snapshot",
 				"fetchedAt":    nil,
 				"priceId":      nil,
+				"priceIds":     []string{},
 				"purchasers":   []StripeWaitlistPurchaser{},
 				"snapshotNote": "No snapshot yet. CronJob POST /v1/internal/refresh-stripe-waitlist-snapshot or use ?source=live once.",
 			})
@@ -242,6 +271,7 @@ func (s *Server) handleAdminStripeWaitlistPurchasers(w http.ResponseWriter, r *h
 		"source":       "snapshot",
 		"fetchedAt":    env.FetchedAt,
 		"priceId":      env.PriceID,
+		"priceIds":     SnapshotPriceIDs(env),
 		"purchasers":   env.Purchasers,
 		"snapshotNote": env.SnapshotNote,
 	})

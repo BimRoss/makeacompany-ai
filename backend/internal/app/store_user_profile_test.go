@@ -117,6 +117,45 @@ func TestUpsertUserProfilesFromStripeWaitlistPurchasers(t *testing.T) {
 	}
 }
 
+func TestUpsertUserProfilesFromStripeWaitlistPurchasers_basePlanWinsSameEmail(t *testing.T) {
+	srv, err := miniredis.Run()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer srv.Close()
+	rdb := redis.NewClient(&redis.Options{Addr: srv.Addr()})
+	defer rdb.Close()
+	ctx := context.Background()
+	st := &Store{rdb: rdb}
+
+	purchasers := []StripeWaitlistPurchaser{
+		{
+			Email: "same@example.com", StripeCustomer: "cus_w", StripeSessionID: "cs_w",
+			PaymentStatus: "paid", StripeProductID: "prod_waitlist", CheckoutCreated: "2026-01-01T00:00:00Z",
+			PriceRole: StripeCheckoutPriceRoleWaitlistDeposit,
+		},
+		{
+			Email: "same@example.com", StripeCustomer: "cus_m", StripeSessionID: "cs_m",
+			PaymentStatus: "paid", StripeProductID: "prod_monthly", CheckoutCreated: "2026-02-01T00:00:00Z",
+			PriceRole: StripeCheckoutPriceRoleBasePlan,
+		},
+	}
+	n, err := st.UpsertUserProfilesFromStripeWaitlistPurchasers(ctx, purchasers)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n != 2 {
+		t.Fatalf("upserts: %d", n)
+	}
+	rows, err := st.ListUserProfiles(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != 1 || rows[0].StripeProductID != "prod_monthly" {
+		t.Fatalf("rows: %+v", rows)
+	}
+}
+
 func TestUpsertUserProfileStripeSubscription_setsStripeProductID(t *testing.T) {
 	srv, err := miniredis.Run()
 	if err != nil {

@@ -250,7 +250,12 @@ func (s *Store) GetWaitlistStatsForPublic(ctx context.Context) (signups int64, a
 	if parseErr != nil {
 		return signups, amountCents, nil
 	}
-	stripeN := int64(len(env.Purchasers))
+	var stripeN int64
+	for _, p := range env.Purchasers {
+		if StripeWaitlistPurchaserCountsTowardPublicSignupStats(p) {
+			stripeN++
+		}
+	}
 	if stripeN > signups {
 		signups = stripeN
 	}

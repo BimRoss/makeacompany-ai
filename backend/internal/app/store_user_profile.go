@@ -125,13 +125,39 @@ func (s *Store) SyncSlackUserIndexFromWorkspaceUsers(ctx context.Context, users 
 	return synced, nil
 }
 
-// UpsertUserProfilesFromStripeWaitlistPurchasers merges each paid waitlist row into makeacompany:user_profile:<email>.
+func stripePurchaserProfileUpsertRank(role string) int {
+	switch strings.TrimSpace(role) {
+	case StripeCheckoutPriceRoleWaitlistDeposit, "":
+		return 0
+	case StripeCheckoutPriceRoleBasePlan:
+		return 1
+	default:
+		return 0
+	}
+}
+
+// UpsertUserProfilesFromStripeWaitlistPurchasers merges each paid checkout row into makeacompany:user_profile:<email>.
 // Call after Stripe snapshot/live fetches so profile hashes match checkout without relying only on webhooks.
+// When the same email appears for waitlist deposit and base plan, base plan rows are applied last so subscription/checkout wins.
 func (s *Store) UpsertUserProfilesFromStripeWaitlistPurchasers(ctx context.Context, purchasers []StripeWaitlistPurchaser) (n int, err error) {
 	if s == nil {
 		return 0, fmt.Errorf("nil store")
 	}
-	for _, p := range purchasers {
+	ordered := append([]StripeWaitlistPurchaser(nil), purchasers...)
+	sort.Slice(ordered, func(i, j int) bool {
+		ri := stripePurchaserProfileUpsertRank(ordered[i].PriceRole)
+		rj := stripePurchaserProfileUpsertRank(ordered[j].PriceRole)
+		if ri != rj {
+			return ri < rj
+		}
+		ti, _ := time.Parse(time.RFC3339, ordered[i].CheckoutCreated)
+		tj, _ := time.Parse(time.RFC3339, ordered[j].CheckoutCreated)
+		if ti.Equal(tj) {
+			return ordered[i].Email < ordered[j].Email
+		}
+		return ti.Before(tj)
+	})
+	for _, p := range ordered {
 		email := normalizeProfileEmail(strings.TrimSpace(p.Email))
 		if email == "" {
 			continue

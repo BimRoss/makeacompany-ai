@@ -157,6 +157,10 @@ secret_args+=(--from-literal=STRIPE_PRICE_ID_BASE_PLAN="${STRIPE_PRICE_EFFECTIVE
 secret_args+=(--from-literal=STRIPE_PRICE_ID_WAITLIST="${STRIPE_PRICE_EFFECTIVE}")
 secret_args+=(--from-literal=STRIPE_WEBHOOK_SECRET="${STRIPE_WEBHOOK_SECRET}")
 
+if [[ -n "${STRIPE_PRICE_ID_WAITLIST_DEPOSIT:-}" ]]; then
+  secret_args+=(--from-literal=STRIPE_PRICE_ID_WAITLIST_DEPOSIT="${STRIPE_PRICE_ID_WAITLIST_DEPOSIT}")
+fi
+
 NPU="${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY:-${STRIPE_PUBLISHABLE_KEY:-}}"
 if [[ -n "${NPU}" ]]; then
   secret_args+=(--from-literal=NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY="${NPU}")

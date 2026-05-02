@@ -14,7 +14,13 @@ import (
 	checkoutsession "github.com/stripe/stripe-go/v82/checkout/session"
 )
 
-// StripeWaitlistPurchaser is one deduped paid waitlist row from Stripe Checkout (source of truth for admin).
+// Stripe checkout price roles for admin snapshots (distinct from legacy Redis waitlist keys).
+const (
+	StripeCheckoutPriceRoleBasePlan        = "base_plan"
+	StripeCheckoutPriceRoleWaitlistDeposit = "waitlist_deposit"
+)
+
+// StripeWaitlistPurchaser is one deduped paid checkout row per (email, matched price) from Stripe (admin source of truth).
 type StripeWaitlistPurchaser struct {
 	Email           string `json:"email"`
 	PaymentStatus   string `json:"paymentStatus"`
@@ -26,14 +32,63 @@ type StripeWaitlistPurchaser struct {
 	CheckoutCreated string `json:"checkoutCreated"`
 	Source          string `json:"source"`
 	WaitlistPriceID string `json:"waitlistPriceId"`
+	// PriceRole distinguishes monthly/base-plan checkouts vs legacy waitlist deposit (same table in admin).
+	PriceRole string `json:"priceRole,omitempty"`
 }
 
 // stripeWaitlistSnapshotEnvelope is stored in Redis and returned to the admin UI.
 type stripeWaitlistSnapshotEnvelope struct {
 	FetchedAt    string                    `json:"fetchedAt"`
-	PriceID      string                    `json:"priceId"`
+	PriceID      string                    `json:"priceId"` // legacy single price; equals PriceIDs[0] when present
+	PriceIDs     []string                  `json:"priceIds,omitempty"`
 	Purchasers   []StripeWaitlistPurchaser `json:"purchasers"`
 	SnapshotNote string                    `json:"snapshotNote,omitempty"`
+}
+
+// SnapshotPriceIDs returns configured Stripe price ids from an unmarshaled envelope (backward compatible).
+func SnapshotPriceIDs(env stripeWaitlistSnapshotEnvelope) []string {
+	if len(env.PriceIDs) > 0 {
+		out := make([]string, 0, len(env.PriceIDs))
+		for _, id := range env.PriceIDs {
+			id = strings.TrimSpace(id)
+			if id != "" {
+				out = append(out, id)
+			}
+		}
+		if len(out) > 0 {
+			return out
+		}
+	}
+	if id := strings.TrimSpace(env.PriceID); id != "" {
+		return []string{id}
+	}
+	return nil
+}
+
+// StripeWaitlistPurchaserCountsTowardPublicSignupStats treats explicit base_plan rows as non-waitlist for max(signups) merge.
+func StripeWaitlistPurchaserCountsTowardPublicSignupStats(p StripeWaitlistPurchaser) bool {
+	switch strings.TrimSpace(p.PriceRole) {
+	case "", StripeCheckoutPriceRoleWaitlistDeposit:
+		return true
+	case StripeCheckoutPriceRoleBasePlan:
+		return false
+	default:
+		return true
+	}
+}
+
+// AdminStripeCheckoutPriceSlot binds a Stripe price id to its admin/stats role.
+type AdminStripeCheckoutPriceSlot struct {
+	PriceID string
+	Role    string
+}
+
+func purchaserDedupeKey(email, priceID string) string {
+	return normalizeStripePurchaserEmail(email) + "\x00" + strings.TrimSpace(priceID)
+}
+
+func normalizeStripePurchaserEmail(s string) string {
+	return strings.ToLower(strings.TrimSpace(s))
 }
 
 // maxStripeWaitlistSessionsScanned caps Stripe list iteration (complete sessions) to avoid runaway.
@@ -111,28 +166,53 @@ func checkoutSessionCountsForBasePlanSnapshot(sess *stripe.CheckoutSession) bool
 	}
 }
 
-// FetchStripeWaitlistPurchasers lists completed Checkout Sessions (payment or subscription) with paid-like status,
-// keeps sessions whose line items include the Base Plan price id (STRIPE_PRICE_ID_BASE_PLAN), dedupes by normalized email (latest checkout wins).
+// FetchStripeWaitlistPurchasers lists completed Checkouts for a single price id (backward compatible wrapper).
 func FetchStripeWaitlistPurchasers(ctx context.Context, basePlanPriceID string) ([]StripeWaitlistPurchaser, error) {
 	basePlanPriceID = strings.TrimSpace(basePlanPriceID)
 	if basePlanPriceID == "" {
 		return nil, errors.New("missing base plan price id")
 	}
+	return FetchStripeAdminCheckoutPurchasers(ctx, []AdminStripeCheckoutPriceSlot{
+		{PriceID: basePlanPriceID, Role: StripeCheckoutPriceRoleBasePlan},
+	})
+}
+
+// FetchStripeAdminCheckoutPurchasers lists completed Checkout Sessions for any of the given price ids,
+// deduping per (normalized email, price id) with latest checkout winning.
+func FetchStripeAdminCheckoutPurchasers(ctx context.Context, slots []AdminStripeCheckoutPriceSlot) ([]StripeWaitlistPurchaser, error) {
 	if strings.TrimSpace(stripe.Key) == "" {
 		return nil, errors.New("stripe is not configured")
+	}
+	priceToRole := make(map[string]string)
+	for _, sl := range slots {
+		pid := strings.TrimSpace(sl.PriceID)
+		if pid == "" {
+			continue
+		}
+		if _, ok := priceToRole[pid]; ok {
+			continue
+		}
+		role := strings.TrimSpace(sl.Role)
+		if role == "" {
+			role = StripeCheckoutPriceRoleBasePlan
+		}
+		priceToRole[pid] = role
+	}
+	if len(priceToRole) == 0 {
+		return nil, errors.New("no stripe checkout price ids configured")
 	}
 
 	listParams := &stripe.CheckoutSessionListParams{}
 	listParams.Status = stripe.String(string(stripe.CheckoutSessionStatusComplete))
 	listParams.Limit = stripe.Int64(100)
 	listParams.AddExpand("data.line_items")
-	// Omit data.line_items.data.price.product: Stripe max expand depth is 4; product id
-	// is still present on Price as an unexpanded string (stripe-go → Product.ID).
 	listParams.AddExpand("data.line_items.data.price")
 	listParams.AddExpand("data.customer")
 
-	bestByEmail := make(map[string]*stripe.CheckoutSession)
-	bestProductIDByEmail := make(map[string]string)
+	bestByKey := make(map[string]*stripe.CheckoutSession)
+	bestProductByKey := make(map[string]string)
+	bestPriceIDByKey := make(map[string]string)
+
 	iter := checkoutsession.List(listParams)
 	scanned := 0
 	for iter.Next() {
@@ -152,49 +232,60 @@ func FetchStripeWaitlistPurchasers(ctx context.Context, basePlanPriceID string) 
 		if !checkoutSessionCountsForBasePlanSnapshot(sess) {
 			continue
 		}
-		em := sessionEmailFromCheckout(sess)
+		em := normalizeStripePurchaserEmail(sessionEmailFromCheckout(sess))
 		if em == "" {
 			continue
 		}
-		ok, productID, err := checkoutSessionWaitlistLineItem(sess, basePlanPriceID)
-		if err != nil {
-			return nil, fmt.Errorf("line items for session %s: %w", sess.ID, err)
-		}
-		if !ok {
-			continue
-		}
-		prev := bestByEmail[em]
-		if prev == nil || sess.Created > prev.Created {
-			cp := *sess
-			bestByEmail[em] = &cp
-			bestProductIDByEmail[em] = productID
+		for priceID := range priceToRole {
+			ok, productID, err := checkoutSessionWaitlistLineItem(sess, priceID)
+			if err != nil {
+				return nil, fmt.Errorf("line items for session %s: %w", sess.ID, err)
+			}
+			if !ok {
+				continue
+			}
+			k := purchaserDedupeKey(em, priceID)
+			prev := bestByKey[k]
+			if prev == nil || sess.Created > prev.Created {
+				cp := *sess
+				bestByKey[k] = &cp
+				bestProductByKey[k] = productID
+				bestPriceIDByKey[k] = priceID
+			}
 		}
 	}
 	if err := iter.Err(); err != nil {
 		return nil, err
 	}
 
-	out := make([]StripeWaitlistPurchaser, 0, len(bestByEmail))
-	for email, sess := range bestByEmail {
+	out := make([]StripeWaitlistPurchaser, 0, len(bestByKey))
+	for k, sess := range bestByKey {
+		priceID := bestPriceIDByKey[k]
+		role := priceToRole[priceID]
+		em := normalizeStripePurchaserEmail(sessionEmailFromCheckout(sess))
 		created := time.Unix(sess.Created, 0).UTC().Format(time.RFC3339)
 		out = append(out, StripeWaitlistPurchaser{
-			Email:           email,
+			Email:           em,
 			PaymentStatus:   string(sess.PaymentStatus),
 			AmountTotal:     strconv.FormatInt(sess.AmountTotal, 10),
 			Currency:        string(sess.Currency),
 			StripeCustomer:  checkoutSessionCustomerID(sess),
 			StripeSessionID: sess.ID,
-			StripeProductID: strings.TrimSpace(bestProductIDByEmail[email]),
+			StripeProductID: strings.TrimSpace(bestProductByKey[k]),
 			CheckoutCreated: created,
 			Source:          "stripe_api",
-			WaitlistPriceID: basePlanPriceID,
+			WaitlistPriceID: priceID,
+			PriceRole:       role,
 		})
 	}
 	sort.Slice(out, func(i, j int) bool {
 		ti, _ := time.Parse(time.RFC3339, out[i].CheckoutCreated)
 		tj, _ := time.Parse(time.RFC3339, out[j].CheckoutCreated)
 		if ti.Equal(tj) {
-			return out[i].Email < out[j].Email
+			if out[i].Email != out[j].Email {
+				return out[i].Email < out[j].Email
+			}
+			return out[i].WaitlistPriceID < out[j].WaitlistPriceID
 		}
 		return ti.After(tj)
 	})
@@ -202,12 +293,31 @@ func FetchStripeWaitlistPurchasers(ctx context.Context, basePlanPriceID string) 
 }
 
 // MarshalStripeWaitlistSnapshot builds the JSON blob for Redis.
-func MarshalStripeWaitlistSnapshot(priceID string, purchasers []StripeWaitlistPurchaser) ([]byte, error) {
+func MarshalStripeWaitlistSnapshot(priceIDs []string, purchasers []StripeWaitlistPurchaser) ([]byte, error) {
+	ids := make([]string, 0, len(priceIDs))
+	seen := map[string]struct{}{}
+	for _, id := range priceIDs {
+		id = strings.TrimSpace(id)
+		if id == "" {
+			continue
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		ids = append(ids, id)
+	}
+	primary := ""
+	if len(ids) > 0 {
+		primary = ids[0]
+	}
+	note := "Refreshed from Stripe Checkout Session list (configured price_* ids; payment or subscription). Deduped per email per price."
 	env := stripeWaitlistSnapshotEnvelope{
 		FetchedAt:    time.Now().UTC().Format(time.RFC3339),
-		PriceID:      strings.TrimSpace(priceID),
+		PriceID:      primary,
+		PriceIDs:     ids,
 		Purchasers:   purchasers,
-		SnapshotNote: "Refreshed from Stripe Checkout Session list (Base Plan price; payment or subscription). Deduped by email.",
+		SnapshotNote: note,
 	}
 	return json.Marshal(env)
 }

@@ -18,6 +18,8 @@ type StripeWaitlistPurchaserRow = {
   checkoutCreated: string;
   source: string;
   waitlistPriceId: string;
+  /** backend: base_plan | waitlist_deposit */
+  priceRole?: string;
 };
 
 type StripePurchasersPayload = {
@@ -79,6 +81,13 @@ const ZERO_DECIMAL_CURRENCIES = new Set([
   "XOF",
   "XPF",
 ]);
+
+function stripePlanLabel(priceRole: string | undefined): string {
+  const r = (priceRole ?? "").trim();
+  if (r === "waitlist_deposit") return "Waitlist";
+  if (r === "base_plan") return "Monthly";
+  return "—";
+}
 
 function formatStripeAmount(minorUnits: string, currency: string): string {
   const minor = parseInt(minorUnits, 10);
@@ -211,10 +220,11 @@ export function AdminStripeUsersTable() {
         ) : null}
         {stripePurchasers.length > 0 ? (
           <div className="overflow-x-auto rounded-xl border border-border">
-            <table className="w-full min-w-[760px] border-collapse text-left text-sm">
+            <table className="w-full min-w-[840px] border-collapse text-left text-sm">
               <thead>
                 <tr className="border-b border-border bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
                   <th className="px-3 py-1.5">Email</th>
+                  <th className="px-3 py-1.5">Plan</th>
                   <th className="px-3 py-1.5">Payment</th>
                   <th className="px-3 py-1.5">Amount</th>
                   <th className="px-3 py-1.5">Product</th>
@@ -225,8 +235,12 @@ export function AdminStripeUsersTable() {
               </thead>
               <tbody>
                 {stripePurchasers.map((w) => (
-                  <tr key={`${w.email}:${w.stripeSessionId}`} className="border-b border-border/80 last:border-0">
+                  <tr
+                    key={`${w.email}:${w.waitlistPriceId}:${w.stripeSessionId}`}
+                    className="border-b border-border/80 last:border-0"
+                  >
                     <td className="px-3 py-1.5 align-middle font-mono text-xs">{short(w.email, 48)}</td>
+                    <td className="px-3 py-1.5 align-middle text-xs">{stripePlanLabel(w.priceRole)}</td>
                     <td className="px-3 py-1.5 align-middle text-xs">{short(w.paymentStatus, 20)}</td>
                     <td className="px-3 py-1.5 align-middle text-xs text-muted-foreground">
                       {w.amountTotal && w.amountTotal !== "0" ? formatStripeAmount(w.amountTotal, w.currency) : "—"}
