@@ -16,6 +16,14 @@
       }
     },
     {
+      "id": "create-email-welcome",
+      "label": "Create Email (Welcome)",
+      "description": "Send the standard MakeACompany welcome email. Wraps create-email with a fixed subject, one short welcoming paragraph, and a Join our Company button. Requires confirmation before send.",
+      "employeeIds": ["joanne"],
+      "requiredParams": ["name", "email"],
+      "optionalParams": []
+    },
+    {
       "id": "create-image",
       "label": "Create Image",
       "description": "Generate an original image from a text prompt using Anna's creative workflow.",

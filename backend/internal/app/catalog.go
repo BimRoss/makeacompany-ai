@@ -223,6 +223,8 @@ func builtinSkillDisplayLabel(skillID string) string {
 	switch skillID {
 	case "create-email":
 		return "Create Email"
+	case "create-email-welcome":
+		return "Create Email (Welcome)"
 	case "create-doc":
 		return "Create Doc"
 	case "create-company":
@@ -339,6 +341,8 @@ func builtinSkillParamDefaults(skillID string) (minRequired, defaultOptional []s
 	switch skillID {
 	case "create-email":
 		return []string{"intent", "to", "subject"}, []string{"button", "link"}
+	case "create-email-welcome":
+		return []string{"name", "email"}, nil
 	case "create-doc":
 		return []string{"intent", "title", "editors"}, []string{"commenters", "viewers", "type", "length"}
 	case "create-company":
