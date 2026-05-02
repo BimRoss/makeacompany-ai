@@ -1,6 +1,12 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 
-export function Footer() {
+type FooterProps = {
+  /** Extra controls rendered after the standard nav links (e.g. portal billing). */
+  extraNav?: ReactNode;
+};
+
+export function Footer({ extraNav }: FooterProps) {
   const year = new Date().getFullYear();
 
   return (
@@ -26,6 +32,7 @@ export function Footer() {
             <Link href="/admin" className="motion-colors hover:text-foreground">
               Admin
             </Link>
+            {extraNav}
           </div>
         </div>
       </div>

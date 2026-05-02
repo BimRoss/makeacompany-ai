@@ -131,7 +131,7 @@ func TestUpsertUserProfileStripeSubscription_setsStripeProductID(t *testing.T) {
 	if err := st.UpsertUserProfileAfterWaitlist(ctx, "tier@example.com", "cus_1", "cs_1", "paid", "prod_waitlist"); err != nil {
 		t.Fatal(err)
 	}
-	if err := st.UpsertUserProfileStripeSubscription(ctx, "tier@example.com", "cus_1", "sub_99", "active", "subscriber", "price_monthly", "prod_monthly"); err != nil {
+	if err := st.UpsertUserProfileStripeSubscription(ctx, "tier@example.com", "cus_1", "sub_99", "active", "subscriber", "price_monthly", "prod_monthly", false, 1735689600); err != nil {
 		t.Fatal(err)
 	}
 	pid, err := rdb.HGet(ctx, userProfileRedisKey("tier@example.com"), "stripe_product_id").Result()

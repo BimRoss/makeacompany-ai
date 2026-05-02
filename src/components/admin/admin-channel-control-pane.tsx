@@ -11,6 +11,7 @@ import { useWorkspaceNavbarTrail } from "@/components/workspace-navbar-trail-pro
 import { kickToLoginForUnauthorizedApi } from "@/lib/client-auth-unauthorized-redirect";
 import { useAdminFlashToast } from "@/components/admin/admin-flash-toast";
 import { SlackPersonChip } from "@/components/admin/slack-person-chip";
+import { PortalWorkspaceProfileNavButton } from "@/components/portal/portal-workspace-profile";
 import { useIsMdLayout } from "@/hooks/use-is-md-layout";
 
 type PaneStatus = "loading" | "missing" | "error" | "ready";
@@ -168,6 +169,13 @@ export function AdminChannelControlPane({
     if (!name) {
       return null;
     }
+    if (companyChannelsApiPrefix === "portal") {
+      return (
+        <div className="flex min-h-11 min-w-0 items-center justify-end gap-1">
+          <PortalWorkspaceProfileNavButton channelId={channelId} displayName={name} portraitUrl={v.portraitUrl} />
+        </div>
+      );
+    }
     return (
       <div className="flex min-h-11 min-w-0 items-center justify-end gap-1" aria-label="Signed-in user">
         <span className="min-w-0 shrink">
@@ -175,7 +183,7 @@ export function AdminChannelControlPane({
         </span>
       </div>
     );
-  }, [viewerNavbarIdentity]);
+  }, [viewerNavbarIdentity, companyChannelsApiPrefix, channelId]);
 
   const clearPinnedActivity = useCallback(() => {
     onKnowledgeActivityPinnedBinChange?.(null);

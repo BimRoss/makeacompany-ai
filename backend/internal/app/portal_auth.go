@@ -104,11 +104,23 @@ func (s *Server) handlePortalAuthMe(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
+	billing := map[string]any{
+		"hasManageableSubscription": false,
+		"subscriptionStatus":        "",
+		"cancelAtPeriodEnd":         false,
+	}
+	row, err := s.store.UserProfileRowByEmail(r.Context(), session.Email)
+	if err != nil {
+		s.log.Printf("portal auth me billing profile: %v", err)
+	} else {
+		billing = portalBillingPublicJSON(row)
+	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"authenticated": true,
 		"email":         session.Email,
 		"channelId":     session.ChannelID,
 		"expiresAt":     session.ExpiresAt,
+		"billing":       billing,
 	})
 }
 

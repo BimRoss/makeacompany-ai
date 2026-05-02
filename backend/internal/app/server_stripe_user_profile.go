@@ -70,6 +70,24 @@ func primarySubscriptionPriceID(sub *stripe.Subscription) string {
 }
 
 // primarySubscriptionProductID returns the Stripe product id for the subscription's primary price (any prod_*).
+// subscriptionCurrentPeriodEndUnix returns a display billing-boundary timestamp for Redis/UI.
+// stripe-go v82 removed Subscription.CurrentPeriodEnd; use the primary item when present, else CancelAt.
+func subscriptionCurrentPeriodEndUnix(sub *stripe.Subscription) int64 {
+	if sub == nil {
+		return 0
+	}
+	if sub.Items != nil && len(sub.Items.Data) > 0 {
+		it := sub.Items.Data[0]
+		if it != nil && it.CurrentPeriodEnd > 0 {
+			return it.CurrentPeriodEnd
+		}
+	}
+	if sub.CancelAt > 0 {
+		return sub.CancelAt
+	}
+	return 0
+}
+
 func primarySubscriptionProductID(sub *stripe.Subscription) string {
 	if sub == nil || len(sub.Items.Data) == 0 {
 		return ""
@@ -100,5 +118,5 @@ func (s *Server) syncUserProfileFromStripeSubscription(ctx context.Context, sub 
 	tier := profileTierFromSubscription(sub)
 	priceID := primarySubscriptionPriceID(sub)
 	productID := primarySubscriptionProductID(sub)
-	return s.store.UpsertUserProfileStripeSubscription(ctx, email, custID, sub.ID, string(sub.Status), tier, priceID, productID)
+	return s.store.UpsertUserProfileStripeSubscription(ctx, email, custID, sub.ID, string(sub.Status), tier, priceID, productID, sub.CancelAtPeriodEnd, subscriptionCurrentPeriodEndUnix(sub))
 }
