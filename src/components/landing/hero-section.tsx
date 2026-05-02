@@ -16,7 +16,7 @@ export function HeroSection() {
         <div className="mb-4 flex justify-center sm:mb-8">
           <div className="inline-flex items-center gap-2 rounded-full border border-foreground bg-background px-3 py-1.5 text-xs text-foreground sm:px-4 sm:py-2 sm:text-sm">
             <Sparkles className="h-3.5 w-3.5 text-foreground sm:h-4 sm:w-4" />
-            <span>First 100 users get a FREE month on launch</span>
+            <span>$9/mo · AI team in Slack</span>
           </div>
         </div>
 
@@ -61,16 +61,16 @@ export function HeroSection() {
 
         <div className="mb-3 flex justify-center sm:mb-4">
           <p className="inline-flex items-center rounded-full border border-border bg-muted px-4 py-1.5 text-sm font-semibold tracking-tight text-foreground sm:px-5 sm:text-base">
-            Create a team for $1
+            Infinite AI teams for $9/mo
           </p>
         </div>
 
-        <CheckoutButton label="Join the Waitlist" />
+        <CheckoutButton label="Start Building" />
 
         <div className="mt-3 space-y-1.5 text-center text-xs text-muted-foreground sm:mt-4 sm:text-sm">
-          <p>$1 reservation—fully refundable anytime before launch.</p>
+          <p>$9/month subscription. Cancel anytime.</p>
           <p className="hidden text-pretty text-muted-foreground/90 sm:block">
-            It holds your spot in the first 100 and keeps the waitlist for people who actually show up.
+            Joanne will email you an invite to your workspace after you checkout!
           </p>
         </div>
       </div>

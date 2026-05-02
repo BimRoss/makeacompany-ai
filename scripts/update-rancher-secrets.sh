@@ -16,7 +16,7 @@ set -euo pipefail
 # Keys (must match backend internal/app/config.go, docker-compose, .env.example, and slack-orchestrator for SLACK_BOT_TOKEN):
 #   STRIPE_SECRET_KEY
 #   STRIPE_WEBHOOK_SECRET (required)
-#   STRIPE_PRICE_ID_WAITLIST
+#   STRIPE_PRICE_ID_BASE_PLAN (preferred; legacy STRIPE_PRICE_ID_WAITLIST accepted from ENV_FILE and mirrored into the cluster secret for older pods)
 #   STRIPE_PUBLISHABLE_KEY and/or NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY (optional; both written when either is set)
 #   BACKEND_INTERNAL_SERVICE_TOKEN (required in production; Go /v1/internal/* maintenance endpoints only)
 #   SLACK_BOT_TOKEN (optional; same as slack-orchestrator .env for /admin Slack Users users.list)
@@ -28,7 +28,8 @@ set -euo pipefail
 #   GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET, PORTAL_GOOGLE_OAUTH_STATE_SECRET (optional),
 #   RESEND_API_KEY, PORTAL_AUTH_EMAIL_FROM,
 #   RESEND_MAGIC_LINK_TEMPLATE_ID (optional; Resend template slug/id), RESEND_MAGIC_LINK_TEMPLATE_LINK_VAR,
-#   RESEND_MAGIC_LINK_TEMPLATE_FIRST_NAME_VAR (optional; override template variable keys)
+#   RESEND_MAGIC_LINK_TEMPLATE_FIRST_NAME_VAR (optional; override template variable keys),
+#   RESEND_CHECKOUT_WELCOME_TEMPLATE_ID (optional; e.g. welcome-email; Slack invite as login_url)
 #   JOANNE_HUMANS_WELCOME_TRIGGER_TOKEN (optional; Bearer to employee-factory Joanne humans-welcome trigger; preserve from cluster when unset)
 #
 # Usage:
@@ -133,8 +134,9 @@ if [[ -z "${STRIPE_WEBHOOK_SECRET:-}" ]]; then
   exit 1
 fi
 
-if [[ -z "${STRIPE_PRICE_ID_WAITLIST:-}" ]]; then
-  echo "need STRIPE_PRICE_ID_WAITLIST in ${ENV_FILE}" >&2
+STRIPE_PRICE_EFFECTIVE="${STRIPE_PRICE_ID_BASE_PLAN:-${STRIPE_PRICE_ID_WAITLIST:-}}"
+if [[ -z "${STRIPE_PRICE_EFFECTIVE}" ]]; then
+  echo "need STRIPE_PRICE_ID_BASE_PLAN (Stripe Base Plan price_*) or legacy STRIPE_PRICE_ID_WAITLIST in ${ENV_FILE}" >&2
   exit 1
 fi
 
@@ -150,7 +152,9 @@ read_existing_secret_key() {
 
 secret_args=(--namespace "${NAMESPACE}")
 secret_args+=(--from-literal=STRIPE_SECRET_KEY="${STRIPE_SECRET_KEY}")
-secret_args+=(--from-literal=STRIPE_PRICE_ID_WAITLIST="${STRIPE_PRICE_ID_WAITLIST}")
+secret_args+=(--from-literal=STRIPE_PRICE_ID_BASE_PLAN="${STRIPE_PRICE_EFFECTIVE}")
+# Legacy key: keep so rolling backends / tooling that still expect WAITLIST see the same price id until rotated away.
+secret_args+=(--from-literal=STRIPE_PRICE_ID_WAITLIST="${STRIPE_PRICE_EFFECTIVE}")
 secret_args+=(--from-literal=STRIPE_WEBHOOK_SECRET="${STRIPE_WEBHOOK_SECRET}")
 
 NPU="${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY:-${STRIPE_PUBLISHABLE_KEY:-}}"
@@ -235,6 +239,7 @@ add_optional_runtime_secret PORTAL_AUTH_EMAIL_FROM "${PORTAL_AUTH_EMAIL_FROM:-}"
 add_optional_runtime_secret RESEND_MAGIC_LINK_TEMPLATE_ID "${RESEND_MAGIC_LINK_TEMPLATE_ID:-}"
 add_optional_runtime_secret RESEND_MAGIC_LINK_TEMPLATE_LINK_VAR "${RESEND_MAGIC_LINK_TEMPLATE_LINK_VAR:-}"
 add_optional_runtime_secret RESEND_MAGIC_LINK_TEMPLATE_FIRST_NAME_VAR "${RESEND_MAGIC_LINK_TEMPLATE_FIRST_NAME_VAR:-}"
+add_optional_runtime_secret RESEND_CHECKOUT_WELCOME_TEMPLATE_ID "${RESEND_CHECKOUT_WELCOME_TEMPLATE_ID:-}"
 add_optional_runtime_secret JOANNE_HUMANS_WELCOME_TRIGGER_TOKEN "${JOANNE_HUMANS_WELCOME_TRIGGER_TOKEN:-}"
 
 kubectl_app create secret generic "${SECRET_NAME}" \

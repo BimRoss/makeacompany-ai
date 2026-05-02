@@ -47,7 +47,7 @@ func (s *Server) handleInternalRefreshStripeWaitlistSnapshot(w http.ResponseWrit
 		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "stripe is not configured"})
 		return
 	}
-	priceID, err := s.waitlistPriceID()
+	priceID, err := s.basePlanPriceID()
 	if err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
 		return
@@ -89,7 +89,7 @@ func (s *Server) tryWarmStripeWaitlistSnapshotWhenMissing(ctx context.Context) m
 	if strings.TrimSpace(s.cfg.StripeSecretKey) == "" {
 		return nil
 	}
-	priceID, err := s.waitlistPriceID()
+	priceID, err := s.basePlanPriceID()
 	if err != nil {
 		s.log.Printf("admin stripe waitlist snapshot warm (missing): price id: %v", err)
 		return nil
@@ -142,7 +142,7 @@ func (s *Server) StartStripeWaitlistSnapshotWarmIfMissing() {
 		}
 		warm := s.tryWarmStripeWaitlistSnapshotWhenMissing(ctx)
 		if warm == nil {
-			s.log.Printf("stripe waitlist startup warm: skipped (no stripe key, STRIPE_PRICE_ID_WAITLIST, or stripe fetch failed; see admin warm logs above if any)")
+			s.log.Printf("stripe base-plan snapshot warm: skipped (no stripe key, STRIPE_PRICE_ID_BASE_PLAN, or stripe fetch failed; see admin warm logs above if any)")
 			return
 		}
 		n := 0
@@ -176,7 +176,7 @@ func (s *Server) handleAdminStripeWaitlistPurchasers(w http.ResponseWriter, r *h
 			writeJSONNoStore(w, http.StatusBadRequest, map[string]any{"error": "stripe is not configured"})
 			return
 		}
-		priceID, err := s.waitlistPriceID()
+		priceID, err := s.basePlanPriceID()
 		if err != nil {
 			writeJSONNoStore(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
 			return

@@ -14,7 +14,7 @@ const faqItems = [
   {
     question: "How do I get access?",
     answer:
-      "Join the waitlist on the homepage. Early users can reserve access and get launch updates as availability opens.",
+      "Tap Start Building on the homepage. Checkout opens Stripe for the $9/month plan; Joanne will email you an invite to your workspace after you finish checkout.",
   },
   {
     question: "Does this replace my whole team?",

@@ -136,7 +136,7 @@ export function CheckoutButton({ label, className }: CheckoutButtonProps) {
             <span className="inline-block w-4 shrink-0 sm:w-5" aria-hidden />
           </>
         ) : waitlistFull ? (
-          <>Waitlist full!</>
+          <>Not accepting signups right now</>
         ) : (
           <>
             <span className="inline-block w-4 shrink-0 sm:w-5" aria-hidden />

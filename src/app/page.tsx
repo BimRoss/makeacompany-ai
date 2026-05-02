@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import Script from "next/script";
-import { CountdownTimer } from "@/components/landing/countdown-timer";
 import { CheckoutReturnToast } from "@/components/landing/checkout-return-toast";
 import { CtaSection } from "@/components/landing/cta-section";
 import { Footer } from "@/components/landing/footer";
@@ -10,7 +9,6 @@ import { HeroSection } from "@/components/landing/hero-section";
 import { HeroRoadmap } from "@/components/landing/hero-roadmap";
 import { faqStructuredData, SeoFaqSection } from "@/components/landing/seo-faq";
 import { TestimonialsCarousel } from "@/components/landing/testimonials-carousel";
-import { WaitlistProgress } from "@/components/landing/waitlist-progress";
 import { siteDescription, siteTagline, siteTitle, siteUrl } from "@/lib/site";
 
 export const metadata: Metadata = {
@@ -21,7 +19,7 @@ export const metadata: Metadata = {
   },
   keywords: [
     "AI company",
-    "Make a Company for $1",
+    "Make a Company $9/mo",
     "AI employees",
     "Slack agents",
     "company automation",
@@ -61,8 +59,6 @@ export default function HomePage() {
       <Header />
       <HeroSection />
       <TestimonialsCarousel />
-      <CountdownTimer />
-      <WaitlistProgress />
       <CtaSection />
       <section className="hidden sm:block">
         <div className="mx-auto w-full max-w-4xl px-6">

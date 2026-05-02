@@ -202,6 +202,17 @@ func (s *Store) SaveWaitlistSignup(ctx context.Context, sessionID, email, stripe
 	}
 }
 
+// TryMarkCheckoutWelcomeInviteEmailSent returns true only once per checkout session id.
+// Used to prevent duplicate post-checkout invite emails across webhook + checkout-status paths.
+func (s *Store) TryMarkCheckoutWelcomeInviteEmailSent(ctx context.Context, sessionID string) (bool, error) {
+	sessionID = strings.TrimSpace(sessionID)
+	if sessionID == "" {
+		return false, fmt.Errorf("missing session id")
+	}
+	key := fmt.Sprintf("%s:checkout_welcome_invite_email_sent:%s", keyPrefix, sessionID)
+	return s.rdb.SetNX(ctx, key, "1", 45*24*time.Hour).Result()
+}
+
 // GetWaitlistStats returns aggregate counters maintained on successful first-time session processing.
 func (s *Store) GetWaitlistStats(ctx context.Context) (signups int64, amountCents int64, err error) {
 	n, err := s.rdb.Get(ctx, statsSignupsKey).Int64()

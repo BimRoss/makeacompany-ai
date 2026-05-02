@@ -67,7 +67,7 @@ export default function OpenGraphImage() {
             color: "#a1a1aa",
           }}
         >
-          <span>Join waitlist · $1 refundable</span>
+          <span>Infinite AI teams · $9/mo</span>
           <span>BimRoss</span>
         </div>
       </div>

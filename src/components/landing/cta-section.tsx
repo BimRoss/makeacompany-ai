@@ -11,30 +11,29 @@ export function CtaSection() {
 
           <div className="relative w-full text-center">
             <h2 className="mb-4 text-balance text-3xl font-bold tracking-tight sm:text-4xl">
-              Don&apos;t miss your free month
+              Ready to build?
             </h2>
             <p className="mx-auto mb-8 max-w-xl text-pretty text-lg text-muted-foreground">
-              Join the first 100 users and get your first month completely free when we launch.
-              Zero risk, fully refundable deposit.
+              Start with a simple $9/month subscription. Spin up AI employees in Slack and iterate as you grow.
             </p>
             <div className="mb-8 flex flex-wrap items-center justify-center gap-x-6 gap-y-3 text-sm">
               <div className="flex items-center gap-2 text-muted-foreground">
                 <CheckCircle className="h-4 w-4 text-foreground" />
-                <span>$1 refundable deposit</span>
+                <span>$9/month</span>
               </div>
               <div className="flex items-center gap-2 text-muted-foreground">
                 <CheckCircle className="h-4 w-4 text-foreground" />
-                <span>Free month on launch</span>
+                <span>AI employees in Slack</span>
               </div>
               <div className="flex items-center gap-2 text-muted-foreground">
                 <CheckCircle className="h-4 w-4 text-foreground" />
-                <span>Priority access</span>
+                <span>Cancel anytime</span>
               </div>
             </div>
             <p className="mx-auto mb-4 inline-flex items-center rounded-full border border-border bg-muted px-4 py-1.5 text-sm font-semibold tracking-tight text-foreground sm:px-5 sm:text-base">
-              Create a team for $1
+              Infinite AI teams for $9/mo
             </p>
-            <CheckoutButton label="Join the Waitlist" className="sm:px-10" />
+            <CheckoutButton label="Start Building" className="sm:px-10" />
             <p className="mt-6 text-pretty text-sm text-muted-foreground">
               Built by{" "}
               <a

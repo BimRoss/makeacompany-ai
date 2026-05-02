@@ -37,7 +37,6 @@ required_keys=(
   KUBECONFIG_CONTEXT
   REDIS_URL
   STRIPE_WEBHOOK_SECRET
-  STRIPE_PRICE_ID_WAITLIST
   STRIPE_PUBLISHABLE_KEY
   STRIPE_SECRET_KEY
   BACKEND_INTERNAL_SERVICE_TOKEN
@@ -49,6 +48,10 @@ required_keys=(
 )
 
 failed=0
+if [[ -z "${STRIPE_PRICE_ID_BASE_PLAN:-}" && -z "${STRIPE_PRICE_ID_WAITLIST:-}" ]]; then
+  echo "missing STRIPE_PRICE_ID_BASE_PLAN (preferred; Stripe product \"Base Plan\" price_*) or legacy STRIPE_PRICE_ID_WAITLIST (${ENV_FILE})" >&2
+  failed=1
+fi
 for key in "${required_keys[@]}"; do
   if ! require_var "${key}"; then
     failed=1

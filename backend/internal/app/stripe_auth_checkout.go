@@ -1,7 +1,6 @@
 package app
 
 import (
-	"context"
 	"net/http"
 	"strings"
 
@@ -20,36 +19,53 @@ func sessionEmailFromCheckout(sess *stripe.CheckoutSession) string {
 	return strings.ToLower(strings.TrimSpace(sess.CustomerEmail))
 }
 
-// routeCheckoutSessionCompleted dispatches Stripe checkout.session.completed for waitlist payment sessions.
-func (s *Server) routeCheckoutSessionCompleted(w http.ResponseWriter, ctx context.Context, sess *stripe.CheckoutSession) {
+// routeCheckoutSessionCompleted dispatches Stripe checkout.session.completed for Base Plan (subscription)
+// and legacy one-time waitlist (payment) sessions.
+func (s *Server) routeCheckoutSessionCompleted(w http.ResponseWriter, sess *stripe.CheckoutSession) {
 	if sess == nil {
 		http.Error(w, "nil session", http.StatusBadRequest)
 		return
 	}
-	mode := strings.TrimSpace(string(sess.Mode))
 
-	if mode == string(stripe.CheckoutSessionModePayment) {
-		if strings.TrimSpace(sess.Metadata["source"]) == "waitlist" {
-			s.completeWaitlistFromSession(w, sess)
+	switch sess.Mode {
+	case stripe.CheckoutSessionModePayment:
+		if sess.PaymentStatus != stripe.CheckoutSessionPaymentStatusPaid {
+			writeJSON(w, http.StatusOK, map[string]any{"received": true, "ignored": "payment_not_paid"})
 			return
 		}
-		priceID, err := s.waitlistPriceID()
-		if err != nil {
-			s.log.Printf("webhook waitlist price id: %v", err)
-			writeJSON(w, http.StatusOK, map[string]any{"received": true, "ignored": "waitlist_price_unconfigured"})
+	case stripe.CheckoutSessionModeSubscription:
+		ps := sess.PaymentStatus
+		if ps != stripe.CheckoutSessionPaymentStatusPaid && ps != stripe.CheckoutSessionPaymentStatusNoPaymentRequired {
+			writeJSON(w, http.StatusOK, map[string]any{"received": true, "ignored": "subscription_payment_pending"})
 			return
 		}
-		ok, _, err := checkoutSessionWaitlistLineItem(sess, priceID)
-		if err != nil {
-			s.log.Printf("webhook waitlist line items: %v", err)
-			http.Error(w, "line items", http.StatusInternalServerError)
-			return
-		}
-		if ok {
-			s.completeWaitlistFromSession(w, sess)
-			return
-		}
+	default:
+		writeJSON(w, http.StatusOK, map[string]any{"received": true, "ignored": "unsupported_checkout_mode"})
+		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]any{"received": true, "ignored": "not_waitlist_payment"})
+	source := strings.TrimSpace(sess.Metadata["source"])
+	if source == "waitlist" || source == "base_plan" {
+		s.completeWaitlistFromSession(w, sess)
+		return
+	}
+
+	priceID, err := s.basePlanPriceID()
+	if err != nil {
+		s.log.Printf("webhook STRIPE_PRICE_ID_BASE_PLAN: %v", err)
+		writeJSON(w, http.StatusOK, map[string]any{"received": true, "ignored": "waitlist_price_unconfigured"})
+		return
+	}
+	ok, _, err := checkoutSessionWaitlistLineItem(sess, priceID)
+	if err != nil {
+		s.log.Printf("webhook checkout line items: %v", err)
+		http.Error(w, "line items", http.StatusInternalServerError)
+		return
+	}
+	if ok {
+		s.completeWaitlistFromSession(w, sess)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{"received": true, "ignored": "not_base_plan_checkout"})
 }

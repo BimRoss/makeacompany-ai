@@ -2,9 +2,9 @@ const roadmapStages = [
   { label: "Idea", active: true },
   { label: "Basic Interaction", active: true },
   { label: "Vertical Scaling", active: true },
-  { label: "Testing", active: false, current: true },
-  { label: "Launch", active: false },
-  { label: "Iteration", active: false },
+  { label: "Testing", active: true },
+  { label: "Launch", active: true },
+  { label: "Iteration", active: false, current: true },
 ];
 
 export function HeroRoadmap() {

@@ -30,8 +30,9 @@ type Config struct {
 	AdminSessionTTLSec   int
 	StripeSecretKey      string
 	StripeWebhookSecret  string
-	// StripePriceWaitlist is the waitlist checkout price for this deployment (test or live); see STRIPE_PRICE_ID_WAITLIST.
-	StripePriceWaitlist string
+	// StripePriceBasePlan is the Stripe Dashboard "Base Plan" price_* used for homepage checkout (test or live).
+	// Env: STRIPE_PRICE_ID_BASE_PLAN; legacy STRIPE_PRICE_ID_WAITLIST is still read if BASE_PLAN is unset.
+	StripePriceBasePlan string
 	// SlackBotToken is the same env as slack-orchestrator: SLACK_BOT_TOKEN (users:read + users:read.email for admin users.list).
 	SlackBotToken string
 	// JoanneHumansWelcomeTriggerURL is the employee-factory Joanne HTTP root (e.g. http://127.0.0.1:8080) for POST /internal/joanne/humans-welcome/trigger.
@@ -54,6 +55,18 @@ type Config struct {
 	ResendMagicLinkTemplateLinkVar string
 	// ResendMagicLinkTemplateFirstNameVar is the key for a first-name greeting (default recipient_first_name). Reserves FIRST_NAME on Resend; use this custom key in the template instead.
 	ResendMagicLinkTemplateFirstNameVar string
+	// ResendCheckoutWelcomeTemplateID, when set (e.g. welcome-email), sends post-checkout welcome mail via Resend Templates API.
+	// Uses the same variable keys as RESEND_MAGIC_LINK_TEMPLATE_* (defaults: login_url → Slack invite, recipient_first_name).
+	ResendCheckoutWelcomeTemplateID string
+}
+
+// stripePriceIDBasePlan returns STRIPE_PRICE_ID_BASE_PLAN, else legacy STRIPE_PRICE_ID_WAITLIST.
+func stripePriceIDBasePlan() string {
+	v := strings.TrimSpace(os.Getenv("STRIPE_PRICE_ID_BASE_PLAN"))
+	if v != "" {
+		return v
+	}
+	return strings.TrimSpace(os.Getenv("STRIPE_PRICE_ID_WAITLIST"))
 }
 
 func LoadConfig() Config {
@@ -74,7 +87,7 @@ func LoadConfig() Config {
 		AdminSessionTTLSec:                    envInt("ADMIN_SESSION_TTL_SEC", 259200),
 		StripeSecretKey:                       strings.TrimSpace(os.Getenv("STRIPE_SECRET_KEY")),
 		StripeWebhookSecret:                   strings.TrimSpace(os.Getenv("STRIPE_WEBHOOK_SECRET")),
-		StripePriceWaitlist:                   strings.TrimSpace(os.Getenv("STRIPE_PRICE_ID_WAITLIST")),
+		StripePriceBasePlan:                   stripePriceIDBasePlan(),
 		SlackBotToken:                         strings.TrimSpace(os.Getenv("SLACK_BOT_TOKEN")),
 		JoanneHumansWelcomeTriggerURL:         strings.TrimSuffix(strings.TrimSpace(os.Getenv("JOANNE_HUMANS_WELCOME_TRIGGER_URL")), "/"),
 		JoanneHumansWelcomeTriggerToken:       strings.TrimSpace(os.Getenv("JOANNE_HUMANS_WELCOME_TRIGGER_TOKEN")),
@@ -86,6 +99,7 @@ func LoadConfig() Config {
 		ResendMagicLinkTemplateID:             strings.TrimSpace(os.Getenv("RESEND_MAGIC_LINK_TEMPLATE_ID")),
 		ResendMagicLinkTemplateLinkVar:        strings.TrimSpace(os.Getenv("RESEND_MAGIC_LINK_TEMPLATE_LINK_VAR")),
 		ResendMagicLinkTemplateFirstNameVar:   strings.TrimSpace(os.Getenv("RESEND_MAGIC_LINK_TEMPLATE_FIRST_NAME_VAR")),
+		ResendCheckoutWelcomeTemplateID:       strings.TrimSpace(os.Getenv("RESEND_CHECKOUT_WELCOME_TEMPLATE_ID")),
 	}
 }
 

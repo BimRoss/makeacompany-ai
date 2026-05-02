@@ -94,12 +94,29 @@ func checkoutSessionCustomerID(sess *stripe.CheckoutSession) string {
 	return strings.TrimSpace(sess.Customer.ID)
 }
 
-// FetchStripeWaitlistPurchasers lists completed Checkout Sessions in payment mode with paid status,
-// keeps sessions whose line items include waitlistPriceID, dedupes by normalized email (latest checkout wins).
-func FetchStripeWaitlistPurchasers(ctx context.Context, waitlistPriceID string) ([]StripeWaitlistPurchaser, error) {
-	waitlistPriceID = strings.TrimSpace(waitlistPriceID)
-	if waitlistPriceID == "" {
-		return nil, errors.New("missing waitlist price id")
+// checkoutSessionCountsForBasePlanSnapshot is true for completed checkout we treat as a Base Plan signup
+// (one-time payment legacy or active subscription checkout).
+func checkoutSessionCountsForBasePlanSnapshot(sess *stripe.CheckoutSession) bool {
+	if sess == nil {
+		return false
+	}
+	switch sess.Mode {
+	case stripe.CheckoutSessionModePayment:
+		return sess.PaymentStatus == stripe.CheckoutSessionPaymentStatusPaid
+	case stripe.CheckoutSessionModeSubscription:
+		return sess.PaymentStatus == stripe.CheckoutSessionPaymentStatusPaid ||
+			sess.PaymentStatus == stripe.CheckoutSessionPaymentStatusNoPaymentRequired
+	default:
+		return false
+	}
+}
+
+// FetchStripeWaitlistPurchasers lists completed Checkout Sessions (payment or subscription) with paid-like status,
+// keeps sessions whose line items include the Base Plan price id (STRIPE_PRICE_ID_BASE_PLAN), dedupes by normalized email (latest checkout wins).
+func FetchStripeWaitlistPurchasers(ctx context.Context, basePlanPriceID string) ([]StripeWaitlistPurchaser, error) {
+	basePlanPriceID = strings.TrimSpace(basePlanPriceID)
+	if basePlanPriceID == "" {
+		return nil, errors.New("missing base plan price id")
 	}
 	if strings.TrimSpace(stripe.Key) == "" {
 		return nil, errors.New("stripe is not configured")
@@ -132,17 +149,14 @@ func FetchStripeWaitlistPurchasers(ctx context.Context, waitlistPriceID string) 
 		if sess == nil {
 			continue
 		}
-		if sess.Mode != stripe.CheckoutSessionModePayment {
-			continue
-		}
-		if sess.PaymentStatus != stripe.CheckoutSessionPaymentStatusPaid {
+		if !checkoutSessionCountsForBasePlanSnapshot(sess) {
 			continue
 		}
 		em := sessionEmailFromCheckout(sess)
 		if em == "" {
 			continue
 		}
-		ok, productID, err := checkoutSessionWaitlistLineItem(sess, waitlistPriceID)
+		ok, productID, err := checkoutSessionWaitlistLineItem(sess, basePlanPriceID)
 		if err != nil {
 			return nil, fmt.Errorf("line items for session %s: %w", sess.ID, err)
 		}
@@ -173,7 +187,7 @@ func FetchStripeWaitlistPurchasers(ctx context.Context, waitlistPriceID string) 
 			StripeProductID: strings.TrimSpace(bestProductIDByEmail[email]),
 			CheckoutCreated: created,
 			Source:          "stripe_api",
-			WaitlistPriceID: waitlistPriceID,
+			WaitlistPriceID: basePlanPriceID,
 		})
 	}
 	sort.Slice(out, func(i, j int) bool {
@@ -193,7 +207,7 @@ func MarshalStripeWaitlistSnapshot(priceID string, purchasers []StripeWaitlistPu
 		FetchedAt:    time.Now().UTC().Format(time.RFC3339),
 		PriceID:      strings.TrimSpace(priceID),
 		Purchasers:   purchasers,
-		SnapshotNote: "Refreshed from Stripe Checkout Session list (paid, waitlist price). Deduped by email.",
+		SnapshotNote: "Refreshed from Stripe Checkout Session list (Base Plan price; payment or subscription). Deduped by email.",
 	}
 	return json.Marshal(env)
 }

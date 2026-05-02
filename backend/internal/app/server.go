@@ -372,24 +372,22 @@ func (s *Server) handleCheckout(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusForbidden, map[string]any{"error": "waitlist full"})
 		return
 	}
-	priceID, err := s.waitlistPriceID()
+	priceID, err := s.basePlanPriceID()
 	if err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
 		return
 	}
-	successURL := s.cfg.AppBaseURL + "/?checkout=success&session_id={CHECKOUT_SESSION_ID}"
+	successURL := s.cfg.AppBaseURL + "/success?session_id={CHECKOUT_SESSION_ID}"
 	cancelURL := s.cfg.AppBaseURL + "/?checkout=cancelled"
 	params := &stripe.CheckoutSessionParams{
-		Mode:       stripe.String(string(stripe.CheckoutSessionModePayment)),
+		Mode:       stripe.String(string(stripe.CheckoutSessionModeSubscription)),
 		SuccessURL: stripe.String(successURL),
 		CancelURL:  stripe.String(cancelURL),
-		// Always create a Stripe Customer on completion so admin + webhooks get cus_… (not guest-only sessions).
-		CustomerCreation: stripe.String(string(stripe.CheckoutSessionCustomerCreationAlways)),
 		LineItems: []*stripe.CheckoutSessionLineItemParams{
 			{Price: stripe.String(priceID), Quantity: stripe.Int64(1)},
 		},
 		Metadata: map[string]string{
-			"source": "waitlist",
+			"source": "base_plan",
 		},
 	}
 	sess, err := checkoutsession.New(params)
@@ -401,13 +399,13 @@ func (s *Server) handleCheckout(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"url": sess.URL})
 }
 
-func (s *Server) waitlistPriceID() (string, error) {
-	id := strings.TrimSpace(s.cfg.StripePriceWaitlist)
+func (s *Server) basePlanPriceID() (string, error) {
+	id := strings.TrimSpace(s.cfg.StripePriceBasePlan)
 	if id == "" {
-		return "", fmt.Errorf("STRIPE_PRICE_ID_WAITLIST is not set")
+		return "", fmt.Errorf("STRIPE_PRICE_ID_BASE_PLAN is not set (legacy STRIPE_PRICE_ID_WAITLIST is supported if BASE_PLAN is empty)")
 	}
 	if !strings.HasPrefix(id, "price_") {
-		return "", fmt.Errorf("STRIPE_PRICE_ID_WAITLIST must be a Stripe price_ id")
+		return "", fmt.Errorf("STRIPE_PRICE_ID_BASE_PLAN must be a Stripe price_ id")
 	}
 	return id, nil
 }
@@ -953,7 +951,7 @@ func (s *Server) handleWebhook(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "bad payload", http.StatusBadRequest)
 				return
 			}
-			s.routeCheckoutSessionCompleted(w, r.Context(), &sess)
+			s.routeCheckoutSessionCompleted(w, &sess)
 		case stripe.EventTypeCustomerSubscriptionCreated, stripe.EventTypeCustomerSubscriptionUpdated, stripe.EventTypeCustomerSubscriptionDeleted:
 			var sub stripe.Subscription
 			if err := json.Unmarshal(event.Data.Raw, &sub); err != nil {
@@ -999,7 +997,7 @@ func (s *Server) handleWebhook(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "stripe retrieve failed", http.StatusBadRequest)
 			return
 		}
-		s.routeCheckoutSessionCompleted(w, r.Context(), sess)
+		s.routeCheckoutSessionCompleted(w, sess)
 
 	default:
 		http.Error(w, "unsupported webhook object", http.StatusBadRequest)
@@ -1040,13 +1038,16 @@ func (s *Server) saveWaitlistFromSession(ctx context.Context, sess *stripe.Check
 	cur := string(sess.Currency)
 	status := string(sess.PaymentStatus)
 	stripeProductID := ""
-	if priceID, err := s.waitlistPriceID(); err == nil {
+	if priceID, err := s.basePlanPriceID(); err == nil {
 		if ok, pid, err := checkoutSessionWaitlistLineItem(sess, priceID); err == nil && ok {
 			stripeProductID = pid
 		}
 	}
 	if err := s.store.SaveWaitlistSignup(ctx, sess.ID, email, custID, status, amount, cur, stripeProductID); err != nil {
 		return "", err
+	}
+	if err := s.sendCheckoutWelcomeInviteEmail(ctx, sess.ID, email); err != nil {
+		s.log.Printf("checkout welcome invite email: %v", err)
 	}
 	return email, nil
 }

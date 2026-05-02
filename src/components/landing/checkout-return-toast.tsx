@@ -34,7 +34,7 @@ export function CheckoutReturnToast() {
       const sessionID = params.get("session_id");
 
       if (checkout === "cancelled") {
-        setMessage("Checkout cancelled. Your spot is still open.");
+        setMessage("Checkout cancelled. You can subscribe anytime from the homepage.");
         clearCheckoutQuery();
         return;
       }
@@ -63,13 +63,13 @@ export function CheckoutReturnToast() {
           return;
         }
         if (data.registered) {
-          setMessage("You are registered. Welcome to the waitlist.");
+          setMessage("You're subscribed. Welcome aboard!");
           window.dispatchEvent(new CustomEvent(WAITLIST_REFRESH_EVENT));
           window.sessionStorage.setItem(dedupeKey, "done");
           window.localStorage.setItem("makeacompany:registered", "true");
         } else if (data.waitlistFull) {
           setMessage(
-            "The waitlist filled before we could save your spot. If you were charged, contact us for a refund.",
+            "We couldn't complete your signup. If you were charged, contact us for a refund.",
           );
           window.dispatchEvent(new CustomEvent(WAITLIST_REFRESH_EVENT));
           window.sessionStorage.setItem(dedupeKey, "done");

@@ -1,13 +1,13 @@
 # makeacompany.ai
 
-> makeacompany.ai is the domain for this product. Primary headline: "Make a Company for $1"; subhead: "Your AI company, live in Slack." AI employees execute in Slack 24/7 while the human keeps strategy. Aimed at solo founders and lean teams. The homepage is the waitlist surface ($1 refundable deposit, limited early spots; first 100 get a free month at launch).
+> makeacompany.ai is the domain for this product. Primary headline is the site tagline ("Stop Chatting with AI. Conduct it."); body copy describes an AI-native team in Slack. Pricing is **$9/month** via Stripe checkout ("Start Building"). AI employees execute in Slack while the human keeps strategy. Aimed at solo founders and lean teams.
 
 This site is focused on company-building systems, automation, and operations design.
 Use this file as the primary entry point for agent-friendly discovery.
 
 ## Core pages
 
-- [Home](https://makeacompany.ai/): Main value proposition and waitlist entry.
+- [Home](https://makeacompany.ai/): Main value proposition and Stripe checkout ($9/mo).
 - [Privacy Policy](https://makeacompany.ai/privacy): Data collection, processing, and retention policy.
 - [Terms of Use](https://makeacompany.ai/terms): Website use terms, limitations, and legal conditions.
 
