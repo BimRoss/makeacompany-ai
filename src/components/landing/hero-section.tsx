@@ -45,7 +45,7 @@ export function HeroSection() {
       </div>
 
       <div className="relative mx-auto mt-12 w-full min-w-0 max-w-5xl px-0 sm:mt-16 sm:px-0">
-        <div className="relative z-10 -mx-3 w-[calc(100%+1.5rem)] min-w-0 scale-[0.97] sm:hidden">
+        <div className="relative z-10 -mx-4 w-[calc(100%+2rem)] min-w-0 sm:hidden">
           <HeroMobileVideoCarousel />
         </div>
 
