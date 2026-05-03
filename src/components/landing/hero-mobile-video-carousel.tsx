@@ -88,7 +88,12 @@ export function HeroMobileVideoCarousel({
   };
 
   return (
-    <div className={clsx("w-full min-w-0", className)}>
+    <div
+      className={clsx(
+        "w-full min-w-0 overflow-hidden rounded-xl border border-border/40 bg-card shadow-2xl",
+        className,
+      )}
+    >
       <div
         ref={scrollerRef}
         className="flex w-full min-w-0 touch-pan-x snap-x snap-mandatory overflow-x-auto overscroll-x-contain [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
