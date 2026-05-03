@@ -3,7 +3,7 @@ import { CheckoutButton } from "@/components/landing/checkout-button";
 import { HeroJoanneInviteCard } from "@/components/landing/hero-joanne-invite-card";
 import { HeroMobileVideoCarousel } from "@/components/landing/hero-mobile-video-carousel";
 import { TaoSlackSignalBadges } from "@/components/landing/tao-slack-signal-badges";
-import { siteDescriptionLine1, siteDescriptionLine2, siteTaglineLine1, siteTaglineLine2 } from "@/lib/site";
+import { siteDescriptionLine2, siteTaglineLine1, siteTaglineLine2 } from "@/lib/site";
 
 export function HeroSection() {
   return (
@@ -29,14 +29,9 @@ export function HeroSection() {
           <TaoSlackSignalBadges />
         </div>
 
-        <div className="mx-auto mb-4 w-full max-w-4xl space-y-1 text-center sm:mb-8 sm:space-y-1.5">
-          <p className="mx-auto hidden max-w-xl text-pretty text-lg font-medium leading-relaxed text-muted-foreground sm:block sm:max-w-2xl sm:text-xl md:text-2xl">
-            {siteDescriptionLine1}
-          </p>
-          <p className="w-full max-w-none text-pretty text-lg font-medium leading-relaxed text-muted-foreground sm:text-xl md:text-2xl">
-            {siteDescriptionLine2}
-          </p>
-        </div>
+        <p className="mx-auto mb-4 w-full max-w-4xl text-pretty text-center text-lg font-medium leading-relaxed text-muted-foreground sm:mb-8 sm:text-xl md:whitespace-nowrap md:text-2xl">
+          {siteDescriptionLine2}
+        </p>
 
         <div className="mb-3 flex justify-center sm:mb-4">
           <p className="inline-flex items-center rounded-full border border-border bg-muted px-4 py-1.5 text-sm font-semibold tracking-tight text-foreground sm:px-5 sm:text-base">
@@ -50,7 +45,7 @@ export function HeroSection() {
       </div>
 
       <div className="relative mx-auto mt-12 w-full min-w-0 max-w-5xl px-0 sm:mt-16 sm:px-0">
-        <div className="hero-stack-motion relative z-10 -mx-3 w-[calc(100%+1.5rem)] min-w-0 origin-center scale-[0.97] transition-[transform,box-shadow] hover:z-40 hover:-translate-y-1.5 hover:scale-[1.01] hover:shadow-[0_42px_90px_-34px_rgba(0,0,0,0.62)] sm:hidden">
+        <div className="relative z-10 -mx-3 w-[calc(100%+1.5rem)] min-w-0 scale-[0.97] sm:hidden">
           <HeroMobileVideoCarousel />
         </div>
 

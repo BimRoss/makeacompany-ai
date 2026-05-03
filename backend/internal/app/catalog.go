@@ -231,6 +231,8 @@ func builtinSkillDisplayLabel(skillID string) string {
 		return "Create Company"
 	case "delete-company":
 		return "Delete Company"
+	case "update-company":
+		return "Update Company"
 	case "create-slack":
 		return "Create Slack"
 	case "read-company":
@@ -335,6 +337,25 @@ func mergeDeleteCompanyParamDefaultsMap(incoming map[string]string) map[string]s
 	return out
 }
 
+func mergeUpdateCompanyParamDefaultsMap(incoming map[string]string) map[string]string {
+	def := map[string]string{
+		"name": "New Slack channel name (slug) for the current channel; gathered in-thread when not in the first message",
+	}
+	out := make(map[string]string, len(def)+len(incoming))
+	for k, v := range def {
+		out[k] = v
+	}
+	for k, v := range incoming {
+		k = strings.TrimSpace(k)
+		v = strings.TrimSpace(v)
+		if k == "" {
+			continue
+		}
+		out[k] = v
+	}
+	return out
+}
+
 // builtinSkillParamDefaults returns minimum required and default optional param names for built-in skills.
 // Unknown/custom skills return nil, nil (caller keeps submitted lists only).
 func builtinSkillParamDefaults(skillID string) (minRequired, defaultOptional []string) {
@@ -348,6 +369,8 @@ func builtinSkillParamDefaults(skillID string) (minRequired, defaultOptional []s
 	case "create-company":
 		return []string{"name"}, []string{"founders"}
 	case "delete-company":
+		return []string{"name"}, nil
+	case "update-company":
 		return []string{"name"}, nil
 	case "read-company", "read-skills", "read-user":
 		return nil, nil
@@ -482,6 +505,9 @@ func normalizeCapabilityCatalog(c CapabilityCatalog) CapabilityCatalog {
 		}
 		if id == "delete-company" {
 			skill.ParamDefaults = mergeDeleteCompanyParamDefaultsMap(skill.ParamDefaults)
+		}
+		if id == "update-company" {
+			skill.ParamDefaults = mergeUpdateCompanyParamDefaultsMap(skill.ParamDefaults)
 		}
 		next.Skills = append(next.Skills, skill)
 	}

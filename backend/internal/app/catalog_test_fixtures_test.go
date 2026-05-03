@@ -72,6 +72,18 @@ func testCatalogFixture() CapabilityCatalog {
 				Requires: []string{"slack_workspace"},
 			},
 			{
+				ID:             "update-company",
+				Label:          "Update Company",
+				Description:    "Rename the current company Slack channel and sync the company name in app registry. Requires explicit confirmation before rename.",
+				RuntimeTool:    "joanne-update-company",
+				RequiredParams: []string{"name"},
+				OptionalParams: []string{},
+				ParamDefaults: map[string]string{
+					"name": "New Slack channel name (slug) for the current channel; gathered in-thread when not in the first message",
+				},
+				Requires: []string{"slack_workspace"},
+			},
+			{
 				ID:             "read-company",
 				Label:          "Read Company",
 				Description:    "Summarize the latest activity within the company.",
@@ -129,7 +141,7 @@ func testCatalogFixture() CapabilityCatalog {
 			"tim":    {},
 			"ross":   {"update-issue"},
 			"garth":  {"read-twitter", "read-trends"},
-			"joanne": {"read-company", "read-skills", "read-user", "create-company", "delete-company", "create-email", "create-doc"},
+			"joanne": {"read-company", "read-skills", "read-user", "create-company", "delete-company", "update-company", "create-email", "create-doc"},
 		},
 		UpdatedAt: time.Now().UTC().Format(time.RFC3339),
 		Source:    "test-fixture",

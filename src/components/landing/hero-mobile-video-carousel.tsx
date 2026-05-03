@@ -96,7 +96,7 @@ export function HeroMobileVideoCarousel({
     >
       <div
         ref={scrollerRef}
-        className="flex w-full min-w-0 touch-pan-x snap-x snap-mandatory overflow-x-auto overscroll-x-contain [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className="flex w-full min-w-0 snap-x snap-mandatory overflow-x-auto overscroll-x-contain [-ms-overflow-style:none] [scrollbar-width:none] [touch-action:pan-x_pan-y] [&::-webkit-scrollbar]:hidden"
         role="region"
         aria-roledescription="carousel"
         aria-label="Product demos in Slack"
@@ -120,7 +120,8 @@ export function HeroMobileVideoCarousel({
                 preload={i === 0 ? "auto" : "metadata"}
                 className={clsx(
                   // inset() crops a few px of encoded overscan (black bars) without re-encoding
-                  "block h-auto w-full max-w-full bg-background object-contain object-top [clip-path:inset(5px_0)] [-webkit-tap-highlight-color:transparent]",
+                  // pointer-events-none: touches hit the scroll parent so vertical page scroll + horizontal carousel pan both work
+                  "pointer-events-none block h-auto w-full max-w-full bg-background object-contain object-top [clip-path:inset(5px_0)] [-webkit-tap-highlight-color:transparent]",
                   videoClassName ?? "max-h-[min(72vh,620px)]",
                 )}
                 aria-label={slide.label}
@@ -139,7 +140,7 @@ export function HeroMobileVideoCarousel({
             aria-label={`Show: ${slide.label}`}
             onClick={() => goTo(i)}
             className={`h-2 rounded-full transition-all duration-200 ${
-              active === i ? "w-6 bg-foreground" : "w-2 bg-muted-foreground/45 hover:bg-muted-foreground/70"
+              active === i ? "w-6 bg-foreground" : "w-2 bg-muted-foreground/50"
             }`}
           />
         ))}

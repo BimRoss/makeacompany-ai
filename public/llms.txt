@@ -1,6 +1,6 @@
 # makeacompany.ai
 
-> makeacompany.ai is the domain for this product. Primary headline: **Deploy an AI team** / **in seconds**; link-preview description (og/twitter): **For companies who want departments at a fraction of the cost.** Hero subheads also include **Create an AI-native department in 3 clicks.** Pricing **$9/month** via Stripe (**Start Building**). Human keeps strategy; AI employees execute in Slack. Aimed at solo founders and lean teams.
+> makeacompany.ai is the domain for this product. Primary headline: **Deploy an AI team** / **in seconds**; hero and link-preview description (og/twitter): **For companies who want departments at a fraction of the cost.** Pricing **$9/month** via Stripe (**Start Building**). Human keeps strategy; AI employees execute in Slack. Aimed at solo founders and lean teams.
 
 This site is focused on company-building systems, automation, and operations design.
 Use this file as the primary entry point for agent-friendly discovery.

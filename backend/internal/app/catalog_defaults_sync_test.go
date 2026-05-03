@@ -17,6 +17,7 @@ var canonicalDefaultSkillIDs = []string{
 	"read-user",
 	"read-trends",
 	"read-twitter",
+	"update-company",
 	"update-issue",
 }
 

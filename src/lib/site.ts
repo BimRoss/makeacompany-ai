@@ -10,8 +10,7 @@ export const siteTaglineLine2 = "in seconds";
 /** Single-line headline for `<title>`, OG alt, and other one-string contexts */
 export const siteTagline = `${siteTaglineLine1} ${siteTaglineLine2}`;
 
-/** Subhead lines — hero H2 (both lines); link previews use `siteDescription` only */
-export const siteDescriptionLine1 = "Create an AI-native department in 3 clicks.";
+/** Hero subhead under H1; link previews use the same string via `siteDescription` */
 export const siteDescriptionLine2 = "For companies who want departments at a fraction of the cost.";
 
 /**
