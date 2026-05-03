@@ -1,14 +1,14 @@
 # makeacompany.ai — full context
 
 makeacompany.ai is the marketing and signup surface for a product focused on building highly automated, AI-powered companies.
-Primary hero lines: "Stop Chatting with AI." / "Conduct it." Subheads describe an AI-native team in Slack. Checkout is **$9/month** via Stripe ("Start Building"). (Human keeps strategy; AI employees run execution in Slack.)
+Primary hero lines: "Deploy an AI team" / "in seconds." Hero subheads: "Create an AI-native department in 3 clicks." and "For companies who want departments at a fraction of the cost." Link-preview (og/twitter) description uses only that second subhead. Checkout **$9/month** via Stripe ("Start Building"). (Human keeps strategy; AI employees run execution in Slack.)
 
 ## Positioning
 
 - Audience: solo founders and lean teams who want leverage without proportional headcount.
 - Primary workflow: create and configure an AI-powered company with role-based agents that operate inside Slack.
 - Product intent: reduce operational overhead and increase leverage—AI “employees” that execute 24/7 alongside human operators.
-- Homepage hero (current): H1 matches site tagline; supporting copy invites founders to build an AI team in Slack. Pricing pill and share cards emphasize **Infinite AI teams** at **$9/mo**. Legacy early-access counters may still appear until backend checkout fully switches to the new Stripe product.
+- Homepage hero (current): H1 is **Deploy an AI team** / **in seconds**; subheads **Create an AI-native department in 3 clicks.** and **For companies who want departments at a fraction of the cost.** (the latter is also og/twitter description); demo videos below the fold. Sparkles pill: **Unlimited AI teams for $9/mo**; pill above checkout: **$9/mo · unlimited AI teams**. Legacy early-access counters may still appear until backend checkout fully switches to the new Stripe product.
 
 ## Important pages
 

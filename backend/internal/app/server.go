@@ -95,6 +95,7 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 	s.mux.Handle("/metrics", promhttp.Handler())
 	s.mux.HandleFunc("/v1/billing/checkout", s.handleCheckout)
 	s.mux.HandleFunc("/v1/billing/checkout-status", s.handleCheckoutStatus)
+	s.mux.HandleFunc("/v1/billing/free-trial-invite", s.handleBillingFreeTrialInvite)
 	s.mux.HandleFunc("/v1/billing/webhook", s.handleWebhook)
 	s.mux.HandleFunc("/v1/billing/waitlist-stats", s.handleWaitlistStats)
 	s.mux.HandleFunc("/v1/admin/waitlist", s.handleAdminWaitlist)
@@ -171,6 +172,8 @@ func normalizeMetricRoute(path string) string {
 		return "/v1/billing/checkout"
 	case path == "/v1/billing/checkout-status":
 		return "/v1/billing/checkout-status"
+	case path == "/v1/billing/free-trial-invite":
+		return "/v1/billing/free-trial-invite"
 	case path == "/v1/billing/webhook":
 		return "/v1/billing/webhook"
 	case path == "/v1/billing/waitlist-stats":

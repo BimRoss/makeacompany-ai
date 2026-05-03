@@ -51,7 +51,11 @@ func (s *Server) sendCheckoutWelcomeInviteEmail(ctx context.Context, sessionID, 
 	if !ok {
 		return nil
 	}
+	return s.sendWelcomeInviteEmail(ctx, email)
+}
 
+// sendWelcomeInviteEmail sends Joanne's welcome invite via Resend without session-level dedupe.
+func (s *Server) sendWelcomeInviteEmail(ctx context.Context, email string) error {
 	first := strings.TrimSpace(s.store.LookupSlackFirstNameByEmail(ctx, email))
 	if first == "" {
 		first = fallbackFirstNameFromEmail(email)
