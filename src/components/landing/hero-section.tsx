@@ -49,15 +49,14 @@ export function HeroSection() {
         <HeroJoanneInviteCard />
       </div>
 
-      <div className="relative mx-auto mt-6 w-full min-w-0 max-w-5xl px-0 sm:mt-16 sm:px-0">
-        <div className="hero-stack-motion relative z-10 w-full min-w-0 origin-center scale-[0.97] transition-[transform,box-shadow] hover:z-40 hover:-translate-y-1.5 hover:scale-[1.01] hover:shadow-[0_42px_90px_-34px_rgba(0,0,0,0.62)] sm:scale-[0.93] sm:hidden">
+      <div className="relative mx-auto mt-12 w-full min-w-0 max-w-5xl px-0 sm:mt-16 sm:px-0">
+        <div className="hero-stack-motion relative z-10 -mx-3 w-[calc(100%+1.5rem)] min-w-0 origin-center scale-[0.97] transition-[transform,box-shadow] hover:z-40 hover:-translate-y-1.5 hover:scale-[1.01] hover:shadow-[0_42px_90px_-34px_rgba(0,0,0,0.62)] sm:hidden">
           <HeroMobileVideoCarousel />
         </div>
 
-        <div className="hero-stack-motion relative z-10 hidden origin-center scale-[0.93] transition-[transform,box-shadow] hover:z-40 hover:-translate-y-1.5 hover:scale-[1.01] hover:shadow-[0_42px_90px_-34px_rgba(0,0,0,0.62)] sm:block">
+        <div className="hero-stack-motion relative z-10 hidden w-full min-w-0 origin-center scale-[0.93] transition-[transform,box-shadow] hover:z-40 hover:-translate-y-1.5 hover:scale-[1.01] hover:shadow-[0_42px_90px_-34px_rgba(0,0,0,0.62)] sm:block">
           <div className="overflow-hidden rounded-xl border border-border/40 bg-card shadow-2xl">
             <div className="relative w-full bg-muted/20">
-              {/* eslint-disable-next-line jsx-a11y/media-has-caption -- muted marketing demo */}
               <video
                 src="/hero-desktop.mp4"
                 muted

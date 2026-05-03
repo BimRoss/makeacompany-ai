@@ -1,6 +1,12 @@
 "use client";
 
+import clsx from "clsx";
 import { useCallback, useEffect, useRef, useState } from "react";
+
+export type HeroMobileVideoCarouselProps = {
+  className?: string;
+  videoClassName?: string;
+};
 
 const SLIDES = [
   {
@@ -11,9 +17,16 @@ const SLIDES = [
     src: "/hero-create-doc.mp4",
     label: "Draft a doc with Joanne in Slack",
   },
+  {
+    src: "/hero-mobile-slide-3.mp4",
+    label: "Your AI team in Slack",
+  },
 ] as const;
 
-export function HeroMobileVideoCarousel() {
+export function HeroMobileVideoCarousel({
+  className,
+  videoClassName,
+}: HeroMobileVideoCarouselProps = {}) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const videoRefs = useRef<(HTMLVideoElement | null)[]>([]);
   const [active, setActive] = useState(0);
@@ -38,6 +51,25 @@ export function HeroMobileVideoCarousel() {
     };
   }, [syncActiveFromScroll]);
 
+  /** Reinforce snap after momentum ends (scrollend); CSS snap can settle slightly off on some WebKit builds. */
+  useEffect(() => {
+    const el = scrollerRef.current;
+    if (!el) return;
+    const snapNearest = () => {
+      const w = el.clientWidth;
+      if (w <= 0) return;
+      const idx = Math.round(el.scrollLeft / w);
+      const clamped = Math.min(Math.max(idx, 0), SLIDES.length - 1);
+      const target = clamped * w;
+      if (Math.abs(el.scrollLeft - target) > 0.5) {
+        el.scrollTo({ left: target });
+      }
+      syncActiveFromScroll();
+    };
+    el.addEventListener("scrollend", snapNearest);
+    return () => el.removeEventListener("scrollend", snapNearest);
+  }, [syncActiveFromScroll]);
+
   useEffect(() => {
     videoRefs.current.forEach((v, i) => {
       if (!v) return;
@@ -56,10 +88,10 @@ export function HeroMobileVideoCarousel() {
   };
 
   return (
-    <div className="w-full min-w-0 overflow-hidden rounded-xl border border-border/40 bg-card shadow-2xl">
+    <div className={clsx("w-full min-w-0", className)}>
       <div
         ref={scrollerRef}
-        className="flex w-full min-w-0 snap-x snap-mandatory overflow-x-auto overscroll-x-contain [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className="flex w-full min-w-0 touch-pan-x snap-x snap-mandatory overflow-x-auto overscroll-x-contain [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         role="region"
         aria-roledescription="carousel"
         aria-label="Product demos in Slack"
@@ -67,12 +99,11 @@ export function HeroMobileVideoCarousel() {
         {SLIDES.map((slide, i) => (
           <div
             key={slide.src}
-            className="flex w-full min-w-0 shrink-0 grow-0 basis-full snap-center snap-always"
+            className="flex w-full min-w-0 shrink-0 grow-0 basis-full snap-center snap-always snap-stop-always"
             aria-roledescription="slide"
             aria-label={`${i + 1} of ${SLIDES.length}: ${slide.label}`}
           >
-            <div className="relative flex w-full min-w-0 justify-center bg-muted/20">
-              {/* eslint-disable-next-line jsx-a11y/media-has-caption -- marketing mute demo */}
+            <div className="relative flex w-full min-w-0 justify-center bg-transparent leading-none">
               <video
                 ref={(el) => {
                   videoRefs.current[i] = el;
@@ -82,10 +113,13 @@ export function HeroMobileVideoCarousel() {
                 playsInline
                 loop
                 preload={i === 0 ? "auto" : "metadata"}
-                className="h-auto max-h-[min(72vh,620px)] w-full max-w-full object-contain object-top"
+                className={clsx(
+                  // inset() crops a few px of encoded overscan (black bars) without re-encoding
+                  "block h-auto w-full max-w-full bg-background object-contain object-top [clip-path:inset(5px_0)] [-webkit-tap-highlight-color:transparent]",
+                  videoClassName ?? "max-h-[min(72vh,620px)]",
+                )}
                 aria-label={slide.label}
               />
-              <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-background/15 to-transparent" />
             </div>
           </div>
         ))}
