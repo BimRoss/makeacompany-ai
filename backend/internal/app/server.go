@@ -514,6 +514,9 @@ func (s *Server) handleAdminUserProfiles(w http.ResponseWriter, r *http.Request)
 }
 
 func (s *Server) handleAdminCatalog(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodGet && s.proxyAgentFactoryJSON(w, r, "/v1/admin/catalog") {
+		return
+	}
 	serviceWriteAuthorized := r.Method == http.MethodPut && s.catalogServiceWriteAuthorized(r)
 	if !serviceWriteAuthorized {
 		if r.Method == http.MethodGet {
@@ -576,6 +579,9 @@ func (s *Server) handleAdminCatalog(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleAdminCompanyChannels(w http.ResponseWriter, r *http.Request) {
+	if s.proxyAgentFactoryJSON(w, r, "/v1/admin/company-channels") {
+		return
+	}
 	if r.Method != http.MethodGet {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -603,6 +609,9 @@ func (s *Server) handleAdminCompanyChannels(w http.ResponseWriter, r *http.Reque
 }
 
 func (s *Server) handleAdminCompanyChannelsDiscover(w http.ResponseWriter, r *http.Request) {
+	if s.proxyAgentFactoryJSON(w, r, "/v1/admin/company-channels/discover") {
+		return
+	}
 	if r.Method != http.MethodPost {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -661,6 +670,9 @@ func (s *Server) handleAdminCompanyChannelsDiscover(w http.ResponseWriter, r *ht
 // handleAdminCompanyChannelsRegistryPrune removes Redis registry rows (and channel-scoped auxiliary keys)
 // not present in keep_channel_ids. Caller must pass the live Slack/orchestrator member-channel id set.
 func (s *Server) handleAdminCompanyChannelsRegistryPrune(w http.ResponseWriter, r *http.Request) {
+	if s.proxyAgentFactoryJSON(w, r, "/v1/admin/company-channels/registry-prune") {
+		return
+	}
 	if r.Method != http.MethodPost {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -696,6 +708,16 @@ func (s *Server) handleAdminCompanyChannelsRegistryPrune(w http.ResponseWriter, 
 }
 
 func (s *Server) handleAdminCompanyChannelGet(w http.ResponseWriter, r *http.Request) {
+	if s.hasAgentFactoryAuthority() {
+		chID := strings.TrimSpace(r.PathValue("channelId"))
+		if chID == "" || !ValidSlackChannelID(chID) {
+			http.Error(w, "bad channel id", http.StatusBadRequest)
+			return
+		}
+		if s.proxyAgentFactoryJSON(w, r, "/v1/admin/company-channels/"+chID) {
+			return
+		}
+	}
 	if r.Method != http.MethodGet {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -727,6 +749,16 @@ func (s *Server) handleAdminCompanyChannelGet(w http.ResponseWriter, r *http.Req
 }
 
 func (s *Server) handleAdminCompanyChannelPatch(w http.ResponseWriter, r *http.Request) {
+	if s.hasAgentFactoryAuthority() {
+		chID := strings.TrimSpace(r.PathValue("channelId"))
+		if chID == "" || !ValidSlackChannelID(chID) {
+			http.Error(w, "bad channel id", http.StatusBadRequest)
+			return
+		}
+		if s.proxyAgentFactoryJSON(w, r, "/v1/admin/company-channels/"+chID) {
+			return
+		}
+	}
 	if r.Method != http.MethodPatch {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -765,6 +797,16 @@ func (s *Server) handleAdminCompanyChannelPatch(w http.ResponseWriter, r *http.R
 }
 
 func (s *Server) handleAdminChannelKnowledge(w http.ResponseWriter, r *http.Request) {
+	if s.hasAgentFactoryAuthority() {
+		chID := strings.TrimSpace(r.PathValue("channelId"))
+		if chID == "" || !ValidSlackChannelID(chID) {
+			http.Error(w, "bad channel id", http.StatusBadRequest)
+			return
+		}
+		if s.proxyAgentFactoryJSON(w, r, "/v1/admin/channel-knowledge/"+chID) {
+			return
+		}
+	}
 	chID := strings.TrimSpace(r.PathValue("channelId"))
 	if chID == "" || !ValidSlackChannelID(chID) {
 		http.Error(w, "bad channel id", http.StatusBadRequest)
@@ -801,6 +843,9 @@ func (s *Server) catalogServiceWriteAuthorized(r *http.Request) bool {
 }
 
 func (s *Server) handlePublicCapabilityCatalog(w http.ResponseWriter, r *http.Request) {
+	if s.proxyAgentFactoryJSON(w, r, "/v1/public/capability-catalog") {
+		return
+	}
 	if r.Method != http.MethodGet {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -815,6 +860,9 @@ func (s *Server) handlePublicCapabilityCatalog(w http.ResponseWriter, r *http.Re
 }
 
 func (s *Server) handleRuntimeCapabilityCatalog(w http.ResponseWriter, r *http.Request) {
+	if s.proxyAgentFactoryJSON(w, r, "/v1/runtime/capability-catalog") {
+		return
+	}
 	if r.Method != http.MethodGet {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return

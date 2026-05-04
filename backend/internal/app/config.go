@@ -46,6 +46,9 @@ type Config struct {
 	// for member-channel and channel-member sync reads.
 	OrchestratorDebugBaseURL string
 	OrchestratorDebugToken   string
+	// AgentFactoryAdminBaseURL proxies runtime authority endpoints for catalog + admin channel data.
+	AgentFactoryAdminBaseURL string
+	AgentFactoryAdminToken   string
 	// GoogleOAuthClientID is the Google OAuth Web client id (used as id_token audience for /v1/portal/auth/google/finish).
 	GoogleOAuthClientID string
 	// ResendAPIKey enables portal magic-link email (optional).
@@ -97,6 +100,8 @@ func LoadConfig() Config {
 		JoanneHumansWelcomeTriggerToken:       strings.TrimSpace(os.Getenv("JOANNE_HUMANS_WELCOME_TRIGGER_TOKEN")),
 		OrchestratorDebugBaseURL:              strings.TrimSpace(os.Getenv("ORCHESTRATOR_DEBUG_BASE_URL")),
 		OrchestratorDebugToken:                strings.TrimSpace(os.Getenv("ORCHESTRATOR_DEBUG_TOKEN")),
+		AgentFactoryAdminBaseURL:              strings.TrimSuffix(strings.TrimSpace(os.Getenv("AGENT_FACTORY_ADMIN_BASE_URL")), "/"),
+		AgentFactoryAdminToken:                strings.TrimSpace(os.Getenv("AGENT_FACTORY_ADMIN_TOKEN")),
 		GoogleOAuthClientID:                   strings.TrimSpace(os.Getenv("GOOGLE_OAUTH_CLIENT_ID")),
 		ResendAPIKey:                          strings.TrimSpace(os.Getenv("RESEND_API_KEY")),
 		PortalAuthEmailFrom:                   strings.TrimSpace(os.Getenv("PORTAL_AUTH_EMAIL_FROM")),

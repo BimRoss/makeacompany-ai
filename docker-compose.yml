@@ -50,6 +50,9 @@ services:
       # Same host as Next ORCHESTRATOR_DEBUG_* — backend hourly/startup snapshot for /admin Companies strip.
       ORCHESTRATOR_DEBUG_BASE_URL: ${ORCHESTRATOR_DEBUG_BASE_URL:-http://host.docker.internal:${SLACK_ORCHESTRATOR_PORT:-8080}}
       ORCHESTRATOR_DEBUG_TOKEN: ${ORCHESTRATOR_DEBUG_TOKEN:-}
+      # Optional: route runtime authority reads to agent-factory admin authority.
+      AGENT_FACTORY_ADMIN_BASE_URL: ${AGENT_FACTORY_ADMIN_BASE_URL:-}
+      AGENT_FACTORY_ADMIN_TOKEN: ${AGENT_FACTORY_ADMIN_TOKEN:-}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:

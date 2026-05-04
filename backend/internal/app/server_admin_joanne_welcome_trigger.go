@@ -18,6 +18,9 @@ type joanneWelcomeTriggerBody struct {
 // handleAdminJoanneHumansWelcomeTrigger proxies to employee-factory Joanne to post the #humans welcome + terms thread.
 // Resolves slack_user_id from makeacompany:user_profile for the requested email (admin session still required).
 func (s *Server) handleAdminJoanneHumansWelcomeTrigger(w http.ResponseWriter, r *http.Request) {
+	if s.proxyAgentFactoryJSON(w, r, "/v1/admin/joanne-humans-welcome-trigger") {
+		return
+	}
 	if r.Method != http.MethodPost {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return

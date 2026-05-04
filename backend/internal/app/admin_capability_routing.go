@@ -8,6 +8,9 @@ import (
 )
 
 func (s *Server) handleAdminCapabilityRoutingEvents(w http.ResponseWriter, r *http.Request) {
+	if s.proxyAgentFactoryJSON(w, r, "/v1/admin/capability-routing-events") {
+		return
+	}
 	if r.Method != http.MethodGet {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
