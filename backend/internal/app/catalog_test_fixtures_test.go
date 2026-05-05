@@ -103,7 +103,7 @@ func testCatalogFixture() CapabilityCatalog {
 			{
 				ID:             "read-user",
 				Label:          "Read User",
-				Description:    "Display a user's company card.",
+				Description:    "Show the message author's Slack workspace profile card (name, title, email when visible, time zone, status). Use when someone asks what you know about them, for their profile, or says read-user.",
 				RuntimeTool:    "joanne-read-user",
 				RequiredParams: []string{},
 				OptionalParams: []string{},
