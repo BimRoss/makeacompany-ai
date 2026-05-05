@@ -15,7 +15,8 @@ type joanneWelcomeTriggerBody struct {
 	Force *bool  `json:"force"`
 }
 
-// handleAdminJoanneHumansWelcomeTrigger proxies to employee-factory Joanne to post the #humans welcome + terms thread.
+// handleAdminJoanneHumansWelcomeTrigger posts the #humans welcome + terms via agent-factory-admin when
+// AGENT_FACTORY_ADMIN_BASE_URL is set; otherwise falls back to legacy JOANNE_HUMANS_WELCOME_TRIGGER_URL.
 // Resolves slack_user_id from makeacompany:user_profile for the requested email (admin session still required).
 func (s *Server) handleAdminJoanneHumansWelcomeTrigger(w http.ResponseWriter, r *http.Request) {
 	if s.proxyAgentFactoryJSON(w, r, "/v1/admin/joanne-humans-welcome-trigger") {

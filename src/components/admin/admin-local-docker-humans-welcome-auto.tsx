@@ -19,8 +19,9 @@ type SlackUserRow = { email?: string };
 
 type SlackUsersPayload = { users?: SlackUserRow[]; error?: string; message?: string };
 
-async function fetchSlackWorkspaceUsers(): Promise<SlackUsersPayload | null> {
-  const res = await fetch("/api/admin/slack-workspace-users", { cache: "no-store" });
+async function fetchSlackWorkspaceUsers(live: boolean): Promise<SlackUsersPayload | null> {
+  const qs = live ? "?source=live" : "";
+  const res = await fetch(`/api/admin/slack-workspace-users${qs}`, { cache: "no-store" });
   if (kickToLoginForUnauthorizedApi(res.status, "admin")) {
     return null;
   }
@@ -79,13 +80,20 @@ export function AdminLocalDockerHumansWelcomeAuto() {
       }
 
       try {
+        // Prime Redis slack_user_id index (same Slack path as /admin one-shot live sync).
+        const primed = await fetchSlackWorkspaceUsers(true);
+        if (cancelled || primed == null) {
+          releasePollLockIfNotDone();
+          return;
+        }
+
         for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
           if (cancelled) {
             releasePollLockIfNotDone();
             return;
           }
 
-          const payload = await fetchSlackWorkspaceUsers();
+          const payload = attempt === 0 ? primed : await fetchSlackWorkspaceUsers(false);
           if (cancelled || payload == null) {
             releasePollLockIfNotDone();
             return;

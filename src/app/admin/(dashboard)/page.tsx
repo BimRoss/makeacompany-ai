@@ -1,4 +1,5 @@
 import { AdminLocalDockerHumansWelcomeAuto } from "@/components/admin/admin-local-docker-humans-welcome-auto";
+import { AdminSlackWorkspaceLiveSyncOnce } from "@/components/admin/admin-slack-workspace-live-sync-once";
 import { AdminPostAuthWelcomeBoundary } from "@/components/admin/admin-post-auth-welcome-toast";
 import { AdminJoanneWelcomeTriggerCard } from "@/components/admin/admin-joanne-welcome-trigger-card";
 import { AdminCompanyChannelsStrip } from "@/components/admin/admin-company-channels-strip";
@@ -19,6 +20,7 @@ export default async function AdminPage() {
 
   return (
     <AdminShell>
+      <AdminSlackWorkspaceLiveSyncOnce />
       <AdminPostAuthWelcomeBoundary />
       <AdminLocalDockerHumansWelcomeAuto />
       <div className="space-y-10">
