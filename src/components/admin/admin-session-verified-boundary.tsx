@@ -15,7 +15,7 @@ type Props = {
 export async function AdminSessionVerifiedBoundary({ children }: Props) {
   const status = await verifyAdminServerSession();
   if (status === "unauthorized") {
-    redirect("/admin/login");
+    redirect("/admin/login?auth=stale_session");
   }
   if (status === "unavailable") {
     return (

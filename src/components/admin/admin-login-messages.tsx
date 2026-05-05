@@ -20,5 +20,12 @@ export function AdminLoginMessages() {
       </p>
     );
   }
+  if (auth === "stale_session") {
+    return (
+      <p className="text-center text-sm text-muted-foreground" role="status">
+        Your admin session could not be verified (expired cookie or backend session). Sign in again.
+      </p>
+    );
+  }
   return null;
 }
