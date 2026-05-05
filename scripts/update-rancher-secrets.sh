@@ -30,7 +30,8 @@ set -euo pipefail
 #   RESEND_MAGIC_LINK_TEMPLATE_ID (optional; Resend template slug/id), RESEND_MAGIC_LINK_TEMPLATE_LINK_VAR,
 #   RESEND_MAGIC_LINK_TEMPLATE_FIRST_NAME_VAR (optional; override template variable keys),
 #   RESEND_CHECKOUT_WELCOME_TEMPLATE_ID (optional; e.g. welcome-email; Slack invite as login_url)
-#   AGENT_FACTORY_ADMIN_TOKEN (optional; Bearer to agent-factory-admin; defaults to BACKEND_INTERNAL_SERVICE_TOKEN when unset)
+#   AGENT_FACTORY_ADMIN_TOKEN (optional; Bearer to agent-factory-admin; defaults to BACKEND_INTERNAL_SERVICE_TOKEN when unset
+#   in env and cluster — must still match agent-factory-runtime BACKEND_INTERNAL_SERVICE_TOKEN or admin proxy paths 401)
 #   JOANNE_HUMANS_WELCOME_TRIGGER_TOKEN (optional legacy; preserve from cluster when unset — unused when AGENT_FACTORY_ADMIN_* is configured)
 #
 # Usage:
@@ -198,6 +199,14 @@ if [[ -z "${AGENT_FACTORY_ADMIN_TOKEN_EFFECTIVE}" ]]; then
   AGENT_FACTORY_ADMIN_TOKEN_EFFECTIVE="${BACKEND_INTERNAL_SERVICE_TOKEN_EFFECTIVE}"
 fi
 if [[ -n "${AGENT_FACTORY_ADMIN_TOKEN_EFFECTIVE}" ]]; then
+  af_b64="$(kubectl_app get secret agent-factory-runtime -n agent-factory -o jsonpath='{.data.BACKEND_INTERNAL_SERVICE_TOKEN}' 2>/dev/null || true)"
+  if [[ -n "${af_b64}" ]]; then
+    af_plain="$(printf '%s' "${af_b64}" | base64 -d 2>/dev/null || true)"
+    af_plain="$(printf '%s' "${af_plain}" | tr -d '\r\n')"
+    if [[ -n "${af_plain}" && "${af_plain}" != "${AGENT_FACTORY_ADMIN_TOKEN_EFFECTIVE}" ]]; then
+      echo "WARNING: AGENT_FACTORY_ADMIN_TOKEN (${#AGENT_FACTORY_ADMIN_TOKEN_EFFECTIVE} chars) != agent-factory-runtime BACKEND_INTERNAL_SERVICE_TOKEN (${#af_plain} chars). makeacompany → agent-factory-admin returns 401 until aligned. Set AGENT_FACTORY_ADMIN_TOKEN in ${ENV_FILE} to the agent-factory secret value (rancher-admin admin/apps/makeacompany-ai/configmap.yaml)." >&2
+    fi
+  fi
   secret_args+=(--from-literal=AGENT_FACTORY_ADMIN_TOKEN="${AGENT_FACTORY_ADMIN_TOKEN_EFFECTIVE}")
 fi
 
