@@ -84,6 +84,14 @@ func stripePriceIDBasePlan() string {
 
 func LoadConfig() Config {
 	requireCatalogReadTokenDefault := strings.EqualFold(strings.TrimSpace(os.Getenv("APP_ENV")), "production")
+	backendInternal := strings.TrimSpace(os.Getenv("BACKEND_INTERNAL_SERVICE_TOKEN"))
+	agentFactoryAdminTok := strings.TrimSpace(os.Getenv("AGENT_FACTORY_ADMIN_TOKEN"))
+	// agent-factory-admin requireInternal expects the same bearer as BACKEND_INTERNAL_SERVICE_TOKEN on agent-factory-runtime.
+	// Operators often set only BACKEND_INTERNAL_SERVICE_TOKEN on makeacompany-ai-runtime-secrets; proxy would send no
+	// Authorization without this fallback (401 on registry-prune, catalog proxy, etc.).
+	if agentFactoryAdminTok == "" && backendInternal != "" {
+		agentFactoryAdminTok = backendInternal
+	}
 	return Config{
 		Port:                                  envInt("PORT", 8080),
 		RedisURL:                              envString("REDIS_URL", "redis://localhost:6379/0"),
@@ -98,7 +106,7 @@ func LoadConfig() Config {
 		CapabilityCatalogReadToken:            strings.TrimSpace(os.Getenv("CAPABILITY_CATALOG_READ_TOKEN")),
 		RequireCapabilityCatalogReadToken:     envBool("REQUIRE_CAPABILITY_CATALOG_READ_TOKEN", requireCatalogReadTokenDefault),
 		SlackOrchestratorCapabilityCatalogURL: strings.TrimSpace(os.Getenv("SLACK_ORCHESTRATOR_CAPABILITY_CATALOG_URL")),
-		BackendInternalServiceToken:           strings.TrimSpace(os.Getenv("BACKEND_INTERNAL_SERVICE_TOKEN")),
+		BackendInternalServiceToken:           backendInternal,
 		AdminSignInAllowlist:                  envCSV("ADMIN_SIGN_IN_ALLOWLIST"),
 		AdminSessionTTLSec:                    envInt("ADMIN_SESSION_TTL_SEC", 259200),
 		StripeSecretKey:                       strings.TrimSpace(os.Getenv("STRIPE_SECRET_KEY")),
@@ -111,7 +119,7 @@ func LoadConfig() Config {
 		OrchestratorDebugBaseURL:              strings.TrimSpace(os.Getenv("ORCHESTRATOR_DEBUG_BASE_URL")),
 		OrchestratorDebugToken:                strings.TrimSpace(os.Getenv("ORCHESTRATOR_DEBUG_TOKEN")),
 		AgentFactoryAdminBaseURL:              strings.TrimSuffix(strings.TrimSpace(os.Getenv("AGENT_FACTORY_ADMIN_BASE_URL")), "/"),
-		AgentFactoryAdminToken:                strings.TrimSpace(os.Getenv("AGENT_FACTORY_ADMIN_TOKEN")),
+		AgentFactoryAdminToken:                agentFactoryAdminTok,
 		GoogleOAuthClientID:                   strings.TrimSpace(os.Getenv("GOOGLE_OAUTH_CLIENT_ID")),
 		ResendAPIKey:                          strings.TrimSpace(os.Getenv("RESEND_API_KEY")),
 		PortalAuthEmailFrom:                   strings.TrimSpace(os.Getenv("PORTAL_AUTH_EMAIL_FROM")),
