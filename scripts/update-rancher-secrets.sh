@@ -30,7 +30,8 @@ set -euo pipefail
 #   RESEND_MAGIC_LINK_TEMPLATE_ID (optional; Resend template slug/id), RESEND_MAGIC_LINK_TEMPLATE_LINK_VAR,
 #   RESEND_MAGIC_LINK_TEMPLATE_FIRST_NAME_VAR (optional; override template variable keys),
 #   RESEND_CHECKOUT_WELCOME_TEMPLATE_ID (optional; e.g. welcome-email; Slack invite as login_url)
-#   JOANNE_HUMANS_WELCOME_TRIGGER_TOKEN (optional; Bearer to employee-factory Joanne humans-welcome trigger; preserve from cluster when unset)
+#   AGENT_FACTORY_ADMIN_TOKEN (optional; Bearer to agent-factory-admin; defaults to BACKEND_INTERNAL_SERVICE_TOKEN when unset)
+#   JOANNE_HUMANS_WELCOME_TRIGGER_TOKEN (optional legacy; preserve from cluster when unset — unused when AGENT_FACTORY_ADMIN_* is configured)
 #
 # Usage:
 #   ./scripts/update-rancher-secrets.sh
@@ -187,6 +188,17 @@ if [[ -z "${BACKEND_INTERNAL_SERVICE_TOKEN_EFFECTIVE}" ]]; then
 fi
 if [[ -n "${BACKEND_INTERNAL_SERVICE_TOKEN_EFFECTIVE}" ]]; then
   secret_args+=(--from-literal=BACKEND_INTERNAL_SERVICE_TOKEN="${BACKEND_INTERNAL_SERVICE_TOKEN_EFFECTIVE}")
+fi
+
+AGENT_FACTORY_ADMIN_TOKEN_EFFECTIVE="${AGENT_FACTORY_ADMIN_TOKEN:-}"
+if [[ -z "${AGENT_FACTORY_ADMIN_TOKEN_EFFECTIVE}" ]]; then
+  AGENT_FACTORY_ADMIN_TOKEN_EFFECTIVE="$(read_existing_secret_key AGENT_FACTORY_ADMIN_TOKEN)"
+fi
+if [[ -z "${AGENT_FACTORY_ADMIN_TOKEN_EFFECTIVE}" ]]; then
+  AGENT_FACTORY_ADMIN_TOKEN_EFFECTIVE="${BACKEND_INTERNAL_SERVICE_TOKEN_EFFECTIVE}"
+fi
+if [[ -n "${AGENT_FACTORY_ADMIN_TOKEN_EFFECTIVE}" ]]; then
+  secret_args+=(--from-literal=AGENT_FACTORY_ADMIN_TOKEN="${AGENT_FACTORY_ADMIN_TOKEN_EFFECTIVE}")
 fi
 
 # Optional Slack bot token (same key as slack-orchestrator; preserve from cluster when not in .env.prod).

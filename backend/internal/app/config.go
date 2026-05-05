@@ -40,7 +40,7 @@ type Config struct {
 	SlackBotToken string
 	// JoanneHumansWelcomeTriggerURL is the employee-factory Joanne HTTP root (e.g. http://127.0.0.1:8080) for POST /internal/joanne/humans-welcome/trigger.
 	JoanneHumansWelcomeTriggerURL string
-	// JoanneHumansWelcomeTriggerToken must match JOANNE_HUMANS_WELCOME_TRIGGER_TOKEN on the Joanne pod (Authorization: Bearer).
+	// JoanneHumansWelcomeTriggerToken (legacy): Bearer for direct POST to employee-factory Joanne; unused when agent-factory admin proxy is configured.
 	JoanneHumansWelcomeTriggerToken string
 	// OrchestratorDebugBaseURL is slack-orchestrator HTTP root (same as Next ORCHESTRATOR_DEBUG_BASE_URL)
 	// for member-channel and channel-member sync reads.

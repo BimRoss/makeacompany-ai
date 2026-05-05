@@ -43,7 +43,7 @@ func (s *Server) handleAdminJoanneHumansWelcomeTrigger(w http.ResponseWriter, r 
 	tok := strings.TrimSpace(s.cfg.JoanneHumansWelcomeTriggerToken)
 	if base == "" || tok == "" {
 		writeJSONNoStore(w, http.StatusServiceUnavailable, map[string]any{
-			"error": "JOANNE_HUMANS_WELCOME_TRIGGER_URL and JOANNE_HUMANS_WELCOME_TRIGGER_TOKEN must be set on the makeacompany backend",
+			"error": "agent-factory admin proxy needs AGENT_FACTORY_ADMIN_BASE_URL + AGENT_FACTORY_ADMIN_TOKEN; legacy path needs JOANNE_HUMANS_WELCOME_TRIGGER_URL + JOANNE_HUMANS_WELCOME_TRIGGER_TOKEN",
 		})
 		return
 	}
