@@ -42,7 +42,7 @@ function settingsPillClassName(on: boolean): string {
 function ChannelSettingsPills({ registry }: { registry: CompanyChannel | null }) {
   if (!registry) {
     return (
-      <span className={settingsPillClassName(false)} title="Not in employee-factory Redis registry yet">
+      <span className={settingsPillClassName(false)} title="Not in Redis company registry yet (orchestrator/agent-factory onboarding path)">
         —
       </span>
     );
@@ -396,7 +396,7 @@ export function AdminCompanyChannelsStrip() {
           slackPayload.channels.length === 0;
         const hint =
           slackEmpty && !redisError
-            ? "No Slack channels in the member snapshot and no rows in the company registry for this Redis. If you use docker compose, ensure employee-factory and makeacompany-ai share the same REDIS_URL (or run channel discover once)."
+            ? "No Slack channels in the member snapshot and no rows in the company registry for this Redis. If you use docker compose, ensure agent-factory / orchestrator and makeacompany-ai share the same REDIS_URL (or run channel discover once)."
             : "";
         const errMsg =
           [parts.filter(Boolean).join(" · "), hint].filter(Boolean).join(" ") ||

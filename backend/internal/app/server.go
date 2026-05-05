@@ -101,6 +101,7 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 	s.mux.HandleFunc("/v1/admin/waitlist", s.handleAdminWaitlist)
 	s.mux.HandleFunc("/v1/admin/stripe-waitlist-purchasers", s.handleAdminStripeWaitlistPurchasers)
 	s.mux.HandleFunc("/v1/admin/slack-workspace-users", s.handleAdminSlackWorkspaceUsers)
+	s.mux.HandleFunc("/v1/admin/slack-bot-author-profiles", s.handleAdminSlackBotAuthorProfiles)
 	s.mux.HandleFunc("POST /v1/admin/joanne-humans-welcome-trigger", s.handleAdminJoanneHumansWelcomeTrigger)
 	s.mux.HandleFunc("/v1/admin/slack-member-channels", s.handleAdminSlackMemberChannels)
 	s.mux.HandleFunc("/v1/admin/user-profiles", s.handleAdminUserProfiles)
@@ -124,6 +125,7 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 	s.mux.HandleFunc("/v1/admin/auth/google/finish", s.handleAdminAuthGoogleFinish)
 	s.mux.HandleFunc("/v1/admin/auth/magic/start", s.handleAdminAuthMagicStart)
 	s.mux.HandleFunc("/v1/admin/auth/magic/finish", s.handleAdminAuthMagicFinish)
+	s.mux.HandleFunc("/v1/portal/slack-bot-author-profiles", s.handlePortalSlackBotAuthorProfiles)
 	s.mux.HandleFunc("/v1/portal/auth/me", s.handlePortalAuthMe)
 	s.mux.HandleFunc("POST /v1/portal/billing/cancel-subscription", s.handlePortalBillingCancelSubscription)
 	s.mux.HandleFunc("/v1/portal/auth/logout", s.handlePortalAuthLogout)
@@ -184,6 +186,8 @@ func normalizeMetricRoute(path string) string {
 		return "/v1/admin/stripe-waitlist-purchasers"
 	case path == "/v1/admin/slack-workspace-users":
 		return "/v1/admin/slack-workspace-users"
+	case path == "/v1/admin/slack-bot-author-profiles":
+		return "/v1/admin/slack-bot-author-profiles"
 	case path == "/v1/admin/joanne-humans-welcome-trigger":
 		return "/v1/admin/joanne-humans-welcome-trigger"
 	case path == "/v1/admin/slack-member-channels":
@@ -228,6 +232,8 @@ func normalizeMetricRoute(path string) string {
 		return "/v1/admin/auth/magic/finish"
 	case path == "/v1/portal/auth/me":
 		return "/v1/portal/auth/me"
+	case path == "/v1/portal/slack-bot-author-profiles":
+		return "/v1/portal/slack-bot-author-profiles"
 	case path == "/v1/portal/billing/cancel-subscription":
 		return "/v1/portal/billing/cancel-subscription"
 	case path == "/v1/portal/auth/logout":

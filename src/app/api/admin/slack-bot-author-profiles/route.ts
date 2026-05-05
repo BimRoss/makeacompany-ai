@@ -1,24 +1,35 @@
 import { NextResponse } from "next/server";
 
-import { getSlackAuthorProfiles } from "@/lib/admin/slack-author-profiles";
-import { requireAdminApiSession } from "@/lib/backend-proxy-auth";
+import {
+  adminProxyNextJson,
+  backendProxyAuthHeaders,
+  parseBackendProxyBody,
+  requireAdminApiSession,
+  resolveBackendBaseURL,
+} from "@/lib/backend-proxy-auth";
 
 export const dynamic = "force-dynamic";
 
-const noStore = {
-  "Cache-Control": "private, no-store, no-cache, must-revalidate, max-age=0",
-  Pragma: "no-cache",
-} as const;
-
 /**
- * Slack user ID → display name + portrait URL (+ optional email from `users.list`) for channel transcripts — same workspace source as the Slack Users admin table.
- * Env bot IDs fill gaps when `users.list` omits a row (name only; no local headshot assets).
+ * Proxies `/v1/admin/slack-bot-author-profiles`: Slack users.list (+ env bot IDs) runs on makeacompany-backend
+ * where `SLACK_BOT_TOKEN` is configured — not `process.env` on Next.js (docker compose frontend often omits it).
  */
 export async function GET() {
   const unauthorized = await requireAdminApiSession();
   if (unauthorized) {
     return unauthorized;
   }
-  const profiles = await getSlackAuthorProfiles({ slackToken: process.env.SLACK_BOT_TOKEN });
-  return NextResponse.json({ profiles }, { status: 200, headers: noStore });
+
+  const backendURL = `${resolveBackendBaseURL().replace(/\/$/, "")}/v1/admin/slack-bot-author-profiles`;
+  try {
+    const response = await fetch(backendURL, {
+      headers: await backendProxyAuthHeaders(),
+      cache: "no-store",
+    });
+    const payload = await parseBackendProxyBody(response);
+    return adminProxyNextJson(payload, response.status);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    return adminProxyNextJson({ error: `slack-bot-author-profiles proxy failed: ${message}` }, 502);
+  }
 }
