@@ -51,21 +51,24 @@ function ChannelSettingsPills({ registry }: { registry: CompanyChannel | null })
   const reactionsOn = registry.general_auto_reaction_enabled;
   const oooOn = registry.out_of_office_enabled ?? false;
   return (
-    <div className="flex min-w-0 max-w-[14rem] flex-wrap items-center gap-1">
+    <div className="flex min-w-0 flex-nowrap items-center gap-1 overflow-hidden">
       <span
-        className={settingsPillClassName(followUpOn)}
+        className={[settingsPillClassName(followUpOn), "shrink-0"].join(" ")}
         title="When on, agents may follow up on general messages and in threads. When off, only direct address."
       >
         follow up
       </span>
       <span
-        className={settingsPillClassName(reactionsOn)}
+        className={[settingsPillClassName(reactionsOn), "shrink-0"].join(" ")}
         title="When on, sentiment thumbs and reaction mirroring are enabled."
       >
         reactions
       </span>
       {oooOn ? (
-        <span className={settingsPillClassName(true)} title="Bots skip Socket Mode handling for this channel.">
+        <span
+          className={[settingsPillClassName(true), "shrink-0"].join(" ")}
+          title="Bots skip Socket Mode handling for this channel."
+        >
           out of office
         </span>
       ) : null}
@@ -584,14 +587,21 @@ export function AdminCompanyChannelsStrip() {
 
       {state !== "error" && rows.length > 0 ? (
         <div className="overflow-x-auto rounded-xl border border-border">
-          <table className="w-full min-w-[680px] border-collapse text-left text-sm">
+          <table className="w-full min-w-[680px] table-fixed border-collapse text-left text-sm">
+            <colgroup>
+              <col className="w-[16%]" />
+              <col className="w-[20%]" />
+              <col className="w-[12%]" />
+              <col className="w-[24%]" />
+              <col className="w-[28%]" />
+            </colgroup>
             <thead>
               <tr className="border-b border-border bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
-                <th className="px-3 py-1.5">Company</th>
-                <th className="px-3 py-1.5">Channel ID</th>
-                <th className="px-3 py-1.5">Visibility</th>
-                <th className="px-3 py-1.5">Settings</th>
-                <th className="px-3 py-1.5">Founders</th>
+                <th className="px-3 py-1.5 whitespace-nowrap">Company</th>
+                <th className="px-3 py-1.5 whitespace-nowrap">Channel ID</th>
+                <th className="px-3 py-1.5 whitespace-nowrap">Visibility</th>
+                <th className="px-3 py-1.5 whitespace-nowrap">Settings</th>
+                <th className="px-3 py-1.5 whitespace-nowrap">Founders</th>
               </tr>
             </thead>
             <tbody>
@@ -603,19 +613,28 @@ export function AdminCompanyChannelsStrip() {
                 const title = stripLeadingHash(cardTitle(row));
 
                 return (
-                  <tr key={row.channel_id} className="border-b border-border/80 last:border-0">
-                    <td className="px-3 py-1.5 align-middle">
+                  <tr
+                    key={row.channel_id}
+                    className="border-b border-border/80 last:border-0 [&>td]:align-middle [&>td]:py-1.5"
+                  >
+                    <td className="max-w-0 px-3">
                       <Link
                         href={`/admin/${encodeURIComponent(row.channel_id)}`}
-                        className="text-sm font-medium text-foreground underline-offset-2 hover:underline focus-visible:outline focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
+                        title={title}
+                        className="block truncate text-sm font-medium text-foreground underline-offset-2 hover:underline focus-visible:rounded-sm focus-visible:outline focus-visible:ring-2 focus-visible:ring-ring"
                       >
                         {title}
                       </Link>
                     </td>
-                    <td className="px-3 py-1.5 align-middle font-mono text-xs text-muted-foreground tabular-nums">
-                      {row.channel_id}
+                    <td className="max-w-0 px-3">
+                      <div
+                        className="truncate font-mono text-xs text-muted-foreground tabular-nums"
+                        title={row.channel_id}
+                      >
+                        {row.channel_id}
+                      </div>
                     </td>
-                    <td className="px-3 py-1.5 align-middle text-xs text-muted-foreground">
+                    <td className="max-w-0 whitespace-nowrap px-3 text-xs text-muted-foreground">
                       <span className="inline-flex items-center gap-1">
                         <span title={row.is_private ? "Private channel" : "Public channel"} aria-hidden>
                           {row.is_private ? (
@@ -627,14 +646,14 @@ export function AdminCompanyChannelsStrip() {
                         {row.is_private ? "Private" : "Public"}
                       </span>
                     </td>
-                    <td className="px-3 py-1.5 align-middle">
+                    <td className="max-w-0 overflow-hidden px-3">
                       <ChannelSettingsPills registry={row.registry} />
                     </td>
-                    <td className="px-3 py-1.5 align-middle">
+                    <td className="max-w-0 overflow-hidden px-3">
                       {founderIdsOrdered.length > 0 ? (
-                        <div className="flex min-w-0 flex-wrap items-center gap-1">
+                        <div className="flex min-w-0 flex-nowrap items-center gap-1 overflow-hidden">
                           {founderIdsOrdered.map((sid) => (
-                            <span key={`founder-${sid}`} title={`Slack user ${sid}`}>
+                            <span key={`founder-${sid}`} className="shrink-0" title={`Slack user ${sid}`}>
                               <SlackPersonChip {...personChipProps(sid, profileByUserId)} />
                             </span>
                           ))}

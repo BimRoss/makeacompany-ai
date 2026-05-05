@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
   AdminChannelControlPane,
@@ -80,6 +80,8 @@ export function CompanyChannelWorkspaceDetail({ channelId, variant }: CompanyCha
   const [knowledgeActivityPinnedBin, setKnowledgeActivityPinnedBin] = useState<KnowledgeActivityTimeBin | null>(null);
   const knowledgeDigestActivityBin = knowledgeActivityPinnedBin;
   const [viewerNavbarIdentity, setViewerNavbarIdentity] = useState<ChannelWorkspaceViewerChip | null>(null);
+  /** One best-effort digest refresh per channel after first ready+empty snapshot (avoids hammering on re-renders). */
+  const digestKickForChannelRef = useRef<string | null>(null);
 
   const apiPrefix = variant === "admin" ? "admin" : "portal";
   const profilesUrl =
@@ -269,6 +271,24 @@ export function CompanyChannelWorkspaceDetail({ channelId, variant }: CompanyCha
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (state !== "ready" || !knowledgeEmpty || transcriptError) {
+      return;
+    }
+    if (digestKickForChannelRef.current === channelId) {
+      return;
+    }
+    digestKickForChannelRef.current = channelId;
+    const enc = encodeURIComponent(channelId);
+    void fetch(`/api/${apiPrefix}/channel-knowledge/${enc}/refresh`, { method: "POST", cache: "no-store" })
+      .then(() => {
+        void refreshChannelKnowledge();
+      })
+      .catch(() => {
+        // Ignore; polling still runs.
+      });
+  }, [state, knowledgeEmpty, transcriptError, channelId, apiPrefix, refreshChannelKnowledge]);
 
   useEffect(() => {
     if (state !== "ready" || !knowledgeEmpty || transcriptError) {

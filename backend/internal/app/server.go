@@ -850,15 +850,15 @@ func (s *Server) handleAdminChannelKnowledgeRefresh(w http.ResponseWriter, r *ht
 		http.Error(w, "bad channel id", http.StatusBadRequest)
 		return
 	}
-	if s.hasAgentFactoryAuthority() {
-		if s.proxyAgentFactoryJSON(w, r, "/v1/admin/channel-knowledge/"+chID+"/refresh") {
-			return
-		}
-	}
 	ok, _ := s.adminReadOrInternalServiceAuthorized(r)
 	if !ok && !s.authorizedForCompanyChannelRead(r, chID) {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
+	}
+	if s.hasAgentFactoryAuthority() {
+		if s.proxyAgentFactoryJSON(w, r, "/v1/admin/channel-knowledge/"+chID+"/refresh") {
+			return
+		}
 	}
 	writeJSON(w, http.StatusServiceUnavailable, map[string]any{
 		"error": "agent-factory admin is not configured; cannot refresh digest from this path",
