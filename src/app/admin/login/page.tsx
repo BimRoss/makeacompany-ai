@@ -3,7 +3,6 @@ import { Suspense } from "react";
 import { Footer } from "@/components/landing/footer";
 import { Header } from "@/components/landing/header";
 import { AdminGoogleSignIn } from "@/components/admin/admin-google-sign-in";
-import { AdminLoginRedirectWhenSessionValid } from "@/components/admin/admin-login-redirect-when-session-valid";
 import { AdminLoginMessages } from "@/components/admin/admin-login-messages";
 import { SignInCard, SignInMethodStack } from "@/components/auth/sign-in-card";
 import { SignInUnauthorizedToast } from "@/components/auth/sign-in-unauthorized-toast";
@@ -23,7 +22,6 @@ export default function AdminLoginPage() {
   return (
     <main className="flex min-h-screen flex-col bg-background">
       <Header />
-      <AdminLoginRedirectWhenSessionValid />
       <SignInUnauthorizedToast message="That account isn't allowed for admin access." />
       <SignInCard
         title="Admin dashboard"
