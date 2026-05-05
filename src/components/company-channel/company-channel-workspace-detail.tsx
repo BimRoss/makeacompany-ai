@@ -41,6 +41,11 @@ type SlackMemberChannelsPayload = {
   channels?: Array<{ channel_id?: string; is_private?: boolean }>;
 };
 
+/** While digest is empty, re-fetch channel-knowledge on an interval (sequential bootstrap can lag this channel). */
+const CHANNEL_DIGEST_EMPTY_POLL_MS = 8_000;
+const CHANNEL_DIGEST_EMPTY_FIRST_POLL_MS = 4_000;
+const CHANNEL_DIGEST_EMPTY_POLL_MAX = 45;
+
 function slackPrivateForChannelId(payload: SlackMemberChannelsPayload | null, cid: string): boolean | null {
   const list = payload?.channels;
   if (!Array.isArray(list)) {
@@ -83,6 +88,35 @@ export function CompanyChannelWorkspaceDetail({ channelId, variant }: CompanyCha
   const dismissPortalWelcome = useCallback(() => {
     setPortalWelcome(null);
   }, []);
+
+  const refreshChannelKnowledge = useCallback(async () => {
+    const enc = encodeURIComponent(channelId);
+    const flow = variant === "admin" ? "admin" : "portal";
+    try {
+      const knRes = await fetch(`/api/${apiPrefix}/channel-knowledge/${enc}`, { cache: "no-store" });
+      if (kickToLoginForUnauthorizedApi(knRes.status, flow, channelId)) {
+        return;
+      }
+      const knPayload = (await knRes.json().catch(() => null)) as
+        | {
+            markdown?: string;
+            empty?: boolean;
+            error?: string;
+          }
+        | null;
+
+      if (!knRes.ok) {
+        setTranscriptError(knPayload?.error ?? "Could not load channel transcript.");
+        return;
+      }
+      const md = typeof knPayload?.markdown === "string" ? knPayload.markdown : "";
+      setMarkdown(md);
+      setKnowledgeEmpty(Boolean(knPayload?.empty) || md.trim() === "");
+      setTranscriptError(null);
+    } catch {
+      // Transient network errors: keep empty UI; next poll may succeed.
+    }
+  }, [apiPrefix, channelId, variant]);
 
   const load = useCallback(async () => {
     setState("loading");
@@ -237,6 +271,33 @@ export function CompanyChannelWorkspaceDetail({ channelId, variant }: CompanyCha
   }, [load]);
 
   useEffect(() => {
+    if (state !== "ready" || !knowledgeEmpty || transcriptError) {
+      return;
+    }
+    let cancelled = false;
+    let attempts = 0;
+
+    const poll = () => {
+      if (cancelled) {
+        return;
+      }
+      attempts += 1;
+      if (attempts > CHANNEL_DIGEST_EMPTY_POLL_MAX) {
+        return;
+      }
+      void refreshChannelKnowledge();
+    };
+
+    const first = window.setTimeout(poll, CHANNEL_DIGEST_EMPTY_FIRST_POLL_MS);
+    const id = window.setInterval(poll, CHANNEL_DIGEST_EMPTY_POLL_MS);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(first);
+      window.clearInterval(id);
+    };
+  }, [state, knowledgeEmpty, transcriptError, refreshChannelKnowledge]);
+
+  useEffect(() => {
     if (!knowledgeActivityPinnedBin) {
       return;
     }
@@ -282,7 +343,10 @@ export function CompanyChannelWorkspaceDetail({ channelId, variant }: CompanyCha
 
         {knowledgeEmpty && state === "ready" && !transcriptError ? (
           <div className="shrink-0 overflow-hidden rounded-lg border border-border bg-card px-4 py-5 shadow-sm">
-            <p className="text-sm text-muted-foreground">No channel knowledge digest in Redis yet for this channel.</p>
+            <p className="text-sm text-muted-foreground">
+              No channel knowledge digest in Redis yet for this channel. After a cold start the digest worker fills
+              channels in order—this page rechecks automatically every few seconds.
+            </p>
           </div>
         ) : null}
         {!knowledgeEmpty && markdown.trim() ? (
