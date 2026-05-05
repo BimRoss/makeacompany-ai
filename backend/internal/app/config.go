@@ -18,7 +18,7 @@ type Config struct {
 	CompanyChannelsInvalidateChannel string
 	// ThreadOwnerRedisKeyScanPattern is a fmt string with one %s for channel id, ending in * for SCAN (prune auxiliary keys).
 	ThreadOwnerRedisKeyScanPattern string
-	// CapabilityRoutingEventsRedisKey is the Redis LIST key employee-factory LPUSHes routing observability into (admin debug panel).
+	// CapabilityRoutingEventsRedisKey is the Redis LIST key Slack workers LPUSH routing observability into (admin debug panel).
 	CapabilityRoutingEventsRedisKey string
 	AppBaseURL                      string
 	AdminCatalogToken               string
@@ -88,11 +88,11 @@ func LoadConfig() Config {
 		Port:                                  envInt("PORT", 8080),
 		RedisURL:                              envString("REDIS_URL", "redis://localhost:6379/0"),
 		CompanyChannelsRedisURL:               strings.TrimSpace(os.Getenv("COMPANY_CHANNELS_REDIS_URL")),
-		CompanyChannelsRedisKey:               envString("COMPANY_CHANNELS_REDIS_KEY", "employee-factory:company_channels"),
-		ChannelKnowledgeRedisKeyFmt:           envString("CHANNEL_KNOWLEDGE_REDIS_KEY_FMT", "employee-factory:channel_knowledge:%s:markdown"),
-		CompanyChannelsInvalidateChannel:      envString("COMPANY_CHANNELS_INVALIDATE_CHANNEL", "employee-factory:company_channels:invalidate"),
-		ThreadOwnerRedisKeyScanPattern:        envString("THREAD_OWNER_REDIS_KEY_SCAN_PATTERN", "employee-factory:thread_owner:%s:*"),
-		CapabilityRoutingEventsRedisKey:       envString("CAPABILITY_ROUTING_EVENTS_REDIS_KEY", "employee-factory:capability_routing_events"),
+		CompanyChannelsRedisKey:               envString("COMPANY_CHANNELS_REDIS_KEY", "agent-factory:company_channels"),
+		ChannelKnowledgeRedisKeyFmt:           envString("CHANNEL_KNOWLEDGE_REDIS_KEY_FMT", "agent-factory:channel_knowledge:%s:markdown"),
+		CompanyChannelsInvalidateChannel:      envString("COMPANY_CHANNELS_INVALIDATE_CHANNEL", "agent-factory:company_channels:invalidate"),
+		ThreadOwnerRedisKeyScanPattern:        envString("THREAD_OWNER_REDIS_KEY_SCAN_PATTERN", "agent-factory:thread_owner:%s:*"),
+		CapabilityRoutingEventsRedisKey:       envString("CAPABILITY_ROUTING_EVENTS_REDIS_KEY", "agent-factory:capability_routing_events"),
 		AppBaseURL:                            strings.TrimRight(envString("APP_BASE_URL", "http://localhost:3000"), "/"),
 		AdminCatalogToken:                     strings.TrimSpace(os.Getenv("ADMIN_CATALOG_TOKEN")),
 		CapabilityCatalogReadToken:            strings.TrimSpace(os.Getenv("CAPABILITY_CATALOG_READ_TOKEN")),

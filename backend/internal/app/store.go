@@ -35,13 +35,14 @@ const maxCompanyChannelsList = 200
 const waitlistKeyMatch = keyPrefix + ":waitlist:*"
 
 const (
-	defaultChannelKnowledgeRedisKeyFmt      = "employee-factory:channel_knowledge:%s:markdown"
-	defaultCompanyChannelsInvalidateChannel = "employee-factory:company_channels:invalidate"
-	defaultThreadOwnerRedisKeyScanPattern   = "employee-factory:thread_owner:%s:*"
+	defaultCompanyChannelsRedisHashKey      = "agent-factory:company_channels"
+	defaultChannelKnowledgeRedisKeyFmt      = "agent-factory:channel_knowledge:%s:markdown"
+	defaultCompanyChannelsInvalidateChannel = "agent-factory:company_channels:invalidate"
+	defaultThreadOwnerRedisKeyScanPattern   = "agent-factory:thread_owner:%s:*"
 )
 
 // StoreRedisSharedKeys names Redis keys/channels that must stay aligned with Slack worker runtimes (agent-factory, etc.).
-// Zero value means NewStore applies legacy employee-factory:* defaults.
+// Zero value means NewStore applies agent-factory:* defaults (override env for legacy installs).
 type StoreRedisSharedKeys struct {
 	ChannelKnowledgeRedisKeyFmt      string
 	CompanyChannelsInvalidateChannel string
@@ -553,7 +554,7 @@ func (s *Store) ListCompanyChannels(ctx context.Context, hashKey string) ([]Comp
 	}
 	k := strings.TrimSpace(hashKey)
 	if k == "" {
-		k = "employee-factory:company_channels"
+		k = defaultCompanyChannelsRedisHashKey
 	}
 	const scanCount int64 = 256
 	out := make([]CompanyChannel, 0, maxCompanyChannelsList)
@@ -617,7 +618,7 @@ var ErrCompanyChannelNotFound = errors.New("company channel not found")
 func companyChannelsHashKey(hashKey string) string {
 	k := strings.TrimSpace(hashKey)
 	if k == "" {
-		return "employee-factory:company_channels"
+		return defaultCompanyChannelsRedisHashKey
 	}
 	return k
 }
@@ -921,7 +922,7 @@ func slugFromSlackChannelDisplayName(name string) string {
 }
 
 // GetChannelKnowledgeMarkdown returns the stored full digest markdown for a Slack channel id
-// (same key employee-factory uses in Redis). Empty string with no error if missing.
+// (same key Slack workers use in Redis). Empty string with no error if missing.
 func (s *Store) GetChannelKnowledgeMarkdown(ctx context.Context, channelID string) (string, error) {
 	rdb := s.companyChannelsRedis()
 	if s == nil || rdb == nil {

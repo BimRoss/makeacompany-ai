@@ -44,7 +44,7 @@ There is **no separate Redis image or “scraper” container** for this feature
 
 | Symptom | Likely cause |
 |---------|----------------|
-| Empty digest **localhost** (`npm run dev`) | Backend defaults to `employee-factory:channel_knowledge:*` unless `.env` sets `CHANNEL_KNOWLEDGE_REDIS_KEY_FMT=agent-factory:channel_knowledge:%s:markdown`; or no worker is writing to the Redis instance your backend uses. Use **`docker compose --profile local`** defaults (now aligned to `agent-factory:*`) or mirror those env vars in `.env.dev`. |
+| Empty digest **localhost** (`npm run dev`) | Backend defaults to `agent-factory:channel_knowledge:*` (override with `CHANNEL_KNOWLEDGE_REDIS_KEY_FMT` for legacy); or no worker is writing to the Redis instance your backend uses. Use **`docker compose --profile local`** defaults or mirror those env vars in `.env.dev`. |
 | Empty digest **prod** | **agent-factory-joanne** (and siblings) may be **scaled to 0** in GitOps (`rancher-admin` emergency posture) while keys already point at `agent-factory:*` — nothing is updating digest keys. Restore worker replicas when you want digests, **or** temporarily align `CHANNEL_KNOWLEDGE_REDIS_KEY_FMT` with whichever writer is actually running (not recommended long-term). |
 | Wrong digest / stale prefix | **Writer** and **reader** key prefixes differ (`employee-factory:*` vs `agent-factory:*`). Align `CHANNEL_KNOWLEDGE_REDIS_KEY_FMT` / `AGENT_FACTORY_CHANNEL_KNOWLEDGE_REDIS_KEY_FMT` across makeacompany-ai-config, agent-factory-config, and worker env. |
 

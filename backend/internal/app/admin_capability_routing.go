@@ -33,7 +33,7 @@ func (s *Server) handleAdminCapabilityRoutingEvents(w http.ResponseWriter, r *ht
 	}
 	key := strings.TrimSpace(s.cfg.CapabilityRoutingEventsRedisKey)
 	if key == "" {
-		key = "employee-factory:capability_routing_events"
+		key = "agent-factory:capability_routing_events"
 	}
 	rows, err := s.store.ListCapabilityRoutingObsEvents(r.Context(), key, chID, limit)
 	if err != nil {

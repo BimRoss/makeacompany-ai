@@ -174,7 +174,7 @@ func TestPruneCompanyChannelsRegistry_RemovesStaleAndAuxKeys(t *testing.T) {
 	if err := rdb.Set(ctx, digestKey, "old digest", 0).Err(); err != nil {
 		t.Fatal(err)
 	}
-	toKey := fmt.Sprintf("employee-factory:thread_owner:%s:123.456", stale)
+	toKey := fmt.Sprintf("agent-factory:thread_owner:%s:123.456", stale)
 	if err := rdb.Set(ctx, toKey, "emp:alice", 0).Err(); err != nil {
 		t.Fatal(err)
 	}

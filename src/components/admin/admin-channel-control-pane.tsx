@@ -305,7 +305,7 @@ export function AdminChannelControlPane({
           {sideShell(
             <div className="space-y-1">
               <p className="text-xs text-muted-foreground">
-                Not in registry ({redisKey ?? "employee-factory:company_channels"}).
+                Not in registry ({redisKey ?? "agent-factory:company_channels"}).
               </p>
               <p className="font-mono text-[11px] text-muted-foreground">{channelId}</p>
             </div>,
