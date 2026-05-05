@@ -24,7 +24,7 @@ They do **not** use `COMPANY_CHANNELS_REDIS_URL`. If OAuth mint succeeds but `/v
 |--------|-------------------|
 | `makeacompany:*` | makeacompany-ai-backend (waitlist, admin session, Slack snapshot blobs, Stripe admin snapshots, etc.) |
 | `employee-factory:*` | Legacy employee-factory workers / old data (still in Redis until cleaned) |
-| `agent-factory:*` | agent-factory + makeacompany-ai-backend shared registry, routing events list, channel-knowledge strings, invalidate pub/sub, and admin prune patterns for `thread_owner` keys |
+| `agent-factory:*` | agent-factory + makeacompany-ai-backend shared registry, routing events list, channel-knowledge strings, invalidate pub/sub, admin prune patterns for `thread_owner` keys, Joanne **skill_confirmation** / **create_email_pending_payload** pending state |
 
 **Production (rancher-admin):** `agent-factory-config` and `makeacompany-ai-config` use the same **`agent-factory:*`** key names so the site admin UI and workers see one registry (blank slate on first rollout; old `employee-factory:*` keys are orphaned until TTL/manual delete).
 
