@@ -1,7 +1,7 @@
 "use client";
 
 import { Sparkles } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
 const MESSAGE =
   "I will send you an invite to your workspace after you sign up! Cancel anytime.";
@@ -13,10 +13,6 @@ const TICK_MS = 26;
 export function HeroJoanneInviteCard() {
   const [quoteText, setQuoteText] = useState("");
   const [attrText, setAttrText] = useState("");
-  const timersRef = useRef<{ quote: number | null; attr: number | null }>({
-    quote: null,
-    attr: null,
-  });
 
   const quoteComplete = quoteText.length >= MESSAGE.length;
   const allComplete = quoteComplete && attrText.length >= ATTRIBUTION.length;
@@ -29,35 +25,36 @@ export function HeroJoanneInviteCard() {
       return;
     }
 
+    const timers = { quote: null as number | null, attr: null as number | null };
+
     let qi = 0;
-    timersRef.current.quote = window.setInterval(() => {
+    timers.quote = window.setInterval(() => {
       qi += 1;
       setQuoteText(MESSAGE.slice(0, qi));
       if (qi >= MESSAGE.length) {
-        if (timersRef.current.quote !== null) {
-          window.clearInterval(timersRef.current.quote);
-          timersRef.current.quote = null;
+        if (timers.quote !== null) {
+          window.clearInterval(timers.quote);
+          timers.quote = null;
         }
         let ai = 0;
-        timersRef.current.attr = window.setInterval(() => {
+        timers.attr = window.setInterval(() => {
           ai += 1;
           setAttrText(ATTRIBUTION.slice(0, ai));
-          if (ai >= ATTRIBUTION.length && timersRef.current.attr !== null) {
-            window.clearInterval(timersRef.current.attr);
-            timersRef.current.attr = null;
+          if (ai >= ATTRIBUTION.length && timers.attr !== null) {
+            window.clearInterval(timers.attr);
+            timers.attr = null;
           }
         }, TICK_MS);
       }
     }, TICK_MS);
 
     return () => {
-      if (timersRef.current.quote !== null) {
-        window.clearInterval(timersRef.current.quote);
-        timersRef.current.quote = null;
+      const { quote, attr } = timers;
+      if (quote !== null) {
+        window.clearInterval(quote);
       }
-      if (timersRef.current.attr !== null) {
-        window.clearInterval(timersRef.current.attr);
-        timersRef.current.attr = null;
+      if (attr !== null) {
+        window.clearInterval(attr);
       }
     };
   }, []);

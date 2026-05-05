@@ -19,9 +19,10 @@ type Props = {
   sessionID: string;
 };
 
+const LOADING_MESSAGE = "Finalizing your workspace...";
+
 export function SuccessOnboardingCard({ sessionID }: Props) {
   const [loading, setLoading] = useState(true);
-  const [message, setMessage] = useState("Finalizing your workspace...");
   const [error, setError] = useState<string | null>(null);
 
   const normalizedSessionID = useMemo(() => sessionID.trim(), [sessionID]);
@@ -81,7 +82,7 @@ export function SuccessOnboardingCard({ sessionID }: Props) {
         {loading ? (
           <p className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-4 py-2 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-            {message}
+            {LOADING_MESSAGE}
           </p>
         ) : error ? (
           <p className="rounded-lg border border-border bg-background px-4 py-3 text-sm text-muted-foreground">{error}</p>

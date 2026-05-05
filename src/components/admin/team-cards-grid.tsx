@@ -139,7 +139,7 @@ export function TeamCardsGrid({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [redirectUnauthorizedToAdminLogin]);
 
   // Employee cards: only the agents dashboard (var-employee). Do not fall back to adminGrafanaEmbeds — panel ids/titles differ.
   const allEmbeds = useMemo(() => healthPayload?.agentsGrafanaEmbeds ?? [], [healthPayload?.agentsGrafanaEmbeds]);

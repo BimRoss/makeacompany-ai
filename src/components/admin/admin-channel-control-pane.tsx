@@ -110,7 +110,7 @@ export function AdminChannelControlPane({
     const ro = new ResizeObserver(apply);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [status, channelId]);
+  }, [status, channelId, channel]);
 
   const viewerNavbarLead = useMemo(() => {
     const v = viewerNavbarIdentity;
@@ -140,6 +140,9 @@ export function AdminChannelControlPane({
   const clearPinnedActivity = useCallback(() => {
     onKnowledgeActivityPinnedBinChange?.(null);
   }, [onKnowledgeActivityPinnedBinChange]);
+
+  /** Stable no-op for read-only toggles; must be declared before status early-returns (hooks order). */
+  const noopToggle = useCallback(() => {}, []);
 
   const showPinnedActivityClear = Boolean(
     knowledgeActivityPinnedBin && onKnowledgeActivityPinnedBinChange,
@@ -268,7 +271,6 @@ export function AdminChannelControlPane({
   }
 
   const oooOn = channel.out_of_office_enabled ?? false;
-  const noopToggle = useCallback(() => {}, []);
 
   return paneShell(
     <section className={cardShell} aria-label="Channel workspace">
