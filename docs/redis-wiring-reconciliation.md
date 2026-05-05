@@ -48,6 +48,27 @@ There is **no separate Redis image or “scraper” container** for this feature
 | Empty digest **prod** | **agent-factory-joanne** (and siblings) may be **scaled to 0** in GitOps (`rancher-admin` emergency posture) while keys already point at `agent-factory:*` — nothing is updating digest keys. Restore worker replicas when you want digests, **or** temporarily align `CHANNEL_KNOWLEDGE_REDIS_KEY_FMT` with whichever writer is actually running (not recommended long-term). |
 | Wrong digest / stale prefix | **Writer** and **reader** key prefixes differ (`employee-factory:*` vs `agent-factory:*`). Align `CHANNEL_KNOWLEDGE_REDIS_KEY_FMT` / `AGENT_FACTORY_CHANNEL_KNOWLEDGE_REDIS_KEY_FMT` across makeacompany-ai-config, agent-factory-config, and worker env. |
 
+## Pruning **all** legacy `employee-factory:*` Redis keys
+
+When you are ready for a **clean slate** on shared Redis (before re-scraping channel knowledge and repopulating registry rows under **`agent-factory:*`**), remove the old prefix in one pass.
+
+1. **Point `REDIS_URL` at the same host/db** the fleet uses for company channels + digests (today: **`employee-factory-redis`** `6379/0`, often reached via `kubectl port-forward` from a laptop).
+2. **Dry-run** (lists keys, deletes nothing):
+
+   ```bash
+   REDIS_URL='redis://127.0.0.1:16379/0' ./scripts/redis-prune-legacy-employee-factory-prefix.sh
+   ```
+
+3. **Execute** ( **`UNLINK`** in batches — irreversible** ):
+
+   ```bash
+   REDIS_URL='redis://127.0.0.1:16379/0' ./scripts/redis-prune-legacy-employee-factory-prefix.sh --execute
+   ```
+
+Optional: override the glob with **`LEGACY_REDIS_MATCH`** (default **`employee-factory:*`**) if you use a narrower pattern in a test DB.
+
+**Not covered here:** JetStream **NATS** consumer durables whose names still start with `employee-factory-` (see `agent-factory` `internal/natsbus`). Deleting Redis keys does not remove those; changing durable names is a separate cutover if you want zero legacy identifiers.
+
 ## Optional Next.js debug route
 
 With **`ADMIN_AUTH_DEBUG=1`** on the frontend, `GET /api/admin/auth/debug` returns cookie presence and the HTTP status from proxying `GET /v1/admin/auth/me` (no token in response). Remove the flag after investigation.
