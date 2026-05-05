@@ -71,7 +71,7 @@ func (s *Server) handleAdminJoanneHumansWelcomeTrigger(w http.ResponseWriter, r 
 		})
 		return
 	}
-	force := true
+	force := false
 	if body.Force != nil {
 		force = *body.Force
 	}

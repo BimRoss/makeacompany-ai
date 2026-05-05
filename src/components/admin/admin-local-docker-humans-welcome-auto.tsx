@@ -111,7 +111,7 @@ export function AdminLocalDockerHumansWelcomeAuto() {
             const res = await fetch("/api/admin/joanne-humans-welcome-trigger", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ email, force: true }),
+              body: JSON.stringify({ email, force: false }),
               cache: "no-store",
             });
             if (cancelled) {

@@ -33,7 +33,7 @@ export function AdminJoanneWelcomeTriggerCard() {
       const res = await fetch("/api/admin/joanne-humans-welcome-trigger", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: trimmed, force: true }),
+        body: JSON.stringify({ email: trimmed, force: false }),
         cache: "no-store",
       });
       if (kickToLoginForUnauthorizedApi(res.status, "admin")) {
