@@ -107,6 +107,7 @@ func (s *Server) handleInternalBootstrapCompanyChannelsFromOrchestrator(w http.R
 		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
 		return
 	}
+	s.FireAgentFactoryChannelKnowledgeRefresh(touched)
 	writeJSON(w, http.StatusOK, map[string]any{
 		"ok":                    true,
 		"fetchedAt":             fetchedAt,

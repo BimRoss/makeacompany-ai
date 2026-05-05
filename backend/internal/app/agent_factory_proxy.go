@@ -7,12 +7,65 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 )
 
 func (s *Server) hasAgentFactoryAuthority() bool {
 	return strings.TrimSpace(s.cfg.AgentFactoryAdminBaseURL) != ""
+}
+
+// FireAgentFactoryChannelKnowledgeRefresh POSTs digest refresh for each Slack channel id (best-effort, async).
+func (s *Server) FireAgentFactoryChannelKnowledgeRefresh(channelIDs []string) {
+	if !s.hasAgentFactoryAuthority() {
+		return
+	}
+	base := strings.TrimSuffix(strings.TrimSpace(s.cfg.AgentFactoryAdminBaseURL), "/")
+	tok := strings.TrimSpace(s.cfg.AgentFactoryAdminToken)
+	if base == "" || tok == "" {
+		return
+	}
+	var ids []string
+	seen := map[string]struct{}{}
+	for _, id := range channelIDs {
+		id = strings.TrimSpace(id)
+		if id == "" || !ValidSlackChannelID(id) {
+			continue
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		ids = append(ids, id)
+	}
+	if len(ids) == 0 {
+		return
+	}
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
+		defer cancel()
+		client := &http.Client{Timeout: 12 * time.Minute}
+		for _, id := range ids {
+			u := base + "/v1/admin/channel-knowledge/" + url.PathEscape(id) + "/refresh"
+			req, err := http.NewRequestWithContext(ctx, http.MethodPost, u, nil)
+			if err != nil {
+				continue
+			}
+			req.Header.Set("Authorization", "Bearer "+tok)
+			req.Header.Set("Accept", "application/json")
+			resp, err := client.Do(req)
+			if err != nil {
+				s.log.Printf("channel_knowledge_refresh proxy: channel=%s err=%v", id, err)
+				continue
+			}
+			_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 1<<20))
+			_ = resp.Body.Close()
+			if resp.StatusCode >= 300 {
+				s.log.Printf("channel_knowledge_refresh proxy: channel=%s status=%d", id, resp.StatusCode)
+			}
+		}
+	}()
 }
 
 func (s *Server) proxyAgentFactoryJSON(w http.ResponseWriter, r *http.Request, upstreamPath string) bool {

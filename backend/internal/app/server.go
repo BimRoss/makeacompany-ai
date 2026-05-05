@@ -116,6 +116,7 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 	s.mux.HandleFunc("GET /v1/admin/company-channels/{channelId}", s.handleAdminCompanyChannelGet)
 	s.mux.HandleFunc("PATCH /v1/admin/company-channels/{channelId}", s.handleAdminCompanyChannelPatch)
 	s.mux.HandleFunc("GET /v1/admin/channel-knowledge/{channelId}", s.handleAdminChannelKnowledge)
+	s.mux.HandleFunc("POST /v1/admin/channel-knowledge/{channelId}/refresh", s.handleAdminChannelKnowledgeRefresh)
 	s.mux.HandleFunc("GET /v1/admin/capability-routing-events", s.handleAdminCapabilityRoutingEvents)
 	// Unauthenticated read-only JSON for the public website (/skills). Same payload as /v1/runtime/capability-catalog; no secrets in the body.
 	s.mux.HandleFunc("/v1/public/capability-catalog", s.handlePublicCapabilityCatalog)
@@ -212,6 +213,8 @@ func normalizeMetricRoute(path string) string {
 		return "/v1/admin/company-channels/registry-prune"
 	case strings.HasPrefix(path, "/v1/admin/company-channels/"):
 		return "/v1/admin/company-channels/{channelId}"
+	case strings.HasPrefix(path, "/v1/admin/channel-knowledge/") && strings.HasSuffix(path, "/refresh"):
+		return "/v1/admin/channel-knowledge/{channelId}/refresh"
 	case strings.HasPrefix(path, "/v1/admin/channel-knowledge/"):
 		return "/v1/admin/channel-knowledge/{channelId}"
 	case path == "/v1/admin/capability-routing-events":
@@ -665,6 +668,7 @@ func (s *Server) handleAdminCompanyChannelsDiscover(w http.ResponseWriter, r *ht
 		http.Error(w, "company channels discover error", http.StatusInternalServerError)
 		return
 	}
+	s.FireAgentFactoryChannelKnowledgeRefresh(touched)
 	writeJSON(w, http.StatusOK, map[string]any{
 		"upserted":       touched,
 		"upserted_count": len(touched),
@@ -833,6 +837,31 @@ func (s *Server) handleAdminChannelKnowledge(w http.ResponseWriter, r *http.Requ
 		"channel_id": chID,
 		"markdown":   md,
 		"empty":      strings.TrimSpace(md) == "",
+	})
+}
+
+func (s *Server) handleAdminChannelKnowledgeRefresh(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	chID := strings.TrimSpace(r.PathValue("channelId"))
+	if chID == "" || !ValidSlackChannelID(chID) {
+		http.Error(w, "bad channel id", http.StatusBadRequest)
+		return
+	}
+	if s.hasAgentFactoryAuthority() {
+		if s.proxyAgentFactoryJSON(w, r, "/v1/admin/channel-knowledge/"+chID+"/refresh") {
+			return
+		}
+	}
+	ok, _ := s.adminReadOrInternalServiceAuthorized(r)
+	if !ok && !s.authorizedForCompanyChannelRead(r, chID) {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+	writeJSON(w, http.StatusServiceUnavailable, map[string]any{
+		"error": "agent-factory admin is not configured; cannot refresh digest from this path",
 	})
 }
 
