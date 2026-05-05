@@ -40,7 +40,7 @@ They do **not** use `COMPANY_CHANNELS_REDIS_URL`. If OAuth mint succeeds but `/v
 
 ## Channel knowledge digest (“No channel knowledge digest in Redis yet”)
 
-There is **no separate Redis image or “scraper” container** for this feature. The digest is a **string value** (markdown) at key `fmt.Sprintf(CHANNEL_KNOWLEDGE_REDIS_KEY_FMT, channelID)` — today **`agent-factory:channel_knowledge:<C>:markdown`** in prod — written by **Slack Socket Mode workers** as they process channel traffic, and read by **makeacompany-ai** (directly from Redis, or via **agent-factory-admin** when `AGENT_FACTORY_ADMIN_BASE_URL` is set).
+There is **no separate Redis image or “scraper” container** for this feature. The digest is a **string value** (markdown) at key `fmt.Sprintf(CHANNEL_KNOWLEDGE_REDIS_KEY_FMT, channelID)` — today **`agent-factory:channel_knowledge:<C>:markdown`** in prod — written by **Slack Socket Mode workers** as they process channel traffic and by the **`channel-knowledge-refresh`** job (`/app/channel-knowledge-refresh` in **`geeemoney/agent-factory`** after cutover; legacy stacks may still run it from **`geeemoney/employee-factory`**). **makeacompany-ai** reads it (directly from Redis, or via **agent-factory-admin** when `AGENT_FACTORY_ADMIN_BASE_URL` is set).
 
 | Symptom | Likely cause |
 |---------|----------------|
