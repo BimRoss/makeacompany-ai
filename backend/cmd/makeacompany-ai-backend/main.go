@@ -22,6 +22,11 @@ func main() {
 		cfg.CompanyChannelsRedisURL,
 		cfg.SlackOrchestratorCapabilityCatalogURL,
 		cfg.OrchestratorDebugToken,
+		app.StoreRedisSharedKeys{
+			ChannelKnowledgeRedisKeyFmt:      cfg.ChannelKnowledgeRedisKeyFmt,
+			CompanyChannelsInvalidateChannel: cfg.CompanyChannelsInvalidateChannel,
+			ThreadOwnerRedisKeyScanPattern:   cfg.ThreadOwnerRedisKeyScanPattern,
+		},
 	)
 	if err != nil {
 		logger.Fatalf("redis: %v", err)

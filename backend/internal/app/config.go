@@ -11,6 +11,13 @@ type Config struct {
 	RedisURL                string
 	CompanyChannelsRedisURL string
 	CompanyChannelsRedisKey string
+	// ChannelKnowledgeRedisKeyFmt is a fmt string with one %s for Slack channel id (GET digest in admin; prune cleanup).
+	// Must match agent-factory / worker channel-knowledge writers (see AGENT_FACTORY_CHANNEL_KNOWLEDGE_REDIS_KEY_FMT).
+	ChannelKnowledgeRedisKeyFmt string
+	// CompanyChannelsInvalidateChannel is the Redis PUB/SUB channel for registry reloads; must match workers.
+	CompanyChannelsInvalidateChannel string
+	// ThreadOwnerRedisKeyScanPattern is a fmt string with one %s for channel id, ending in * for SCAN (prune auxiliary keys).
+	ThreadOwnerRedisKeyScanPattern string
 	// CapabilityRoutingEventsRedisKey is the Redis LIST key employee-factory LPUSHes routing observability into (admin debug panel).
 	CapabilityRoutingEventsRedisKey string
 	AppBaseURL                      string
@@ -82,6 +89,9 @@ func LoadConfig() Config {
 		RedisURL:                              envString("REDIS_URL", "redis://localhost:6379/0"),
 		CompanyChannelsRedisURL:               strings.TrimSpace(os.Getenv("COMPANY_CHANNELS_REDIS_URL")),
 		CompanyChannelsRedisKey:               envString("COMPANY_CHANNELS_REDIS_KEY", "employee-factory:company_channels"),
+		ChannelKnowledgeRedisKeyFmt:           envString("CHANNEL_KNOWLEDGE_REDIS_KEY_FMT", "employee-factory:channel_knowledge:%s:markdown"),
+		CompanyChannelsInvalidateChannel:      envString("COMPANY_CHANNELS_INVALIDATE_CHANNEL", "employee-factory:company_channels:invalidate"),
+		ThreadOwnerRedisKeyScanPattern:        envString("THREAD_OWNER_REDIS_KEY_SCAN_PATTERN", "employee-factory:thread_owner:%s:*"),
 		CapabilityRoutingEventsRedisKey:       envString("CAPABILITY_ROUTING_EVENTS_REDIS_KEY", "employee-factory:capability_routing_events"),
 		AppBaseURL:                            strings.TrimRight(envString("APP_BASE_URL", "http://localhost:3000"), "/"),
 		AdminCatalogToken:                     strings.TrimSpace(os.Getenv("ADMIN_CATALOG_TOKEN")),

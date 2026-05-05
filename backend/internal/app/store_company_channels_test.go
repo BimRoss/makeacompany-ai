@@ -31,9 +31,14 @@ func TestPatchCompanyChannel_GeneralAutoReaction_PublishesInvalidation(t *testin
 		t.Fatal(err)
 	}
 
-	store := &Store{rdb: rdb}
+	store := &Store{
+		rdb:                              rdb,
+		channelKnowledgeKeyFmt:           defaultChannelKnowledgeRedisKeyFmt,
+		companyChannelsInvalidateChannel: defaultCompanyChannelsInvalidateChannel,
+		threadOwnerRedisKeyScanPattern:   defaultThreadOwnerRedisKeyScanPattern,
+	}
 
-	pubsub := rdb.Subscribe(ctx, companyChannelsInvalidatePubSubChannel)
+	pubsub := rdb.Subscribe(ctx, defaultCompanyChannelsInvalidateChannel)
 	defer func() { _ = pubsub.Close() }()
 	msgCh := pubsub.Channel()
 
@@ -89,7 +94,12 @@ func TestUpsertDiscoveredCompanyChannels_MergesDefaults(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	store := &Store{rdb: rdb}
+	store := &Store{
+		rdb:                              rdb,
+		channelKnowledgeKeyFmt:           defaultChannelKnowledgeRedisKeyFmt,
+		companyChannelsInvalidateChannel: defaultCompanyChannelsInvalidateChannel,
+		threadOwnerRedisKeyScanPattern:   defaultThreadOwnerRedisKeyScanPattern,
+	}
 	touched, err := store.UpsertDiscoveredCompanyChannels(ctx, hashKey, []DiscoveredChannelInput{
 		{ChannelID: existingID, Name: "ignored", OwnerIDs: []string{"U1", "U2"}},
 		{ChannelID: "C0NEW12345", Name: "#newco", OwnerIDs: []string{"U9"}},
@@ -160,7 +170,7 @@ func TestPruneCompanyChannelsRegistry_RemovesStaleAndAuxKeys(t *testing.T) {
 	if err := rdb.HSet(ctx, k, keep, seedKeep, stale, seedStale).Err(); err != nil {
 		t.Fatal(err)
 	}
-	digestKey := channelKnowledgeMarkdownRedisKey(stale)
+	digestKey := fmt.Sprintf(defaultChannelKnowledgeRedisKeyFmt, stale)
 	if err := rdb.Set(ctx, digestKey, "old digest", 0).Err(); err != nil {
 		t.Fatal(err)
 	}
@@ -169,7 +179,12 @@ func TestPruneCompanyChannelsRegistry_RemovesStaleAndAuxKeys(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	store := &Store{rdb: rdb}
+	store := &Store{
+		rdb:                              rdb,
+		channelKnowledgeKeyFmt:           defaultChannelKnowledgeRedisKeyFmt,
+		companyChannelsInvalidateChannel: defaultCompanyChannelsInvalidateChannel,
+		threadOwnerRedisKeyScanPattern:   defaultThreadOwnerRedisKeyScanPattern,
+	}
 	removed, err := store.PruneCompanyChannelsRegistry(ctx, hashKey, []string{keep})
 	if err != nil {
 		t.Fatal(err)

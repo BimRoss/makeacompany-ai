@@ -19,8 +19,8 @@ export function kickToLoginForUnauthorizedApi(
     return false;
   }
   if (flow === "admin") {
-    window.location.assign("/admin/login");
-    return true;
+    // Temporary prod bypass: keep admins on-page while diagnosing auth/session races.
+    return false;
   }
   const cid = (portalChannelId ?? "").trim();
   window.location.assign(cid ? `/${encodeURIComponent(cid)}/login` : "/");

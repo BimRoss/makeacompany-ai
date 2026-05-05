@@ -32,10 +32,40 @@ const maxWaitlistList = 500
 // maxCompanyChannelsList caps HGETALL company channel registry rows returned to admin UI.
 const maxCompanyChannelsList = 200
 
-// companyChannelsInvalidatePubSubChannel must match employee-factory/internal/channelregistry.CompanyChannelsInvalidateChannel.
-const companyChannelsInvalidatePubSubChannel = "employee-factory:company_channels:invalidate"
-
 const waitlistKeyMatch = keyPrefix + ":waitlist:*"
+
+const (
+	defaultChannelKnowledgeRedisKeyFmt      = "employee-factory:channel_knowledge:%s:markdown"
+	defaultCompanyChannelsInvalidateChannel = "employee-factory:company_channels:invalidate"
+	defaultThreadOwnerRedisKeyScanPattern   = "employee-factory:thread_owner:%s:*"
+)
+
+// StoreRedisSharedKeys names Redis keys/channels that must stay aligned with Slack worker runtimes (agent-factory, etc.).
+// Zero value means NewStore applies legacy employee-factory:* defaults.
+type StoreRedisSharedKeys struct {
+	ChannelKnowledgeRedisKeyFmt      string
+	CompanyChannelsInvalidateChannel string
+	ThreadOwnerRedisKeyScanPattern   string
+}
+
+func normalizeStoreRedisSharedKeys(k StoreRedisSharedKeys) StoreRedisSharedKeys {
+	if strings.TrimSpace(k.ChannelKnowledgeRedisKeyFmt) == "" {
+		k.ChannelKnowledgeRedisKeyFmt = defaultChannelKnowledgeRedisKeyFmt
+	} else {
+		k.ChannelKnowledgeRedisKeyFmt = strings.TrimSpace(k.ChannelKnowledgeRedisKeyFmt)
+	}
+	if strings.TrimSpace(k.CompanyChannelsInvalidateChannel) == "" {
+		k.CompanyChannelsInvalidateChannel = defaultCompanyChannelsInvalidateChannel
+	} else {
+		k.CompanyChannelsInvalidateChannel = strings.TrimSpace(k.CompanyChannelsInvalidateChannel)
+	}
+	if strings.TrimSpace(k.ThreadOwnerRedisKeyScanPattern) == "" {
+		k.ThreadOwnerRedisKeyScanPattern = defaultThreadOwnerRedisKeyScanPattern
+	} else {
+		k.ThreadOwnerRedisKeyScanPattern = strings.TrimSpace(k.ThreadOwnerRedisKeyScanPattern)
+	}
+	return k
+}
 
 // ErrWaitlistFull is returned when the waitlist has reached WaitlistCap.
 var ErrWaitlistFull = errors.New("waitlist full")
@@ -75,6 +105,10 @@ type Store struct {
 	orchestratorCatalogURL string        // SLACK_ORCHESTRATOR_CAPABILITY_CATALOG_URL — seed empty Redis + merge baseline
 	orchestratorDebugToken string        // optional Authorization: Bearer for locked /debug/* endpoints
 
+	channelKnowledgeKeyFmt           string
+	companyChannelsInvalidateChannel string
+	threadOwnerRedisKeyScanPattern   string
+
 	baselineMu     sync.Mutex
 	baselineMerge  CapabilityCatalog
 	baselineExpiry time.Time
@@ -84,17 +118,21 @@ const orchestratorCatalogBaselineTTL = 2 * time.Minute
 
 // NewStore opens the primary Redis client. If companyChannelsRedisURL is non-empty and differs from redisURL,
 // a second client is used only for ListCompanyChannels (same pattern as employee-factory vs makeacompany-ai split).
-func NewStore(redisURL, companyChannelsRedisURL, orchestratorCatalogURL, orchestratorDebugToken string) (*Store, error) {
+func NewStore(redisURL, companyChannelsRedisURL, orchestratorCatalogURL, orchestratorDebugToken string, shared StoreRedisSharedKeys) (*Store, error) {
 	opts, err := redis.ParseURL(redisURL)
 	if err != nil {
 		return nil, fmt.Errorf("parse redis url: %w", err)
 	}
 	primary := redis.NewClient(opts)
 	orchURL := strings.TrimSpace(orchestratorCatalogURL)
+	sh := normalizeStoreRedisSharedKeys(shared)
 	st := &Store{
-		rdb:                    primary,
-		orchestratorCatalogURL: orchURL,
-		orchestratorDebugToken: strings.TrimSpace(orchestratorDebugToken),
+		rdb:                              primary,
+		orchestratorCatalogURL:           orchURL,
+		orchestratorDebugToken:           strings.TrimSpace(orchestratorDebugToken),
+		channelKnowledgeKeyFmt:           sh.ChannelKnowledgeRedisKeyFmt,
+		companyChannelsInvalidateChannel: sh.CompanyChannelsInvalidateChannel,
+		threadOwnerRedisKeyScanPattern:   sh.ThreadOwnerRedisKeyScanPattern,
 	}
 	ccURL := strings.TrimSpace(companyChannelsRedisURL)
 	if ccURL == "" || ccURL == strings.TrimSpace(redisURL) {
@@ -652,7 +690,7 @@ func (s *Store) PatchCompanyChannel(ctx context.Context, hashKey, channelID stri
 	if err := rdb.HSet(ctx, k, e.ChannelID, string(b)).Err(); err != nil {
 		return CompanyChannel{}, err
 	}
-	if pubErr := rdb.Publish(ctx, companyChannelsInvalidatePubSubChannel, e.ChannelID).Err(); pubErr != nil {
+	if pubErr := rdb.Publish(ctx, s.companyChannelsInvalidateChannel, e.ChannelID).Err(); pubErr != nil {
 		log.Printf("company channels: invalidate publish: %v", pubErr)
 	}
 	return e, nil
@@ -735,7 +773,7 @@ func (s *Store) UpsertDiscoveredCompanyChannels(ctx context.Context, hashKey str
 		if err := rdb.HSet(ctx, k, cid, string(b)).Err(); err != nil {
 			return touched, err
 		}
-		if pubErr := rdb.Publish(ctx, companyChannelsInvalidatePubSubChannel, cid).Err(); pubErr != nil {
+		if pubErr := rdb.Publish(ctx, s.companyChannelsInvalidateChannel, cid).Err(); pubErr != nil {
 			log.Printf("company channels discover: invalidate publish: %v", pubErr)
 		}
 		touched = append(touched, cid)
@@ -763,8 +801,11 @@ func dedupeTrimmedIDs(ids []string, maxN int) []string {
 	return out
 }
 
-func channelKnowledgeMarkdownRedisKey(channelID string) string {
-	return fmt.Sprintf(channelKnowledgeRedisKeyFmt, strings.TrimSpace(channelID))
+func (s *Store) channelKnowledgeMarkdownRedisKey(channelID string) string {
+	if s == nil {
+		return fmt.Sprintf(defaultChannelKnowledgeRedisKeyFmt, strings.TrimSpace(channelID))
+	}
+	return fmt.Sprintf(s.channelKnowledgeKeyFmt, strings.TrimSpace(channelID))
 }
 
 // deleteCompanyChannelAuxiliaryKeys removes channel-scoped keys from the company-channels Redis
@@ -778,10 +819,10 @@ func (s *Store) deleteCompanyChannelAuxiliaryKeys(ctx context.Context, channelID
 	if ch == "" {
 		return nil
 	}
-	if err := rdb.Del(ctx, channelKnowledgeMarkdownRedisKey(ch)).Err(); err != nil {
+	if err := rdb.Del(ctx, s.channelKnowledgeMarkdownRedisKey(ch)).Err(); err != nil {
 		return err
 	}
-	pat := fmt.Sprintf("employee-factory:thread_owner:%s:*", ch)
+	pat := fmt.Sprintf(s.threadOwnerRedisKeyScanPattern, ch)
 	var cursor uint64
 	for {
 		keys, next, err := rdb.Scan(ctx, cursor, pat, 200).Result()
@@ -816,7 +857,7 @@ func (s *Store) RemoveCompanyChannelRegistryEntry(ctx context.Context, hashKey, 
 	if err := rdb.HDel(ctx, k, cid).Err(); err != nil {
 		return err
 	}
-	if pubErr := rdb.Publish(ctx, companyChannelsInvalidatePubSubChannel, cid).Err(); pubErr != nil {
+	if pubErr := rdb.Publish(ctx, s.companyChannelsInvalidateChannel, cid).Err(); pubErr != nil {
 		log.Printf("company channels remove: invalidate publish: %v", pubErr)
 	}
 	return nil
@@ -879,8 +920,6 @@ func slugFromSlackChannelDisplayName(name string) string {
 	return strings.Trim(b.String(), "-")
 }
 
-const channelKnowledgeRedisKeyFmt = "employee-factory:channel_knowledge:%s:markdown"
-
 // GetChannelKnowledgeMarkdown returns the stored full digest markdown for a Slack channel id
 // (same key employee-factory uses in Redis). Empty string with no error if missing.
 func (s *Store) GetChannelKnowledgeMarkdown(ctx context.Context, channelID string) (string, error) {
@@ -892,7 +931,7 @@ func (s *Store) GetChannelKnowledgeMarkdown(ctx context.Context, channelID strin
 	if ch == "" {
 		return "", nil
 	}
-	key := fmt.Sprintf(channelKnowledgeRedisKeyFmt, ch)
+	key := s.channelKnowledgeMarkdownRedisKey(ch)
 	raw, err := rdb.Get(ctx, key).Result()
 	if err == redis.Nil {
 		return "", nil
