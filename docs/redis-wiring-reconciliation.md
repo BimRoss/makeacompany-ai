@@ -38,6 +38,16 @@ They do **not** use `COMPANY_CHANNELS_REDIS_URL`. If OAuth mint succeeds but `/v
 4. **DB index** → keep everything on `/0` unless you have an explicit multi-tenant reason; mixing `/0` and `/1` looks like “wrong Redis”.
 5. **Quick probe** (from a shell with `kubectl` + cluster access): exec into makeacompany-ai-backend, `redis-cli -u "$REDIS_URL" KEYS 'makeacompany:admin_session:*'` (or `SCAN`) after a login attempt — keys should appear if mint + Redis write succeeded.
 
+## Channel knowledge digest (“No channel knowledge digest in Redis yet”)
+
+There is **no separate Redis image or “scraper” container** for this feature. The digest is a **string value** (markdown) at key `fmt.Sprintf(CHANNEL_KNOWLEDGE_REDIS_KEY_FMT, channelID)` — today **`agent-factory:channel_knowledge:<C>:markdown`** in prod — written by **Slack Socket Mode workers** as they process channel traffic, and read by **makeacompany-ai** (directly from Redis, or via **agent-factory-admin** when `AGENT_FACTORY_ADMIN_BASE_URL` is set).
+
+| Symptom | Likely cause |
+|---------|----------------|
+| Empty digest **localhost** (`npm run dev`) | Backend defaults to `employee-factory:channel_knowledge:*` unless `.env` sets `CHANNEL_KNOWLEDGE_REDIS_KEY_FMT=agent-factory:channel_knowledge:%s:markdown`; or no worker is writing to the Redis instance your backend uses. Use **`docker compose --profile local`** defaults (now aligned to `agent-factory:*`) or mirror those env vars in `.env.dev`. |
+| Empty digest **prod** | **agent-factory-joanne** (and siblings) may be **scaled to 0** in GitOps (`rancher-admin` emergency posture) while keys already point at `agent-factory:*` — nothing is updating digest keys. Restore worker replicas when you want digests, **or** temporarily align `CHANNEL_KNOWLEDGE_REDIS_KEY_FMT` with whichever writer is actually running (not recommended long-term). |
+| Wrong digest / stale prefix | **Writer** and **reader** key prefixes differ (`employee-factory:*` vs `agent-factory:*`). Align `CHANNEL_KNOWLEDGE_REDIS_KEY_FMT` / `AGENT_FACTORY_CHANNEL_KNOWLEDGE_REDIS_KEY_FMT` across makeacompany-ai-config, agent-factory-config, and worker env. |
+
 ## Optional Next.js debug route
 
 With **`ADMIN_AUTH_DEBUG=1`** on the frontend, `GET /api/admin/auth/debug` returns cookie presence and the HTTP status from proxying `GET /v1/admin/auth/me` (no token in response). Remove the flag after investigation.
