@@ -44,14 +44,17 @@ func (s *Server) handleAdminAuthGoogleFinish(w http.ResponseWriter, r *http.Requ
 	}
 	email := normalizeProfileEmail(fmt.Sprint(payload.Claims["email"]))
 	if email == "" {
+		s.log.Printf("admin google finish: missing email claim")
 		http.Error(w, "missing email claim", http.StatusUnauthorized)
 		return
 	}
 	if !googleEmailVerifiedClaim(payload.Claims["email_verified"]) {
+		s.log.Printf("admin google finish: email not verified with google email=%s", email)
 		http.Error(w, "email not verified with google", http.StatusForbidden)
 		return
 	}
 	if !s.adminSignInEmailAllowed(email) {
+		s.log.Printf("admin google finish: email not on admin allowlist email=%s", email)
 		http.Error(w, "unauthorized email", http.StatusForbidden)
 		return
 	}

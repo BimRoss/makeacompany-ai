@@ -171,8 +171,14 @@ func (s *Server) handleAdminAuthMe(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "admin auth disabled", http.StatusServiceUnavailable)
 		return
 	}
-	session, err := s.validateAdminSession(r.Context(), tokenFromAuthHeader(r))
+	tok := tokenFromAuthHeader(r)
+	session, err := s.validateAdminSession(r.Context(), tok)
 	if err != nil {
+		if tok == "" {
+			s.log.Printf("admin auth me: unauthorized (missing bearer)")
+		} else {
+			s.log.Printf("admin auth me: unauthorized bearer_len=%d err=%v", len(tok), err)
+		}
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
