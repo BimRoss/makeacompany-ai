@@ -331,7 +331,6 @@ export function CompanyChannelWorkspaceDetail({ channelId, variant }: CompanyCha
           status={channelStatus}
           errorMessage={channelError}
           redisKey={redisKey}
-          onChannelUpdated={setChannel}
           companyChannelsApiPrefix={variant === "portal" ? "portal" : "admin"}
           workspaceTitle={pageTitle}
           viewerNavbarIdentity={viewerNavbarIdentity}

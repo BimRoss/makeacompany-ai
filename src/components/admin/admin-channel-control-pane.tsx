@@ -8,8 +8,6 @@ import {
   type KnowledgeActivityTimeBin,
 } from "@/components/admin/admin-channel-knowledge-activity-chart";
 import { useWorkspaceNavbarTrail } from "@/components/workspace-navbar-trail-provider";
-import { kickToLoginForUnauthorizedApi } from "@/lib/client-auth-unauthorized-redirect";
-import { useAdminFlashToast } from "@/components/admin/admin-flash-toast";
 import { SlackPersonChip } from "@/components/admin/slack-person-chip";
 import { PortalWorkspaceProfileNavButton } from "@/components/portal/portal-workspace-profile";
 import { useIsMdLayout } from "@/hooks/use-is-md-layout";
@@ -27,7 +25,6 @@ type AdminChannelControlPaneProps = {
   status: PaneStatus;
   errorMessage?: string;
   redisKey?: string;
-  onChannelUpdated: (ch: CompanyChannel) => void;
   /** Defaults to admin API; use `portal` for company portal pages. */
   companyChannelsApiPrefix?: "admin" | "portal";
   /** Shown in the card header (top row), e.g. display name or channel id while loading. */
@@ -46,28 +43,21 @@ type AdminChannelControlPaneProps = {
 function ControlToggle({
   enabled,
   disabled,
-  busy,
   onToggle,
   ariaLabel,
-  comingSoon,
 }: {
   enabled: boolean;
   disabled: boolean;
-  busy?: boolean;
   onToggle: () => void;
   ariaLabel: string;
-  /** Looks disabled but stays clickable so `onToggle` can run (e.g. toast). */
-  comingSoon?: boolean;
 }) {
-  const domDisabled = comingSoon ? false : disabled || (busy ?? false);
-  const dimmed = comingSoon || disabled || (busy ?? false);
+  const domDisabled = disabled;
+  const dimmed = disabled;
   return (
     <button
       type="button"
       role="switch"
       aria-checked={enabled}
-      aria-busy={busy ?? false}
-      aria-disabled={comingSoon ? true : undefined}
       aria-label={ariaLabel}
       disabled={domDisabled}
       onClick={onToggle}
@@ -93,7 +83,6 @@ export function AdminChannelControlPane({
   status,
   errorMessage,
   redisKey,
-  onChannelUpdated,
   companyChannelsApiPrefix = "admin",
   workspaceTitle,
   viewerNavbarIdentity,
@@ -103,46 +92,9 @@ export function AdminChannelControlPane({
   slackChannelIsPrivate,
 }: AdminChannelControlPaneProps) {
   const { setWorkspaceNavbarTrail, setWorkspaceNavbarEndLead } = useWorkspaceNavbarTrail();
-  const flash = useAdminFlashToast();
   const isMdLayout = useIsMdLayout();
   const settingsColumnRef = useRef<HTMLDivElement | null>(null);
   const [settingsColumnHeightPx, setSettingsColumnHeightPx] = useState<number | null>(null);
-  const [patchError, setPatchError] = useState<string | null>(null);
-  const flashComingSoon = useCallback(() => {
-    flash("success", "Coming Soon!");
-  }, [flash]);
-  const [busy, setBusy] = useState(false);
-  const apiCompany = `/api/${companyChannelsApiPrefix}/company-channels`;
-
-  const patchChannel = useCallback(
-    async (body: Record<string, boolean | number>) => {
-      if (!channel) return;
-      setPatchError(null);
-      setBusy(true);
-      try {
-        const res = await fetch(`${apiCompany}/${encodeURIComponent(channelId)}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        });
-        const flow = companyChannelsApiPrefix === "portal" ? "portal" : "admin";
-        if (kickToLoginForUnauthorizedApi(res.status, flow, companyChannelsApiPrefix === "portal" ? channelId : undefined)) {
-          return;
-        }
-        const payload = (await res.json().catch(() => null)) as { channel?: CompanyChannel; error?: string } | null;
-        if (!res.ok || !payload?.channel) {
-          setPatchError(payload?.error ?? "Update failed.");
-          return;
-        }
-        onChannelUpdated(payload.channel);
-      } catch {
-        setPatchError("Network error.");
-      } finally {
-        setBusy(false);
-      }
-    },
-    [apiCompany, channel, channelId, companyChannelsApiPrefix, onChannelUpdated],
-  );
 
   useLayoutEffect(() => {
     if (status !== "ready" || !channel) {
@@ -315,8 +267,8 @@ export function AdminChannelControlPane({
     );
   }
 
-  const reactionsOn = channel.general_auto_reaction_enabled ?? false;
-  const generalOn = !channel.general_responses_muted;
+  const oooOn = channel.out_of_office_enabled ?? false;
+  const noopToggle = useCallback(() => {}, []);
 
   return paneShell(
     <section className={cardShell} aria-label="Channel workspace">
@@ -330,75 +282,27 @@ export function AdminChannelControlPane({
           <p className="mb-2 w-full shrink-0 text-left text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
             Team Settings
           </p>
-          <div className="divide-y divide-border" aria-label="Team setting toggles">
+          <div className="divide-y divide-border" aria-label="Team setting toggles (read-only)">
             <div className="flex flex-wrap items-center justify-between gap-2 py-1.5">
-            <span
-              className="max-w-[11rem] text-xs font-medium text-foreground"
-              title="When off, agents only reply when directly addressed (@mention, @here, @channel, @everyone). When on, agents may join general channel messages and threads (last to speak)."
-            >
-              Last To Speak
-            </span>
-            <ControlToggle
-              enabled={generalOn}
-              disabled={false}
-              busy={busy}
-              onToggle={() => void patchChannel({ general_responses_muted: generalOn })}
-              ariaLabel={
-                generalOn
-                  ? "Turn off last to speak on general messages and threads"
-                  : "Turn on last to speak on general messages and threads"
-              }
-            />
+              <span className="text-xs font-medium text-muted-foreground">Emotions</span>
+              <ControlToggle enabled={false} disabled onToggle={noopToggle} ariaLabel="Emotions (disabled)" />
             </div>
             <div className="flex flex-wrap items-center justify-between gap-2 py-1.5">
-            <span
-              className="max-w-[11rem] text-xs font-medium text-foreground"
-              title="When off, no agent reactions (no sentiment thumbs on general messages, no mirroring). When on, sentiment and reaction mirroring are enabled."
-            >
-              Reactions
-            </span>
-            <ControlToggle
-              enabled={reactionsOn}
-              disabled={false}
-              busy={busy}
-              onToggle={() => void patchChannel({ general_auto_reaction_enabled: !reactionsOn })}
-              ariaLabel={reactionsOn ? "Turn off reactions" : "Turn on reactions"}
-            />
+              <span className="text-xs font-medium text-muted-foreground">Passive Banter</span>
+              <ControlToggle enabled={false} disabled onToggle={noopToggle} ariaLabel="Passive Banter (disabled)" />
             </div>
             <div className="flex flex-wrap items-center justify-between gap-2 py-1.5">
-            <span className="text-xs font-medium text-muted-foreground">Emotions</span>
-            <ControlToggle
-              enabled={false}
-              disabled={false}
-              comingSoon
-              onToggle={flashComingSoon}
-              ariaLabel="Emotions (coming soon)"
-            />
-            </div>
-            <div className="flex flex-wrap items-center justify-between gap-2 py-1.5">
-            <span className="text-xs font-medium text-muted-foreground">Passive Banter</span>
-            <ControlToggle
-              enabled={false}
-              disabled={false}
-              comingSoon
-              onToggle={flashComingSoon}
-              ariaLabel="Passive Banter (coming soon)"
-            />
-            </div>
-            <div className="flex flex-wrap items-center justify-between gap-2 py-1.5">
-            <span className="text-xs font-medium text-muted-foreground">Out of Office</span>
-            <ControlToggle
-              enabled={false}
-              disabled={false}
-              comingSoon
-              onToggle={flashComingSoon}
-              ariaLabel="Out of Office (coming soon)"
-            />
+              <span className="text-xs font-medium text-muted-foreground">Out of Office</span>
+              <ControlToggle
+                enabled={oooOn}
+                disabled
+                onToggle={noopToggle}
+                ariaLabel={`Out of office is ${oooOn ? "on" : "off"} (read-only)`}
+              />
             </div>
           </div>
         </div>
       </div>
-      {patchError ? <p className="pt-1 text-xs text-destructive">{patchError}</p> : null}
     </section>,
   );
 }
