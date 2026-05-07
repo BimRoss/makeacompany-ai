@@ -43,7 +43,9 @@ type Config struct {
 	// StripePriceWaitlistDeposit is an optional second price_* (one-time waitlist / deposit) whose completed
 	// Checkouts are merged into the same admin Stripe table as Base Plan. Env: STRIPE_PRICE_ID_WAITLIST_DEPOSIT.
 	StripePriceWaitlistDeposit string
-	// SlackBotToken is the same env as slack-orchestrator: SLACK_BOT_TOKEN (users:read + users:read.email for admin users.list).
+	// SlackBotToken is the orchestrator/admin Slack token used for users.list (users:read + users:read.email).
+	// Primary env: ORCHESTRATOR_SLACK_BOT_TOKEN (matches agents-mcp-server / slack-orchestrator multi-bot .env).
+	// Legacy fallback: SLACK_BOT_TOKEN (kept until rancher-admin runtime secret is rotated).
 	SlackBotToken string
 	// JoanneHumansWelcomeTriggerURL is the employee-factory Joanne HTTP root (e.g. http://127.0.0.1:8080) for POST /internal/joanne/humans-welcome/trigger.
 	JoanneHumansWelcomeTriggerURL string
@@ -82,6 +84,16 @@ func stripePriceIDBasePlan() string {
 	return strings.TrimSpace(os.Getenv("STRIPE_PRICE_ID_WAITLIST"))
 }
 
+// orchestratorSlackBotToken returns ORCHESTRATOR_SLACK_BOT_TOKEN, else legacy SLACK_BOT_TOKEN.
+// Lets the backend pick up the multi-bot key already set in agents-mcp-server / slack-orchestrator
+// .env files while existing rancher-admin runtime secrets still using SLACK_BOT_TOKEN keep working.
+func orchestratorSlackBotToken() string {
+	if v := strings.TrimSpace(os.Getenv("ORCHESTRATOR_SLACK_BOT_TOKEN")); v != "" {
+		return v
+	}
+	return strings.TrimSpace(os.Getenv("SLACK_BOT_TOKEN"))
+}
+
 func LoadConfig() Config {
 	requireCatalogReadTokenDefault := strings.EqualFold(strings.TrimSpace(os.Getenv("APP_ENV")), "production")
 	backendInternal := strings.TrimSpace(os.Getenv("BACKEND_INTERNAL_SERVICE_TOKEN"))
@@ -113,7 +125,7 @@ func LoadConfig() Config {
 		StripeWebhookSecret:                   strings.TrimSpace(os.Getenv("STRIPE_WEBHOOK_SECRET")),
 		StripePriceBasePlan:                   stripePriceIDBasePlan(),
 		StripePriceWaitlistDeposit:            strings.TrimSpace(os.Getenv("STRIPE_PRICE_ID_WAITLIST_DEPOSIT")),
-		SlackBotToken:                         strings.TrimSpace(os.Getenv("SLACK_BOT_TOKEN")),
+		SlackBotToken:                         orchestratorSlackBotToken(),
 		JoanneHumansWelcomeTriggerURL:         strings.TrimSuffix(strings.TrimSpace(os.Getenv("JOANNE_HUMANS_WELCOME_TRIGGER_URL")), "/"),
 		JoanneHumansWelcomeTriggerToken:       strings.TrimSpace(os.Getenv("JOANNE_HUMANS_WELCOME_TRIGGER_TOKEN")),
 		OrchestratorDebugBaseURL:              strings.TrimSpace(os.Getenv("ORCHESTRATOR_DEBUG_BASE_URL")),

@@ -385,9 +385,10 @@ export function AdminSlackUsersTable() {
         {slackUsers.length === 0 && !slackError && !slackLoading ? (
           <p className="text-sm text-muted-foreground">
             No snapshot in Redis yet. Use the refresh control to pull from Slack and write Redis (needs{" "}
-            <span className="font-mono">SLACK_BOT_TOKEN</span> — same as slack-orchestrator; copy from{" "}
-            <span className="font-mono">.env.dev</span> or <span className="font-mono">.env.prod</span> there). This page
-            load only reads Redis.
+            <span className="font-mono">ORCHESTRATOR_SLACK_BOT_TOKEN</span> — same as slack-orchestrator /
+            agents-mcp-server; copy from <span className="font-mono">.env.dev</span> or{" "}
+            <span className="font-mono">.env.prod</span> there; legacy{" "}
+            <span className="font-mono">SLACK_BOT_TOKEN</span> still accepted). This page load only reads Redis.
           </p>
         ) : null}
         {slackUsers.length > 0 ? (

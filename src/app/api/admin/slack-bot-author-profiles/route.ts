@@ -10,7 +10,8 @@ export const dynamic = "force-dynamic";
 
 /**
  * Proxies `/v1/admin/slack-bot-author-profiles`: Slack users.list (+ env bot IDs) runs on makeacompany-backend
- * where `SLACK_BOT_TOKEN` is configured — not `process.env` on Next.js (docker compose frontend often omits it).
+ * where `ORCHESTRATOR_SLACK_BOT_TOKEN` (legacy `SLACK_BOT_TOKEN`) is configured — not `process.env` on Next.js
+ * (docker compose frontend often omits it).
  */
 export async function GET() {
   const unauthorized = await requireAdminApiSession();

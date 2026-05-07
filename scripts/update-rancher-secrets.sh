@@ -13,13 +13,14 @@ set -euo pipefail
 # envFrom reloads (e.g. rotated RESEND_API_KEY for /admin/login: Go sends mail; Next gates the email UI).
 # Set ROLLOUT_AFTER_SECRET_SYNC=false to skip restarts.
 #
-# Keys (must match backend internal/app/config.go, docker-compose, .env.example, and slack-orchestrator for SLACK_BOT_TOKEN):
+# Keys (must match backend internal/app/config.go, docker-compose, .env.example, and slack-orchestrator for the orchestrator Slack bot token):
 #   STRIPE_SECRET_KEY
 #   STRIPE_WEBHOOK_SECRET (required)
 #   STRIPE_PRICE_ID_BASE_PLAN (preferred; legacy STRIPE_PRICE_ID_WAITLIST accepted from ENV_FILE and mirrored into the cluster secret for older pods)
 #   STRIPE_PUBLISHABLE_KEY and/or NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY (optional; both written when either is set)
 #   BACKEND_INTERNAL_SERVICE_TOKEN (required in production; Go /v1/internal/* maintenance endpoints only)
-#   SLACK_BOT_TOKEN (optional; same as slack-orchestrator .env for /admin Slack Users users.list)
+#   ORCHESTRATOR_SLACK_BOT_TOKEN (optional; preferred name; same as slack-orchestrator / agents-mcp-server .env)
+#     legacy SLACK_BOT_TOKEN still accepted from ENV_FILE and mirrored into the cluster secret for older pods
 #   CAPABILITY_CATALOG_READ_TOKEN (optional; preserve existing token when omitted from .env.prod)
 #   COOKIE_HEALTH_TOKEN (optional in .env, but preserved from existing runtime secret when present)
 #   ORCHESTRATOR_DEBUG_TOKEN (optional; Bearer for slack-orchestrator /debug/* used by catalog fallback;
@@ -210,16 +211,23 @@ if [[ -n "${AGENT_FACTORY_ADMIN_TOKEN_EFFECTIVE}" ]]; then
   secret_args+=(--from-literal=AGENT_FACTORY_ADMIN_TOKEN="${AGENT_FACTORY_ADMIN_TOKEN_EFFECTIVE}")
 fi
 
-# Optional Slack bot token (same key as slack-orchestrator; preserve from cluster when not in .env.prod).
-SLACK_BOT_TOKEN_EFFECTIVE="${SLACK_BOT_TOKEN:-}"
+# Optional orchestrator Slack bot token (same key as slack-orchestrator / agents-mcp-server multi-bot env).
+# Resolution order: ORCHESTRATOR_SLACK_BOT_TOKEN from ENV_FILE → legacy SLACK_BOT_TOKEN from ENV_FILE →
+# existing cluster ORCHESTRATOR_SLACK_BOT_TOKEN → existing cluster SLACK_BOT_TOKEN → legacy SLACK_WORKSPACE_USERS_BOT_TOKEN.
+# Writes BOTH keys to the secret so older pods reading SLACK_BOT_TOKEN keep working until rotated out.
+SLACK_BOT_TOKEN_EFFECTIVE="${ORCHESTRATOR_SLACK_BOT_TOKEN:-${SLACK_BOT_TOKEN:-}}"
+if [[ -z "${SLACK_BOT_TOKEN_EFFECTIVE}" ]]; then
+  SLACK_BOT_TOKEN_EFFECTIVE="$(read_existing_secret_key ORCHESTRATOR_SLACK_BOT_TOKEN)"
+fi
 if [[ -z "${SLACK_BOT_TOKEN_EFFECTIVE}" ]]; then
   SLACK_BOT_TOKEN_EFFECTIVE="$(read_existing_secret_key SLACK_BOT_TOKEN)"
 fi
-# One-time: migrate former makeacompany-only key into SLACK_BOT_TOKEN on the next secret apply.
 if [[ -z "${SLACK_BOT_TOKEN_EFFECTIVE}" ]]; then
   SLACK_BOT_TOKEN_EFFECTIVE="$(read_existing_secret_key SLACK_WORKSPACE_USERS_BOT_TOKEN)"
 fi
 if [[ -n "${SLACK_BOT_TOKEN_EFFECTIVE}" ]]; then
+  secret_args+=(--from-literal=ORCHESTRATOR_SLACK_BOT_TOKEN="${SLACK_BOT_TOKEN_EFFECTIVE}")
+  # Legacy alias: keep so rolling pods that still expect SLACK_BOT_TOKEN see the same value until rotated away.
   secret_args+=(--from-literal=SLACK_BOT_TOKEN="${SLACK_BOT_TOKEN_EFFECTIVE}")
 fi
 

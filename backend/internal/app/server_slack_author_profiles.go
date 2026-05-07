@@ -47,7 +47,7 @@ func (s *Server) handlePortalSlackBotAuthorProfiles(w http.ResponseWriter, r *ht
 func (s *Server) writeSlackBotAuthorProfiles(w http.ResponseWriter, r *http.Request) {
 	if strings.TrimSpace(s.cfg.SlackBotToken) == "" {
 		writeJSONNoStore(w, http.StatusBadRequest, map[string]any{
-			"error": "slack bot token is not configured (SLACK_BOT_TOKEN, same as slack-orchestrator)",
+			"error": "slack bot token is not configured (ORCHESTRATOR_SLACK_BOT_TOKEN, same as slack-orchestrator; legacy SLACK_BOT_TOKEN still accepted)",
 		})
 		return
 	}

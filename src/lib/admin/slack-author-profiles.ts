@@ -225,7 +225,7 @@ async function fetchSlackUsersListProfiles(token: string): Promise<SlackBotAutho
  * Shared Slack `users.list` + optional env bot-ID merge (used historically from Next.js Server Components).
  *
  * **Authoritative for API routes:** `/v1/admin/slack-bot-author-profiles` and `/v1/portal/slack-bot-author-profiles`
- * on makeacompany-backend (Next proxies; keep `SLACK_BOT_TOKEN` on the API only).
+ * on makeacompany-backend (Next proxies; keep `ORCHESTRATOR_SLACK_BOT_TOKEN` — or legacy `SLACK_BOT_TOKEN` — on the API only).
  */
 export async function getSlackAuthorProfiles(opts?: { slackToken?: string | null }): Promise<SlackBotAuthorProfile[]> {
   const bySlackUser = new Map<string, SlackBotAuthorProfile>();

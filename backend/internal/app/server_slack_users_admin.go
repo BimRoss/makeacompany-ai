@@ -19,7 +19,7 @@ func (s *Server) handleInternalRefreshSlackUsersSnapshot(w http.ResponseWriter, 
 		return
 	}
 	if strings.TrimSpace(s.cfg.SlackBotToken) == "" {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "slack bot token is not configured (SLACK_BOT_TOKEN, same as slack-orchestrator)"})
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "slack bot token is not configured (ORCHESTRATOR_SLACK_BOT_TOKEN, same as slack-orchestrator; legacy SLACK_BOT_TOKEN still accepted)"})
 		return
 	}
 	users, err := FetchSlackWorkspaceUsers(r.Context(), s.cfg.SlackBotToken)
@@ -107,7 +107,7 @@ func (s *Server) handleAdminSlackWorkspaceUsers(w http.ResponseWriter, r *http.R
 	live := strings.EqualFold(strings.TrimSpace(r.URL.Query().Get("source")), "live")
 	if live {
 		if strings.TrimSpace(s.cfg.SlackBotToken) == "" {
-			writeJSONNoStore(w, http.StatusBadRequest, map[string]any{"error": "slack bot token is not configured (SLACK_BOT_TOKEN, same as slack-orchestrator)"})
+			writeJSONNoStore(w, http.StatusBadRequest, map[string]any{"error": "slack bot token is not configured (ORCHESTRATOR_SLACK_BOT_TOKEN, same as slack-orchestrator; legacy SLACK_BOT_TOKEN still accepted)"})
 			return
 		}
 		users, err := FetchSlackWorkspaceUsers(r.Context(), s.cfg.SlackBotToken)

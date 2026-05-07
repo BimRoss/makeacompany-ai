@@ -40,7 +40,6 @@ required_keys=(
   STRIPE_PUBLISHABLE_KEY
   STRIPE_SECRET_KEY
   BACKEND_INTERNAL_SERVICE_TOKEN
-  SLACK_BOT_TOKEN
   CAPABILITY_CATALOG_READ_TOKEN
   HEALTH_GRAFANA_CRON_DASHBOARD_URL
   HEALTH_GRAFANA_CRON_PANEL_IDS
@@ -50,6 +49,12 @@ required_keys=(
 failed=0
 if [[ -z "${STRIPE_PRICE_ID_BASE_PLAN:-}" && -z "${STRIPE_PRICE_ID_WAITLIST:-}" ]]; then
   echo "missing STRIPE_PRICE_ID_BASE_PLAN (preferred; Stripe product \"Base Plan\" price_*) or legacy STRIPE_PRICE_ID_WAITLIST (${ENV_FILE})" >&2
+  failed=1
+fi
+# Accept either ORCHESTRATOR_SLACK_BOT_TOKEN (preferred; matches agents-mcp-server / slack-orchestrator multi-bot env)
+# or legacy SLACK_BOT_TOKEN (kept until rancher-admin runtime secret is rotated).
+if [[ -z "${ORCHESTRATOR_SLACK_BOT_TOKEN:-}" && -z "${SLACK_BOT_TOKEN:-}" ]]; then
+  echo "missing ORCHESTRATOR_SLACK_BOT_TOKEN (preferred) or legacy SLACK_BOT_TOKEN in ${ENV_FILE}" >&2
   failed=1
 fi
 for key in "${required_keys[@]}"; do

@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Copy SLACK_BOT_TOKEN from sibling slack-orchestrator into this repo's .env.dev or .env.prod.
+# Copy the orchestrator Slack bot token from sibling slack-orchestrator into this repo's .env.dev or .env.prod.
+# Reads ORCHESTRATOR_SLACK_BOT_TOKEN from the source first (multi-bot agents-mcp-server / slack-orchestrator
+# layout), then falls back to legacy SLACK_BOT_TOKEN. Always writes ORCHESTRATOR_SLACK_BOT_TOKEN to the
+# destination (the makeacompany-ai backend reads either, preferring ORCHESTRATOR_SLACK_BOT_TOKEN).
 #
 #   ./scripts/sync-slack-bot-token-from-orchestrator.sh dev
 #   ./scripts/sync-slack-bot-token-from-orchestrator.sh prod
@@ -37,11 +40,17 @@ if [[ ! -f "$DEST" ]]; then
   exit 1
 fi
 
-TOKEN="$(
-  grep -E '^[[:space:]]*SLACK_BOT_TOKEN=' "$SRC" | head -1 | cut -d= -f2- | tr -d '\r' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//'
-)"
+read_token() {
+  local key="$1"
+  grep -E "^[[:space:]]*${key}=" "$SRC" | head -1 | cut -d= -f2- | tr -d '\r' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//'
+}
+
+TOKEN="$(read_token ORCHESTRATOR_SLACK_BOT_TOKEN)"
 if [[ -z "$TOKEN" ]]; then
-  echo "error: no SLACK_BOT_TOKEN= line in $SRC" >&2
+  TOKEN="$(read_token SLACK_BOT_TOKEN)"
+fi
+if [[ -z "$TOKEN" ]]; then
+  echo "error: no ORCHESTRATOR_SLACK_BOT_TOKEN= or SLACK_BOT_TOKEN= line in $SRC" >&2
   exit 1
 fi
 
@@ -56,10 +65,13 @@ src = Path(os.environ["SRC"])
 mode = os.environ["MODE"]
 token = os.environ["TOKEN"]
 mark = f"# Same as slack-orchestrator/.env.{mode} (scripts/sync-slack-bot-token-from-orchestrator.sh)\n"
-line = f"SLACK_BOT_TOKEN={token}\n"
+line = f"ORCHESTRATOR_SLACK_BOT_TOKEN={token}\n"
 
 raw = dest.read_text()
-if re.search(r"^\s*SLACK_BOT_TOKEN=", raw, flags=re.M):
+if re.search(r"^\s*ORCHESTRATOR_SLACK_BOT_TOKEN=", raw, flags=re.M):
+    raw = re.sub(r"^\s*ORCHESTRATOR_SLACK_BOT_TOKEN=.*\n?", line, raw, count=1, flags=re.M)
+elif re.search(r"^\s*SLACK_BOT_TOKEN=", raw, flags=re.M):
+    # In-place upgrade: replace legacy key with the new canonical key on first sync.
     raw = re.sub(r"^\s*SLACK_BOT_TOKEN=.*\n?", line, raw, count=1, flags=re.M)
 else:
     raw = raw.rstrip() + "\n\n" + mark + line
