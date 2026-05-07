@@ -21,7 +21,6 @@ set -euo pipefail
 #   BACKEND_INTERNAL_SERVICE_TOKEN (required in production; Go /v1/internal/* maintenance endpoints only)
 #   ORCHESTRATOR_SLACK_BOT_TOKEN (optional; preferred name; same as slack-orchestrator / agents-mcp-server .env)
 #     legacy SLACK_BOT_TOKEN still accepted from ENV_FILE and mirrored into the cluster secret for older pods
-#   COOKIE_HEALTH_TOKEN (optional in .env, but preserved from existing runtime secret when present)
 #   ORCHESTRATOR_DEBUG_TOKEN (optional; Bearer for slack-orchestrator /debug/*; preserve existing cluster value when omitted)
 #   Portal login (optional; preserved from cluster when not in .env.prod — same Secret is envFrom on frontend + backend):
 #   GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET, PORTAL_GOOGLE_OAUTH_STATE_SECRET (optional),
@@ -165,15 +164,6 @@ NPU="${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY:-${STRIPE_PUBLISHABLE_KEY:-}}"
 if [[ -n "${NPU}" ]]; then
   secret_args+=(--from-literal=NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY="${NPU}")
   secret_args+=(--from-literal=STRIPE_PUBLISHABLE_KEY="${NPU}")
-fi
-
-# Preserve existing cookie token if local .env does not provide one.
-COOKIE_HEALTH_TOKEN_EFFECTIVE="${COOKIE_HEALTH_TOKEN:-}"
-if [[ -z "${COOKIE_HEALTH_TOKEN_EFFECTIVE}" ]]; then
-  COOKIE_HEALTH_TOKEN_EFFECTIVE="$(read_existing_secret_key COOKIE_HEALTH_TOKEN)"
-fi
-if [[ -n "${COOKIE_HEALTH_TOKEN_EFFECTIVE}" ]]; then
-  secret_args+=(--from-literal=COOKIE_HEALTH_TOKEN="${COOKIE_HEALTH_TOKEN_EFFECTIVE}")
 fi
 
 # Preserve existing internal maintenance token if local .env does not provide one.

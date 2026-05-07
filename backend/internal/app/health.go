@@ -462,12 +462,7 @@ func (h *healthChecker) countIndexerRecentRequestsSince(ctx context.Context, lim
 }
 
 func (h *healthChecker) handleCookieHealthPush(w http.ResponseWriter, r *http.Request) {
-	switch err := validateSharedToken(r, cookieHealthTokenHeader, h.cookieHealthToken); {
-	case err == nil:
-	case errors.Is(err, errSharedTokenNotConfigured):
-		http.Error(w, "cookie health auth unavailable", http.StatusServiceUnavailable)
-		return
-	default:
+	if err := validateSharedToken(r, cookieHealthTokenHeader, h.cookieHealthToken); err != nil {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
@@ -520,15 +515,15 @@ func validateCookieHealthPayload(raw []byte) error {
 }
 
 var (
-	errSharedTokenNotConfigured = errors.New("shared token is not configured")
-	errSharedTokenMissing       = errors.New("shared token is required")
-	errSharedTokenInvalid       = errors.New("shared token is invalid")
+	errSharedTokenMissing = errors.New("shared token is required")
+	errSharedTokenInvalid = errors.New("shared token is invalid")
 )
 
 func validateSharedToken(r *http.Request, headerName, expectedToken string) error {
 	expectedToken = strings.TrimSpace(expectedToken)
 	if expectedToken == "" {
-		return errSharedTokenNotConfigured
+		// No shared secret: rely on cluster network isolation for this internal endpoint.
+		return nil
 	}
 	providedToken := strings.TrimSpace(r.Header.Get(headerName))
 	if providedToken == "" {
