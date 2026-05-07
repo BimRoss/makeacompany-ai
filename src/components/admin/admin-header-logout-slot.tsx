@@ -14,7 +14,7 @@ function showAdminShellLogout(pathname: string | null): boolean {
 
 /**
  * Logout in `AdminShell` only on protected surfaces: `/admin` (incl. channel detail
- * routes), `/twitter`, and never on catalog-style pages like `/skills` or `/employees`.
+ * routes), `/twitter`, and never on `/skills` / `/employees` (squad pages).
  * Portal company routes use `PortalHeaderLogoutSlot` instead.
  */
 export function AdminHeaderLogoutSlot() {

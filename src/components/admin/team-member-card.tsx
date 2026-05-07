@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import clsx from "clsx";
 
-import type { AdminSkill, TeamMember } from "@/lib/admin/catalog";
+import type { AdminSkill, TeamMember } from "@/lib/admin/team";
 import {
   getAdminHeadshotFallback,
   getAdminHeadshotGeneratedUrl,

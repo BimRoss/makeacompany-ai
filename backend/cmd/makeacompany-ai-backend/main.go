@@ -20,7 +20,6 @@ func main() {
 	store, err := app.NewStore(
 		cfg.RedisURL,
 		cfg.CompanyChannelsRedisURL,
-		cfg.SlackOrchestratorCapabilityCatalogURL,
 		cfg.OrchestratorDebugToken,
 		app.StoreRedisSharedKeys{
 			ChannelKnowledgeRedisKeyFmt:      cfg.ChannelKnowledgeRedisKeyFmt,
@@ -37,7 +36,7 @@ func main() {
 	if cc != "" && cc != primary {
 		logger.Printf("redis: secondary client for employee-factory keys (COMPANY_CHANNELS_REDIS_URL differs from REDIS_URL)")
 	} else {
-		logger.Printf("redis: single client — waitlist, admin snapshots, catalog, and employee-factory keys share REDIS_URL")
+		logger.Printf("redis: single client — waitlist, admin snapshots, and employee-factory keys share REDIS_URL")
 	}
 
 	srv, err := app.NewServer(cfg, logger, store)

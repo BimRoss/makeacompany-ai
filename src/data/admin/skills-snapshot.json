@@ -1,6 +1,6 @@
 {
   "generatedAt": "2026-04-29T00:00:00.000Z",
-  "source": "slack-orchestrator internal/inbound.DefaultCapabilityContractV1 (offline fallback; live uses GET /v1/runtime/capability-catalog or /v1/admin/catalog)",
+  "source": "Offline fallback: npm run sync:team (orchestrator contract + slack-factory). Live summaries from skills-mcp-server.",
   "skills": [
     {
       "id": "create-email",

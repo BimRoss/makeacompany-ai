@@ -1,54 +1,29 @@
-import { AdminLocalDockerHumansWelcomeAuto } from "@/components/admin/admin-local-docker-humans-welcome-auto";
 import { AdminSlackWorkspaceLiveSyncOnce } from "@/components/admin/admin-slack-workspace-live-sync-once";
 import { AdminPostAuthWelcomeBoundary } from "@/components/admin/admin-post-auth-welcome-toast";
-import { AdminJoanneWelcomeTriggerCard } from "@/components/admin/admin-joanne-welcome-trigger-card";
 import { AdminCompanyChannelsStrip } from "@/components/admin/admin-company-channels-strip";
 import { AdminAgentsAllGrafanaEmbed } from "@/components/admin/admin-agents-all-grafana-embed";
 import { AdminCronJobsGrafanaEmbed } from "@/components/admin/admin-cronjobs-grafana-embed";
 import { AdminOverviewGrafanaGrid } from "@/components/admin/admin-overview-grafana-grid";
 import { AdminShell } from "@/components/admin/admin-shell";
-import { SkillsCardsGrid } from "@/components/admin/skills-cards-grid";
+import { AgentSkillsList } from "@/components/admin/agent-skills-list";
 import { OrchestratorDebugPanel } from "@/components/orchestrator/orchestrator-debug-panel";
 import { AdminSlackUsersTable, AdminStripeUsersTable } from "@/components/admin/user-profiles-panel";
-import { AdminCatalogErrorBanner } from "@/components/admin/admin-catalog-error-banner";
-import { getAdminCatalogData } from "@/lib/admin/catalog";
+import { getAgentSkills } from "@/lib/admin/agent-skills";
 
 export default async function AdminPage() {
-  const catalogResult = await getAdminCatalogData();
-  const skills = catalogResult.ok ? catalogResult.skills : [];
-  const members = catalogResult.ok ? catalogResult.members : [];
+  const agentSkillsResult = await getAgentSkills();
 
   return (
     <AdminShell>
       <AdminSlackWorkspaceLiveSyncOnce />
       <AdminPostAuthWelcomeBoundary />
-      <AdminLocalDockerHumansWelcomeAuto />
       <div className="space-y-10">
-        {catalogResult.ok ? null : (
-          <AdminCatalogErrorBanner error={catalogResult.error} />
-        )}
-        <AdminJoanneWelcomeTriggerCard />
         <div className="space-y-4">
           <AdminOverviewGrafanaGrid />
           <AdminAgentsAllGrafanaEmbed />
           <AdminCronJobsGrafanaEmbed />
         </div>
-        <section className="space-y-3" aria-labelledby="admin-skills-heading">
-          <h2 id="admin-skills-heading" className="text-lg font-semibold leading-snug tracking-tight">
-            Skills{" "}
-            <span className="font-normal text-muted-foreground tabular-nums">({skills.length})</span>
-          </h2>
-          {catalogResult.ok && skills.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-border bg-card p-8 text-center">
-              <p className="text-base font-medium text-foreground">No skills in the catalog yet.</p>
-              <p className="mt-2 text-sm text-muted-foreground">
-                The backend returned an empty skills list. Check Redis and orchestrator seeding.
-              </p>
-            </div>
-          ) : catalogResult.ok ? (
-            <SkillsCardsGrid skills={skills} members={members} readOnly showToolParams />
-          ) : null}
-        </section>
+        <AgentSkillsList result={agentSkillsResult} />
         <AdminSlackUsersTable />
         <AdminCompanyChannelsStrip />
         <AdminStripeUsersTable />

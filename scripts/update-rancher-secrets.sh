@@ -21,10 +21,8 @@ set -euo pipefail
 #   BACKEND_INTERNAL_SERVICE_TOKEN (required in production; Go /v1/internal/* maintenance endpoints only)
 #   ORCHESTRATOR_SLACK_BOT_TOKEN (optional; preferred name; same as slack-orchestrator / agents-mcp-server .env)
 #     legacy SLACK_BOT_TOKEN still accepted from ENV_FILE and mirrored into the cluster secret for older pods
-#   CAPABILITY_CATALOG_READ_TOKEN (optional; preserve existing token when omitted from .env.prod)
 #   COOKIE_HEALTH_TOKEN (optional in .env, but preserved from existing runtime secret when present)
-#   ORCHESTRATOR_DEBUG_TOKEN (optional; Bearer for slack-orchestrator /debug/* used by catalog fallback;
-#   preserve existing cluster value when omitted)
+#   ORCHESTRATOR_DEBUG_TOKEN (optional; Bearer for slack-orchestrator /debug/*; preserve existing cluster value when omitted)
 #   Portal login (optional; preserved from cluster when not in .env.prod — same Secret is envFrom on frontend + backend):
 #   GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET, PORTAL_GOOGLE_OAUTH_STATE_SECRET (optional),
 #   RESEND_API_KEY, PORTAL_AUTH_EMAIL_FROM,
@@ -33,7 +31,6 @@ set -euo pipefail
 #   RESEND_CHECKOUT_WELCOME_TEMPLATE_ID (optional; e.g. welcome-email; Slack invite as login_url)
 #   AGENT_FACTORY_ADMIN_TOKEN (optional; Bearer to agent-factory-admin; defaults to BACKEND_INTERNAL_SERVICE_TOKEN when unset
 #   in env and cluster — must still match agent-factory-runtime BACKEND_INTERNAL_SERVICE_TOKEN or admin proxy paths 401)
-#   JOANNE_HUMANS_WELCOME_TRIGGER_TOKEN (optional legacy; preserve from cluster when unset — unused when AGENT_FACTORY_ADMIN_* is configured)
 #
 # Usage:
 #   ./scripts/update-rancher-secrets.sh
@@ -231,17 +228,8 @@ if [[ -n "${SLACK_BOT_TOKEN_EFFECTIVE}" ]]; then
   secret_args+=(--from-literal=SLACK_BOT_TOKEN="${SLACK_BOT_TOKEN_EFFECTIVE}")
 fi
 
-# Optional runtime catalog read token. Preserve existing cluster value when not present in ENV_FILE.
-CAPABILITY_CATALOG_READ_TOKEN_EFFECTIVE="${CAPABILITY_CATALOG_READ_TOKEN:-}"
-if [[ -z "${CAPABILITY_CATALOG_READ_TOKEN_EFFECTIVE}" ]]; then
-  CAPABILITY_CATALOG_READ_TOKEN_EFFECTIVE="$(read_existing_secret_key CAPABILITY_CATALOG_READ_TOKEN)"
-fi
-if [[ -n "${CAPABILITY_CATALOG_READ_TOKEN_EFFECTIVE}" ]]; then
-  secret_args+=(--from-literal=CAPABILITY_CATALOG_READ_TOKEN="${CAPABILITY_CATALOG_READ_TOKEN_EFFECTIVE}")
-fi
 
-# Optional orchestrator debug token used when SLACK_ORCHESTRATOR_CAPABILITY_CATALOG_URL
-# points at a protected debug endpoint instead of /v1/public/capability-catalog.
+# Optional orchestrator debug token (Bearer for slack-orchestrator /debug/*).
 ORCHESTRATOR_DEBUG_TOKEN_EFFECTIVE="${ORCHESTRATOR_DEBUG_TOKEN:-}"
 if [[ -z "${ORCHESTRATOR_DEBUG_TOKEN_EFFECTIVE}" ]]; then
   ORCHESTRATOR_DEBUG_TOKEN_EFFECTIVE="$(read_existing_secret_key ORCHESTRATOR_DEBUG_TOKEN)"
@@ -273,7 +261,6 @@ add_optional_runtime_secret RESEND_MAGIC_LINK_TEMPLATE_ID "${RESEND_MAGIC_LINK_T
 add_optional_runtime_secret RESEND_MAGIC_LINK_TEMPLATE_LINK_VAR "${RESEND_MAGIC_LINK_TEMPLATE_LINK_VAR:-}"
 add_optional_runtime_secret RESEND_MAGIC_LINK_TEMPLATE_FIRST_NAME_VAR "${RESEND_MAGIC_LINK_TEMPLATE_FIRST_NAME_VAR:-}"
 add_optional_runtime_secret RESEND_CHECKOUT_WELCOME_TEMPLATE_ID "${RESEND_CHECKOUT_WELCOME_TEMPLATE_ID:-}"
-add_optional_runtime_secret JOANNE_HUMANS_WELCOME_TRIGGER_TOKEN "${JOANNE_HUMANS_WELCOME_TRIGGER_TOKEN:-}"
 
 kubectl_app create secret generic "${SECRET_NAME}" \
   "${secret_args[@]}" \

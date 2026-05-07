@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTheme } from "next-themes";
 
-import type { AdminSkill, TeamMember } from "@/lib/admin/catalog";
+import type { AdminSkill, TeamMember } from "@/lib/admin/team";
 import { isBrowserLoopbackHost } from "@/lib/admin/browser-loopback";
 import { kickToLoginForUnauthorizedApi } from "@/lib/client-auth-unauthorized-redirect";
 import { TeamMemberCard } from "@/components/admin/team-member-card";

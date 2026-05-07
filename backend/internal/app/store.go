@@ -9,7 +9,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -103,33 +102,24 @@ return 1
 type Store struct {
 	rdb                    *redis.Client
 	companyChannelsRdb     *redis.Client // optional second Redis for shared employee-factory registry; nil = use rdb
-	orchestratorCatalogURL string        // SLACK_ORCHESTRATOR_CAPABILITY_CATALOG_URL — seed empty Redis + merge baseline
 	orchestratorDebugToken string        // optional Authorization: Bearer for locked /debug/* endpoints
 
 	channelKnowledgeKeyFmt           string
 	companyChannelsInvalidateChannel string
 	threadOwnerRedisKeyScanPattern   string
-
-	baselineMu     sync.Mutex
-	baselineMerge  CapabilityCatalog
-	baselineExpiry time.Time
 }
-
-const orchestratorCatalogBaselineTTL = 2 * time.Minute
 
 // NewStore opens the primary Redis client. If companyChannelsRedisURL is non-empty and differs from redisURL,
 // a second client is used only for ListCompanyChannels (same pattern as employee-factory vs makeacompany-ai split).
-func NewStore(redisURL, companyChannelsRedisURL, orchestratorCatalogURL, orchestratorDebugToken string, shared StoreRedisSharedKeys) (*Store, error) {
+func NewStore(redisURL, companyChannelsRedisURL, orchestratorDebugToken string, shared StoreRedisSharedKeys) (*Store, error) {
 	opts, err := redis.ParseURL(redisURL)
 	if err != nil {
 		return nil, fmt.Errorf("parse redis url: %w", err)
 	}
 	primary := redis.NewClient(opts)
-	orchURL := strings.TrimSpace(orchestratorCatalogURL)
 	sh := normalizeStoreRedisSharedKeys(shared)
 	st := &Store{
 		rdb:                              primary,
-		orchestratorCatalogURL:           orchURL,
 		orchestratorDebugToken:           strings.TrimSpace(orchestratorDebugToken),
 		channelKnowledgeKeyFmt:           sh.ChannelKnowledgeRedisKeyFmt,
 		companyChannelsInvalidateChannel: sh.CompanyChannelsInvalidateChannel,
@@ -146,34 +136,6 @@ func NewStore(redisURL, companyChannelsRedisURL, orchestratorCatalogURL, orchest
 	}
 	st.companyChannelsRdb = redis.NewClient(ccOpts)
 	return st, nil
-}
-
-// orchestratorMergeBaseline returns a cached catalog from slack-orchestrator for
-// mergeCapabilityCatalogWithDefaults. Empty if URL unset. On fetch error, returns the last
-// successful baseline when available.
-func (s *Store) orchestratorMergeBaseline(ctx context.Context) CapabilityCatalog {
-	if s == nil {
-		return CapabilityCatalog{}
-	}
-	url := strings.TrimSpace(s.orchestratorCatalogURL)
-	if url == "" {
-		return CapabilityCatalog{}
-	}
-	s.baselineMu.Lock()
-	defer s.baselineMu.Unlock()
-	if len(s.baselineMerge.Skills) > 0 && time.Now().Before(s.baselineExpiry) {
-		return s.baselineMerge
-	}
-	cat, err := FetchCapabilityCatalogFromOrchestrator(ctx, url)
-	if err != nil {
-		if len(s.baselineMerge.Skills) > 0 {
-			return s.baselineMerge
-		}
-		return CapabilityCatalog{}
-	}
-	s.baselineMerge = cat
-	s.baselineExpiry = time.Now().Add(orchestratorCatalogBaselineTTL)
-	return cat
 }
 
 func (s *Store) Close() error {

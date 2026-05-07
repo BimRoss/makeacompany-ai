@@ -102,14 +102,12 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 	s.mux.HandleFunc("/v1/admin/stripe-waitlist-purchasers", s.handleAdminStripeWaitlistPurchasers)
 	s.mux.HandleFunc("/v1/admin/slack-workspace-users", s.handleAdminSlackWorkspaceUsers)
 	s.mux.HandleFunc("/v1/admin/slack-bot-author-profiles", s.handleAdminSlackBotAuthorProfiles)
-	s.mux.HandleFunc("POST /v1/admin/joanne-humans-welcome-trigger", s.handleAdminJoanneHumansWelcomeTrigger)
 	s.mux.HandleFunc("/v1/admin/slack-member-channels", s.handleAdminSlackMemberChannels)
 	s.mux.HandleFunc("/v1/admin/user-profiles", s.handleAdminUserProfiles)
 	s.mux.HandleFunc("/v1/internal/refresh-stripe-waitlist-snapshot", s.handleInternalRefreshStripeWaitlistSnapshot)
 	s.mux.HandleFunc("/v1/internal/refresh-slack-users-snapshot", s.handleInternalRefreshSlackUsersSnapshot)
 	s.mux.HandleFunc("/v1/internal/refresh-slack-member-channels-snapshot", s.handleInternalRefreshSlackMemberChannelsSnapshot)
 	s.mux.HandleFunc("/v1/internal/bootstrap-company-channels-from-orchestrator", s.handleInternalBootstrapCompanyChannelsFromOrchestrator)
-	s.mux.HandleFunc("/v1/admin/catalog", s.handleAdminCatalog)
 	s.mux.HandleFunc("/v1/admin/company-channels", s.handleAdminCompanyChannels)
 	s.mux.HandleFunc("POST /v1/admin/company-channels/discover", s.handleAdminCompanyChannelsDiscover)
 	s.mux.HandleFunc("POST /v1/admin/company-channels/registry-prune", s.handleAdminCompanyChannelsRegistryPrune)
@@ -118,9 +116,11 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 	s.mux.HandleFunc("GET /v1/admin/channel-knowledge/{channelId}", s.handleAdminChannelKnowledge)
 	s.mux.HandleFunc("POST /v1/admin/channel-knowledge/{channelId}/refresh", s.handleAdminChannelKnowledgeRefresh)
 	s.mux.HandleFunc("GET /v1/admin/capability-routing-events", s.handleAdminCapabilityRoutingEvents)
-	// Unauthenticated read-only JSON for the public website (/skills). Same payload as /v1/runtime/capability-catalog; no secrets in the body.
-	s.mux.HandleFunc("/v1/public/capability-catalog", s.handlePublicCapabilityCatalog)
-	s.mux.HandleFunc("/v1/runtime/capability-catalog", s.handleRuntimeCapabilityCatalog)
+	// Unauthenticated read-only proxy to skills-mcp-server REST list (markdown-backed Agent Skills).
+	// Returns summary fields only (no instructions body); enabled when SKILLS_MCP_BASE_URL is set.
+	s.mux.HandleFunc("/v1/public/agent-skills", s.handlePublicAgentSkills)
+	// Unauthenticated read-only proxy to agents-mcp-server GET /api/roster (canonical squad list).
+	s.mux.HandleFunc("/v1/public/agents-roster", s.handlePublicAgentsRoster)
 	s.mux.HandleFunc("/v1/admin/auth/me", s.handleAdminAuthMe)
 	s.mux.HandleFunc("/v1/admin/auth/logout", s.handleAdminAuthLogout)
 	s.mux.HandleFunc("/v1/admin/auth/google/finish", s.handleAdminAuthGoogleFinish)
@@ -189,8 +189,6 @@ func normalizeMetricRoute(path string) string {
 		return "/v1/admin/slack-workspace-users"
 	case path == "/v1/admin/slack-bot-author-profiles":
 		return "/v1/admin/slack-bot-author-profiles"
-	case path == "/v1/admin/joanne-humans-welcome-trigger":
-		return "/v1/admin/joanne-humans-welcome-trigger"
 	case path == "/v1/admin/slack-member-channels":
 		return "/v1/admin/slack-member-channels"
 	case path == "/v1/admin/user-profiles":
@@ -203,8 +201,6 @@ func normalizeMetricRoute(path string) string {
 		return "/v1/internal/refresh-slack-member-channels-snapshot"
 	case path == "/v1/internal/bootstrap-company-channels-from-orchestrator":
 		return "/v1/internal/bootstrap-company-channels-from-orchestrator"
-	case path == "/v1/admin/catalog":
-		return "/v1/admin/catalog"
 	case path == "/v1/admin/company-channels":
 		return "/v1/admin/company-channels"
 	case path == "/v1/admin/company-channels/discover":
@@ -219,10 +215,10 @@ func normalizeMetricRoute(path string) string {
 		return "/v1/admin/channel-knowledge/{channelId}"
 	case path == "/v1/admin/capability-routing-events":
 		return "/v1/admin/capability-routing-events"
-	case path == "/v1/public/capability-catalog":
-		return "/v1/public/capability-catalog"
-	case path == "/v1/runtime/capability-catalog":
-		return "/v1/runtime/capability-catalog"
+	case path == "/v1/public/agent-skills":
+		return "/v1/public/agent-skills"
+	case path == "/v1/public/agents-roster":
+		return "/v1/public/agents-roster"
 	case path == "/v1/admin/auth/me":
 		return "/v1/admin/auth/me"
 	case path == "/v1/admin/auth/logout":
@@ -261,7 +257,7 @@ func (s *Server) withCORS(w http.ResponseWriter, r *http.Request, next http.Hand
 	if origin != "" && (origin == s.cors || strings.HasPrefix(origin, "http://localhost:")) {
 		w.Header().Set("Access-Control-Allow-Origin", origin)
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PATCH, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Stripe-Signature, X-Admin-Token, X-Admin-Session, X-Capability-Catalog-Token, Authorization")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Stripe-Signature, X-Admin-Token, X-Admin-Session, Authorization")
 	}
 	if r.Method == http.MethodOptions {
 		w.WriteHeader(http.StatusNoContent)
@@ -520,71 +516,6 @@ func (s *Server) handleAdminUserProfiles(w http.ResponseWriter, r *http.Request)
 		"profiles":      profiles,
 		"limit":         maxUserProfileList,
 	})
-}
-
-func (s *Server) handleAdminCatalog(w http.ResponseWriter, r *http.Request) {
-	if r.Method == http.MethodGet && s.proxyAgentFactoryJSON(w, r, "/v1/admin/catalog") {
-		return
-	}
-	serviceWriteAuthorized := r.Method == http.MethodPut && s.catalogServiceWriteAuthorized(r)
-	if !serviceWriteAuthorized {
-		if r.Method == http.MethodGet {
-			ok, svcUnavail := s.adminReadOrInternalServiceAuthorized(r)
-			if !ok {
-				if svcUnavail {
-					http.Error(w, "admin auth disabled", http.StatusServiceUnavailable)
-				} else {
-					http.Error(w, "unauthorized", http.StatusUnauthorized)
-				}
-				return
-			}
-		} else {
-			if !s.adminAuthEnabled() {
-				http.Error(w, "admin auth disabled", http.StatusServiceUnavailable)
-				return
-			}
-			if _, err := s.validateAdminSession(r.Context(), tokenFromAuthHeader(r)); err != nil {
-				http.Error(w, "unauthorized", http.StatusUnauthorized)
-				return
-			}
-		}
-	}
-	switch r.Method {
-	case http.MethodGet:
-		catalog, err := s.store.GetCapabilityCatalog(r.Context())
-		if err != nil {
-			s.log.Printf("admin catalog get: %v", err)
-			http.Error(w, "catalog error", http.StatusInternalServerError)
-			return
-		}
-		writeJSON(w, http.StatusOK, catalog)
-		return
-	case http.MethodPut:
-		// Authorization is already satisfied above: either matching X-Admin-Token
-		// (serviceWriteAuthorized) or a valid admin session. Do not require both.
-		var catalog CapabilityCatalog
-		if err := json.NewDecoder(r.Body).Decode(&catalog); err != nil {
-			http.Error(w, "invalid json", http.StatusBadRequest)
-			return
-		}
-		if strings.TrimSpace(catalog.Revision) == "" {
-			catalog.Revision = strings.TrimSpace(r.Header.Get("X-Capability-Catalog-Revision"))
-		}
-		if err := s.store.PutCapabilityCatalog(r.Context(), catalog); err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-		stored, err := s.store.GetCapabilityCatalog(r.Context())
-		if err != nil {
-			writeJSON(w, http.StatusOK, map[string]any{"status": "ok"})
-			return
-		}
-		writeJSON(w, http.StatusOK, stored)
-		return
-	default:
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
 }
 
 func (s *Server) handleAdminCompanyChannels(w http.ResponseWriter, r *http.Request) {
@@ -863,82 +794,6 @@ func (s *Server) handleAdminChannelKnowledgeRefresh(w http.ResponseWriter, r *ht
 	writeJSON(w, http.StatusServiceUnavailable, map[string]any{
 		"error": "agent-factory admin is not configured; cannot refresh digest from this path",
 	})
-}
-
-func (s *Server) catalogServiceWriteAuthorized(r *http.Request) bool {
-	if r == nil {
-		return false
-	}
-	expected := strings.TrimSpace(s.cfg.AdminCatalogToken)
-	if expected == "" {
-		return false
-	}
-	provided := strings.TrimSpace(r.Header.Get("X-Admin-Token"))
-	return provided != "" && provided == expected
-}
-
-func (s *Server) handlePublicCapabilityCatalog(w http.ResponseWriter, r *http.Request) {
-	if s.proxyAgentFactoryJSON(w, r, "/v1/public/capability-catalog") {
-		return
-	}
-	if r.Method != http.MethodGet {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	catalog, err := s.store.GetCapabilityCatalog(r.Context())
-	if err != nil {
-		s.log.Printf("public capability catalog get: %v", err)
-		http.Error(w, "catalog error", http.StatusInternalServerError)
-		return
-	}
-	writeJSON(w, http.StatusOK, catalog)
-}
-
-func (s *Server) handleRuntimeCapabilityCatalog(w http.ResponseWriter, r *http.Request) {
-	if s.proxyAgentFactoryJSON(w, r, "/v1/runtime/capability-catalog") {
-		return
-	}
-	if r.Method != http.MethodGet {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	expectedToken := strings.TrimSpace(s.cfg.CapabilityCatalogReadToken)
-	if s.cfg.RequireCapabilityCatalogReadToken && expectedToken == "" {
-		http.Error(w, "runtime catalog token is required but not configured", http.StatusServiceUnavailable)
-		return
-	}
-	if expectedToken != "" {
-		got := strings.TrimSpace(capabilityCatalogTokenFromRequest(r))
-		if got == "" || got != expectedToken {
-			http.Error(w, "unauthorized", http.StatusUnauthorized)
-			return
-		}
-	}
-
-	catalog, err := s.store.GetCapabilityCatalog(r.Context())
-	if err != nil {
-		s.log.Printf("runtime capability catalog get: %v", err)
-		http.Error(w, "catalog error", http.StatusInternalServerError)
-		return
-	}
-	writeJSON(w, http.StatusOK, catalog)
-}
-
-func capabilityCatalogTokenFromRequest(r *http.Request) string {
-	if r == nil {
-		return ""
-	}
-	if v := strings.TrimSpace(r.Header.Get("X-Capability-Catalog-Token")); v != "" {
-		return v
-	}
-	auth := strings.TrimSpace(r.Header.Get("Authorization"))
-	if auth == "" {
-		return ""
-	}
-	if strings.HasPrefix(strings.ToLower(auth), "bearer ") {
-		return strings.TrimSpace(auth[7:])
-	}
-	return ""
 }
 
 func (s *Server) handleCheckoutStatus(w http.ResponseWriter, r *http.Request) {

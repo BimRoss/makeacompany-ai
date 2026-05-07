@@ -21,15 +21,6 @@ type Config struct {
 	// CapabilityRoutingEventsRedisKey is the Redis LIST key Slack workers LPUSH routing observability into (admin debug panel).
 	CapabilityRoutingEventsRedisKey string
 	AppBaseURL                      string
-	AdminCatalogToken               string
-	CapabilityCatalogReadToken      string
-	// RequireCapabilityCatalogReadToken enforces a non-empty runtime catalog bearer token at /v1/runtime/capability-catalog.
-	// Defaults true in production (APP_ENV=production), false otherwise. Can be overridden via REQUIRE_CAPABILITY_CATALOG_READ_TOKEN.
-	RequireCapabilityCatalogReadToken bool
-	// SlackOrchestratorCapabilityCatalogURL, when set: GET /v1/runtime/capability-catalog prefers live JSON from
-	// slack-orchestrator (e.g. .../v1/public/capability-catalog); missing Redis catalog key seeds from it; GET /v1/admin/catalog
-	// merges in new skills from a cached orchestrator fetch so older Redis snapshots stay aligned.
-	SlackOrchestratorCapabilityCatalogURL string
 	// BackendInternalServiceToken gates /v1/internal/* maintenance endpoints only.
 	BackendInternalServiceToken string
 	// AdminSignInAllowlist contains normalized emails that may complete /admin sign-in flows.
@@ -47,15 +38,11 @@ type Config struct {
 	// Primary env: ORCHESTRATOR_SLACK_BOT_TOKEN (matches agents-mcp-server / slack-orchestrator multi-bot .env).
 	// Legacy fallback: SLACK_BOT_TOKEN (kept until rancher-admin runtime secret is rotated).
 	SlackBotToken string
-	// JoanneHumansWelcomeTriggerURL is the employee-factory Joanne HTTP root (e.g. http://127.0.0.1:8080) for POST /internal/joanne/humans-welcome/trigger.
-	JoanneHumansWelcomeTriggerURL string
-	// JoanneHumansWelcomeTriggerToken (legacy): Bearer for direct POST to employee-factory Joanne; unused when agent-factory admin proxy is configured.
-	JoanneHumansWelcomeTriggerToken string
 	// OrchestratorDebugBaseURL is slack-orchestrator HTTP root (same as Next ORCHESTRATOR_DEBUG_BASE_URL)
 	// for member-channel and channel-member sync reads.
 	OrchestratorDebugBaseURL string
 	OrchestratorDebugToken   string
-	// AgentFactoryAdminBaseURL proxies runtime authority endpoints for catalog + admin channel data.
+	// AgentFactoryAdminBaseURL proxies runtime authority endpoints for admin channel/registry data against employee-factory.
 	AgentFactoryAdminBaseURL string
 	AgentFactoryAdminToken   string
 	// GoogleOAuthClientID is the Google OAuth Web client id (used as id_token audience for /v1/portal/auth/google/finish).
@@ -73,6 +60,12 @@ type Config struct {
 	// ResendCheckoutWelcomeTemplateID, when set (e.g. welcome-email), sends post-checkout welcome mail via Resend Templates API.
 	// Uses the same variable keys as RESEND_MAGIC_LINK_TEMPLATE_* (defaults: login_url → Slack invite, recipient_first_name).
 	ResendCheckoutWelcomeTemplateID string
+	// SkillsMCPBaseURL is the REST root of skills-mcp-server (e.g. http://skills-mcp-server:8081). When set, the
+	// public read-only `/v1/public/agent-skills` endpoint proxies GET /api/skills. Empty disables that route.
+	SkillsMCPBaseURL string
+	// AgentsMCPBaseURL is the HTTP root of agents-mcp-server (e.g. http://agents-mcp-server:8090). When set,
+	// `/v1/public/agents-roster` proxies GET /api/roster for canonical squad listings.
+	AgentsMCPBaseURL string
 }
 
 // stripePriceIDBasePlan returns STRIPE_PRICE_ID_BASE_PLAN, else legacy STRIPE_PRICE_ID_WAITLIST.
@@ -95,50 +88,45 @@ func orchestratorSlackBotToken() string {
 }
 
 func LoadConfig() Config {
-	requireCatalogReadTokenDefault := strings.EqualFold(strings.TrimSpace(os.Getenv("APP_ENV")), "production")
 	backendInternal := strings.TrimSpace(os.Getenv("BACKEND_INTERNAL_SERVICE_TOKEN"))
 	agentFactoryAdminTok := strings.TrimSpace(os.Getenv("AGENT_FACTORY_ADMIN_TOKEN"))
 	// agent-factory-admin requireInternal expects the same bearer as BACKEND_INTERNAL_SERVICE_TOKEN on agent-factory-runtime.
 	// Operators often set only BACKEND_INTERNAL_SERVICE_TOKEN on makeacompany-ai-runtime-secrets; proxy would send no
-	// Authorization without this fallback (401 on registry-prune, catalog proxy, etc.).
+	// Authorization without this fallback (401 on registry-prune paths, etc.).
 	if agentFactoryAdminTok == "" && backendInternal != "" {
 		agentFactoryAdminTok = backendInternal
 	}
 	return Config{
-		Port:                                  envInt("PORT", 8080),
-		RedisURL:                              envString("REDIS_URL", "redis://localhost:6379/0"),
-		CompanyChannelsRedisURL:               strings.TrimSpace(os.Getenv("COMPANY_CHANNELS_REDIS_URL")),
-		CompanyChannelsRedisKey:               envString("COMPANY_CHANNELS_REDIS_KEY", "agent-factory:company_channels"),
-		ChannelKnowledgeRedisKeyFmt:           envString("CHANNEL_KNOWLEDGE_REDIS_KEY_FMT", "agent-factory:channel_knowledge:%s:markdown"),
-		CompanyChannelsInvalidateChannel:      envString("COMPANY_CHANNELS_INVALIDATE_CHANNEL", "agent-factory:company_channels:invalidate"),
-		ThreadOwnerRedisKeyScanPattern:        envString("THREAD_OWNER_REDIS_KEY_SCAN_PATTERN", "agent-factory:thread_owner:%s:*"),
-		CapabilityRoutingEventsRedisKey:       envString("CAPABILITY_ROUTING_EVENTS_REDIS_KEY", "agent-factory:capability_routing_events"),
-		AppBaseURL:                            strings.TrimRight(envString("APP_BASE_URL", "http://localhost:3000"), "/"),
-		AdminCatalogToken:                     strings.TrimSpace(os.Getenv("ADMIN_CATALOG_TOKEN")),
-		CapabilityCatalogReadToken:            strings.TrimSpace(os.Getenv("CAPABILITY_CATALOG_READ_TOKEN")),
-		RequireCapabilityCatalogReadToken:     envBool("REQUIRE_CAPABILITY_CATALOG_READ_TOKEN", requireCatalogReadTokenDefault),
-		SlackOrchestratorCapabilityCatalogURL: strings.TrimSpace(os.Getenv("SLACK_ORCHESTRATOR_CAPABILITY_CATALOG_URL")),
-		BackendInternalServiceToken:           backendInternal,
-		AdminSignInAllowlist:                  envCSV("ADMIN_SIGN_IN_ALLOWLIST"),
-		AdminSessionTTLSec:                    envInt("ADMIN_SESSION_TTL_SEC", 259200),
-		StripeSecretKey:                       strings.TrimSpace(os.Getenv("STRIPE_SECRET_KEY")),
-		StripeWebhookSecret:                   strings.TrimSpace(os.Getenv("STRIPE_WEBHOOK_SECRET")),
-		StripePriceBasePlan:                   stripePriceIDBasePlan(),
-		StripePriceWaitlistDeposit:            strings.TrimSpace(os.Getenv("STRIPE_PRICE_ID_WAITLIST_DEPOSIT")),
-		SlackBotToken:                         orchestratorSlackBotToken(),
-		JoanneHumansWelcomeTriggerURL:         strings.TrimSuffix(strings.TrimSpace(os.Getenv("JOANNE_HUMANS_WELCOME_TRIGGER_URL")), "/"),
-		JoanneHumansWelcomeTriggerToken:       strings.TrimSpace(os.Getenv("JOANNE_HUMANS_WELCOME_TRIGGER_TOKEN")),
-		OrchestratorDebugBaseURL:              strings.TrimSpace(os.Getenv("ORCHESTRATOR_DEBUG_BASE_URL")),
-		OrchestratorDebugToken:                strings.TrimSpace(os.Getenv("ORCHESTRATOR_DEBUG_TOKEN")),
-		AgentFactoryAdminBaseURL:              strings.TrimSuffix(strings.TrimSpace(os.Getenv("AGENT_FACTORY_ADMIN_BASE_URL")), "/"),
-		AgentFactoryAdminToken:                agentFactoryAdminTok,
-		GoogleOAuthClientID:                   strings.TrimSpace(os.Getenv("GOOGLE_OAUTH_CLIENT_ID")),
-		ResendAPIKey:                          strings.TrimSpace(os.Getenv("RESEND_API_KEY")),
-		PortalAuthEmailFrom:                   strings.TrimSpace(os.Getenv("PORTAL_AUTH_EMAIL_FROM")),
-		ResendMagicLinkTemplateID:             strings.TrimSpace(os.Getenv("RESEND_MAGIC_LINK_TEMPLATE_ID")),
-		ResendMagicLinkTemplateLinkVar:        strings.TrimSpace(os.Getenv("RESEND_MAGIC_LINK_TEMPLATE_LINK_VAR")),
-		ResendMagicLinkTemplateFirstNameVar:   strings.TrimSpace(os.Getenv("RESEND_MAGIC_LINK_TEMPLATE_FIRST_NAME_VAR")),
-		ResendCheckoutWelcomeTemplateID:       strings.TrimSpace(os.Getenv("RESEND_CHECKOUT_WELCOME_TEMPLATE_ID")),
+		Port:                                envInt("PORT", 8080),
+		RedisURL:                            envString("REDIS_URL", "redis://localhost:6379/0"),
+		CompanyChannelsRedisURL:             strings.TrimSpace(os.Getenv("COMPANY_CHANNELS_REDIS_URL")),
+		CompanyChannelsRedisKey:             envString("COMPANY_CHANNELS_REDIS_KEY", "agent-factory:company_channels"),
+		ChannelKnowledgeRedisKeyFmt:         envString("CHANNEL_KNOWLEDGE_REDIS_KEY_FMT", "agent-factory:channel_knowledge:%s:markdown"),
+		CompanyChannelsInvalidateChannel:    envString("COMPANY_CHANNELS_INVALIDATE_CHANNEL", "agent-factory:company_channels:invalidate"),
+		ThreadOwnerRedisKeyScanPattern:      envString("THREAD_OWNER_REDIS_KEY_SCAN_PATTERN", "agent-factory:thread_owner:%s:*"),
+		CapabilityRoutingEventsRedisKey:     envString("CAPABILITY_ROUTING_EVENTS_REDIS_KEY", "agent-factory:capability_routing_events"),
+		AppBaseURL:                          strings.TrimRight(envString("APP_BASE_URL", "http://localhost:3000"), "/"),
+		BackendInternalServiceToken:         backendInternal,
+		AdminSignInAllowlist:                envCSV("ADMIN_SIGN_IN_ALLOWLIST"),
+		AdminSessionTTLSec:                  envInt("ADMIN_SESSION_TTL_SEC", 259200),
+		StripeSecretKey:                     strings.TrimSpace(os.Getenv("STRIPE_SECRET_KEY")),
+		StripeWebhookSecret:                 strings.TrimSpace(os.Getenv("STRIPE_WEBHOOK_SECRET")),
+		StripePriceBasePlan:                 stripePriceIDBasePlan(),
+		StripePriceWaitlistDeposit:          strings.TrimSpace(os.Getenv("STRIPE_PRICE_ID_WAITLIST_DEPOSIT")),
+		SlackBotToken:                       orchestratorSlackBotToken(),
+		OrchestratorDebugBaseURL:            strings.TrimSpace(os.Getenv("ORCHESTRATOR_DEBUG_BASE_URL")),
+		OrchestratorDebugToken:              strings.TrimSpace(os.Getenv("ORCHESTRATOR_DEBUG_TOKEN")),
+		AgentFactoryAdminBaseURL:            strings.TrimSuffix(strings.TrimSpace(os.Getenv("AGENT_FACTORY_ADMIN_BASE_URL")), "/"),
+		AgentFactoryAdminToken:              agentFactoryAdminTok,
+		GoogleOAuthClientID:                 strings.TrimSpace(os.Getenv("GOOGLE_OAUTH_CLIENT_ID")),
+		ResendAPIKey:                        strings.TrimSpace(os.Getenv("RESEND_API_KEY")),
+		PortalAuthEmailFrom:                 strings.TrimSpace(os.Getenv("PORTAL_AUTH_EMAIL_FROM")),
+		ResendMagicLinkTemplateID:           strings.TrimSpace(os.Getenv("RESEND_MAGIC_LINK_TEMPLATE_ID")),
+		ResendMagicLinkTemplateLinkVar:      strings.TrimSpace(os.Getenv("RESEND_MAGIC_LINK_TEMPLATE_LINK_VAR")),
+		ResendMagicLinkTemplateFirstNameVar: strings.TrimSpace(os.Getenv("RESEND_MAGIC_LINK_TEMPLATE_FIRST_NAME_VAR")),
+		ResendCheckoutWelcomeTemplateID:     strings.TrimSpace(os.Getenv("RESEND_CHECKOUT_WELCOME_TEMPLATE_ID")),
+		SkillsMCPBaseURL:                    strings.TrimRight(strings.TrimSpace(os.Getenv("SKILLS_MCP_BASE_URL")), "/"),
+		AgentsMCPBaseURL:                    strings.TrimRight(strings.TrimSpace(os.Getenv("AGENTS_MCP_BASE_URL")), "/"),
 	}
 }
 

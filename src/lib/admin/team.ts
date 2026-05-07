@@ -24,6 +24,18 @@ export type TeamMember = {
   skillIds: string[];
 };
 
+/** Tool / skill card on /employees (labels from skills-mcp-server or repo snapshot). */
+export type AdminSkill = {
+  id: string;
+  label: string;
+  description: string;
+  employeeIds: string[];
+  requiredParams?: string[];
+  optionalParams?: string[];
+  paramDefaults?: Record<string, string>;
+  comingSoon?: boolean;
+};
+
 type TeamSnapshot = {
   generatedAt: string;
   source: string;

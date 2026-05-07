@@ -1,12 +1,6 @@
 import skillsSnapshot from "@/data/admin/skills-snapshot.json";
 
-export type AdminSkill = {
-  id: string;
-  label: string;
-  description: string;
-  employeeIds: string[];
-  comingSoon?: boolean;
-};
+import type { AdminSkill } from "@/lib/admin/team";
 
 type SkillsSnapshot = {
   generatedAt: string;

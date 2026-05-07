@@ -1,6 +1,8 @@
 /**
- * Sync `team-snapshot.json` / `skills-snapshot.json`: capability contract from slack-orchestrator;
- * bot display metadata from slack-factory `manifests/` (see SLACK_FACTORY_PATH).
+ * Sync `team-snapshot.json` / `skills-snapshot.json` for **offline** `/employees` fallback.
+ * Pulls the Slack/orchestrator capability **contract** JSON (legacy shape) plus bot display metadata from
+ * slack-factory `manifests/` (see SLACK_FACTORY_PATH).
+ * Live site prefers agents-mcp-server roster + skills-mcp-server — rerun this when the contract changes.
  */
 import { readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -32,9 +34,9 @@ function optionalEnv(name) {
 }
 
 /**
- * Load the same capability JSON as slack-orchestrator embeds on dispatch.
- * Set ORCHESTRATOR_URL (+ optional ORCHESTRATOR_DEBUG_TOKEN), or CATALOG_JSON_PATH to a file from
- * `go run ./cmd/catalog-export` in slack-orchestrator.
+ * Load the Slack/orchestrator capability **contract** JSON (skills + employeeSkillIds).
+ * Set ORCHESTRATOR_URL (+ optional ORCHESTRATOR_DEBUG_TOKEN), ORCHESTRATOR_CAPABILITY_CATALOG_URL, or CATALOG_JSON_PATH
+ * to a file from `go run ./cmd/catalog-export` in slack-orchestrator.
  */
 async function loadCapabilityCatalog() {
   const explicitUrl = optionalEnv("ORCHESTRATOR_CAPABILITY_CATALOG_URL");
@@ -60,7 +62,7 @@ async function loadCapabilityCatalog() {
     return JSON.parse(raw);
   }
   throw new Error(
-    "Missing capability catalog: set ORCHESTRATOR_URL (and ORCHESTRATOR_DEBUG_TOKEN if required), " +
+    "Missing orchestrator capability JSON: set ORCHESTRATOR_URL (and ORCHESTRATOR_DEBUG_TOKEN if required), " +
       "ORCHESTRATOR_CAPABILITY_CATALOG_URL, or CATALOG_JSON_PATH to JSON from `go run ./cmd/catalog-export` in slack-orchestrator."
   );
 }
@@ -225,7 +227,7 @@ async function main() {
 
   const payload = {
     generatedAt: new Date().toISOString(),
-    source: "slack-factory/manifests + slack-orchestrator capability catalog",
+    source: "slack-factory/manifests + orchestrator capability contract JSON",
     employees: members,
   };
 
@@ -236,7 +238,7 @@ async function main() {
 
   const skillsPayload = {
     generatedAt: new Date().toISOString(),
-    source: "slack-orchestrator capability catalog + slack-factory/manifests",
+    source: "orchestrator capability contract JSON + slack-factory manifests",
     skills: skillsWithEmployees,
   };
 

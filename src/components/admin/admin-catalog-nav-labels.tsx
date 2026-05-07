@@ -1,8 +1,8 @@
-export type AdminCatalogNavActive = "employees" | "skills" | null;
+export type EmployeesSkillsNavActive = "employees" | "skills" | null;
 
 type AdminCatalogNavLabelsProps = {
-  /** Which catalog route is active (channel pages pass null — both labels use inactive styling). */
-  active: AdminCatalogNavActive;
+  /** Which public squad page route is active (channel pages pass null — both labels use inactive styling). */
+  active: EmployeesSkillsNavActive;
   className?: string;
 };
 

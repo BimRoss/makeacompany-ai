@@ -1,6 +1,6 @@
 {
   "generatedAt": "2026-04-29T00:00:00.000Z",
-  "source": "slack-factory/manifests + slack-orchestrator DefaultCapabilityContractV1 employeeSkillIds (offline fallback)",
+  "source": "slack-factory/manifests + orchestrator contract employeeSkillIds (offline fallback); live roster from agents-mcp-server",
   "employees": [
     {
       "id": "alex",

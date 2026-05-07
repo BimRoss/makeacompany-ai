@@ -3,10 +3,10 @@
 import { useEffect, useMemo } from "react";
 import { usePathname } from "next/navigation";
 
-import { AdminCatalogNavLabels, type AdminCatalogNavActive } from "@/components/admin/admin-catalog-nav-labels";
+import { AdminCatalogNavLabels, type EmployeesSkillsNavActive } from "@/components/admin/admin-catalog-nav-labels";
 import { useWorkspaceNavbarTrail } from "@/components/workspace-navbar-trail-provider";
 
-function catalogActiveFromPathname(pathname: string): AdminCatalogNavActive {
+function employeesSkillsNavActive(pathname: string): EmployeesSkillsNavActive {
   if (pathname === "/employees") {
     return "employees";
   }
@@ -17,13 +17,13 @@ function catalogActiveFromPathname(pathname: string): AdminCatalogNavActive {
 }
 
 /**
- * Sets the workspace header trail on `/employees` and `/skills` so the bar matches channel pages.
+ * Routes `/employees` + `/skills` use the squad header tray (skills list is skills-mcp-server).
  */
 export function AdminCatalogNavbarTrail() {
   const pathname = usePathname();
   const { setWorkspaceNavbarTrail } = useWorkspaceNavbarTrail();
 
-  const active = catalogActiveFromPathname(pathname);
+  const active = employeesSkillsNavActive(pathname);
   const trail = useMemo(() => {
     if (active === null) {
       return null;
