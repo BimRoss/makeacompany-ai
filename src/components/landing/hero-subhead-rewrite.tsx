@@ -121,6 +121,13 @@ export function HeroSubheadRewrite({ onAgentChange }: Props) {
   }, []);
 
   const cycleNext = useCallback(async () => {
+    setPending(true);
+    cancelRef.current?.();
+    inflightRef.current?.abort();
+    const ctrl = new AbortController();
+    inflightRef.current = ctrl;
+    setLoading(true);
+
     const voices: Voice[] = ["joanne", "ross", "duo"];
     let voice = voices[Math.floor(Math.random() * voices.length)];
     while (voice === lastVoice) {
@@ -129,32 +136,69 @@ export function HeroSubheadRewrite({ onAgentChange }: Props) {
     setLastVoice(voice);
     onAgentChange?.(voice === "duo" ? null : voice);
 
-    inflightRef.current?.abort();
-    const ctrl = new AbortController();
-    inflightRef.current = ctrl;
-    setLoading(true);
+    const reduce =
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    const fetchPromise = fetch("/api/rewrite", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ voice }),
+      signal: ctrl.signal,
+    });
 
     try {
-      const resp = await fetch("/api/rewrite", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ voice }),
-        signal: ctrl.signal,
-      });
-      if (!resp.ok) throw new Error(`rewrite ${resp.status}`);
-      const data = (await resp.json()) as { text?: string };
-      const target = (data.text ?? "").trim() || fallbackVariant(voice);
-      if (!ctrl.signal.aborted) animateTo(target);
+      const resp = await fetchPromise;
+      if (!resp.ok || !resp.body) throw new Error(`rewrite ${resp.status}`);
+
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let acc = "";
+      let started = false;
+
+      for (;;) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        const chunk = decoder.decode(value, { stream: true });
+        if (!chunk) continue;
+        acc += chunk;
+        if (!started) {
+          started = true;
+          setPending(false);
+          if (!reduce) {
+            setT("");
+            setTyping(true);
+          }
+        }
+        if (!reduce) setT(acc);
+      }
+
+      const cleaned = acc
+        .trim()
+        .replace(/^"|"$/g, "")
+        .replace(/\s*[—–]\s*/g, ", ")
+        .replace(/\s{2,}/g, " ")
+        .trim();
+
+      if (ctrl.signal.aborted) return;
+      if (!started || !cleaned) {
+        animateTo(fallbackVariant(voice));
+      } else {
+        setT(cleaned);
+      }
+      setTyping(false);
     } catch (err) {
       if ((err as Error).name === "AbortError") return;
+      setPending(false);
       animateTo(fallbackVariant(voice));
     } finally {
       if (inflightRef.current === ctrl) {
         inflightRef.current = null;
         setLoading(false);
+        setPending(false);
       }
     }
-  }, [animateTo, fallbackVariant, lastVoice, onAgentChange]);
+  }, [animateTo, fallbackVariant, lastVoice, onAgentChange, setT]);
 
   useEffect(
     () => () => {
@@ -167,7 +211,7 @@ export function HeroSubheadRewrite({ onAgentChange }: Props) {
   return (
     <div className="mx-auto mb-6 flex w-full max-w-4xl flex-col items-center gap-3 sm:mb-10 sm:gap-4">
       <p
-        className={`text-pretty text-center text-lg font-medium leading-relaxed transition-colors duration-200 sm:text-xl md:text-2xl ${typing ? "text-muted-foreground/40" : "text-muted-foreground"}`}
+        className={`text-pretty text-center text-lg font-medium leading-relaxed transition-colors duration-200 sm:text-xl md:text-2xl ${typing || pending ? "text-muted-foreground/40" : "text-muted-foreground"}`}
       >
         {text}
         {typing ? (
