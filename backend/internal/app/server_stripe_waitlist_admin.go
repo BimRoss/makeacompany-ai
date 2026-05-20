@@ -64,6 +64,12 @@ func (s *Server) handleInternalRefreshStripeWaitlistSnapshot(w http.ResponseWrit
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
+	// Default outcome to "error" so any early-return (auth fail, redis fail, etc.) records as such.
+	outcome := "error"
+	start := time.Now()
+	defer func() {
+		cronjobDurationSeconds.WithLabelValues("stripe-waitlist-snapshot", outcome).Observe(time.Since(start).Seconds())
+	}()
 	if !s.internalRefreshAuthorized(r) {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
@@ -98,6 +104,7 @@ func (s *Server) handleInternalRefreshStripeWaitlistSnapshot(w http.ResponseWrit
 		s.log.Printf("refresh stripe waitlist profile upserts: %v", profErr)
 	}
 	fetchedAt := time.Now().UTC().Format(time.RFC3339)
+	outcome = "success"
 	writeJSON(w, http.StatusOK, map[string]any{
 		"ok":                 true,
 		"rowCount":           len(purchasers),

@@ -8,11 +8,11 @@ type GrafanaEmbed = {
 
 const defaultTwitterPanelTitles = ["Indexer throughput", "Worker throughput"];
 const defaultAdminPanelTitles = [
-  "Requests /min",
+  "Backend requests /min",
   "P95 latency",
-  "Inbound events by agent",
-  "Activities",
-  "JetStream publish /s",
+  "Requests /min by status class",
+  "Backend goroutines",
+  "Slack snapshot refreshes /min",
   "Backend HTTP errors/min",
 ];
 

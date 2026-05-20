@@ -14,6 +14,11 @@ func (s *Server) handleInternalRefreshSlackUsersSnapshot(w http.ResponseWriter, 
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
+	outcome := "error"
+	start := time.Now()
+	defer func() {
+		cronjobDurationSeconds.WithLabelValues("slack-users-snapshot", outcome).Observe(time.Since(start).Seconds())
+	}()
 	if !s.internalRefreshAuthorized(r) {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
@@ -43,6 +48,7 @@ func (s *Server) handleInternalRefreshSlackUsersSnapshot(w http.ResponseWriter, 
 		s.log.Printf("sync slack user index from workspace users: %v", syncErr)
 	}
 	s.recordSlackRefreshSuccess("workspace_users")
+	outcome = "success"
 	fetchedAt := time.Now().UTC().Format(time.RFC3339)
 	writeJSON(w, http.StatusOK, map[string]any{
 		"ok":                  true,

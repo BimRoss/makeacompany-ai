@@ -50,6 +50,17 @@ var (
 		},
 		[]string{"snapshot", "status_code"},
 	)
+	// cronjobDurationSeconds covers any internal cronjob handler (slack/stripe snapshot refreshes today,
+	// future jobs by adding new "job" label values). The histogram's _count series doubles as a per-result
+	// run counter — query rate(..._count{result="error"}) instead of adding a parallel counter.
+	cronjobDurationSeconds = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "makeacompany_cronjob_duration_seconds",
+			Help:    "Wall-clock duration of internal cronjob handlers, by job and result (success|error).",
+			Buckets: prometheus.DefBuckets,
+		},
+		[]string{"job", "result"},
+	)
 )
 
 func init() {
@@ -58,6 +69,7 @@ func init() {
 		httpRequestDuration,
 		slackRefreshRunsTotal,
 		slackRefreshUpstreamHTTPStatusTotal,
+		cronjobDurationSeconds,
 	)
 }
 
