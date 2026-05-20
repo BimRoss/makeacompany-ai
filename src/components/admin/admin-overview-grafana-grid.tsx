@@ -24,7 +24,7 @@ type PreparedEmbed = {
   url: string;
 };
 
-const EXPECTED_ADMIN_PANELS = 8;
+const EXPECTED_ADMIN_PANELS = 6;
 
 const RECOMMENDED_OVERVIEW_TITLES = [
   "Requests /min",
@@ -32,8 +32,6 @@ const RECOMMENDED_OVERVIEW_TITLES = [
   "Inbound events by agent",
   "Activities",
   "JetStream publish /s",
-  "Worker orchestrator ingress",
-  "Orchestrator Socket Mode",
   "Backend HTTP errors/min",
 ];
 

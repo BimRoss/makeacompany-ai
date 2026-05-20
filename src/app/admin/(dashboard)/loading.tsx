@@ -1,10 +1,11 @@
 import { AdminShell } from "@/components/admin/admin-shell";
-import { CompanyChannelPageLoader } from "@/components/company-channel/company-channel-page-loader";
 
 export default function AdminDashboardLoading() {
   return (
     <AdminShell>
-      <CompanyChannelPageLoader srLabel="Loading admin dashboard" />
+      <p role="status" className="px-4 py-8 text-sm text-muted-foreground">
+        Loading admin dashboard…
+      </p>
     </AdminShell>
   );
 }

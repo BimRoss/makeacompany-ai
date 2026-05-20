@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 
 export const metadata: Metadata = {
   title: "Admin",
-  description: "Aggregate agent metrics and live orchestrator routing decisions",
+  description: "Aggregate agent metrics, Slack channels, and user tables",
   alternates: {
     canonical: "/admin",
   },

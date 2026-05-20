@@ -50,7 +50,7 @@ if [[ -z "${STRIPE_PRICE_ID_BASE_PLAN:-}" && -z "${STRIPE_PRICE_ID_WAITLIST:-}" 
   echo "missing STRIPE_PRICE_ID_BASE_PLAN (preferred; Stripe product \"Base Plan\" price_*) or legacy STRIPE_PRICE_ID_WAITLIST (${ENV_FILE})" >&2
   failed=1
 fi
-# Accept either ORCHESTRATOR_SLACK_BOT_TOKEN (preferred; matches agents-mcp-server / slack-orchestrator multi-bot env)
+# Accept either ORCHESTRATOR_SLACK_BOT_TOKEN (historical env name; the workspace Slack bot token)
 # or legacy SLACK_BOT_TOKEN (kept until rancher-admin runtime secret is rotated).
 if [[ -z "${ORCHESTRATOR_SLACK_BOT_TOKEN:-}" && -z "${SLACK_BOT_TOKEN:-}" ]]; then
   echo "missing ORCHESTRATOR_SLACK_BOT_TOKEN (preferred) or legacy SLACK_BOT_TOKEN in ${ENV_FILE}" >&2

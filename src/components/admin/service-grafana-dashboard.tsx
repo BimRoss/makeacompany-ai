@@ -42,8 +42,8 @@ function asGrafanaEmbedUrl(
 }
 
 type ServiceGrafanaDashboardProps = {
-  /** Key on /api/admin/health JSON (e.g. slackOrchestratorGrafanaEmbeds) */
-  embedsKey: "slackOrchestratorGrafanaEmbeds" | "agentsGrafanaEmbeds" | "cronjobGrafanaEmbeds";
+  /** Key on /api/admin/health JSON (e.g. agentsGrafanaEmbeds). */
+  embedsKey: "agentsGrafanaEmbeds" | "cronjobGrafanaEmbeds";
   /** Optional; omit to show only Grafana embeds (panel titles come from Grafana). */
   title?: string;
   description?: string;

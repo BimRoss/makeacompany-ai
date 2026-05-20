@@ -2,7 +2,6 @@ package app
 
 import (
 	"encoding/json"
-	"errors"
 	"net/http"
 	"net/url"
 	"strings"
@@ -40,25 +39,6 @@ func (s *Server) handlePortalAuthMagicStart(w http.ResponseWriter, r *http.Reque
 	email := normalizeProfileEmail(strings.TrimSpace(req.Email))
 	if !ValidSlackChannelID(chID) || email == "" {
 		http.Error(w, "bad request", http.StatusBadRequest)
-		return
-	}
-	if _, err := s.store.GetCompanyChannel(r.Context(), s.cfg.CompanyChannelsRedisKey, chID); err != nil {
-		if errors.Is(err, ErrCompanyChannelNotFound) {
-			http.Error(w, "unknown channel", http.StatusNotFound)
-			return
-		}
-		s.log.Printf("portal magic start get channel: %v", err)
-		http.Error(w, "company channel error", http.StatusInternalServerError)
-		return
-	}
-	ok, _, err := s.assertPortalOwnerEmail(r.Context(), chID, email)
-	if err != nil {
-		s.log.Printf("portal magic start owner emails: %v", err)
-		http.Error(w, "company channel error", http.StatusInternalServerError)
-		return
-	}
-	if !ok {
-		writeJSON(w, http.StatusOK, map[string]any{"ok": true, "sent": false})
 		return
 	}
 	token, err := randomTokenHex(32)
@@ -103,16 +83,6 @@ func (s *Server) handlePortalAuthMagicFinish(w http.ResponseWriter, r *http.Requ
 	if err != nil {
 		s.log.Printf("portal magic consume: %v", err)
 		http.Error(w, "unable to verify link", http.StatusInternalServerError)
-		return
-	}
-	ok, missing, err := s.assertPortalOwnerEmail(r.Context(), chID, email)
-	if err != nil {
-		s.log.Printf("portal magic finish owner emails: %v", err)
-		http.Error(w, "company channel error", http.StatusInternalServerError)
-		return
-	}
-	if missing || !ok {
-		http.Error(w, "email not authorized for this company", http.StatusForbidden)
 		return
 	}
 	s.writePortalMintResponse(w, r, email, chID)

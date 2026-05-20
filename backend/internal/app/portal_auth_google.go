@@ -2,7 +2,6 @@ package app
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -39,15 +38,6 @@ func (s *Server) handlePortalAuthGoogleFinish(w http.ResponseWriter, r *http.Req
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
 	}
-	if _, err := s.store.GetCompanyChannel(r.Context(), s.cfg.CompanyChannelsRedisKey, chID); err != nil {
-		if errors.Is(err, ErrCompanyChannelNotFound) {
-			http.Error(w, "unknown channel", http.StatusNotFound)
-			return
-		}
-		s.log.Printf("portal google finish get channel: %v", err)
-		http.Error(w, "company channel error", http.StatusInternalServerError)
-		return
-	}
 	payload, err := idtoken.Validate(r.Context(), idTok, strings.TrimSpace(s.cfg.GoogleOAuthClientID))
 	if err != nil {
 		s.log.Printf("portal google id token validate: %v", err)
@@ -61,20 +51,6 @@ func (s *Server) handlePortalAuthGoogleFinish(w http.ResponseWriter, r *http.Req
 	}
 	if !googleEmailVerifiedClaim(payload.Claims["email_verified"]) {
 		http.Error(w, "email not verified with google", http.StatusForbidden)
-		return
-	}
-	ok, missing, err := s.assertPortalOwnerEmail(r.Context(), chID, email)
-	if err != nil {
-		s.log.Printf("portal google finish owner emails: %v", err)
-		http.Error(w, "company channel error", http.StatusInternalServerError)
-		return
-	}
-	if missing {
-		http.Error(w, "unknown channel", http.StatusNotFound)
-		return
-	}
-	if !ok {
-		http.Error(w, "email not authorized for this company", http.StatusForbidden)
 		return
 	}
 	s.writePortalMintResponse(w, r, email, chID)

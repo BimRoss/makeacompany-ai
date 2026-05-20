@@ -13,23 +13,20 @@ set -euo pipefail
 # envFrom reloads (e.g. rotated RESEND_API_KEY for /admin/login: Go sends mail; Next gates the email UI).
 # Set ROLLOUT_AFTER_SECRET_SYNC=false to skip restarts.
 #
-# Keys (must match backend internal/app/config.go, docker-compose, .env.example, and slack-orchestrator for the orchestrator Slack bot token):
+# Keys (must match backend internal/app/config.go, docker-compose, and .env.example):
 #   STRIPE_SECRET_KEY
 #   STRIPE_WEBHOOK_SECRET (required)
 #   STRIPE_PRICE_ID_BASE_PLAN (preferred; legacy STRIPE_PRICE_ID_WAITLIST accepted from ENV_FILE and mirrored into the cluster secret for older pods)
 #   STRIPE_PUBLISHABLE_KEY and/or NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY (optional; both written when either is set)
 #   BACKEND_INTERNAL_SERVICE_TOKEN (required in production; Go /v1/internal/* maintenance endpoints only)
-#   ORCHESTRATOR_SLACK_BOT_TOKEN (optional; preferred name; same as slack-orchestrator / agents-mcp-server .env)
+#   ORCHESTRATOR_SLACK_BOT_TOKEN (historical env name; the workspace Slack bot token used by /admin Slack users + channels)
 #     legacy SLACK_BOT_TOKEN still accepted from ENV_FILE and mirrored into the cluster secret for older pods
-#   ORCHESTRATOR_DEBUG_TOKEN (optional; Bearer for slack-orchestrator /debug/*; preserve existing cluster value when omitted)
 #   Portal login (optional; preserved from cluster when not in .env.prod — same Secret is envFrom on frontend + backend):
 #   GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET, PORTAL_GOOGLE_OAUTH_STATE_SECRET (optional),
 #   RESEND_API_KEY, PORTAL_AUTH_EMAIL_FROM,
 #   RESEND_MAGIC_LINK_TEMPLATE_ID (optional; Resend template slug/id), RESEND_MAGIC_LINK_TEMPLATE_LINK_VAR,
 #   RESEND_MAGIC_LINK_TEMPLATE_FIRST_NAME_VAR (optional; override template variable keys),
 #   RESEND_CHECKOUT_WELCOME_TEMPLATE_ID (optional; e.g. welcome-email; Slack invite as login_url)
-#   AGENT_FACTORY_ADMIN_TOKEN (optional; Bearer to agent-factory-admin; defaults to BACKEND_INTERNAL_SERVICE_TOKEN when unset
-#   in env and cluster — must still match agent-factory-runtime BACKEND_INTERNAL_SERVICE_TOKEN or admin proxy paths 401)
 #
 # Usage:
 #   ./scripts/update-rancher-secrets.sh
@@ -179,26 +176,8 @@ if [[ -n "${BACKEND_INTERNAL_SERVICE_TOKEN_EFFECTIVE}" ]]; then
   secret_args+=(--from-literal=BACKEND_INTERNAL_SERVICE_TOKEN="${BACKEND_INTERNAL_SERVICE_TOKEN_EFFECTIVE}")
 fi
 
-AGENT_FACTORY_ADMIN_TOKEN_EFFECTIVE="${AGENT_FACTORY_ADMIN_TOKEN:-}"
-if [[ -z "${AGENT_FACTORY_ADMIN_TOKEN_EFFECTIVE}" ]]; then
-  AGENT_FACTORY_ADMIN_TOKEN_EFFECTIVE="$(read_existing_secret_key AGENT_FACTORY_ADMIN_TOKEN)"
-fi
-if [[ -z "${AGENT_FACTORY_ADMIN_TOKEN_EFFECTIVE}" ]]; then
-  AGENT_FACTORY_ADMIN_TOKEN_EFFECTIVE="${BACKEND_INTERNAL_SERVICE_TOKEN_EFFECTIVE}"
-fi
-if [[ -n "${AGENT_FACTORY_ADMIN_TOKEN_EFFECTIVE}" ]]; then
-  af_b64="$(kubectl_app get secret agent-factory-runtime -n agent-factory -o jsonpath='{.data.BACKEND_INTERNAL_SERVICE_TOKEN}' 2>/dev/null || true)"
-  if [[ -n "${af_b64}" ]]; then
-    af_plain="$(printf '%s' "${af_b64}" | base64 -d 2>/dev/null || true)"
-    af_plain="$(printf '%s' "${af_plain}" | tr -d '\r\n')"
-    if [[ -n "${af_plain}" && "${af_plain}" != "${AGENT_FACTORY_ADMIN_TOKEN_EFFECTIVE}" ]]; then
-      echo "WARNING: AGENT_FACTORY_ADMIN_TOKEN (${#AGENT_FACTORY_ADMIN_TOKEN_EFFECTIVE} chars) != agent-factory-runtime BACKEND_INTERNAL_SERVICE_TOKEN (${#af_plain} chars). makeacompany → agent-factory-admin returns 401 until aligned. Set AGENT_FACTORY_ADMIN_TOKEN in ${ENV_FILE} to the agent-factory secret value (rancher-admin admin/apps/makeacompany-ai/configmap.yaml)." >&2
-    fi
-  fi
-  secret_args+=(--from-literal=AGENT_FACTORY_ADMIN_TOKEN="${AGENT_FACTORY_ADMIN_TOKEN_EFFECTIVE}")
-fi
 
-# Optional orchestrator Slack bot token (same key as slack-orchestrator / agents-mcp-server multi-bot env).
+# Workspace Slack bot token (ORCHESTRATOR_SLACK_BOT_TOKEN is the historical env name — slack-orchestrator service is gone).
 # Resolution order: ORCHESTRATOR_SLACK_BOT_TOKEN from ENV_FILE → legacy SLACK_BOT_TOKEN from ENV_FILE →
 # existing cluster ORCHESTRATOR_SLACK_BOT_TOKEN → existing cluster SLACK_BOT_TOKEN → legacy SLACK_WORKSPACE_USERS_BOT_TOKEN.
 # Writes BOTH keys to the secret so older pods reading SLACK_BOT_TOKEN keep working until rotated out.
@@ -218,15 +197,6 @@ if [[ -n "${SLACK_BOT_TOKEN_EFFECTIVE}" ]]; then
   secret_args+=(--from-literal=SLACK_BOT_TOKEN="${SLACK_BOT_TOKEN_EFFECTIVE}")
 fi
 
-
-# Optional orchestrator debug token (Bearer for slack-orchestrator /debug/*).
-ORCHESTRATOR_DEBUG_TOKEN_EFFECTIVE="${ORCHESTRATOR_DEBUG_TOKEN:-}"
-if [[ -z "${ORCHESTRATOR_DEBUG_TOKEN_EFFECTIVE}" ]]; then
-  ORCHESTRATOR_DEBUG_TOKEN_EFFECTIVE="$(read_existing_secret_key ORCHESTRATOR_DEBUG_TOKEN)"
-fi
-if [[ -n "${ORCHESTRATOR_DEBUG_TOKEN_EFFECTIVE}" ]]; then
-  secret_args+=(--from-literal=ORCHESTRATOR_DEBUG_TOKEN="${ORCHESTRATOR_DEBUG_TOKEN_EFFECTIVE}")
-fi
 
 # Optional portal auth keys (Google OAuth + Resend magic links). If absent from ENV_FILE, keep existing cluster values
 # so a Stripe-only apply does not strip portal login.
