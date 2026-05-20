@@ -1,6 +1,7 @@
 package app
 
 import (
+	"fmt"
 	"os"
 	"strconv"
 	"strings"
@@ -10,6 +11,9 @@ type Config struct {
 	Port       int
 	RedisURL   string
 	AppBaseURL string
+	// AppEnv is the deployment environment label (e.g. "production", "development").
+	// Used to gate prod-only behavior such as strict CORS and startup secret validation.
+	AppEnv string
 	// BackendInternalServiceToken gates /v1/internal/* maintenance endpoints only.
 	BackendInternalServiceToken string
 	// AdminSignInAllowlist contains normalized emails that may complete /admin sign-in flows.
@@ -67,6 +71,7 @@ func LoadConfig() Config {
 		Port:                                envInt("PORT", 8080),
 		RedisURL:                            envString("REDIS_URL", "redis://localhost:6379/0"),
 		AppBaseURL:                          strings.TrimRight(envString("APP_BASE_URL", "http://localhost:3000"), "/"),
+		AppEnv:                              strings.ToLower(strings.TrimSpace(envString("APP_ENV", "development"))),
 		BackendInternalServiceToken:         strings.TrimSpace(os.Getenv("BACKEND_INTERNAL_SERVICE_TOKEN")),
 		AdminSignInAllowlist:                envCSV("ADMIN_SIGN_IN_ALLOWLIST"),
 		AdminSessionTTLSec:                  envInt("ADMIN_SESSION_TTL_SEC", 259200),
@@ -83,6 +88,37 @@ func LoadConfig() Config {
 		ResendMagicLinkTemplateFirstNameVar: strings.TrimSpace(os.Getenv("RESEND_MAGIC_LINK_TEMPLATE_FIRST_NAME_VAR")),
 		ResendCheckoutWelcomeTemplateID:     strings.TrimSpace(os.Getenv("RESEND_CHECKOUT_WELCOME_TEMPLATE_ID")),
 	}
+}
+
+// ValidateForProd returns an error listing every required-but-missing/malformed prod secret.
+// Only runs strict checks when AppEnv == "production"; in dev it's a no-op.
+func (c Config) ValidateForProd() error {
+	if c.AppEnv != "production" {
+		return nil
+	}
+	var problems []string
+	if !strings.HasPrefix(c.StripeSecretKey, "sk_live_") {
+		problems = append(problems, "STRIPE_SECRET_KEY must be a live key (sk_live_...)")
+	}
+	if c.StripeWebhookSecret == "" || !strings.HasPrefix(c.StripeWebhookSecret, "whsec_") {
+		problems = append(problems, "STRIPE_WEBHOOK_SECRET must be set (whsec_...)")
+	}
+	if !strings.HasPrefix(c.StripePriceBasePlan, "price_") {
+		problems = append(problems, "STRIPE_PRICE_ID_BASE_PLAN must be set (price_...)")
+	}
+	if c.RedisURL == "" {
+		problems = append(problems, "REDIS_URL must be set")
+	}
+	if c.BackendInternalServiceToken == "" {
+		problems = append(problems, "BACKEND_INTERNAL_SERVICE_TOKEN must be set")
+	}
+	if !strings.HasPrefix(c.AppBaseURL, "https://") {
+		problems = append(problems, "APP_BASE_URL must use https in production")
+	}
+	if len(problems) == 0 {
+		return nil
+	}
+	return fmt.Errorf("prod config invalid:\n  - %s", strings.Join(problems, "\n  - "))
 }
 
 func envString(key, fallback string) string {

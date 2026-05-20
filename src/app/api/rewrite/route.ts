@@ -51,10 +51,63 @@ Write one fresh variant in this voice. Output only the variant text — no pream
   return { system, user };
 }
 
+type Bucket = { minute: { count: number; resetAt: number }; hour: { count: number; resetAt: number } };
+const RATE_BUCKETS = new Map<string, Bucket>();
+const PER_MINUTE = 10;
+const PER_HOUR = 60;
+
+function clientIp(req: NextRequest): string {
+  const fwd = req.headers.get("x-forwarded-for");
+  if (fwd) {
+    const first = fwd.split(",")[0]?.trim();
+    if (first) return first;
+  }
+  return req.headers.get("x-real-ip")?.trim() || "unknown";
+}
+
+function checkRate(ip: string): { ok: true } | { ok: false; retryAfter: number } {
+  const now = Date.now();
+  let b = RATE_BUCKETS.get(ip);
+  if (!b) {
+    b = { minute: { count: 0, resetAt: now + 60_000 }, hour: { count: 0, resetAt: now + 3_600_000 } };
+    RATE_BUCKETS.set(ip, b);
+  }
+  if (now >= b.minute.resetAt) {
+    b.minute.count = 0;
+    b.minute.resetAt = now + 60_000;
+  }
+  if (now >= b.hour.resetAt) {
+    b.hour.count = 0;
+    b.hour.resetAt = now + 3_600_000;
+  }
+  if (b.minute.count >= PER_MINUTE) {
+    return { ok: false, retryAfter: Math.ceil((b.minute.resetAt - now) / 1000) };
+  }
+  if (b.hour.count >= PER_HOUR) {
+    return { ok: false, retryAfter: Math.ceil((b.hour.resetAt - now) / 1000) };
+  }
+  b.minute.count += 1;
+  b.hour.count += 1;
+  if (RATE_BUCKETS.size > 10_000) {
+    for (const [k, v] of RATE_BUCKETS) {
+      if (now >= v.hour.resetAt) RATE_BUCKETS.delete(k);
+    }
+  }
+  return { ok: true };
+}
+
 export async function POST(req: NextRequest) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     return NextResponse.json({ error: "ANTHROPIC_API_KEY not set" }, { status: 500 });
+  }
+
+  const rate = checkRate(clientIp(req));
+  if (!rate.ok) {
+    return NextResponse.json(
+      { error: "rate limit exceeded" },
+      { status: 429, headers: { "Retry-After": String(rate.retryAfter) } },
+    );
   }
 
   let voice: Voice = "duo";

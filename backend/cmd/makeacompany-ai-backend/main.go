@@ -16,6 +16,9 @@ import (
 func main() {
 	logger := log.New(os.Stdout, "", log.LstdFlags)
 	cfg := app.LoadConfig()
+	if err := cfg.ValidateForProd(); err != nil {
+		logger.Fatalf("%v", err)
+	}
 	store, err := app.NewStore(cfg.RedisURL)
 	if err != nil {
 		logger.Fatalf("redis: %v", err)

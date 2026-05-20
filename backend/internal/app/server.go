@@ -69,12 +69,13 @@ func errStringOrNil(err error) any {
 }
 
 type Server struct {
-	cfg    Config
-	log    *log.Logger
-	store  *Store
-	mux    *http.ServeMux
-	cors   string
-	health *healthChecker
+	cfg                   Config
+	log                   *log.Logger
+	store                 *Store
+	mux                   *http.ServeMux
+	cors                  string
+	health                *healthChecker
+	freeTrialInviteLimiter *ipRateLimiter
 }
 
 func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
@@ -84,8 +85,9 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 		log:    logger,
 		store:  store,
 		mux:    http.NewServeMux(),
-		cors:   cfg.AppBaseURL,
-		health: newHealthChecker(store.rdb, os.Getenv("COOKIE_HEALTH_TOKEN")),
+		cors:                   cfg.AppBaseURL,
+		health:                 newHealthChecker(store.rdb, os.Getenv("COOKIE_HEALTH_TOKEN")),
+		freeTrialInviteLimiter: newIPRateLimiter(5, 30),
 	}
 	s.mux.HandleFunc("/livez", s.handleLivez)
 	s.mux.HandleFunc("/readyz", s.handleReadiness)
@@ -214,7 +216,8 @@ func normalizeMetricRoute(path string) string {
 
 func (s *Server) withCORS(w http.ResponseWriter, r *http.Request, next http.Handler) {
 	origin := r.Header.Get("Origin")
-	if origin != "" && (origin == s.cors || strings.HasPrefix(origin, "http://localhost:")) {
+	allowLocalhost := s.cfg.AppEnv != "production" && strings.HasPrefix(origin, "http://localhost:")
+	if origin != "" && (origin == s.cors || allowLocalhost) {
 		w.Header().Set("Access-Control-Allow-Origin", origin)
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PATCH, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Stripe-Signature, X-Admin-Token, X-Admin-Session, Authorization")

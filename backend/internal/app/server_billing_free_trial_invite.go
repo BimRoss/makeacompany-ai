@@ -3,6 +3,7 @@ package app
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 	"strings"
 )
 
@@ -15,6 +16,13 @@ func (s *Server) handleBillingFreeTrialInvite(w http.ResponseWriter, r *http.Req
 	if r.Method != http.MethodPost {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
+	}
+	if s.freeTrialInviteLimiter != nil {
+		if ok, retry := s.freeTrialInviteLimiter.allow(clientIP(r)); !ok {
+			w.Header().Set("Retry-After", strconv.Itoa(retry))
+			writeJSON(w, http.StatusTooManyRequests, map[string]any{"error": "rate limit exceeded"})
+			return
+		}
 	}
 	if strings.TrimSpace(s.cfg.ResendAPIKey) == "" || strings.TrimSpace(s.cfg.PortalAuthEmailFrom) == "" {
 		writeJSON(w, http.StatusServiceUnavailable, map[string]any{"error": "email is not configured"})
