@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import Script from "next/script";
 import { CheckoutReturnToast } from "@/components/landing/checkout-return-toast";
 import { CtaSection } from "@/components/landing/cta-section";
@@ -66,22 +65,6 @@ export default function HomePage() {
         </div>
       </section>
       <SeoFaqSection />
-      <section className="pb-8 pt-3">
-        <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-center gap-3 px-6">
-          <Link
-            href="/employees"
-            className="inline-flex h-12 items-center justify-center rounded-md border border-border bg-background px-7 text-base font-medium text-foreground motion-colors hover:bg-muted"
-          >
-            Meet Your Employees
-          </Link>
-          <Link
-            href="/skills"
-            className="inline-flex h-12 items-center justify-center rounded-md border border-border bg-background px-7 text-base font-medium text-foreground motion-colors hover:bg-muted"
-          >
-            See Their Skills
-          </Link>
-        </div>
-      </section>
       <Footer />
     </main>
   );

@@ -77,6 +77,6 @@ export const config = {
     "/admin/:path*",
     "/twitter",
     "/twitter/:path*",
-    "/((?!api|_next|favicon.ico|admin|skills|employees|twitter|agents|orchestrator|slack-orchestrator|privacy|terms|opengraph-image|twitter-image|robots.txt|sitemap.xml|manifest).*)",
+    "/((?!api|_next|favicon.ico|admin|twitter|privacy|terms|opengraph-image|twitter-image|robots.txt|sitemap.xml|manifest).*)",
   ],
 };

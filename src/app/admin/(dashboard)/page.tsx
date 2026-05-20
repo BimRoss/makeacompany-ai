@@ -5,14 +5,9 @@ import { AdminAgentsAllGrafanaEmbed } from "@/components/admin/admin-agents-all-
 import { AdminCronJobsGrafanaEmbed } from "@/components/admin/admin-cronjobs-grafana-embed";
 import { AdminOverviewGrafanaGrid } from "@/components/admin/admin-overview-grafana-grid";
 import { AdminShell } from "@/components/admin/admin-shell";
-import { AgentSkillsList } from "@/components/admin/agent-skills-list";
-import { OrchestratorDebugPanel } from "@/components/orchestrator/orchestrator-debug-panel";
 import { AdminSlackUsersTable, AdminStripeUsersTable } from "@/components/admin/user-profiles-panel";
-import { getAgentSkills } from "@/lib/admin/agent-skills";
 
-export default async function AdminPage() {
-  const agentSkillsResult = await getAgentSkills();
-
+export default function AdminPage() {
   return (
     <AdminShell>
       <AdminSlackWorkspaceLiveSyncOnce />
@@ -23,11 +18,9 @@ export default async function AdminPage() {
           <AdminAgentsAllGrafanaEmbed />
           <AdminCronJobsGrafanaEmbed />
         </div>
-        <AgentSkillsList result={agentSkillsResult} />
         <AdminSlackUsersTable />
         <AdminCompanyChannelsStrip />
         <AdminStripeUsersTable />
-        <OrchestratorDebugPanel />
       </div>
     </AdminShell>
   );

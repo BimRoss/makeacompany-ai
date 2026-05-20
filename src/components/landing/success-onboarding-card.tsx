@@ -89,7 +89,6 @@ export function SuccessOnboardingCard({ sessionID }: Props) {
         ) : (
           <div className="rounded-xl border border-border bg-background px-4 py-4 text-left shadow-sm">
             <div className="flex items-start gap-3">
-              {/* Same asset as /employees (public/headshots/joanne.png). */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src="/headshots/joanne.png"
