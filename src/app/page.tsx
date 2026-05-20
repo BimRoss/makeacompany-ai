@@ -5,7 +5,6 @@ import { CtaSection } from "@/components/landing/cta-section";
 import { Footer } from "@/components/landing/footer";
 import { Header } from "@/components/landing/header";
 import { HeroSection } from "@/components/landing/hero-section";
-import { HeroRoadmap } from "@/components/landing/hero-roadmap";
 import { faqStructuredData, SeoFaqSection } from "@/components/landing/seo-faq";
 import { TestimonialsCarousel } from "@/components/landing/testimonials-carousel";
 import { siteDescription, siteTagline, siteTitle, siteUrl } from "@/lib/site";
@@ -59,11 +58,6 @@ export default function HomePage() {
       <HeroSection />
       <TestimonialsCarousel />
       <CtaSection />
-      <section className="block">
-        <div className="mx-auto w-full max-w-4xl px-4 sm:px-6">
-          <HeroRoadmap />
-        </div>
-      </section>
       <SeoFaqSection />
       <Footer />
     </main>
