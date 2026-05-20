@@ -7,8 +7,6 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "sync:team": "node scripts/sync-team-from-orchestrator.mjs",
-    "discover:company-channels": "node scripts/company-channels-discover-from-orchestrator.mjs",
     "docker:prod": "bash scripts/docker-prod-up.sh"
   },
   "dependencies": {
