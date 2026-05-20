@@ -32,7 +32,7 @@ const VARIANTS: ReadonlyArray<{ voice: Voice; text: string }> = [
   {
     voice: "duo",
     text:
-      "Joanne runs ops. Ross writes code. You make the calls only a founder can. It's basically a whole company in your Slack, for what Claude Pro costs.",
+      "Joanne runs ops. Ross writes code. You make the calls only a founder can. It's basically a whole company in your Slack, for what Claude Code costs.",
   },
   {
     voice: "duo",
@@ -51,6 +51,7 @@ interface Props {
 export function HeroSubheadRewrite({ onAgentChange }: Props) {
   const [text, setText] = useState(DEFAULT_TEXT);
   const [typing, setTyping] = useState(false);
+  const [pending, setPending] = useState(false);
   const [loading, setLoading] = useState(false);
   const [lastVoice, setLastVoice] = useState<Voice | null>(null);
   const textRef = useRef(DEFAULT_TEXT);

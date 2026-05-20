@@ -11,7 +11,7 @@ const VOICE_BRIEFS: Record<Voice, string> = {
   ross:
     "Ross is the AI Software Developer. He ships code: features, fixes, scripts, integrations, tests. Direct, builder energy. Speaks in first person ('I'm Ross' or 'I'll ship…'). Uses developer language naturally (PR, repo, tests).",
   duo:
-    "Speak as the product, not as a character. Punchy marketer / great seller energy. Frame Joanne + Ross as a 2-person AI team in the buyer's Slack. Reference the price anchor ('what Claude Pro costs') or the zero-setup angle.",
+    "Speak as the product, not as a character. Punchy marketer / great seller energy. Frame Joanne + Ross as a 2-person AI team in the buyer's Slack. Reference the price anchor ('what Claude Code costs') or the zero-setup / hosted-in-Slack angle.",
 };
 
 const EXAMPLES = `Examples of the right snappy length and tone:
@@ -24,12 +24,12 @@ Ross example 1: "I'm Ross. Describe what you want built. I'll ship it. Real repo
 
 Ross example 2: "Message me what to ship. PR up the same hour, tests included. You review and merge."
 
-Duo example 1: "Joanne runs ops. Ross writes code. You make the calls only a founder can. It's basically a whole company in your Slack, for what Claude Pro costs."
+Duo example 1: "Joanne runs ops. Ross writes code. You make the calls only a founder can. It's basically a whole company in your Slack, for what Claude Code costs."
 
 Duo example 2: "A Chief of Staff and a Developer, living in your Slack. Nothing to set up. Two new DMs and a whole company at your fingertips."`;
 
 function buildPrompt(voice: Voice): { system: string; user: string } {
-  const system = `You write hero-section copy for makeacompany.ai — a product that gives users two AI teammates inside their Slack workspace: Joanne (Chief of Staff) and Ross (Software Developer), for $99/mo (the price of a Claude Pro plan, with zero setup — we handle hosting, the Claude bill, everything).
+  const system = `You write hero-section copy for makeacompany.ai — a product that gives users two AI teammates inside their Slack workspace: Joanne (Chief of Staff) and Ross (Software Developer), for $99/mo (the price of Claude Code, hosted in your Slack with zero setup — we handle hosting, the Claude bill, everything, accessible anywhere Slack runs).
 
 The headline is "The Power of Claude, The Ease of Slack." Your job is to write ONE punchy variant of the subhead that appears when a user clicks a "Tell me more" pill. It should feel like the named character (or the product itself) is talking directly to the reader.
 
@@ -132,30 +132,70 @@ export async function POST(req: NextRequest) {
     body: JSON.stringify({
       model: "claude-haiku-4-5-20251001",
       max_tokens: 200,
+      stream: true,
       system,
       messages: [{ role: "user", content: user }],
     }),
   });
 
-  if (!resp.ok) {
-    const detail = await resp.text();
+  if (!resp.ok || !resp.body) {
+    const detail = resp.body ? await resp.text() : "no body";
     return NextResponse.json(
       { error: "anthropic api error", status: resp.status, detail },
       { status: 502 },
     );
   }
 
-  const data = (await resp.json()) as {
-    content: Array<{ type: string; text?: string }>;
-  };
-  const text = data.content
-    .filter((b) => b.type === "text" && b.text)
-    .map((b) => b.text!.trim())
-    .join(" ")
-    .replace(/^"|"$/g, "")
-    .replace(/\s*[—–]\s*/g, ", ")
-    .replace(/\s{2,}/g, " ")
-    .trim();
+  const upstream = resp.body;
+  const encoder = new TextEncoder();
+  const decoder = new TextDecoder();
 
-  return NextResponse.json({ text, voice });
+  const out = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      const reader = upstream.getReader();
+      let buf = "";
+      try {
+        for (;;) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buf += decoder.decode(value, { stream: true });
+          let nl: number;
+          while ((nl = buf.indexOf("\n")) !== -1) {
+            const line = buf.slice(0, nl).trimEnd();
+            buf = buf.slice(nl + 1);
+            if (!line.startsWith("data:")) continue;
+            const payload = line.slice(5).trim();
+            if (!payload || payload === "[DONE]") continue;
+            try {
+              const ev = JSON.parse(payload) as {
+                type?: string;
+                delta?: { type?: string; text?: string };
+              };
+              if (
+                ev.type === "content_block_delta" &&
+                ev.delta?.type === "text_delta" &&
+                ev.delta.text
+              ) {
+                controller.enqueue(encoder.encode(ev.delta.text));
+              }
+            } catch {
+              // ignore malformed SSE line
+            }
+          }
+        }
+      } catch (err) {
+        controller.error(err);
+        return;
+      }
+      controller.close();
+    },
+  });
+
+  return new Response(out, {
+    headers: {
+      "content-type": "text/plain; charset=utf-8",
+      "cache-control": "no-store",
+      "x-rewrite-voice": voice,
+    },
+  });
 }

@@ -222,6 +222,11 @@ add_optional_runtime_secret RESEND_MAGIC_LINK_TEMPLATE_LINK_VAR "${RESEND_MAGIC_
 add_optional_runtime_secret RESEND_MAGIC_LINK_TEMPLATE_FIRST_NAME_VAR "${RESEND_MAGIC_LINK_TEMPLATE_FIRST_NAME_VAR:-}"
 add_optional_runtime_secret RESEND_CHECKOUT_WELCOME_TEMPLATE_ID "${RESEND_CHECKOUT_WELCOME_TEMPLATE_ID:-}"
 
+# Server-side key for the Next /api/rewrite route (hero "Tell me more" pill).
+# Read by Node at request time, not baked into the image. envFrom on the
+# frontend Deployment picks it up automatically on rollout.
+add_optional_runtime_secret ANTHROPIC_API_KEY "${ANTHROPIC_API_KEY:-}"
+
 kubectl_app create secret generic "${SECRET_NAME}" \
   "${secret_args[@]}" \
   --dry-run=client -o yaml | kubectl_app apply -f -

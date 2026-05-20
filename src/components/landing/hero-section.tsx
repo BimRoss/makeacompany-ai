@@ -112,7 +112,7 @@ export function HeroSection() {
   useEffect(() => () => cancelRef.current?.(), []);
 
   return (
-    <section className="relative flex w-full min-h-0 flex-col items-center justify-start px-4 pb-4 pt-1 sm:min-h-screen sm:justify-center sm:px-6 sm:pb-14 sm:pt-4">
+    <section className="relative flex w-full min-h-0 flex-col items-center justify-start px-4 pb-4 pt-8 sm:min-h-screen sm:justify-center sm:px-6 sm:pb-14 sm:pt-4">
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute left-1/2 top-0 h-[500px] w-[800px] -translate-x-1/2 rounded-full bg-primary/5 blur-3xl" />
       </div>
@@ -125,7 +125,7 @@ export function HeroSection() {
           </div>
         </div>
 
-        <h1 className="mx-auto mb-6 max-w-[18rem] text-4xl font-bold leading-[1.08] tracking-tight text-foreground sm:mb-10 sm:max-w-none sm:text-5xl sm:leading-[1.06] md:text-6xl lg:text-7xl">
+        <h1 className="mx-auto mb-6 max-w-none text-4xl font-bold leading-[1.08] tracking-tight text-foreground whitespace-nowrap sm:mb-10 sm:text-5xl sm:leading-[1.06] md:text-6xl lg:text-7xl">
           <span className="block sm:whitespace-nowrap">
             {displayLine1 || " "}
             {typing && l2Ref.current === "" ? (
@@ -148,7 +148,8 @@ export function HeroSection() {
 
         <div className="mb-4 flex justify-center sm:mb-6">
           <p className="inline-flex items-center rounded-full border border-border bg-muted px-4 py-1.5 text-sm font-semibold tracking-tight text-foreground sm:px-5 sm:text-base">
-            $99/mo · The price of Claude Pro. Zero setup.
+            <span className="sm:hidden">$99/mo · Claude Code, zero setup.</span>
+            <span className="hidden sm:inline">$99/mo · Claude Code, hosted in your Slack — zero setup, anywhere.</span>
           </p>
         </div>
 
