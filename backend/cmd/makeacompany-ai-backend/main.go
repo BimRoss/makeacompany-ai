@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
 
@@ -17,27 +16,14 @@ import (
 func main() {
 	logger := log.New(os.Stdout, "", log.LstdFlags)
 	cfg := app.LoadConfig()
-	store, err := app.NewStore(
-		cfg.RedisURL,
-		cfg.CompanyChannelsRedisURL,
-		cfg.OrchestratorDebugToken,
-		app.StoreRedisSharedKeys{
-			ChannelKnowledgeRedisKeyFmt:      cfg.ChannelKnowledgeRedisKeyFmt,
-			CompanyChannelsInvalidateChannel: cfg.CompanyChannelsInvalidateChannel,
-			ThreadOwnerRedisKeyScanPattern:   cfg.ThreadOwnerRedisKeyScanPattern,
-		},
-	)
+	if err := cfg.ValidateForProd(); err != nil {
+		logger.Fatalf("%v", err)
+	}
+	store, err := app.NewStore(cfg.RedisURL)
 	if err != nil {
 		logger.Fatalf("redis: %v", err)
 	}
 	defer store.Close()
-	primary := strings.TrimSpace(cfg.RedisURL)
-	cc := strings.TrimSpace(cfg.CompanyChannelsRedisURL)
-	if cc != "" && cc != primary {
-		logger.Printf("redis: secondary client for employee-factory keys (COMPANY_CHANNELS_REDIS_URL differs from REDIS_URL)")
-	} else {
-		logger.Printf("redis: single client — waitlist, admin snapshots, and employee-factory keys share REDIS_URL")
-	}
 
 	srv, err := app.NewServer(cfg, logger, store)
 	if err != nil {

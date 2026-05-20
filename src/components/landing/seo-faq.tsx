@@ -14,7 +14,7 @@ const faqItems = [
   {
     question: "How do I get access?",
     answer:
-      "Tap Start Building on the homepage. Checkout opens Stripe for the $9/month plan; Joanne will email you an invite to your workspace after you finish checkout.",
+      "Tap Start Building on the homepage. Checkout opens Stripe for the $99/month plan; Joanne will email you an invite to your workspace after you finish checkout.",
   },
   {
     question: "Does this replace my whole team?",

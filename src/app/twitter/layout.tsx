@@ -3,7 +3,6 @@ import { Suspense, type ReactNode } from "react";
 
 import { AdminSessionVerifiedBoundary } from "@/components/admin/admin-session-verified-boundary";
 import { AdminShell } from "@/components/admin/admin-shell";
-import { CompanyChannelPageLoader } from "@/components/company-channel/company-channel-page-loader";
 
 export const metadata: Metadata = {
   title: "Twitter",
@@ -22,7 +21,9 @@ export default function TwitterLayout({ children }: { children: ReactNode }) {
     <Suspense
       fallback={
         <AdminShell>
-          <CompanyChannelPageLoader srLabel="Loading Twitter dashboard" />
+          <p role="status" className="px-4 py-8 text-sm text-muted-foreground">
+            Loading Twitter dashboard…
+          </p>
         </AdminShell>
       }
     >

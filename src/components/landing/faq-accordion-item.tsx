@@ -17,7 +17,7 @@ export function FaqAccordionItem({ question, answer }: Props) {
   return (
     <div
       data-state={open ? "open" : "closed"}
-      className="faq-details group rounded-xl border border-border bg-card/60 p-5 data-[state=open]:border-foreground/25 data-[state=open]:bg-card data-[state=open]:shadow-[0_8px_30px_-8px_rgba(0,0,0,0.1)] dark:data-[state=open]:shadow-[0_8px_30px_-8px_rgba(255,255,255,0.06)] md:hover:border-foreground/25 md:hover:bg-card md:hover:shadow-[0_14px_44px_-12px_rgba(0,0,0,0.14)] dark:md:hover:shadow-[0_14px_44px_-12px_rgba(255,255,255,0.08)]"
+      className="faq-details group rounded-xl border border-border bg-card/60 p-5 transition-[border-color,background-color,box-shadow] data-[state=open]:border-foreground/25 data-[state=open]:bg-card data-[state=open]:shadow-[0_8px_30px_-8px_rgba(0,0,0,0.1)] active:border-foreground/25 active:bg-card dark:data-[state=open]:shadow-[0_8px_30px_-8px_rgba(255,255,255,0.06)] md:hover:border-foreground/25 md:hover:bg-card md:hover:shadow-[0_14px_44px_-12px_rgba(0,0,0,0.14)] dark:md:hover:shadow-[0_14px_44px_-12px_rgba(255,255,255,0.08)]"
     >
       <button
         type="button"

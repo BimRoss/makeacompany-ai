@@ -1,26 +1,19 @@
 package app
 
 import (
+	"fmt"
 	"os"
 	"strconv"
 	"strings"
 )
 
 type Config struct {
-	Port                    int
-	RedisURL                string
-	CompanyChannelsRedisURL string
-	CompanyChannelsRedisKey string
-	// ChannelKnowledgeRedisKeyFmt is a fmt string with one %s for Slack channel id (GET digest in admin; prune cleanup).
-	// Must match agent-factory / worker channel-knowledge writers (see AGENT_FACTORY_CHANNEL_KNOWLEDGE_REDIS_KEY_FMT).
-	ChannelKnowledgeRedisKeyFmt string
-	// CompanyChannelsInvalidateChannel is the Redis PUB/SUB channel for registry reloads; must match workers.
-	CompanyChannelsInvalidateChannel string
-	// ThreadOwnerRedisKeyScanPattern is a fmt string with one %s for channel id, ending in * for SCAN (prune auxiliary keys).
-	ThreadOwnerRedisKeyScanPattern string
-	// CapabilityRoutingEventsRedisKey is the Redis LIST key Slack workers LPUSH routing observability into (admin debug panel).
-	CapabilityRoutingEventsRedisKey string
-	AppBaseURL                      string
+	Port       int
+	RedisURL   string
+	AppBaseURL string
+	// AppEnv is the deployment environment label (e.g. "production", "development").
+	// Used to gate prod-only behavior such as strict CORS and startup secret validation.
+	AppEnv string
 	// BackendInternalServiceToken gates /v1/internal/* maintenance endpoints only.
 	BackendInternalServiceToken string
 	// AdminSignInAllowlist contains normalized emails that may complete /admin sign-in flows.
@@ -34,17 +27,10 @@ type Config struct {
 	// StripePriceWaitlistDeposit is an optional second price_* (one-time waitlist / deposit) whose completed
 	// Checkouts are merged into the same admin Stripe table as Base Plan. Env: STRIPE_PRICE_ID_WAITLIST_DEPOSIT.
 	StripePriceWaitlistDeposit string
-	// SlackBotToken is the orchestrator/admin Slack token used for users.list (users:read + users:read.email).
-	// Primary env: ORCHESTRATOR_SLACK_BOT_TOKEN (matches agents-mcp-server / slack-orchestrator multi-bot .env).
+	// SlackBotToken is the workspace Slack bot token used for users.list, users.conversations, and conversations.members.
+	// Primary env: ORCHESTRATOR_SLACK_BOT_TOKEN (historical name; matches the token Joanne/Ross use).
 	// Legacy fallback: SLACK_BOT_TOKEN (kept until rancher-admin runtime secret is rotated).
 	SlackBotToken string
-	// OrchestratorDebugBaseURL is slack-orchestrator HTTP root (same as Next ORCHESTRATOR_DEBUG_BASE_URL)
-	// for member-channel and channel-member sync reads.
-	OrchestratorDebugBaseURL string
-	OrchestratorDebugToken   string
-	// AgentFactoryAdminBaseURL proxies runtime authority endpoints for admin channel/registry data against employee-factory.
-	AgentFactoryAdminBaseURL string
-	AgentFactoryAdminToken   string
 	// GoogleOAuthClientID is the Google OAuth Web client id (used as id_token audience for /v1/portal/auth/google/finish).
 	GoogleOAuthClientID string
 	// ResendAPIKey enables portal magic-link email (optional).
@@ -60,12 +46,6 @@ type Config struct {
 	// ResendCheckoutWelcomeTemplateID, when set (e.g. welcome-email), sends post-checkout welcome mail via Resend Templates API.
 	// Uses the same variable keys as RESEND_MAGIC_LINK_TEMPLATE_* (defaults: login_url → Slack invite, recipient_first_name).
 	ResendCheckoutWelcomeTemplateID string
-	// SkillsMCPBaseURL is the REST root of skills-mcp-server (e.g. http://skills-mcp-server:8081). When set, the
-	// public read-only `/v1/public/agent-skills` endpoint proxies GET /api/skills. Empty disables that route.
-	SkillsMCPBaseURL string
-	// AgentsMCPBaseURL is the HTTP root of agents-mcp-server (e.g. http://agents-mcp-server:8090). When set,
-	// `/v1/public/agents-roster` proxies GET /api/roster for canonical squad listings.
-	AgentsMCPBaseURL string
 }
 
 // stripePriceIDBasePlan returns STRIPE_PRICE_ID_BASE_PLAN, else legacy STRIPE_PRICE_ID_WAITLIST.
@@ -78,8 +58,7 @@ func stripePriceIDBasePlan() string {
 }
 
 // orchestratorSlackBotToken returns ORCHESTRATOR_SLACK_BOT_TOKEN, else legacy SLACK_BOT_TOKEN.
-// Lets the backend pick up the multi-bot key already set in agents-mcp-server / slack-orchestrator
-// .env files while existing rancher-admin runtime secrets still using SLACK_BOT_TOKEN keep working.
+// The env name is historical (slack-orchestrator service is gone); the token itself is Joanne/Ross's.
 func orchestratorSlackBotToken() string {
 	if v := strings.TrimSpace(os.Getenv("ORCHESTRATOR_SLACK_BOT_TOKEN")); v != "" {
 		return v
@@ -88,25 +67,12 @@ func orchestratorSlackBotToken() string {
 }
 
 func LoadConfig() Config {
-	backendInternal := strings.TrimSpace(os.Getenv("BACKEND_INTERNAL_SERVICE_TOKEN"))
-	agentFactoryAdminTok := strings.TrimSpace(os.Getenv("AGENT_FACTORY_ADMIN_TOKEN"))
-	// agent-factory-admin requireInternal expects the same bearer as BACKEND_INTERNAL_SERVICE_TOKEN on agent-factory-runtime.
-	// Operators often set only BACKEND_INTERNAL_SERVICE_TOKEN on makeacompany-ai-runtime-secrets; proxy would send no
-	// Authorization without this fallback (401 on registry-prune paths, etc.).
-	if agentFactoryAdminTok == "" && backendInternal != "" {
-		agentFactoryAdminTok = backendInternal
-	}
 	return Config{
 		Port:                                envInt("PORT", 8080),
 		RedisURL:                            envString("REDIS_URL", "redis://localhost:6379/0"),
-		CompanyChannelsRedisURL:             strings.TrimSpace(os.Getenv("COMPANY_CHANNELS_REDIS_URL")),
-		CompanyChannelsRedisKey:             envString("COMPANY_CHANNELS_REDIS_KEY", "agent-factory:company_channels"),
-		ChannelKnowledgeRedisKeyFmt:         envString("CHANNEL_KNOWLEDGE_REDIS_KEY_FMT", "agent-factory:channel_knowledge:%s:markdown"),
-		CompanyChannelsInvalidateChannel:    envString("COMPANY_CHANNELS_INVALIDATE_CHANNEL", "agent-factory:company_channels:invalidate"),
-		ThreadOwnerRedisKeyScanPattern:      envString("THREAD_OWNER_REDIS_KEY_SCAN_PATTERN", "agent-factory:thread_owner:%s:*"),
-		CapabilityRoutingEventsRedisKey:     envString("CAPABILITY_ROUTING_EVENTS_REDIS_KEY", "agent-factory:capability_routing_events"),
 		AppBaseURL:                          strings.TrimRight(envString("APP_BASE_URL", "http://localhost:3000"), "/"),
-		BackendInternalServiceToken:         backendInternal,
+		AppEnv:                              strings.ToLower(strings.TrimSpace(envString("APP_ENV", "development"))),
+		BackendInternalServiceToken:         strings.TrimSpace(os.Getenv("BACKEND_INTERNAL_SERVICE_TOKEN")),
 		AdminSignInAllowlist:                envCSV("ADMIN_SIGN_IN_ALLOWLIST"),
 		AdminSessionTTLSec:                  envInt("ADMIN_SESSION_TTL_SEC", 259200),
 		StripeSecretKey:                     strings.TrimSpace(os.Getenv("STRIPE_SECRET_KEY")),
@@ -114,10 +80,6 @@ func LoadConfig() Config {
 		StripePriceBasePlan:                 stripePriceIDBasePlan(),
 		StripePriceWaitlistDeposit:          strings.TrimSpace(os.Getenv("STRIPE_PRICE_ID_WAITLIST_DEPOSIT")),
 		SlackBotToken:                       orchestratorSlackBotToken(),
-		OrchestratorDebugBaseURL:            strings.TrimSpace(os.Getenv("ORCHESTRATOR_DEBUG_BASE_URL")),
-		OrchestratorDebugToken:              strings.TrimSpace(os.Getenv("ORCHESTRATOR_DEBUG_TOKEN")),
-		AgentFactoryAdminBaseURL:            strings.TrimSuffix(strings.TrimSpace(os.Getenv("AGENT_FACTORY_ADMIN_BASE_URL")), "/"),
-		AgentFactoryAdminToken:              agentFactoryAdminTok,
 		GoogleOAuthClientID:                 strings.TrimSpace(os.Getenv("GOOGLE_OAUTH_CLIENT_ID")),
 		ResendAPIKey:                        strings.TrimSpace(os.Getenv("RESEND_API_KEY")),
 		PortalAuthEmailFrom:                 strings.TrimSpace(os.Getenv("PORTAL_AUTH_EMAIL_FROM")),
@@ -125,9 +87,38 @@ func LoadConfig() Config {
 		ResendMagicLinkTemplateLinkVar:      strings.TrimSpace(os.Getenv("RESEND_MAGIC_LINK_TEMPLATE_LINK_VAR")),
 		ResendMagicLinkTemplateFirstNameVar: strings.TrimSpace(os.Getenv("RESEND_MAGIC_LINK_TEMPLATE_FIRST_NAME_VAR")),
 		ResendCheckoutWelcomeTemplateID:     strings.TrimSpace(os.Getenv("RESEND_CHECKOUT_WELCOME_TEMPLATE_ID")),
-		SkillsMCPBaseURL:                    strings.TrimRight(strings.TrimSpace(os.Getenv("SKILLS_MCP_BASE_URL")), "/"),
-		AgentsMCPBaseURL:                    strings.TrimRight(strings.TrimSpace(os.Getenv("AGENTS_MCP_BASE_URL")), "/"),
 	}
+}
+
+// ValidateForProd returns an error listing every required-but-missing/malformed prod secret.
+// Only runs strict checks when AppEnv == "production"; in dev it's a no-op.
+func (c Config) ValidateForProd() error {
+	if c.AppEnv != "production" {
+		return nil
+	}
+	var problems []string
+	if !strings.HasPrefix(c.StripeSecretKey, "sk_live_") {
+		problems = append(problems, "STRIPE_SECRET_KEY must be a live key (sk_live_...)")
+	}
+	if c.StripeWebhookSecret == "" || !strings.HasPrefix(c.StripeWebhookSecret, "whsec_") {
+		problems = append(problems, "STRIPE_WEBHOOK_SECRET must be set (whsec_...)")
+	}
+	if !strings.HasPrefix(c.StripePriceBasePlan, "price_") {
+		problems = append(problems, "STRIPE_PRICE_ID_BASE_PLAN must be set (price_...)")
+	}
+	if c.RedisURL == "" {
+		problems = append(problems, "REDIS_URL must be set")
+	}
+	if c.BackendInternalServiceToken == "" {
+		problems = append(problems, "BACKEND_INTERNAL_SERVICE_TOKEN must be set")
+	}
+	if !strings.HasPrefix(c.AppBaseURL, "https://") {
+		problems = append(problems, "APP_BASE_URL must use https in production")
+	}
+	if len(problems) == 0 {
+		return nil
+	}
+	return fmt.Errorf("prod config invalid:\n  - %s", strings.Join(problems, "\n  - "))
 }
 
 func envString(key, fallback string) string {

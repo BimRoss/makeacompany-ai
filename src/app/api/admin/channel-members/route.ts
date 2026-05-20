@@ -3,14 +3,10 @@ import { adminProxyNextJson, backendProxyAuthHeaders, parseBackendProxyBody, res
 
 export const dynamic = "force-dynamic";
 
-/**
- * Proxies to Go GET /v1/admin/slack-member-channels (Redis snapshot by default; ?source=live hits orchestrator and rewrites Redis).
- * Previously proxied slack-orchestrator directly on every /admin load.
- */
 export async function GET(request: NextRequest) {
-  const qs = request.nextUrl.searchParams.toString();
-  const suffix = qs ? `?${qs}` : "";
-  const backendURL = `${resolveBackendBaseURL().replace(/\/$/, "")}/v1/admin/slack-member-channels${suffix}`;
+  const channelID = request.nextUrl.searchParams.get("channel_id") ?? "";
+  const qs = new URLSearchParams({ channel_id: channelID }).toString();
+  const backendURL = `${resolveBackendBaseURL().replace(/\/$/, "")}/v1/admin/channel-members?${qs}`;
   try {
     const response = await fetch(backendURL, {
       headers: await backendProxyAuthHeaders(),
@@ -20,6 +16,6 @@ export async function GET(request: NextRequest) {
     return adminProxyNextJson(payload, response.status);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
-    return adminProxyNextJson({ error: `slack-member-channels proxy failed: ${message}` }, 502);
+    return adminProxyNextJson({ error: `channel-members proxy failed: ${message}` }, 502);
   }
 }

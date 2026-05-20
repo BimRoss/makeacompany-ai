@@ -2,7 +2,6 @@ package app
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -47,32 +46,6 @@ func (s *Server) writePortalMintResponse(w http.ResponseWriter, r *http.Request,
 		SessionToken: sessionToken,
 		ExpiresAt:    expiresAt.Format(time.RFC3339),
 	})
-}
-
-// portalOwnerEmails returns owner emails for a company channel or an error (including ErrCompanyChannelNotFound).
-func (s *Server) portalOwnerEmails(ctx context.Context, chID string) ([]string, error) {
-	return s.store.OwnerEmailsForCompanyChannel(ctx, s.cfg.CompanyChannelsRedisKey, chID)
-}
-
-// assertPortalOwnerEmail returns false if email is not an owner for chID (channel must exist).
-func (s *Server) assertPortalOwnerEmail(ctx context.Context, chID, email string) (allowed bool, channelMissing bool, err error) {
-	allowedList, err := s.portalOwnerEmails(ctx, chID)
-	if err != nil {
-		if errors.Is(err, ErrCompanyChannelNotFound) {
-			return false, true, nil
-		}
-		return false, false, err
-	}
-	return emailInListFold(allowedList, normalizeProfileEmail(email)), false, nil
-}
-
-func emailInListFold(list []string, email string) bool {
-	for _, x := range list {
-		if strings.EqualFold(strings.TrimSpace(x), email) {
-			return true
-		}
-	}
-	return false
 }
 
 func (s *Server) validatePortalSessionForChannel(ctx context.Context, token, wantChannelID string) (PortalSession, error) {

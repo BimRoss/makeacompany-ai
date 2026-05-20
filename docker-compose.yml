@@ -5,17 +5,8 @@
 # Optional: MAKEACOMPANY_AI_ENV_FILE=.env.prod for prod-like compose. Host Next/go that only read ./.env:
 #   ./scripts/use-env.sh dev|prod → symlink .env → .env.dev|.env.prod
 #
-# Compose interpolates the whole file before profiles apply. KUBECONFIG_HOST_PATH defaults to
-# ${HOME}/.kube/config/admin.yaml (BimRoss layout) so `docker compose --profile prod` works without a root
-# .env; override with KUBECONFIG_HOST_PATH=/dev/null if you must parse prod services on a machine with no
-# kube fragment. For prod Next env + Stripe keys together, prefer `npm run docker:prod` / --env-file .env.prod.
-# frontend-prod defaults env_file to .env.prod when MAKEACOMPANY_AI_ENV_FILE is unset (local → .env.dev).
-#
 # Default host ports avoid clashing with sibling stacks run in other terminals:
 # - This stack: Redis → host ${REDIS_PORT:-6380}, API → ${BACKEND_PORT:-8090}
-# - employee-factory (separate compose) defaults workers to redis://host.docker.internal:${REDIS_PORT:-6380}/0
-#   so one Redis holds makeacompany:admin:*, waitlist hashes, and agent-factory:* shared keys (omit COMPANY_CHANNELS_REDIS_URL on the backend).
-# - slack-orchestrator publishes HTTP on 8080 by default. Orchestrator debug uses host.docker.internal + SLACK_ORCHESTRATOR_PORT.
 # Profile prod: Grafana forward publishes host ${PROD_GRAFANA_HOST_PORT:-13000} → svc/makeacompany-ai-grafana:3000 (see k8s-grafana-forward).
 #
 services:
@@ -42,19 +33,7 @@ services:
       # Use COMPOSE_REDIS_URL so a host-only REDIS_URL in .env.dev (e.g. for go run) does not break the container.
       # Example shared DB: COMPOSE_REDIS_URL=redis://host.docker.internal:6379/1
       REDIS_URL: ${COMPOSE_REDIS_URL:-redis://redis:6379/0}
-      # Align with agent-factory + prod GitOps (rancher-admin makeacompany-ai-config); override in .env.dev if you still run legacy employee-factory writers only.
-      COMPANY_CHANNELS_REDIS_KEY: ${COMPANY_CHANNELS_REDIS_KEY:-agent-factory:company_channels}
-      CAPABILITY_ROUTING_EVENTS_REDIS_KEY: ${CAPABILITY_ROUTING_EVENTS_REDIS_KEY:-agent-factory:capability_routing_events}
-      CHANNEL_KNOWLEDGE_REDIS_KEY_FMT: ${CHANNEL_KNOWLEDGE_REDIS_KEY_FMT:-agent-factory:channel_knowledge:%s:markdown}
-      COMPANY_CHANNELS_INVALIDATE_CHANNEL: ${COMPANY_CHANNELS_INVALIDATE_CHANNEL:-agent-factory:company_channels:invalidate}
-      THREAD_OWNER_REDIS_KEY_SCAN_PATTERN: ${THREAD_OWNER_REDIS_KEY_SCAN_PATTERN:-agent-factory:thread_owner:%s:*}
       APP_BASE_URL: ${APP_BASE_URL:-http://localhost:3000}
-      # Same host as Next ORCHESTRATOR_DEBUG_* — backend hourly/startup snapshot for /admin Companies strip.
-      ORCHESTRATOR_DEBUG_BASE_URL: ${ORCHESTRATOR_DEBUG_BASE_URL:-http://host.docker.internal:${SLACK_ORCHESTRATOR_PORT:-8080}}
-      ORCHESTRATOR_DEBUG_TOKEN: ${ORCHESTRATOR_DEBUG_TOKEN:-}
-      # Optional: route runtime authority reads to agent-factory admin authority.
-      AGENT_FACTORY_ADMIN_BASE_URL: ${AGENT_FACTORY_ADMIN_BASE_URL:-}
-      AGENT_FACTORY_ADMIN_TOKEN: ${AGENT_FACTORY_ADMIN_TOKEN:-}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
@@ -77,9 +56,6 @@ services:
       NEXT_PUBLIC_BACKEND_API_BASE_URL: ${COMPOSE_PUBLIC_API_URL:-http://localhost:8090}
       # Server-side API routes → backend service on the compose network (not localhost)
       BACKEND_INTERNAL_API_BASE_URL: http://backend:8080
-      # slack-orchestrator in another terminal: published on host as SLACK_ORCHESTRATOR_PORT (default 8080)
-      ORCHESTRATOR_DEBUG_BASE_URL: ${ORCHESTRATOR_DEBUG_BASE_URL:-http://host.docker.internal:${SLACK_ORCHESTRATOR_PORT:-8080}}
-      ORCHESTRATOR_DEBUG_TOKEN: ${ORCHESTRATOR_DEBUG_TOKEN:-}
       NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}
       NEXT_PUBLIC_LINKEDIN_PARTNER_ID: ${NEXT_PUBLIC_LINKEDIN_PARTNER_ID:-}
       NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY:-${STRIPE_PUBLISHABLE_KEY:-}}
@@ -108,16 +84,11 @@ services:
     depends_on:
       k8s-backend-forward:
         condition: service_healthy
-      k8s-orchestrator-forward:
-        condition: service_healthy
       k8s-grafana-forward:
         condition: service_healthy
     environment:
       NEXT_PUBLIC_BACKEND_API_BASE_URL: http://localhost:${PROD_BACKEND_PORT:-18080}
       BACKEND_INTERNAL_API_BASE_URL: http://k8s-backend-forward:8080
-      # Prod cluster slack-orchestrator (same pattern as k8s-backend-forward); override in env file if needed.
-      ORCHESTRATOR_DEBUG_BASE_URL: ${ORCHESTRATOR_DEBUG_BASE_URL:-http://k8s-orchestrator-forward:8080}
-      ORCHESTRATOR_DEBUG_TOKEN: ${ORCHESTRATOR_DEBUG_TOKEN:-}
       # Browser loads iframes from host; must match published PROD_GRAFANA_HOST_PORT (see k8s-grafana-forward).
       HEALTH_GRAFANA_LOCAL_BASE_URL: ${HEALTH_GRAFANA_LOCAL_BASE_URL:-http://127.0.0.1:${PROD_GRAFANA_HOST_PORT:-13000}}
       NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}
@@ -166,45 +137,6 @@ services:
           "get",
           "svc",
           "makeacompany-ai-backend",
-          "-o",
-          "name",
-        ]
-      interval: 10s
-      timeout: 5s
-      retries: 6
-      start_period: 15s
-    restart: unless-stopped
-
-  # kubectl port-forward to prod slack-orchestrator (admin / orchestrator log table).
-  k8s-orchestrator-forward:
-    profiles: ["prod"]
-    image: registry.k8s.io/kubectl:v1.32.2
-    command:
-      - --kubeconfig=/kube/config
-      - --context
-      - ${KUBECONFIG_CONTEXT:-admin}
-      - -n
-      - slack-orchestrator
-      - port-forward
-      - svc/slack-orchestrator
-      - 8080:8080
-      - --address
-      - 0.0.0.0
-    volumes:
-      - ${KUBECONFIG_HOST_PATH:-${HOME}/.kube/config/admin.yaml}:/kube/config:ro
-    healthcheck:
-      test:
-        [
-          "CMD",
-          "kubectl",
-          "--kubeconfig=/kube/config",
-          "--context",
-          "${KUBECONFIG_CONTEXT:-admin}",
-          "-n",
-          "slack-orchestrator",
-          "get",
-          "svc",
-          "slack-orchestrator",
           "-o",
           "name",
         ]

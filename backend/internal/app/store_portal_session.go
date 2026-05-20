@@ -132,35 +132,3 @@ func (s *Store) DeletePortalSession(ctx context.Context, token string) error {
 	return s.rdb.Del(ctx, portalSessionKey(token)).Err()
 }
 
-// OwnerEmailsForCompanyChannel returns distinct normalized emails for registry owner_ids via makeacompany:user_by_slack:<id>.
-// Requires Slack user index sync (see SyncSlackUserIndexFromWorkspaceUsers) for non-empty results.
-func (s *Store) OwnerEmailsForCompanyChannel(ctx context.Context, hashKey, channelID string) ([]string, error) {
-	if s == nil {
-		return nil, fmt.Errorf("nil store")
-	}
-	ch, err := s.GetCompanyChannel(ctx, hashKey, channelID)
-	if err != nil {
-		return nil, err
-	}
-	var emails []string
-	seen := map[string]bool{}
-	for _, uid := range ch.OwnerIDs {
-		uid = strings.TrimSpace(uid)
-		if uid == "" {
-			continue
-		}
-		em, err := s.rdb.Get(ctx, userBySlackRedisKey(uid)).Result()
-		if err == redis.Nil || strings.TrimSpace(em) == "" {
-			continue
-		}
-		if err != nil {
-			return nil, err
-		}
-		em = normalizeProfileEmail(em)
-		if em != "" && !seen[em] {
-			seen[em] = true
-			emails = append(emails, em)
-		}
-	}
-	return emails, nil
-}

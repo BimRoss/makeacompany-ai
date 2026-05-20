@@ -13,25 +13,14 @@ const defaultAdminPanelTitles = [
   "Inbound events by agent",
   "Activities",
   "JetStream publish /s",
-  "Worker orchestrator ingress",
-  "Orchestrator Socket Mode",
   "Backend HTTP errors/min",
 ];
 
 export const DEFAULT_GRAFANA_DASHBOARD_PATH =
   "/grafana/d/makeacompany-observability/makeacompany-observability?orgId=1";
-const DEFAULT_SLACK_ORCHESTRATOR_PATH =
-  "/grafana/d/makeacompany-slack-orchestrator/makeacompany-slack-orchestrator?orgId=1";
 const DEFAULT_AGENTS_PATH = "/grafana/d/makeacompany-agents/makeacompany-agents?orgId=1";
 /** K8s CronJob / Job panels (kube-state or app metrics). Provision this dashboard in Grafana, then align panel ids via env. */
 const DEFAULT_CRON_PATH = "/grafana/d/makeacompany-cronjobs/makeacompany-cronjobs?orgId=1";
-
-const defaultSlackOrchestratorPanelTitles = [
-  "Events API acks /s",
-  "JetStream publish /s",
-  "Publish latency p95",
-  "Socket Mode state",
-];
 
 const defaultAgentsPanelTitles = ["Activities", "All agents (goroutines)"];
 
@@ -160,12 +149,10 @@ export function buildGrafanaHealthEmbeds(
 ): {
   grafanaDashboardUrl: string | null;
   twitterGrafanaDashboardUrl: string | null;
-  slackOrchestratorGrafanaDashboardUrl: string | null;
   agentsGrafanaDashboardUrl: string | null;
   cronjobGrafanaDashboardUrl: string | null;
   grafanaEmbeds: GrafanaEmbed[];
   adminGrafanaEmbeds: GrafanaEmbed[];
-  slackOrchestratorGrafanaEmbeds: GrafanaEmbed[];
   agentsGrafanaEmbeds: GrafanaEmbed[];
   cronjobGrafanaEmbeds: GrafanaEmbed[];
 } {
@@ -191,26 +178,11 @@ export function buildGrafanaHealthEmbeds(
     "3",
     "4",
     "9",
-    "10",
-    "11",
     "8",
   ]);
   const adminPanelTitles = parseList(
     process.env.HEALTH_GRAFANA_ADMIN_PANEL_TITLES,
     defaultAdminPanelTitles
-  );
-
-  const slackOrchestratorConfigured = process.env.HEALTH_GRAFANA_SLACK_ORCHESTRATOR_DASHBOARD_URL?.trim() || null;
-  const slackOrchestratorDashboardUrl =
-    normalizeGrafanaDashboardUrl(slackOrchestratorConfigured, requestHost, requestProto) ??
-    buildDefaultGrafanaPathUrl(requestHost, requestProto, DEFAULT_SLACK_ORCHESTRATOR_PATH);
-  const slackOrchestratorPanelIds = parseList(
-    process.env.HEALTH_GRAFANA_SLACK_ORCHESTRATOR_PANEL_IDS,
-    ["1", "2", "3", "4"]
-  );
-  const slackOrchestratorPanelTitles = parseList(
-    process.env.HEALTH_GRAFANA_SLACK_ORCHESTRATOR_PANEL_TITLES,
-    defaultSlackOrchestratorPanelTitles
   );
 
   const agentsConfigured = process.env.HEALTH_GRAFANA_AGENTS_DASHBOARD_URL?.trim() || null;
@@ -247,12 +219,6 @@ export function buildGrafanaHealthEmbeds(
     adminPanelIds,
     adminPanelTitles
   );
-  const slackOrchestratorGrafanaEmbeds = buildGrafanaEmbeds(
-    slackOrchestratorDashboardUrl,
-    "app",
-    slackOrchestratorPanelIds,
-    slackOrchestratorPanelTitles
-  );
   const agentsGrafanaEmbeds = buildGrafanaEmbeds(
     agentsDashboardUrl,
     "app",
@@ -269,12 +235,10 @@ export function buildGrafanaHealthEmbeds(
   return {
     grafanaDashboardUrl,
     twitterGrafanaDashboardUrl: twitterDashboardUrl,
-    slackOrchestratorGrafanaDashboardUrl: slackOrchestratorDashboardUrl,
     agentsGrafanaDashboardUrl: agentsDashboardUrl,
     cronjobGrafanaDashboardUrl: cronjobDashboardUrl,
     grafanaEmbeds,
     adminGrafanaEmbeds,
-    slackOrchestratorGrafanaEmbeds,
     agentsGrafanaEmbeds,
     cronjobGrafanaEmbeds,
   };

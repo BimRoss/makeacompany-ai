@@ -1,6 +1,6 @@
 import { AdminSlackWorkspaceLiveSyncOnce } from "@/components/admin/admin-slack-workspace-live-sync-once";
 import { AdminPostAuthWelcomeBoundary } from "@/components/admin/admin-post-auth-welcome-toast";
-import { AdminCompanyChannelsStrip } from "@/components/admin/admin-company-channels-strip";
+import { AdminChannelsStrip } from "@/components/admin/admin-channels-strip";
 import { AdminAgentsAllGrafanaEmbed } from "@/components/admin/admin-agents-all-grafana-embed";
 import { AdminCronJobsGrafanaEmbed } from "@/components/admin/admin-cronjobs-grafana-embed";
 import { AdminOverviewGrafanaGrid } from "@/components/admin/admin-overview-grafana-grid";
@@ -18,8 +18,8 @@ export default function AdminPage() {
           <AdminAgentsAllGrafanaEmbed />
           <AdminCronJobsGrafanaEmbed />
         </div>
+        <AdminChannelsStrip />
         <AdminSlackUsersTable />
-        <AdminCompanyChannelsStrip />
         <AdminStripeUsersTable />
       </div>
     </AdminShell>

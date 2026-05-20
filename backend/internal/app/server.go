@@ -69,12 +69,13 @@ func errStringOrNil(err error) any {
 }
 
 type Server struct {
-	cfg    Config
-	log    *log.Logger
-	store  *Store
-	mux    *http.ServeMux
-	cors   string
-	health *healthChecker
+	cfg                   Config
+	log                   *log.Logger
+	store                 *Store
+	mux                   *http.ServeMux
+	cors                  string
+	health                *healthChecker
+	freeTrialInviteLimiter *ipRateLimiter
 }
 
 func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
@@ -84,8 +85,9 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 		log:    logger,
 		store:  store,
 		mux:    http.NewServeMux(),
-		cors:   cfg.AppBaseURL,
-		health: newHealthChecker(store.rdb, os.Getenv("COOKIE_HEALTH_TOKEN")),
+		cors:                   cfg.AppBaseURL,
+		health:                 newHealthChecker(store.rdb, os.Getenv("COOKIE_HEALTH_TOKEN")),
+		freeTrialInviteLimiter: newIPRateLimiter(5, 30),
 	}
 	s.mux.HandleFunc("/livez", s.handleLivez)
 	s.mux.HandleFunc("/readyz", s.handleReadiness)
@@ -102,38 +104,22 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 	s.mux.HandleFunc("/v1/admin/stripe-waitlist-purchasers", s.handleAdminStripeWaitlistPurchasers)
 	s.mux.HandleFunc("/v1/admin/slack-workspace-users", s.handleAdminSlackWorkspaceUsers)
 	s.mux.HandleFunc("/v1/admin/slack-bot-author-profiles", s.handleAdminSlackBotAuthorProfiles)
-	s.mux.HandleFunc("/v1/admin/slack-member-channels", s.handleAdminSlackMemberChannels)
+	s.mux.HandleFunc("/v1/admin/channels", s.handleAdminChannels)
+	s.mux.HandleFunc("/v1/admin/channel-members", s.handleAdminChannelMembers)
 	s.mux.HandleFunc("/v1/admin/user-profiles", s.handleAdminUserProfiles)
 	s.mux.HandleFunc("/v1/internal/refresh-stripe-waitlist-snapshot", s.handleInternalRefreshStripeWaitlistSnapshot)
 	s.mux.HandleFunc("/v1/internal/refresh-slack-users-snapshot", s.handleInternalRefreshSlackUsersSnapshot)
-	s.mux.HandleFunc("/v1/internal/refresh-slack-member-channels-snapshot", s.handleInternalRefreshSlackMemberChannelsSnapshot)
-	s.mux.HandleFunc("/v1/internal/bootstrap-company-channels-from-orchestrator", s.handleInternalBootstrapCompanyChannelsFromOrchestrator)
-	s.mux.HandleFunc("/v1/admin/company-channels", s.handleAdminCompanyChannels)
-	s.mux.HandleFunc("POST /v1/admin/company-channels/discover", s.handleAdminCompanyChannelsDiscover)
-	s.mux.HandleFunc("POST /v1/admin/company-channels/registry-prune", s.handleAdminCompanyChannelsRegistryPrune)
-	s.mux.HandleFunc("GET /v1/admin/company-channels/{channelId}", s.handleAdminCompanyChannelGet)
-	s.mux.HandleFunc("PATCH /v1/admin/company-channels/{channelId}", s.handleAdminCompanyChannelPatch)
-	s.mux.HandleFunc("GET /v1/admin/channel-knowledge/{channelId}", s.handleAdminChannelKnowledge)
-	s.mux.HandleFunc("POST /v1/admin/channel-knowledge/{channelId}/refresh", s.handleAdminChannelKnowledgeRefresh)
-	s.mux.HandleFunc("GET /v1/admin/capability-routing-events", s.handleAdminCapabilityRoutingEvents)
-	// Unauthenticated read-only proxy to skills-mcp-server REST list (markdown-backed Agent Skills).
-	// Returns summary fields only (no instructions body); enabled when SKILLS_MCP_BASE_URL is set.
-	s.mux.HandleFunc("/v1/public/agent-skills", s.handlePublicAgentSkills)
-	// Unauthenticated read-only proxy to agents-mcp-server GET /api/roster (canonical squad list).
-	s.mux.HandleFunc("/v1/public/agents-roster", s.handlePublicAgentsRoster)
 	s.mux.HandleFunc("/v1/admin/auth/me", s.handleAdminAuthMe)
 	s.mux.HandleFunc("/v1/admin/auth/logout", s.handleAdminAuthLogout)
 	s.mux.HandleFunc("/v1/admin/auth/google/finish", s.handleAdminAuthGoogleFinish)
 	s.mux.HandleFunc("/v1/admin/auth/magic/start", s.handleAdminAuthMagicStart)
 	s.mux.HandleFunc("/v1/admin/auth/magic/finish", s.handleAdminAuthMagicFinish)
-	s.mux.HandleFunc("/v1/portal/slack-bot-author-profiles", s.handlePortalSlackBotAuthorProfiles)
 	s.mux.HandleFunc("/v1/portal/auth/me", s.handlePortalAuthMe)
 	s.mux.HandleFunc("POST /v1/portal/billing/cancel-subscription", s.handlePortalBillingCancelSubscription)
 	s.mux.HandleFunc("/v1/portal/auth/logout", s.handlePortalAuthLogout)
 	s.mux.HandleFunc("/v1/portal/auth/google/finish", s.handlePortalAuthGoogleFinish)
 	s.mux.HandleFunc("/v1/portal/auth/magic/start", s.handlePortalAuthMagicStart)
 	s.mux.HandleFunc("/v1/portal/auth/magic/finish", s.handlePortalAuthMagicFinish)
-	s.mux.HandleFunc("GET /v1/portal/channel-public-label/{channelId}", s.handlePortalChannelPublicLabel)
 	return s, nil
 }
 
@@ -189,36 +175,16 @@ func normalizeMetricRoute(path string) string {
 		return "/v1/admin/slack-workspace-users"
 	case path == "/v1/admin/slack-bot-author-profiles":
 		return "/v1/admin/slack-bot-author-profiles"
-	case path == "/v1/admin/slack-member-channels":
-		return "/v1/admin/slack-member-channels"
+	case path == "/v1/admin/channels":
+		return "/v1/admin/channels"
+	case path == "/v1/admin/channel-members":
+		return "/v1/admin/channel-members"
 	case path == "/v1/admin/user-profiles":
 		return "/v1/admin/user-profiles"
 	case path == "/v1/internal/refresh-stripe-waitlist-snapshot":
 		return "/v1/internal/refresh-stripe-waitlist-snapshot"
 	case path == "/v1/internal/refresh-slack-users-snapshot":
 		return "/v1/internal/refresh-slack-users-snapshot"
-	case path == "/v1/internal/refresh-slack-member-channels-snapshot":
-		return "/v1/internal/refresh-slack-member-channels-snapshot"
-	case path == "/v1/internal/bootstrap-company-channels-from-orchestrator":
-		return "/v1/internal/bootstrap-company-channels-from-orchestrator"
-	case path == "/v1/admin/company-channels":
-		return "/v1/admin/company-channels"
-	case path == "/v1/admin/company-channels/discover":
-		return "/v1/admin/company-channels/discover"
-	case path == "/v1/admin/company-channels/registry-prune":
-		return "/v1/admin/company-channels/registry-prune"
-	case strings.HasPrefix(path, "/v1/admin/company-channels/"):
-		return "/v1/admin/company-channels/{channelId}"
-	case strings.HasPrefix(path, "/v1/admin/channel-knowledge/") && strings.HasSuffix(path, "/refresh"):
-		return "/v1/admin/channel-knowledge/{channelId}/refresh"
-	case strings.HasPrefix(path, "/v1/admin/channel-knowledge/"):
-		return "/v1/admin/channel-knowledge/{channelId}"
-	case path == "/v1/admin/capability-routing-events":
-		return "/v1/admin/capability-routing-events"
-	case path == "/v1/public/agent-skills":
-		return "/v1/public/agent-skills"
-	case path == "/v1/public/agents-roster":
-		return "/v1/public/agents-roster"
 	case path == "/v1/admin/auth/me":
 		return "/v1/admin/auth/me"
 	case path == "/v1/admin/auth/logout":
@@ -231,8 +197,6 @@ func normalizeMetricRoute(path string) string {
 		return "/v1/admin/auth/magic/finish"
 	case path == "/v1/portal/auth/me":
 		return "/v1/portal/auth/me"
-	case path == "/v1/portal/slack-bot-author-profiles":
-		return "/v1/portal/slack-bot-author-profiles"
 	case path == "/v1/portal/billing/cancel-subscription":
 		return "/v1/portal/billing/cancel-subscription"
 	case path == "/v1/portal/auth/logout":
@@ -243,8 +207,6 @@ func normalizeMetricRoute(path string) string {
 		return "/v1/portal/auth/magic/start"
 	case path == "/v1/portal/auth/magic/finish":
 		return "/v1/portal/auth/magic/finish"
-	case strings.HasPrefix(path, "/v1/portal/channel-public-label/"):
-		return "/v1/portal/channel-public-label/{channelId}"
 	case strings.HasPrefix(path, "/v1/"):
 		return "/v1/other"
 	default:
@@ -254,7 +216,8 @@ func normalizeMetricRoute(path string) string {
 
 func (s *Server) withCORS(w http.ResponseWriter, r *http.Request, next http.Handler) {
 	origin := r.Header.Get("Origin")
-	if origin != "" && (origin == s.cors || strings.HasPrefix(origin, "http://localhost:")) {
+	allowLocalhost := s.cfg.AppEnv != "production" && strings.HasPrefix(origin, "http://localhost:")
+	if origin != "" && (origin == s.cors || allowLocalhost) {
 		w.Header().Set("Access-Control-Allow-Origin", origin)
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PATCH, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Stripe-Signature, X-Admin-Token, X-Admin-Session, Authorization")
@@ -518,283 +481,6 @@ func (s *Server) handleAdminUserProfiles(w http.ResponseWriter, r *http.Request)
 	})
 }
 
-func (s *Server) handleAdminCompanyChannels(w http.ResponseWriter, r *http.Request) {
-	if s.proxyAgentFactoryJSON(w, r, "/v1/admin/company-channels") {
-		return
-	}
-	if r.Method != http.MethodGet {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	ok, svcUnavail := s.adminReadOrInternalServiceAuthorized(r)
-	if !ok {
-		if svcUnavail {
-			http.Error(w, "admin auth disabled", http.StatusServiceUnavailable)
-		} else {
-			http.Error(w, "unauthorized", http.StatusUnauthorized)
-		}
-		return
-	}
-	channels, truncated, err := s.store.ListCompanyChannels(r.Context(), s.cfg.CompanyChannelsRedisKey)
-	if err != nil {
-		s.log.Printf("admin company channels: %v", err)
-		http.Error(w, "company channels error", http.StatusInternalServerError)
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]any{
-		"channels":  channels,
-		"truncated": truncated,
-		"redisKey":  strings.TrimSpace(s.cfg.CompanyChannelsRedisKey),
-	})
-}
-
-func (s *Server) handleAdminCompanyChannelsDiscover(w http.ResponseWriter, r *http.Request) {
-	if s.proxyAgentFactoryJSON(w, r, "/v1/admin/company-channels/discover") {
-		return
-	}
-	if r.Method != http.MethodPost {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	ok, svcUnavail := s.companyRegistryReadAuthorized(r)
-	if !ok {
-		if svcUnavail {
-			http.Error(w, "admin auth disabled", http.StatusServiceUnavailable)
-		} else {
-			http.Error(w, "unauthorized", http.StatusUnauthorized)
-		}
-		return
-	}
-	var body struct {
-		Channels []struct {
-			ChannelID string   `json:"channel_id"`
-			Name      string   `json:"name"`
-			OwnerIDs  []string `json:"owner_ids"`
-		} `json:"channels"`
-	}
-	if err := json.NewDecoder(io.LimitReader(r.Body, 1<<20)).Decode(&body); err != nil {
-		http.Error(w, "invalid json", http.StatusBadRequest)
-		return
-	}
-	var in []DiscoveredChannelInput
-	for _, c := range body.Channels {
-		cid := strings.TrimSpace(c.ChannelID)
-		if cid == "" || !ValidSlackChannelID(cid) {
-			continue
-		}
-		in = append(in, DiscoveredChannelInput{ChannelID: cid, Name: c.Name, OwnerIDs: c.OwnerIDs})
-	}
-	if len(in) == 0 {
-		writeJSON(w, http.StatusOK, map[string]any{
-			"upserted":       []string{},
-			"upserted_count": 0,
-			"requested":      0,
-			"redisKey":       strings.TrimSpace(s.cfg.CompanyChannelsRedisKey),
-		})
-		return
-	}
-	touched, err := s.store.UpsertDiscoveredCompanyChannels(r.Context(), s.cfg.CompanyChannelsRedisKey, in)
-	if err != nil {
-		s.log.Printf("admin company channels discover: %v", err)
-		http.Error(w, "company channels discover error", http.StatusInternalServerError)
-		return
-	}
-	s.FireAgentFactoryChannelKnowledgeRefresh(touched)
-	writeJSON(w, http.StatusOK, map[string]any{
-		"upserted":       touched,
-		"upserted_count": len(touched),
-		"requested":      len(in),
-		"redisKey":       strings.TrimSpace(s.cfg.CompanyChannelsRedisKey),
-	})
-}
-
-// handleAdminCompanyChannelsRegistryPrune removes Redis registry rows (and channel-scoped auxiliary keys)
-// not present in keep_channel_ids. Caller must pass the live Slack/orchestrator member-channel id set.
-func (s *Server) handleAdminCompanyChannelsRegistryPrune(w http.ResponseWriter, r *http.Request) {
-	if s.proxyAgentFactoryJSON(w, r, "/v1/admin/company-channels/registry-prune") {
-		return
-	}
-	if r.Method != http.MethodPost {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	ok, svcUnavail := s.companyRegistryReadAuthorized(r)
-	if !ok {
-		if svcUnavail {
-			http.Error(w, "admin auth disabled", http.StatusServiceUnavailable)
-		} else {
-			http.Error(w, "unauthorized", http.StatusUnauthorized)
-		}
-		return
-	}
-	var body struct {
-		KeepChannelIDs []string `json:"keep_channel_ids"`
-	}
-	if err := json.NewDecoder(io.LimitReader(r.Body, 1<<20)).Decode(&body); err != nil {
-		http.Error(w, "invalid json", http.StatusBadRequest)
-		return
-	}
-	removed, err := s.store.PruneCompanyChannelsRegistry(r.Context(), s.cfg.CompanyChannelsRedisKey, body.KeepChannelIDs)
-	if err != nil {
-		s.log.Printf("admin company channels registry-prune: %v", err)
-		writeJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]any{
-		"ok":            true,
-		"removed":       removed,
-		"removed_count": len(removed),
-		"redisKey":      strings.TrimSpace(s.cfg.CompanyChannelsRedisKey),
-	})
-}
-
-func (s *Server) handleAdminCompanyChannelGet(w http.ResponseWriter, r *http.Request) {
-	if s.hasAgentFactoryAuthority() {
-		chID := strings.TrimSpace(r.PathValue("channelId"))
-		if chID == "" || !ValidSlackChannelID(chID) {
-			http.Error(w, "bad channel id", http.StatusBadRequest)
-			return
-		}
-		if s.proxyAgentFactoryJSON(w, r, "/v1/admin/company-channels/"+chID) {
-			return
-		}
-	}
-	if r.Method != http.MethodGet {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	chID := strings.TrimSpace(r.PathValue("channelId"))
-	if chID == "" || !ValidSlackChannelID(chID) {
-		http.Error(w, "bad channel id", http.StatusBadRequest)
-		return
-	}
-	ok, _ := s.adminReadOrInternalServiceAuthorized(r)
-	if !ok && !s.authorizedForCompanyChannelRead(r, chID) {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
-		return
-	}
-	e, err := s.store.GetCompanyChannel(r.Context(), s.cfg.CompanyChannelsRedisKey, chID)
-	if err != nil {
-		if errors.Is(err, ErrCompanyChannelNotFound) {
-			http.Error(w, "not found", http.StatusNotFound)
-			return
-		}
-		s.log.Printf("admin company channel get: %v", err)
-		http.Error(w, "company channel error", http.StatusInternalServerError)
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]any{
-		"channel":  e,
-		"redisKey": strings.TrimSpace(s.cfg.CompanyChannelsRedisKey),
-	})
-}
-
-func (s *Server) handleAdminCompanyChannelPatch(w http.ResponseWriter, r *http.Request) {
-	if s.hasAgentFactoryAuthority() {
-		chID := strings.TrimSpace(r.PathValue("channelId"))
-		if chID == "" || !ValidSlackChannelID(chID) {
-			http.Error(w, "bad channel id", http.StatusBadRequest)
-			return
-		}
-		if s.proxyAgentFactoryJSON(w, r, "/v1/admin/company-channels/"+chID) {
-			return
-		}
-	}
-	if r.Method != http.MethodPatch {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	chID := strings.TrimSpace(r.PathValue("channelId"))
-	if chID == "" || !ValidSlackChannelID(chID) {
-		http.Error(w, "bad channel id", http.StatusBadRequest)
-		return
-	}
-	if !s.authorizedForCompanyChannelPatch(r, chID) {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
-		return
-	}
-	var patch CompanyChannelPatch
-	if err := json.NewDecoder(io.LimitReader(r.Body, 1<<20)).Decode(&patch); err != nil {
-		http.Error(w, "invalid json", http.StatusBadRequest)
-		return
-	}
-	if patch.GeneralAutoReactionEnabled == nil && patch.GeneralResponsesMuted == nil && patch.OutOfOfficeEnabled == nil {
-		http.Error(w, "no updatable fields", http.StatusBadRequest)
-		return
-	}
-	e, err := s.store.PatchCompanyChannel(r.Context(), s.cfg.CompanyChannelsRedisKey, chID, patch)
-	if err != nil {
-		if errors.Is(err, ErrCompanyChannelNotFound) {
-			http.Error(w, "not found", http.StatusNotFound)
-			return
-		}
-		s.log.Printf("admin company channel patch: %v", err)
-		http.Error(w, "company channel error", http.StatusInternalServerError)
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]any{
-		"channel": e,
-	})
-}
-
-func (s *Server) handleAdminChannelKnowledge(w http.ResponseWriter, r *http.Request) {
-	if s.hasAgentFactoryAuthority() {
-		chID := strings.TrimSpace(r.PathValue("channelId"))
-		if chID == "" || !ValidSlackChannelID(chID) {
-			http.Error(w, "bad channel id", http.StatusBadRequest)
-			return
-		}
-		if s.proxyAgentFactoryJSON(w, r, "/v1/admin/channel-knowledge/"+chID) {
-			return
-		}
-	}
-	chID := strings.TrimSpace(r.PathValue("channelId"))
-	if chID == "" || !ValidSlackChannelID(chID) {
-		http.Error(w, "bad channel id", http.StatusBadRequest)
-		return
-	}
-	ok, _ := s.adminReadOrInternalServiceAuthorized(r)
-	if !ok && !s.authorizedForCompanyChannelRead(r, chID) {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
-		return
-	}
-	md, err := s.store.GetChannelKnowledgeMarkdown(r.Context(), chID)
-	if err != nil {
-		s.log.Printf("admin channel knowledge: %v", err)
-		http.Error(w, "channel knowledge error", http.StatusInternalServerError)
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]any{
-		"channel_id": chID,
-		"markdown":   md,
-		"empty":      strings.TrimSpace(md) == "",
-	})
-}
-
-func (s *Server) handleAdminChannelKnowledgeRefresh(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	chID := strings.TrimSpace(r.PathValue("channelId"))
-	if chID == "" || !ValidSlackChannelID(chID) {
-		http.Error(w, "bad channel id", http.StatusBadRequest)
-		return
-	}
-	ok, _ := s.adminReadOrInternalServiceAuthorized(r)
-	if !ok && !s.authorizedForCompanyChannelRead(r, chID) {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
-		return
-	}
-	if s.hasAgentFactoryAuthority() {
-		if s.proxyAgentFactoryJSON(w, r, "/v1/admin/channel-knowledge/"+chID+"/refresh") {
-			return
-		}
-	}
-	writeJSON(w, http.StatusServiceUnavailable, map[string]any{
-		"error": "agent-factory admin is not configured; cannot refresh digest from this path",
-	})
-}
 
 func (s *Server) handleCheckoutStatus(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
