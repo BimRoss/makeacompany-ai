@@ -99,7 +99,7 @@ export function CtaSection() {
                   type="submit"
                   disabled={loading}
                   aria-busy={loading}
-                  className="waitlist-cta group inline-flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-primary px-5 text-base font-semibold text-primary-foreground disabled:opacity-70 sm:h-14 sm:w-auto sm:px-10 sm:text-lg"
+                  className="waitlist-cta group inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-primary px-5 text-base font-semibold text-primary-foreground disabled:opacity-70 sm:h-12 sm:w-auto sm:px-10 sm:text-lg md:h-14"
                 >
                   {loading ? (
                     <>

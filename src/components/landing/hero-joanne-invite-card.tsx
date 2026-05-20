@@ -4,9 +4,9 @@ import { Sparkles } from "lucide-react";
 import { useEffect, useState } from "react";
 
 const MESSAGE =
-  "I will send you an invite to your workspace after you sign up! Cancel anytime.";
+  "I'll email your Slack invite right after you sign up. Ross and I will be waiting when you log in. Cancel anytime.";
 
-const ATTRIBUTION = "Joanne, Executive Operations";
+const ATTRIBUTION = "Joanne, Chief of Staff";
 
 const TICK_MS = 26;
 
@@ -60,8 +60,8 @@ export function HeroJoanneInviteCard() {
   }, []);
 
   return (
-    <div className="mx-auto mt-3 w-full max-w-md sm:mt-4" role="region" aria-label="Note from Joanne">
-      <div className="flex flex-col gap-2.5 rounded-xl border border-border bg-card py-2.5 pl-3 pr-2.5 text-left shadow-md sm:gap-3 sm:py-3 sm:pl-3 sm:pr-2.5">
+    <div className="mx-auto mt-5 w-full max-w-md sm:mt-8" role="region" aria-label="Note from Joanne">
+      <div className="flex flex-col gap-2.5 rounded-xl border border-border bg-card py-3 pl-3 pr-2.5 text-left shadow-md sm:gap-3 sm:py-4 sm:pl-3 sm:pr-2.5">
         <div className="flex w-full min-w-0 items-start gap-2.5 sm:gap-3">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img

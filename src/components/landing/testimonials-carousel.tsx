@@ -103,6 +103,7 @@ export function TestimonialsCarousel() {
           </p>
         </div>
 
+        <div className="relative">
         <div
           ref={scrollRef}
           onMouseDown={onMouseDown}
@@ -111,6 +112,7 @@ export function TestimonialsCarousel() {
               ? "snap-none md:cursor-grabbing md:select-none"
               : "max-md:snap-x max-md:snap-mandatory md:snap-none md:cursor-grab"
           }`}
+          style={{ touchAction: "pan-x" }}
           role="region"
           aria-label="Testimonials"
         >
@@ -146,6 +148,11 @@ export function TestimonialsCarousel() {
               </div>
             </article>
           ))}
+        </div>
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-background to-transparent md:hidden"
+        />
         </div>
       </div>
     </section>

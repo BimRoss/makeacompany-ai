@@ -38,7 +38,7 @@ export function HeroRoadmap() {
         })}
       </ol>
 
-      <ol className="mt-2.5 grid grid-cols-3 gap-x-2 gap-y-2 text-[0.68rem] font-medium uppercase tracking-[0.08em] text-muted-foreground sm:mt-3 sm:grid-cols-6 sm:text-[0.72rem]">
+      <ol className="mt-2.5 grid grid-cols-3 gap-x-2 gap-y-2 text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground sm:mt-3 sm:grid-cols-6 sm:text-[0.72rem]">
         {roadmapStages.map((stage) => (
           <li key={`${stage.label}-label`} className="text-center leading-tight">
             {stage.label}

@@ -59,8 +59,8 @@ export default function HomePage() {
       <HeroSection />
       <TestimonialsCarousel />
       <CtaSection />
-      <section className="hidden sm:block">
-        <div className="mx-auto w-full max-w-4xl px-6">
+      <section className="block">
+        <div className="mx-auto w-full max-w-4xl px-4 sm:px-6">
           <HeroRoadmap />
         </div>
       </section>
