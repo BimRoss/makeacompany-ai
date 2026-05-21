@@ -4,14 +4,15 @@ export const siteDomainLabel = "makeacompany.ai";
 export const siteName = siteDomainLabel;
 
 /** Primary headline lines — hero H1 */
-export const siteTaglineLine1 = "The Power of Claude,";
-export const siteTaglineLine2 = "The Ease of Slack.";
+export const siteTaglineLine1 = "Your AI ops team,";
+export const siteTaglineLine2 = "living in Slack.";
 
 /** Single-line headline for `<title>`, OG alt, and other one-string contexts */
 export const siteTagline = `${siteTaglineLine1} ${siteTaglineLine2}`;
 
 /** Hero subhead under H1; link previews use the same string via `siteDescription` */
-export const siteDescriptionLine2 = "AI does the work. You make the calls.";
+export const siteDescriptionLine2 =
+  "Ship code, DNS, docs, and customer follow-up by sending one Slack message.";
 
 /**
  * Meta / Open Graph / Twitter / manifest / JSON-LD — short unfurl description.

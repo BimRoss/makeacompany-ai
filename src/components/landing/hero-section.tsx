@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Sparkles } from "lucide-react";
+import { MessageSquareCode, PlayCircle, Sparkles } from "lucide-react";
 import { CheckoutButton } from "@/components/landing/checkout-button";
 import { HeroJoanneInviteCard } from "@/components/landing/hero-joanne-invite-card";
 import { HeroSubheadRewrite } from "@/components/landing/hero-subhead-rewrite";
@@ -121,7 +121,7 @@ export function HeroSection() {
         <div className="mb-4 flex justify-center sm:mb-6">
           <div className="inline-flex items-center gap-2 rounded-full border border-foreground bg-background px-3 py-1.5 text-xs text-foreground sm:px-4 sm:py-2 sm:text-sm">
             <Sparkles className="h-3.5 w-3.5 text-foreground sm:h-4 sm:w-4" />
-            <span>Meet Joanne + Ross — your AI team in Slack</span>
+            <span>$99/mo · Claude Code, zero setup</span>
           </div>
         </div>
 
@@ -146,11 +146,25 @@ export function HeroSection() {
 
         <HeroSubheadRewrite onAgentChange={onRewriteAgentChange} />
 
-        <div className="mb-4 flex justify-center sm:mb-6">
-          <p className="inline-flex items-center rounded-full border border-border bg-muted px-4 py-1.5 text-sm font-semibold tracking-tight text-foreground sm:px-5 sm:text-base">
-            <span className="sm:hidden">$99/mo · Claude Code, zero setup.</span>
-            <span className="hidden sm:inline">$99/mo · Claude Code, hosted in your Slack — zero setup, anywhere.</span>
-          </p>
+        <div className="mx-auto mb-5 grid w-full max-w-3xl gap-3 text-left sm:mb-7 sm:grid-cols-[1.08fr_0.92fr]">
+          <div className="rounded-lg border border-border bg-card px-4 py-3 shadow-sm sm:px-5 sm:py-4">
+            <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-foreground">
+              <MessageSquareCode className="h-4 w-4" aria-hidden />
+              <span>Slack thread to shipped work</span>
+            </div>
+            <p className="text-pretty text-sm leading-relaxed text-muted-foreground sm:text-base">
+              Ask Joanne or Ross in Slack, get a real task thread, and review the shipped PR or doc.
+            </p>
+          </div>
+          <div className="rounded-lg border border-border bg-muted px-4 py-3 shadow-sm sm:px-5 sm:py-4">
+            <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-foreground">
+              <PlayCircle className="h-4 w-4" aria-hidden />
+              <span>Proof before portraits</span>
+            </div>
+            <p className="text-pretty text-sm leading-relaxed text-muted-foreground sm:text-base">
+              See the product doing the job: request, execution, and handoff without leaving Slack.
+            </p>
+          </div>
         </div>
 
         <CheckoutButton label="Start Building" />

@@ -227,14 +227,14 @@ export function HeroSubheadRewrite({ onAgentChange }: Props) {
         type="button"
         onClick={cycleNext}
         disabled={loading}
-        aria-label="Tell me more about Joanne and Ross"
+        aria-label="Show another example from Joanne and Ross"
         className="group inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-3 py-1 text-xs font-medium text-muted-foreground transition-colors hover:border-foreground hover:bg-muted hover:text-foreground active:border-foreground active:bg-muted active:text-foreground disabled:opacity-70 sm:px-3.5 sm:py-1.5 sm:text-sm"
       >
         <Sparkles
           className={`h-3.5 w-3.5 transition-transform group-hover:scale-110 group-active:scale-110 sm:h-4 sm:w-4 ${loading ? "animate-pulse" : ""}`}
           aria-hidden
         />
-        <span>{loading ? "Thinking…" : "Tell me more"}</span>
+        <span>{loading ? "Thinking…" : "Show another example"}</span>
       </button>
     </div>
   );
