@@ -174,28 +174,67 @@ jobs:
               path.write_text(updated)
           PY
 
-      - name: Commit and push manifest updates
+      - name: Commit manifest updates to PR branch
+        id: commit
         working-directory: rancher-admin
         env:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
           if git diff --quiet; then
             echo "No manifest changes to commit."
+            echo "changed=false" >> "${GITHUB_OUTPUT}"
             exit 0
           fi
           git config user.name "makeacompany-ai-ci"
           git config user.email "makeacompany-ai-ci@users.noreply.github.com"
+          MSG="release(makeacompany-ai): bump images to ${VERSION}"
+          BRANCH="gitops/makeacompany-ai-${VERSION}"
+          # Idempotent branch: if a prior run created it, reset and force-push so
+          # the PR reflects the latest manifest. Branch name embeds version, so
+          # collisions only happen on workflow reruns for the same tag.
+          git checkout -B "${BRANCH}"
           git add admin/apps/makeacompany-ai/frontend.yaml admin/apps/makeacompany-ai/backend.yaml
-          git commit -m "release(makeacompany-ai): bump images to ${VERSION}"
-          for attempt in 1 2 3; do
-            if git push origin master; then
-              echo "Push succeeded on attempt ${attempt}."
-              exit 0
-            fi
-            if [ "${attempt}" -eq 3 ]; then
-              echo "Push failed after ${attempt} attempts."
-              exit 1
-            fi
-            echo "Push race detected; rebasing onto latest origin/master and retrying."
-            git pull --rebase origin master
-          done
+          git commit -m "${MSG}"
+          git push --force-with-lease origin "${BRANCH}"
+          echo "changed=true" >> "${GITHUB_OUTPUT}"
+          echo "branch=${BRANCH}" >> "${GITHUB_OUTPUT}"
+          echo "title=${MSG}" >> "${GITHUB_OUTPUT}"
+
+      - name: Open or update PR and enable auto-merge
+        if: steps.commit.outputs.changed == 'true'
+        working-directory: rancher-admin
+        env:
+          GH_TOKEN: ${{ secrets.RANCHER_ADMIN_REPO_TOKEN }}
+          BRANCH: ${{ steps.commit.outputs.branch }}
+          TITLE: ${{ steps.commit.outputs.title }}
+          VERSION: ${{ steps.version.outputs.version }}
+          SOURCE_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          BODY=$(printf '%s\n' \
+            "Automated GitOps bump from \`${GITHUB_REPOSITORY}\`." \
+            "" \
+            "- version: \`${VERSION}\`" \
+            "- images: \`geeemoney/makeacompany-ai-frontend:${VERSION}\`, \`geeemoney/makeacompany-ai-backend:${VERSION}\`" \
+            "- source run: ${SOURCE_RUN_URL}" \
+            "" \
+            "Org ruleset on \`master\` requires PR review." \
+            "Auto-merge (squash) is enabled; PR will merge once approvals land.")
+          EXISTING=$(gh pr list --head "${BRANCH}" --state open --json number --jq '.[0].number' || true)
+          if [ -n "${EXISTING}" ]; then
+            echo "Reusing existing PR #${EXISTING} for branch ${BRANCH}."
+            PR_NUMBER="${EXISTING}"
+            gh pr edit "${PR_NUMBER}" --title "${TITLE}" --body "${BODY}" || true
+          else
+            gh pr create \
+              --base master \
+              --head "${BRANCH}" \
+              --title "${TITLE}" \
+              --body "${BODY}"
+            PR_NUMBER=$(gh pr list --head "${BRANCH}" --state open --json number --jq '.[0].number')
+            echo "Created PR #${PR_NUMBER}."
+          fi
+          if gh pr merge "${PR_NUMBER}" --squash --auto; then
+            echo "Auto-merge enabled on PR #${PR_NUMBER}."
+          else
+            echo "Could not enable auto-merge on PR #${PR_NUMBER}; leaving it open for manual merge."
+          fi
