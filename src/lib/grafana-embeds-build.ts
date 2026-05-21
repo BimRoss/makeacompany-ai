@@ -4,6 +4,7 @@ type GrafanaEmbed = {
   title: string;
   dashboardUrl: string | null;
   source: "twitter" | "app" | "cron";
+  defaultFrom?: string;
 };
 
 const defaultTwitterPanelTitles = ["Indexer throughput", "Worker throughput"];
@@ -128,7 +129,8 @@ function buildGrafanaEmbeds(
   dashboardUrl: string | null,
   source: "twitter" | "app" | "cron",
   panelIds: string[],
-  panelTitles: string[]
+  panelTitles: string[],
+  defaultFrom?: string
 ): GrafanaEmbed[] {
   return panelIds.map((panelId, idx) => ({
     key: `${source}-${panelId}`,
@@ -136,6 +138,7 @@ function buildGrafanaEmbeds(
     title: panelTitles[idx] ?? `Panel ${panelId}`,
     dashboardUrl,
     source,
+    ...(defaultFrom ? { defaultFrom } : {}),
   }));
 }
 
@@ -229,7 +232,8 @@ export function buildGrafanaHealthEmbeds(
     cronjobDashboardUrl,
     "cron",
     normalizedCronjobPanelIds,
-    cronjobPanelTitles
+    cronjobPanelTitles,
+    "now-24h"
   );
 
   return {

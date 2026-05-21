@@ -11,12 +11,14 @@ type GrafanaEmbed = {
   panelId: string;
   title: string;
   dashboardUrl: string | null;
+  defaultFrom?: string;
 };
 
 function asGrafanaEmbedUrl(
   value?: string | null,
   panelId: string = "1",
-  grafanaTheme: "light" | "dark" = "light"
+  grafanaTheme: "light" | "dark" = "light",
+  defaultFrom?: string
 ): string | null {
   if (!value) {
     return null;
@@ -30,7 +32,7 @@ function asGrafanaEmbedUrl(
     }
     url.searchParams.set("orgId", url.searchParams.get("orgId") ?? "1");
     url.searchParams.set("theme", grafanaTheme);
-    url.searchParams.set("from", "now-6h");
+    url.searchParams.set("from", defaultFrom ?? "now-6h");
     url.searchParams.set("to", "now");
     url.searchParams.set("refresh", "30s");
     url.searchParams.set("panelId", panelId);
@@ -108,7 +110,12 @@ export function ServiceGrafanaDashboard({
         .map((embed) => ({
           key: embed.key,
           title: embed.title,
-          url: asGrafanaEmbedUrl(embed.dashboardUrl, embed.panelId, resolvedTheme === "dark" ? "dark" : "light"),
+          url: asGrafanaEmbedUrl(
+            embed.dashboardUrl,
+            embed.panelId,
+            resolvedTheme === "dark" ? "dark" : "light",
+            embed.defaultFrom
+          ),
         }))
         .filter((c): c is typeof c & { url: string } => Boolean(c.url)),
     [filteredEmbeds, resolvedTheme]
