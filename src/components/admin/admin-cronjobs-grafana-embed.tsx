@@ -9,6 +9,7 @@ export function AdminCronJobsGrafanaEmbed() {
       embedsKey="cronjobGrafanaEmbeds"
       title="CronJobs"
       titleAs="h2"
+      embedFilter={(embed) => embed.panelId !== "2"}
       gridClassName="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3"
     />
   );
