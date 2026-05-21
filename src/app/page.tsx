@@ -17,7 +17,7 @@ export const metadata: Metadata = {
   },
   keywords: [
     "AI company",
-    "Make a Company $9/mo",
+    "Make a Company $99/mo",
     "AI employees",
     "Slack agents",
     "company automation",
