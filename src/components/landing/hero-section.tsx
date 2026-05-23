@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Sparkles } from "lucide-react";
-import { CheckoutButton } from "@/components/landing/checkout-button";
+import { EmailCaptureForm } from "@/components/landing/email-capture-form";
 import { HeroJoanneInviteCard } from "@/components/landing/hero-joanne-invite-card";
 import { HeroSubheadRewrite } from "@/components/landing/hero-subhead-rewrite";
 import { TaoSlackSignalBadges } from "@/components/landing/tao-slack-signal-badges";
@@ -146,14 +146,7 @@ export function HeroSection() {
 
         <HeroSubheadRewrite onAgentChange={onRewriteAgentChange} />
 
-        <div className="mb-4 flex justify-center sm:mb-6">
-          <p className="inline-flex items-center rounded-full border border-border bg-muted px-4 py-1.5 text-sm font-semibold tracking-tight text-foreground sm:px-5 sm:text-base">
-            <span className="sm:hidden">$99/mo · Claude Code, zero setup.</span>
-            <span className="hidden sm:inline">$99/mo · Claude Code, hosted in your Slack — zero setup, anywhere.</span>
-          </p>
-        </div>
-
-        <CheckoutButton label="Start Building" />
+        <EmailCaptureForm />
 
         <HeroJoanneInviteCard />
       </div>
