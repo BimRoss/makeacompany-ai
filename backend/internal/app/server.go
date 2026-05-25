@@ -50,6 +50,13 @@ var (
 		},
 		[]string{"snapshot", "status_code"},
 	)
+	slackUpstreamHTTPStatusTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "makeacompany_slack_upstream_http_status_total",
+			Help: "Upstream HTTP statuses seen on Slack API calls, by source endpoint. Covers all Slack callers, not just snapshot refreshes.",
+		},
+		[]string{"source", "status_code"},
+	)
 	// cronjobDurationSeconds covers any internal cronjob handler (slack/stripe snapshot refreshes today,
 	// future jobs by adding new "job" label values). The histogram's _count series doubles as a per-result
 	// run counter — query rate(..._count{result="error"}) instead of adding a parallel counter.
@@ -69,6 +76,7 @@ func init() {
 		httpRequestDuration,
 		slackRefreshRunsTotal,
 		slackRefreshUpstreamHTTPStatusTotal,
+		slackUpstreamHTTPStatusTotal,
 		cronjobDurationSeconds,
 	)
 }
@@ -146,6 +154,13 @@ func (s *Server) Handler() http.Handler {
 		statusClass := fmt.Sprintf("%dxx", recorder.status/100)
 		httpRequestsTotal.WithLabelValues(method, route, statusClass).Inc()
 		httpRequestDuration.WithLabelValues(method, route).Observe(duration)
+		if recorder.status >= 500 && (route == "/other" || route == "/v1/other") {
+			s.log.Printf(
+				"unrouted 5xx: method=%s status=%d path=%q user_agent=%q referer=%q",
+				method, recorder.status, r.URL.Path,
+				r.Header.Get("User-Agent"), r.Header.Get("Referer"),
+			)
+		}
 	})
 }
 

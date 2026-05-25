@@ -92,6 +92,7 @@ func FetchSlackBotChannels(ctx context.Context, botToken string) ([]SlackChannel
 			return nil, err
 		}
 		if resp.StatusCode != http.StatusOK {
+			observeSlackUpstreamStatus("slack users.conversations", resp.StatusCode)
 			return nil, &UpstreamHTTPError{
 				Source:      "slack users.conversations",
 				StatusCode:  resp.StatusCode,
@@ -171,6 +172,7 @@ func FetchSlackChannelMemberIDs(ctx context.Context, botToken, channelID string)
 			return nil, err
 		}
 		if resp.StatusCode != http.StatusOK {
+			observeSlackUpstreamStatus("slack conversations.members", resp.StatusCode)
 			return nil, &UpstreamHTTPError{
 				Source:      "slack conversations.members",
 				StatusCode:  resp.StatusCode,

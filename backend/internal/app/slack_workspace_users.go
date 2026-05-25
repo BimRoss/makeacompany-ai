@@ -104,6 +104,7 @@ func FetchSlackWorkspaceUsers(ctx context.Context, botToken string) ([]SlackWork
 			return nil, err
 		}
 		if resp.StatusCode != http.StatusOK {
+			observeSlackUpstreamStatus("slack users.list", resp.StatusCode)
 			return nil, &UpstreamHTTPError{
 				Source:      "slack users.list",
 				StatusCode:  resp.StatusCode,
