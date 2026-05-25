@@ -239,16 +239,16 @@ export function AdminStripeUsersTable() {
                     key={`${w.email}:${w.waitlistPriceId}:${w.stripeSessionId}`}
                     className="border-b border-border/80 last:border-0"
                   >
-                    <td className="px-3 py-1.5 align-middle font-mono text-xs">{short(w.email, 48)}</td>
-                    <td className="px-3 py-1.5 align-middle text-xs">{stripePlanLabel(w.priceRole)}</td>
-                    <td className="px-3 py-1.5 align-middle text-xs">{short(w.paymentStatus, 20)}</td>
-                    <td className="px-3 py-1.5 align-middle text-xs text-muted-foreground">
+                    <td className="whitespace-nowrap px-3 py-1.5 align-middle font-mono text-xs">{short(w.email, 48)}</td>
+                    <td className="whitespace-nowrap px-3 py-1.5 align-middle text-xs">{stripePlanLabel(w.priceRole)}</td>
+                    <td className="whitespace-nowrap px-3 py-1.5 align-middle text-xs">{short(w.paymentStatus, 20)}</td>
+                    <td className="whitespace-nowrap px-3 py-1.5 align-middle text-xs text-muted-foreground">
                       {w.amountTotal && w.amountTotal !== "0" ? formatStripeAmount(w.amountTotal, w.currency) : "—"}
                     </td>
-                    <td className="px-3 py-1.5 align-middle font-mono text-xs" title={w.stripeProductId?.trim() || undefined}>
+                    <td className="whitespace-nowrap px-3 py-1.5 align-middle font-mono text-xs" title={w.stripeProductId?.trim() || undefined}>
                       {(w.stripeProductId ?? "").trim() ? short(w.stripeProductId ?? "", 22) : "—"}
                     </td>
-                    <td className="px-3 py-1.5 align-middle font-mono text-xs">
+                    <td className="whitespace-nowrap px-3 py-1.5 align-middle font-mono text-xs">
                       {(w.stripeCustomer ?? "").trim() ? (
                         short(w.stripeCustomer, 22)
                       ) : (
@@ -260,8 +260,8 @@ export function AdminStripeUsersTable() {
                         </span>
                       )}
                     </td>
-                    <td className="px-3 py-1.5 align-middle font-mono text-xs">{short(w.stripeSessionId, 20)}</td>
-                    <td className="px-3 py-1.5 align-middle text-xs text-muted-foreground">{short(w.checkoutCreated, 24)}</td>
+                    <td className="whitespace-nowrap px-3 py-1.5 align-middle font-mono text-xs">{short(w.stripeSessionId, 20)}</td>
+                    <td className="whitespace-nowrap px-3 py-1.5 align-middle text-xs text-muted-foreground">{short(w.checkoutCreated, 24)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -437,19 +437,19 @@ export function AdminSlackUsersTable() {
                         </span>
                       )}
                     </td>
-                    <td className="px-3 py-1.5 align-middle font-mono text-xs">{short(u.email || "—", 48)}</td>
-                    <td className="px-3 py-1.5 align-middle text-xs">{short(display || "—", 40)}</td>
-                    <td className="px-3 py-1.5 align-middle font-mono text-xs">{short(u.username, 28)}</td>
-                    <td className="px-3 py-1.5 align-middle font-mono text-xs">{short(u.slackUserId, 16)}</td>
-                    <td className="px-3 py-1.5 align-middle font-mono text-xs">{short(u.teamId, 14)}</td>
+                    <td className="whitespace-nowrap px-3 py-1.5 align-middle font-mono text-xs">{short(u.email || "—", 48)}</td>
+                    <td className="whitespace-nowrap px-3 py-1.5 align-middle text-xs">{short(display || "—", 40)}</td>
+                    <td className="whitespace-nowrap px-3 py-1.5 align-middle font-mono text-xs">{short(u.username, 28)}</td>
+                    <td className="whitespace-nowrap px-3 py-1.5 align-middle font-mono text-xs">{short(u.slackUserId, 16)}</td>
+                    <td className="whitespace-nowrap px-3 py-1.5 align-middle font-mono text-xs">{short(u.teamId, 14)}</td>
                     <td
-                      className="px-3 py-1.5 align-middle text-xs text-muted-foreground"
+                      className="whitespace-nowrap px-3 py-1.5 align-middle text-xs text-muted-foreground"
                       title={(u.termsMessageTs ?? "").trim() || undefined}
                     >
                       {(u.terms ?? "").trim() ? short(u.terms ?? "", 22) : "—"}
                     </td>
-                    <td className="px-3 py-1.5 align-middle text-xs">{u.isBot ? "yes" : "—"}</td>
-                    <td className="px-3 py-1.5 align-middle text-xs">{u.isDeleted ? "yes" : "—"}</td>
+                    <td className="whitespace-nowrap px-3 py-1.5 align-middle text-xs">{u.isBot ? "yes" : "—"}</td>
+                    <td className="whitespace-nowrap px-3 py-1.5 align-middle text-xs">{u.isDeleted ? "yes" : "—"}</td>
                   </tr>
                   );
                 })}
