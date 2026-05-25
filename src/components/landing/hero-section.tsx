@@ -1,14 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Sparkles } from "lucide-react";
-import { EmailCaptureForm } from "@/components/landing/email-capture-form";
 import { HeroJoanneInviteCard } from "@/components/landing/hero-joanne-invite-card";
 import { HeroSubheadRewrite } from "@/components/landing/hero-subhead-rewrite";
+import { EmailCaptureForm } from "@/components/landing/email-capture-form";
+import { PersonaSelector } from "@/components/landing/persona-selector";
+import { PricingCliffLine } from "@/components/landing/pricing-cliff-line";
+import { usePersona } from "@/components/landing/persona-context";
 import { TaoSlackSignalBadges } from "@/components/landing/tao-slack-signal-badges";
-import { siteTaglineLine1, siteTaglineLine2 } from "@/lib/site";
 
-const DEFAULT = { line1: siteTaglineLine1, line2: siteTaglineLine2 };
 const AGENT_LINES = {
   joanne: { line1: "Joanne", line2: "Chief of Staff" },
   ross: { line1: "Ross", line2: "Software Developer" },
@@ -18,13 +18,18 @@ const ERASE_MS = 22;
 const TYPE_MS = 42;
 
 export function HeroSection() {
-  const [displayLine1, setDisplayLine1] = useState(DEFAULT.line1);
-  const [displayLine2, setDisplayLine2] = useState(DEFAULT.line2);
+  const { copy } = usePersona();
+  const personaDefault = { line1: copy.heroLine1, line2: copy.heroLine2 };
+
+  const [displayLine1, setDisplayLine1] = useState(personaDefault.line1);
+  const [displayLine2, setDisplayLine2] = useState(personaDefault.line2);
   const [typing, setTyping] = useState(false);
   const [forcedAgent, setForcedAgent] = useState<"joanne" | "ross" | null>(null);
-  const l1Ref = useRef(DEFAULT.line1);
-  const l2Ref = useRef(DEFAULT.line2);
+  const l1Ref = useRef(personaDefault.line1);
+  const l2Ref = useRef(personaDefault.line2);
   const cancelRef = useRef<(() => void) | null>(null);
+  const forcedAgentRef = useRef<"joanne" | "ross" | null>(null);
+  const hoverAgentRef = useRef<"joanne" | "ross" | null>(null);
 
   const setL1 = useCallback((v: string) => {
     l1Ref.current = v;
@@ -36,79 +41,95 @@ export function HeroSection() {
     setDisplayLine2(v);
   }, []);
 
-  const onHoverChange = useCallback((agent: "joanne" | "ross" | null) => {
-    cancelRef.current?.();
+  const animateTo = useCallback(
+    (target: { line1: string; line2: string }) => {
+      cancelRef.current?.();
 
-    const effective = agent ?? forcedAgent;
-    const target = effective ? AGENT_LINES[effective] : DEFAULT;
-
-    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-    if (mq.matches) {
-      setL1(target.line1);
-      setL2(target.line2);
-      return;
-    }
-
-    let cancelled = false;
-    const timers: ReturnType<typeof setTimeout>[] = [];
-    cancelRef.current = () => {
-      cancelled = true;
-      timers.forEach(clearTimeout);
-      setTyping(false);
-    };
-
-    function tick(fn: () => void, delay: number) {
-      const t = setTimeout(() => {
-        if (!cancelled) fn();
-      }, delay);
-      timers.push(t);
-    }
-
-    function animateLine(
-      setter: (v: string) => void,
-      current: string,
-      next: string,
-    ): number {
-      // Keep common prefix — only erase/type the diff
-      let prefix = 0;
-      while (
-        prefix < current.length &&
-        prefix < next.length &&
-        current[prefix] === next[prefix]
-      ) {
-        prefix++;
+      const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+      if (mq.matches) {
+        setL1(target.line1);
+        setL2(target.line2);
+        return;
       }
-      let delay = 0;
-      // Erase from end back to prefix
-      for (let i = current.length - 1; i >= prefix; i--) {
-        const val = current.slice(0, i);
-        tick(() => setter(val), delay);
-        delay += ERASE_MS;
-      }
-      // Type from prefix forward to next
-      for (let i = prefix + 1; i <= next.length; i++) {
-        const val = next.slice(0, i);
-        tick(() => setter(val), delay);
-        delay += TYPE_MS;
-      }
-      return delay;
-    }
 
-    setTyping(true);
-    const dur1 = animateLine(setL1, l1Ref.current, target.line1);
-    const dur2 = animateLine(setL2, l2Ref.current, target.line2);
-    tick(() => setTyping(false), Math.max(dur1, dur2));
-  }, [setL1, setL2, forcedAgent]);
+      let cancelled = false;
+      const timers: ReturnType<typeof setTimeout>[] = [];
+      cancelRef.current = () => {
+        cancelled = true;
+        timers.forEach(clearTimeout);
+        setTyping(false);
+      };
+
+      function tick(fn: () => void, delay: number) {
+        const t = setTimeout(() => {
+          if (!cancelled) fn();
+        }, delay);
+        timers.push(t);
+      }
+
+      function animateLine(
+        setter: (v: string) => void,
+        current: string,
+        next: string,
+      ): number {
+        let prefix = 0;
+        while (
+          prefix < current.length &&
+          prefix < next.length &&
+          current[prefix] === next[prefix]
+        ) {
+          prefix++;
+        }
+        let delay = 0;
+        for (let i = current.length - 1; i >= prefix; i--) {
+          const val = current.slice(0, i);
+          tick(() => setter(val), delay);
+          delay += ERASE_MS;
+        }
+        for (let i = prefix + 1; i <= next.length; i++) {
+          const val = next.slice(0, i);
+          tick(() => setter(val), delay);
+          delay += TYPE_MS;
+        }
+        return delay;
+      }
+
+      setTyping(true);
+      const dur1 = animateLine(setL1, l1Ref.current, target.line1);
+      const dur2 = animateLine(setL2, l2Ref.current, target.line2);
+      tick(() => setTyping(false), Math.max(dur1, dur2));
+    },
+    [setL1, setL2],
+  );
+
+  const onHoverChange = useCallback(
+    (agent: "joanne" | "ross" | null) => {
+      hoverAgentRef.current = agent;
+      const effective = agent ?? forcedAgentRef.current;
+      const target = effective
+        ? AGENT_LINES[effective]
+        : { line1: copy.heroLine1, line2: copy.heroLine2 };
+      animateTo(target);
+    },
+    [animateTo, copy.heroLine1, copy.heroLine2],
+  );
 
   const onRewriteAgentChange = useCallback(
     (agent: "joanne" | "ross" | null) => {
+      forcedAgentRef.current = agent;
       setForcedAgent(agent);
       onHoverChange(agent);
     },
     [onHoverChange],
   );
 
-  // Cleanup on unmount
+  // Retarget the H1 when the selected persona changes (only when no
+  // joanne/ross override is active — those win over the persona default).
+  useEffect(() => {
+    if (hoverAgentRef.current || forcedAgentRef.current) return;
+    animateTo({ line1: copy.heroLine1, line2: copy.heroLine2 });
+  }, [animateTo, copy.heroLine1, copy.heroLine2]);
+
   useEffect(() => () => cancelRef.current?.(), []);
 
   return (
@@ -119,21 +140,22 @@ export function HeroSection() {
 
       <div className="relative mx-auto w-full max-w-6xl text-center">
         <div className="mb-4 flex justify-center sm:mb-6">
-          <div className="inline-flex items-center gap-2 rounded-full border border-foreground bg-background px-3 py-1.5 text-xs text-foreground sm:px-4 sm:py-2 sm:text-sm">
-            <Sparkles className="h-3.5 w-3.5 text-foreground sm:h-4 sm:w-4" />
-            <span>Meet Joanne + Ross — your AI team in Slack</span>
-          </div>
+          <PricingCliffLine />
+        </div>
+
+        <div className="mb-6 flex justify-center sm:mb-8">
+          <PersonaSelector />
         </div>
 
         <h1 className="mx-auto mb-6 max-w-none text-4xl font-bold leading-[1.08] tracking-tight text-foreground whitespace-nowrap sm:mb-10 sm:text-5xl sm:leading-[1.06] md:text-6xl lg:text-7xl">
           <span className="block sm:whitespace-nowrap">
-            {displayLine1 || " "}
+            {displayLine1 || " "}
             {typing && l2Ref.current === "" ? (
               <span className="ml-0.5 inline-block animate-pulse font-normal text-muted-foreground" aria-hidden>|</span>
             ) : null}
           </span>
           <span className="block sm:whitespace-nowrap">
-            {displayLine2 || " "}
+            {displayLine2 || " "}
             {typing && l2Ref.current !== "" ? (
               <span className="ml-0.5 inline-block animate-pulse font-normal text-muted-foreground" aria-hidden>|</span>
             ) : null}
@@ -146,7 +168,7 @@ export function HeroSection() {
 
         <HeroSubheadRewrite onAgentChange={onRewriteAgentChange} />
 
-        <EmailCaptureForm />
+        <EmailCaptureForm submitLabel={copy.ctaButtonLabel} />
 
         <HeroJoanneInviteCard />
       </div>

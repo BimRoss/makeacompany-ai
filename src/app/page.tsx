@@ -5,6 +5,7 @@ import { CtaSection } from "@/components/landing/cta-section";
 import { Footer } from "@/components/landing/footer";
 import { Header } from "@/components/landing/header";
 import { HeroSection } from "@/components/landing/hero-section";
+import { PersonaProvider } from "@/components/landing/persona-context";
 import { faqStructuredData, SeoFaqSection } from "@/components/landing/seo-faq";
 import { TestimonialsCarousel } from "@/components/landing/testimonials-carousel";
 import { siteDescription, siteTagline, siteTitle, siteUrl } from "@/lib/site";
@@ -55,9 +56,11 @@ export default function HomePage() {
       </Script>
       <CheckoutReturnToast />
       <Header />
-      <HeroSection />
-      <TestimonialsCarousel />
-      <CtaSection />
+      <PersonaProvider>
+        <HeroSection />
+        <TestimonialsCarousel />
+        <CtaSection />
+      </PersonaProvider>
       <SeoFaqSection />
       <Footer />
     </main>
