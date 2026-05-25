@@ -416,7 +416,58 @@ export function AdminSlackUsersTable() {
           </p>
         ) : null}
         {slackUsers.length > 0 ? (
-          <div className="overflow-x-auto rounded-xl border border-border">
+          <ul className="grid gap-2 sm:hidden" aria-label="Slack users (mobile)">
+            {slackUsers.map((u) => {
+              const display = (u.realName || u.displayName || u.username || "").trim();
+              const avatarSrc = (u.profileImageUrl ?? "").trim();
+              const initial = (display || u.username || "?").trim().charAt(0).toUpperCase();
+              return (
+                <li
+                  key={u.slackUserId}
+                  className="flex items-center gap-3 rounded-xl border border-border bg-card px-3 py-2"
+                >
+                  {avatarSrc ? (
+                    <Image
+                      src={avatarSrc}
+                      alt={display ? `${display} Slack profile` : "Slack profile"}
+                      width={40}
+                      height={40}
+                      loading="lazy"
+                      decoding="async"
+                      referrerPolicy="no-referrer"
+                      className="h-10 w-10 shrink-0 rounded-full object-cover ring-1 ring-border"
+                    />
+                  ) : (
+                    <span
+                      className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-medium text-muted-foreground ring-1 ring-border"
+                      aria-hidden
+                    >
+                      {initial}
+                    </span>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5">
+                      <span className="truncate text-sm font-medium text-foreground">{display || "—"}</span>
+                      {u.isBot ? (
+                        <span className="rounded bg-muted px-1 text-[10px] uppercase tracking-wide text-muted-foreground">
+                          bot
+                        </span>
+                      ) : null}
+                      {u.isDeleted ? (
+                        <span className="rounded bg-muted px-1 text-[10px] uppercase tracking-wide text-muted-foreground">
+                          deleted
+                        </span>
+                      ) : null}
+                    </div>
+                    <div className="truncate font-mono text-xs text-muted-foreground">{u.email || "—"}</div>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        ) : null}
+        {slackUsers.length > 0 ? (
+          <div className="hidden overflow-x-auto rounded-xl border border-border sm:block">
             <table className="w-full min-w-[920px] border-collapse text-left text-sm">
               <thead>
                 <tr className="border-b border-border bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
