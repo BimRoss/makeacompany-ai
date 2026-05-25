@@ -55,6 +55,9 @@ type SlackUsersPayload = {
   message?: string;
   redisSaveError?: string;
   syncError?: string;
+  /** Count of isDeleted=true rows the backend filtered out (0 when includeDeleted=true). */
+  deletedHidden?: number;
+  includeDeleted?: boolean;
 };
 
 function short(s: string, max: number) {
@@ -279,15 +282,20 @@ export function AdminSlackUsersTable() {
   const [slackError, setSlackError] = useState<string | null>(null);
   const [slackLoading, setSlackLoading] = useState(false);
   const [slackWriteWarn, setSlackWriteWarn] = useState<string | null>(null);
+  const [showDeleted, setShowDeleted] = useState(false);
+  const [deletedHidden, setDeletedHidden] = useState(0);
 
   const fetchSlackUsers = useCallback(
-    async (live: boolean) => {
+    async (live: boolean, includeDeleted: boolean) => {
       setSlackLoading(true);
       setSlackError(null);
       if (!live) setSlackWriteWarn(null);
       try {
-        const qs = live ? "?source=live" : "";
-        const res = await fetch(`/api/admin/slack-workspace-users${qs}`, { cache: "no-store" });
+        const params = new URLSearchParams();
+        if (live) params.set("source", "live");
+        if (includeDeleted) params.set("include_deleted", "true");
+        const qs = params.toString();
+        const res = await fetch(`/api/admin/slack-workspace-users${qs ? `?${qs}` : ""}`, { cache: "no-store" });
         if (kickToLoginForUnauthorizedApi(res.status, "admin")) {
           return;
         }
@@ -301,6 +309,7 @@ export function AdminSlackUsersTable() {
           return;
         }
         setSlackUsers(Array.isArray(body.users) ? body.users : []);
+        setDeletedHidden(typeof body.deletedHidden === "number" ? body.deletedHidden : 0);
         if (live) {
           const parts: string[] = [];
           if (typeof body.redisSaveError === "string")
@@ -336,20 +345,35 @@ export function AdminSlackUsersTable() {
   }, [slackUsers, flash]);
 
   useEffect(() => {
-    void fetchSlackUsers(false);
-  }, [fetchSlackUsers]);
+    void fetchSlackUsers(false, showDeleted);
+  }, [fetchSlackUsers, showDeleted]);
 
   return (
       <section className="space-y-3" aria-labelledby="admin-slack-users-heading">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h2 id="admin-slack-users-heading" className="font-display text-xl font-semibold tracking-tight text-foreground">
             Slack Users <span className="font-normal text-muted-foreground tabular-nums">({slackUsers.length})</span>
+            {!showDeleted && deletedHidden > 0 ? (
+              <span className="ml-2 text-xs font-normal text-muted-foreground tabular-nums">
+                ({deletedHidden} deleted hidden)
+              </span>
+            ) : null}
           </h2>
           <div className="flex items-center gap-2">
+            <label className="inline-flex items-center gap-1.5 text-xs text-muted-foreground select-none">
+              <input
+                type="checkbox"
+                checked={showDeleted}
+                disabled={slackLoading}
+                onChange={(e) => setShowDeleted(e.target.checked)}
+                className="size-3.5 rounded border-border"
+              />
+              Show deleted
+            </label>
             <button
               type="button"
               disabled={slackLoading}
-              onClick={() => void fetchSlackUsers(true)}
+              onClick={() => void fetchSlackUsers(true, showDeleted)}
               className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg border border-border bg-card text-foreground hover:bg-muted/60 disabled:opacity-50"
               aria-label="Refresh Slack workspace users from upstream"
             >
