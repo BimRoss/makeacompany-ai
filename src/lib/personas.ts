@@ -92,6 +92,23 @@ export function resolveInitialPersona(): ResolvedPersona {
   return { persona: DEFAULT_PERSONA, source: "default" };
 }
 
+const ENGINEER_HOSTS = [
+  "news.ycombinator.com",
+  "ycombinator.com",
+  "github.com",
+  "github.io",
+  "stackoverflow.com",
+  "dev.to",
+  "lobste.rs",
+  "reddit.com",
+];
+
+const FOUNDER_HOSTS = ["linkedin.com", "producthunt.com"];
+
+function matchesHost(host: string, suffix: string): boolean {
+  return host === suffix || host.endsWith("." + suffix);
+}
+
 function sniffReferrer(ref: string): Persona | null {
   if (!ref) return null;
   let host: string;
@@ -101,25 +118,8 @@ function sniffReferrer(ref: string): Persona | null {
     return null;
   }
 
-  // Engineer-leaning sources
-  if (
-    host.includes("news.ycombinator.com") ||
-    host.includes("ycombinator.com") ||
-    host.includes("github.com") ||
-    host.includes("github.io") ||
-    host.includes("stackoverflow.com") ||
-    host.includes("dev.to") ||
-    host.includes("lobste.rs") ||
-    host.includes("reddit.com")
-  ) {
-    return "engineer";
-  }
-
-  // Founder-leaning sources
-  if (host.includes("linkedin.com") || host.includes("producthunt.com")) {
-    return "founder";
-  }
-
+  if (ENGINEER_HOSTS.some((h) => matchesHost(host, h))) return "engineer";
+  if (FOUNDER_HOSTS.some((h) => matchesHost(host, h))) return "founder";
   return null;
 }
 
