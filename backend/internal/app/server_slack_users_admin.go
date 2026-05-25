@@ -95,6 +95,23 @@ func (s *Server) tryWarmSlackUsersSnapshotWhenMissing(ctx context.Context) map[s
 	}
 }
 
+// filterSlackUsersForDisplay drops isDeleted=true rows unless includeDeleted is set.
+// Snapshot in Redis always stores the full list; this only shapes the admin response.
+func filterSlackUsersForDisplay(users []SlackWorkspaceUser, includeDeleted bool) (kept []SlackWorkspaceUser, hidden int) {
+	if includeDeleted {
+		return users, 0
+	}
+	kept = make([]SlackWorkspaceUser, 0, len(users))
+	for _, u := range users {
+		if u.IsDeleted {
+			hidden++
+			continue
+		}
+		kept = append(kept, u)
+	}
+	return kept, hidden
+}
+
 // handleAdminSlackWorkspaceUsers returns cached Slack members or a live Slack query when source=live.
 func (s *Server) handleAdminSlackWorkspaceUsers(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
@@ -111,6 +128,7 @@ func (s *Server) handleAdminSlackWorkspaceUsers(w http.ResponseWriter, r *http.R
 		return
 	}
 	live := strings.EqualFold(strings.TrimSpace(r.URL.Query().Get("source")), "live")
+	includeDeleted := strings.EqualFold(strings.TrimSpace(r.URL.Query().Get("include_deleted")), "true")
 	if live {
 		if strings.TrimSpace(s.cfg.SlackBotToken) == "" {
 			writeJSONNoStore(w, http.StatusBadRequest, map[string]any{"error": "slack bot token is not configured (ORCHESTRATOR_SLACK_BOT_TOKEN, same as slack-orchestrator; legacy SLACK_BOT_TOKEN still accepted)"})
@@ -125,9 +143,9 @@ func (s *Server) handleAdminSlackWorkspaceUsers(w http.ResponseWriter, r *http.R
 		resp := map[string]any{
 			"source":       "live",
 			"fetchedAt":    time.Now().UTC().Format(time.RFC3339),
-			"users":        users,
 			"snapshotNote": "Queried Slack users.list; snapshot and slack→email index written to Redis (same as internal refresh).",
 		}
+		// Snapshot to Redis BEFORE filtering so the stored blob keeps full fidelity.
 		if blob, mErr := MarshalSlackUsersSnapshot(users); mErr != nil {
 			s.log.Printf("admin slack users live marshal snapshot: %v", mErr)
 			resp["redisSaveError"] = mErr.Error()
@@ -142,8 +160,11 @@ func (s *Server) handleAdminSlackWorkspaceUsers(w http.ResponseWriter, r *http.R
 				s.log.Printf("admin slack users live sync index: %v", syncErr)
 			}
 			s.store.EnrichSlackWorkspaceUsersWithProfileTerms(r.Context(), users)
-			resp["users"] = users
 		}
+		visible, hidden := filterSlackUsersForDisplay(users, includeDeleted)
+		resp["users"] = visible
+		resp["deletedHidden"] = hidden
+		resp["includeDeleted"] = includeDeleted
 		writeJSONNoStore(w, http.StatusOK, resp)
 		return
 	}
@@ -152,6 +173,12 @@ func (s *Server) handleAdminSlackWorkspaceUsers(w http.ResponseWriter, r *http.R
 	if err != nil {
 		if errors.Is(err, ErrSlackUsersSnapshotMissing) {
 			if warm := s.tryWarmSlackUsersSnapshotWhenMissing(r.Context()); warm != nil {
+				if all, okCast := warm["users"].([]SlackWorkspaceUser); okCast {
+					visible, hidden := filterSlackUsersForDisplay(all, includeDeleted)
+					warm["users"] = visible
+					warm["deletedHidden"] = hidden
+					warm["includeDeleted"] = includeDeleted
+				}
 				writeJSONNoStore(w, http.StatusOK, warm)
 				return
 			}
@@ -174,10 +201,13 @@ func (s *Server) handleAdminSlackWorkspaceUsers(w http.ResponseWriter, r *http.R
 		return
 	}
 	s.store.EnrichSlackWorkspaceUsersWithProfileTerms(r.Context(), env.Users)
+	visible, hidden := filterSlackUsersForDisplay(env.Users, includeDeleted)
 	writeJSONNoStore(w, http.StatusOK, map[string]any{
-		"source":       "snapshot",
-		"fetchedAt":    env.FetchedAt,
-		"users":        env.Users,
-		"snapshotNote": env.SnapshotNote,
+		"source":         "snapshot",
+		"fetchedAt":      env.FetchedAt,
+		"users":          visible,
+		"snapshotNote":   env.SnapshotNote,
+		"deletedHidden":  hidden,
+		"includeDeleted": includeDeleted,
 	})
 }
