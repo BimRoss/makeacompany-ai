@@ -1,7 +1,12 @@
+"use client";
+
 import { CheckCircle } from "lucide-react";
 import { EmailCaptureForm } from "@/components/landing/email-capture-form";
+import { usePersona } from "@/components/landing/persona-context";
 
 export function CtaSection() {
+  const { copy } = usePersona();
+
   return (
     <section className="py-20">
       <div className="mx-auto w-full max-w-4xl px-6">
@@ -11,10 +16,10 @@ export function CtaSection() {
 
           <div className="relative w-full text-center">
             <h2 className="mb-4 text-balance text-3xl font-bold tracking-tight sm:text-4xl">
-              Ready to build?
+              {copy.ctaH2}
             </h2>
             <p className="mx-auto mb-8 max-w-xl text-pretty text-lg text-muted-foreground">
-              Enter your email below and try the product for free!
+              {copy.ctaParagraph}
             </p>
             <div className="mb-8 flex flex-wrap items-center justify-center gap-x-6 gap-y-3 text-sm">
               <div className="flex items-center gap-2 text-muted-foreground">
@@ -30,9 +35,9 @@ export function CtaSection() {
                 <span>Upgrade anytime</span>
               </div>
             </div>
-            <EmailCaptureForm />
+            <EmailCaptureForm submitLabel={copy.ctaButtonLabel} />
             <p className="mt-6 text-pretty text-sm text-muted-foreground">
-              Built by{" "}
+              This site, the Slack bot, the onboarding — all built inside the product. Built by{" "}
               <a
                 href="https://bimross.com"
                 className="font-medium text-foreground underline-offset-4 hover:underline"

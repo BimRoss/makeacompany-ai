@@ -4,7 +4,7 @@ import { type FormEvent, useEffect, useState } from "react";
 import { ArrowRight, Loader2 } from "lucide-react";
 import { apiBase } from "@/lib/site";
 
-export function EmailCaptureForm() {
+export function EmailCaptureForm({ submitLabel = "Start Building" }: { submitLabel?: string } = {}) {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -83,7 +83,7 @@ export function EmailCaptureForm() {
           ) : (
             <>
               <span className="inline-block w-4 shrink-0 sm:w-5" aria-hidden />
-              Start Building
+              {submitLabel}
               <ArrowRight className="waitlist-cta-arrow h-4 w-4 shrink-0 sm:h-5 sm:w-5" aria-hidden />
             </>
           )}
