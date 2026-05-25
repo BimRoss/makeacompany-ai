@@ -1,0 +1,234 @@
+"use client";
+
+import { useEffect, useMemo, useRef, useState } from "react";
+
+import { kickToLoginForUnauthorizedApi } from "@/lib/client-auth-unauthorized-redirect";
+import { useAlerts } from "./alerts-provider";
+
+type KpiTile = {
+  id: string;
+  label: string;
+  query: string | null;
+  format: (value: number) => string;
+  thresholds: Threshold[];
+  /** Higher = better when true; flips threshold comparison. */
+  higherIsBetter?: boolean;
+  /** When null query → static derived value (e.g. alert count from AlertsProvider). */
+  staticValue?: number;
+};
+
+type Threshold = { value: number; color: "green" | "amber" | "red" };
+
+type PromResult = { query: string; value: number | null; error: string | null };
+
+const POLL_INTERVAL_MS = 30_000;
+
+const POOL = {
+  successRatio: 'sum(rate(makeacompany_http_requests_total{status_class="2xx"}[5m])) / clamp_min(sum(rate(makeacompany_http_requests_total[5m])), 0.0001)',
+  p95: "histogram_quantile(0.95, sum by (le) (rate(makeacompany_http_request_duration_seconds_bucket[5m])))",
+  errorsPerMin: 'sum(rate(makeacompany_http_requests_total{status_class="5xx"}[5m])) * 60',
+  cronStaleness: 'max(time() - kube_cronjob_status_last_schedule_time{namespace="makeacompany-ai"})',
+} as const;
+
+function colorFor(thresholds: Threshold[], value: number, higherIsBetter: boolean): "green" | "amber" | "red" {
+  if (higherIsBetter) {
+    // sorted ascending; pick the highest threshold met
+    let color: "green" | "amber" | "red" = "red";
+    for (const t of thresholds) {
+      if (value >= t.value) color = t.color;
+    }
+    return color;
+  }
+  // lower is better: pick the lowest threshold met (assumes ascending value, increasing severity)
+  let color: "green" | "amber" | "red" = "green";
+  for (const t of thresholds) {
+    if (value >= t.value) color = t.color;
+  }
+  return color;
+}
+
+const tileBgClass: Record<"green" | "amber" | "red", string> = {
+  green: "border-emerald-500/30 bg-emerald-500/5",
+  amber: "border-amber-500/40 bg-amber-500/10",
+  red: "border-red-500/40 bg-red-500/10",
+};
+
+const tileTextClass: Record<"green" | "amber" | "red", string> = {
+  green: "text-emerald-700 dark:text-emerald-300",
+  amber: "text-amber-700 dark:text-amber-300",
+  red: "text-red-700 dark:text-red-300",
+};
+
+function ScorecardTile({
+  label,
+  value,
+  formatted,
+  thresholds,
+  higherIsBetter,
+  hasError,
+}: {
+  label: string;
+  value: number | null;
+  formatted: string;
+  thresholds: Threshold[];
+  higherIsBetter: boolean;
+  hasError: boolean;
+}) {
+  const color = value === null ? "amber" : colorFor(thresholds, value, higherIsBetter);
+  return (
+    <div
+      className={`relative overflow-hidden rounded-xl border p-3 shadow-sm transition ${
+        value === null ? "border-border bg-card" : tileBgClass[color]
+      }`}
+    >
+      <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+        {label}
+      </div>
+      <div
+        className={`mt-1 font-display text-2xl font-semibold tracking-tight ${
+          value === null ? "text-muted-foreground" : tileTextClass[color]
+        }`}
+      >
+        {value === null ? (hasError ? "—" : "…") : formatted}
+      </div>
+    </div>
+  );
+}
+
+export function KpiScorecard() {
+  const { firing } = useAlerts();
+  const [results, setResults] = useState<PromResult[] | null>(null);
+  const [errored, setErrored] = useState(false);
+  const cancelledRef = useRef(false);
+
+  const tiles = useMemo<KpiTile[]>(
+    () => [
+      {
+        id: "success",
+        label: "Success rate (5m)",
+        query: POOL.successRatio,
+        format: (v) => `${(v * 100).toFixed(2)}%`,
+        higherIsBetter: true,
+        thresholds: [
+          { value: 0, color: "red" },
+          { value: 0.95, color: "amber" },
+          { value: 0.99, color: "green" },
+        ],
+      },
+      {
+        id: "p95",
+        label: "P95 latency (5m)",
+        query: POOL.p95,
+        format: (v) => `${(v * 1000).toFixed(0)} ms`,
+        thresholds: [
+          { value: 0, color: "green" },
+          { value: 0.5, color: "amber" },
+          { value: 1, color: "red" },
+        ],
+      },
+      {
+        id: "errors",
+        label: "5xx /min (5m)",
+        query: POOL.errorsPerMin,
+        format: (v) => v.toFixed(1),
+        thresholds: [
+          { value: 0, color: "green" },
+          { value: 1, color: "amber" },
+          { value: 5, color: "red" },
+        ],
+      },
+      {
+        id: "cron",
+        label: "Oldest cron schedule",
+        query: POOL.cronStaleness,
+        format: (v) => {
+          if (v < 60) return `${v.toFixed(0)}s`;
+          if (v < 3600) return `${(v / 60).toFixed(0)}m`;
+          return `${(v / 3600).toFixed(1)}h`;
+        },
+        thresholds: [
+          { value: 0, color: "green" },
+          { value: 3600, color: "amber" },
+          { value: 5400, color: "red" },
+        ],
+      },
+      {
+        id: "alerts",
+        label: "Active alerts",
+        query: null,
+        format: (v) => v.toFixed(0),
+        thresholds: [
+          { value: 0, color: "green" },
+          { value: 1, color: "amber" },
+          { value: 3, color: "red" },
+        ],
+        staticValue: firing.length,
+      },
+    ],
+    [firing.length]
+  );
+
+  useEffect(() => {
+    cancelledRef.current = false;
+    // POOL queries are module-level constants; the alert tile uses staticValue, no query.
+    const queries = Object.values(POOL);
+
+    const load = async () => {
+      try {
+        const url = new URL("/api/admin/prom-query", window.location.origin);
+        for (const q of queries) url.searchParams.append("q", q);
+        const response = await fetch(url.toString(), { cache: "no-store" });
+        if (kickToLoginForUnauthorizedApi(response.status, "admin")) return;
+        if (!response.ok) {
+          if (!cancelledRef.current) setErrored(true);
+          return;
+        }
+        const payload = (await response.json()) as { results?: PromResult[] };
+        if (cancelledRef.current) return;
+        setResults(Array.isArray(payload.results) ? payload.results : []);
+        setErrored(false);
+      } catch {
+        if (!cancelledRef.current) setErrored(true);
+      }
+    };
+
+    void load();
+    const id = window.setInterval(() => void load(), POLL_INTERVAL_MS);
+    return () => {
+      cancelledRef.current = true;
+      window.clearInterval(id);
+    };
+  }, []);
+
+  const resultByQuery = useMemo(() => {
+    const map = new Map<string, PromResult>();
+    for (const r of results ?? []) map.set(r.query, r);
+    return map;
+  }, [results]);
+
+  return (
+    <section
+      aria-label="KPI scorecard"
+      className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5"
+    >
+      {tiles.map((tile) => {
+        const value =
+          tile.query === null
+            ? tile.staticValue ?? null
+            : resultByQuery.get(tile.query)?.value ?? null;
+        const formatted = value === null ? "" : tile.format(value);
+        return (
+          <ScorecardTile
+            key={tile.id}
+            label={tile.label}
+            value={value}
+            formatted={formatted}
+            thresholds={tile.thresholds}
+            higherIsBetter={tile.higherIsBetter ?? false}
+            hasError={errored}
+          />
+        );
+      })}
+    </section>
+  );
+}

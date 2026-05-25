@@ -24,8 +24,10 @@ export type GrafanaEmbed = {
 type HealthPayload = {
   adminGrafanaEmbeds?: GrafanaEmbed[];
   cronjobGrafanaEmbeds?: GrafanaEmbed[];
+  clusterGrafanaEmbeds?: GrafanaEmbed[];
   grafanaDashboardUrl?: string | null;
   cronjobGrafanaDashboardUrl?: string | null;
+  clusterGrafanaDashboardUrl?: string | null;
 };
 
 type ObservabilityDataContextValue = {
@@ -35,8 +37,10 @@ type ObservabilityDataContextValue = {
   lastUpdatedAt: string | null;
   adminEmbeds: GrafanaEmbed[];
   cronjobEmbeds: GrafanaEmbed[];
+  clusterEmbeds: GrafanaEmbed[];
   adminDashboardUrl: string | null;
   cronjobDashboardUrl: string | null;
+  clusterDashboardUrl: string | null;
 };
 
 const ObservabilityDataContext = createContext<ObservabilityDataContextValue | null>(null);
@@ -50,8 +54,10 @@ export function ObservabilityDataProvider({ children }: { children: ReactNode })
   const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
   const [adminEmbeds, setAdminEmbeds] = useState<GrafanaEmbed[]>([]);
   const [cronjobEmbeds, setCronjobEmbeds] = useState<GrafanaEmbed[]>([]);
+  const [clusterEmbeds, setClusterEmbeds] = useState<GrafanaEmbed[]>([]);
   const [adminDashboardUrl, setAdminDashboardUrl] = useState<string | null>(null);
   const [cronjobDashboardUrl, setCronjobDashboardUrl] = useState<string | null>(null);
+  const [clusterDashboardUrl, setClusterDashboardUrl] = useState<string | null>(null);
   const cancelledRef = useRef(false);
 
   useEffect(() => {
@@ -71,8 +77,12 @@ export function ObservabilityDataProvider({ children }: { children: ReactNode })
         setCronjobEmbeds(
           Array.isArray(payload.cronjobGrafanaEmbeds) ? payload.cronjobGrafanaEmbeds : []
         );
+        setClusterEmbeds(
+          Array.isArray(payload.clusterGrafanaEmbeds) ? payload.clusterGrafanaEmbeds : []
+        );
         setAdminDashboardUrl(payload.grafanaDashboardUrl ?? null);
         setCronjobDashboardUrl(payload.cronjobGrafanaDashboardUrl ?? null);
+        setClusterDashboardUrl(payload.clusterGrafanaDashboardUrl ?? null);
         setLastUpdatedAt(new Date().toISOString());
       } catch {
         // leave previous state; pulse will stay green on last good fetch
@@ -100,8 +110,10 @@ export function ObservabilityDataProvider({ children }: { children: ReactNode })
       lastUpdatedAt,
       adminEmbeds,
       cronjobEmbeds,
+      clusterEmbeds,
       adminDashboardUrl,
       cronjobDashboardUrl,
+      clusterDashboardUrl,
     }),
     [
       loopback,
@@ -110,8 +122,10 @@ export function ObservabilityDataProvider({ children }: { children: ReactNode })
       lastUpdatedAt,
       adminEmbeds,
       cronjobEmbeds,
+      clusterEmbeds,
       adminDashboardUrl,
       cronjobDashboardUrl,
+      clusterDashboardUrl,
     ]
   );
 

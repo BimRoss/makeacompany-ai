@@ -3,7 +3,7 @@ type GrafanaEmbed = {
   panelId: string;
   title: string;
   dashboardUrl: string | null;
-  source: "twitter" | "app" | "cron";
+  source: "twitter" | "app" | "cron" | "cluster";
   defaultFrom?: string;
 };
 
@@ -22,15 +22,29 @@ export const DEFAULT_GRAFANA_DASHBOARD_PATH =
 const DEFAULT_AGENTS_PATH = "/grafana/d/makeacompany-agents/makeacompany-agents?orgId=1";
 /** K8s CronJob / Job panels (kube-state or app metrics). Provision this dashboard in Grafana, then align panel ids via env. */
 const DEFAULT_CRON_PATH = "/grafana/d/makeacompany-cronjobs/makeacompany-cronjobs?orgId=1";
+/** kube-state cluster health (pods, restarts, OOMKills). */
+const DEFAULT_CLUSTER_PATH = "/grafana/d/makeacompany-cluster/makeacompany-cluster?orgId=1";
 
 const defaultAgentsPanelTitles = ["Activities", "All agents (goroutines)"];
 
 const defaultCronPanelTitles = [
   "CronJob — last schedule / next run",
-  "Job success vs failure (by CronJob)",
-  "Job or pod run duration",
+  "Last completed Job duration",
+  "Snapshot success rate",
+  "Slack upstream 429 rate",
+  "Time since last schedule",
 ];
-const allowedCronPanelIds = new Set(["1", "2", "3"]);
+// Restrict to the panel ids provisioned in the rancher-admin dashboard JSON.
+// 2 is intentionally omitted (the noisy retained-jobs bar chart the UI filtered out).
+const allowedCronPanelIds = new Set(["1", "3", "4", "5", "6", "7", "8"]);
+
+const defaultClusterPanelTitles = [
+  "Pods not Ready",
+  "OOMKilled containers",
+  "Container restarts (24h)",
+  "Restarts by pod (24h)",
+  "Pods by phase",
+];
 
 function buildDefaultGrafanaDashboardUrl(
   requestHost: string | null,
@@ -127,7 +141,7 @@ function parseList(value: string | null | undefined, fallback: string[]): string
 
 function buildGrafanaEmbeds(
   dashboardUrl: string | null,
-  source: "twitter" | "app" | "cron",
+  source: GrafanaEmbed["source"],
   panelIds: string[],
   panelTitles: string[],
   defaultFrom?: string
@@ -154,10 +168,12 @@ export function buildGrafanaHealthEmbeds(
   twitterGrafanaDashboardUrl: string | null;
   agentsGrafanaDashboardUrl: string | null;
   cronjobGrafanaDashboardUrl: string | null;
+  clusterGrafanaDashboardUrl: string | null;
   grafanaEmbeds: GrafanaEmbed[];
   adminGrafanaEmbeds: GrafanaEmbed[];
   agentsGrafanaEmbeds: GrafanaEmbed[];
   cronjobGrafanaEmbeds: GrafanaEmbed[];
+  clusterGrafanaEmbeds: GrafanaEmbed[];
 } {
   const configuredDashboardUrl = process.env.HEALTH_GRAFANA_DASHBOARD_URL?.trim() || null;
   const grafanaDashboardUrl =
@@ -202,12 +218,34 @@ export function buildGrafanaHealthEmbeds(
   const cronjobDashboardUrl =
     normalizeGrafanaDashboardUrl(cronjobConfigured, requestHost, requestProto) ??
     buildDefaultGrafanaPathUrl(requestHost, requestProto, DEFAULT_CRON_PATH);
-  const rawCronjobPanelIds = parseList(process.env.HEALTH_GRAFANA_CRON_PANEL_IDS, ["1", "2", "3"]);
+  const rawCronjobPanelIds = parseList(process.env.HEALTH_GRAFANA_CRON_PANEL_IDS, [
+    "1",
+    "3",
+    "6",
+    "7",
+    "8",
+  ]);
   const cronjobPanelIds = rawCronjobPanelIds.filter((panelId) => allowedCronPanelIds.has(panelId));
-  const normalizedCronjobPanelIds = cronjobPanelIds.length > 0 ? cronjobPanelIds : ["1", "2", "3"];
+  const normalizedCronjobPanelIds = cronjobPanelIds.length > 0 ? cronjobPanelIds : ["1", "3"];
   const cronjobPanelTitles = parseList(
     process.env.HEALTH_GRAFANA_CRON_PANEL_TITLES,
     defaultCronPanelTitles
+  );
+
+  const clusterConfigured = process.env.HEALTH_GRAFANA_CLUSTER_DASHBOARD_URL?.trim() || null;
+  const clusterDashboardUrl =
+    normalizeGrafanaDashboardUrl(clusterConfigured, requestHost, requestProto) ??
+    buildDefaultGrafanaPathUrl(requestHost, requestProto, DEFAULT_CLUSTER_PATH);
+  const clusterPanelIds = parseList(process.env.HEALTH_GRAFANA_CLUSTER_PANEL_IDS, [
+    "1",
+    "2",
+    "3",
+    "4",
+    "5",
+  ]);
+  const clusterPanelTitles = parseList(
+    process.env.HEALTH_GRAFANA_CLUSTER_PANEL_TITLES,
+    defaultClusterPanelTitles
   );
 
   const grafanaEmbeds = buildGrafanaEmbeds(
@@ -235,15 +273,24 @@ export function buildGrafanaHealthEmbeds(
     cronjobPanelTitles,
     "now-24h"
   );
+  const clusterGrafanaEmbeds = buildGrafanaEmbeds(
+    clusterDashboardUrl,
+    "cluster",
+    clusterPanelIds,
+    clusterPanelTitles,
+    "now-24h"
+  );
 
   return {
     grafanaDashboardUrl,
     twitterGrafanaDashboardUrl: twitterDashboardUrl,
     agentsGrafanaDashboardUrl: agentsDashboardUrl,
     cronjobGrafanaDashboardUrl: cronjobDashboardUrl,
+    clusterGrafanaDashboardUrl: clusterDashboardUrl,
     grafanaEmbeds,
     adminGrafanaEmbeds,
     agentsGrafanaEmbeds,
     cronjobGrafanaEmbeds,
+    clusterGrafanaEmbeds,
   };
 }

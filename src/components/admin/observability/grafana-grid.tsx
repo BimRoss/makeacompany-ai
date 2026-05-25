@@ -9,7 +9,7 @@ import { useTimeRange } from "./time-range";
 import { asGrafanaDashboardDeepLink, asGrafanaSoloEmbedUrl } from "./grafana-url";
 
 type GrafanaGridProps = {
-  source: "admin" | "cronjob";
+  source: "admin" | "cronjob" | "cluster";
   /** Slot count for skeleton render before first fetch. */
   skeletonCount: number;
   gridClassName: string;
@@ -29,10 +29,15 @@ export function GrafanaGrid({
   forceFrom,
 }: GrafanaGridProps) {
   const { resolvedTheme } = useTheme();
-  const { loopback, fetched, adminEmbeds, cronjobEmbeds } = useObservabilityData();
+  const { loopback, fetched, adminEmbeds, cronjobEmbeds, clusterEmbeds } = useObservabilityData();
   const { from } = useTimeRange();
 
-  const raw = source === "admin" ? adminEmbeds : cronjobEmbeds;
+  const raw =
+    source === "admin"
+      ? adminEmbeds
+      : source === "cronjob"
+        ? cronjobEmbeds
+        : clusterEmbeds;
   const filtered = useMemo(
     () => (embedFilter ? raw.filter(embedFilter) : raw),
     [raw, embedFilter]
