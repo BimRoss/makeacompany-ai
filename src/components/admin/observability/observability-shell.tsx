@@ -1,13 +1,16 @@
 "use client";
 
 import { Suspense } from "react";
-import { ExternalLink } from "lucide-react";
+import { AlertTriangle, ExternalLink } from "lucide-react";
 
+import { AlertsProvider, useAlerts } from "./alerts-provider";
+import { AlertsStrip } from "./alerts-strip";
 import {
   ObservabilityDataProvider,
   useObservabilityData,
 } from "./data-provider";
 import { GrafanaGrid } from "./grafana-grid";
+import { KpiScorecard } from "./kpi-scorecard";
 import { ObservabilitySection } from "./section";
 import { TimeRangeProvider, useTimeRange } from "./time-range";
 import { ObservabilityToolbar } from "./toolbar";
@@ -33,25 +36,45 @@ function DashboardLink({
   );
 }
 
+function AnomalyBadge({ component }: { component: string }) {
+  const { firingByComponent } = useAlerts();
+  const count = firingByComponent[component]?.length ?? 0;
+  if (count === 0) return null;
+  return (
+    <span
+      className="inline-flex items-center gap-1 rounded-full border border-red-500/40 bg-red-500/10 px-2 py-0.5 text-[11px] font-semibold text-red-700 dark:text-red-300"
+      title={firingByComponent[component]?.map((a) => a.summary).join("\n")}
+    >
+      <AlertTriangle className="h-3 w-3" aria-hidden="true" />
+      {count} firing
+    </span>
+  );
+}
+
 function ObservabilityBody() {
-  const { loading, lastUpdatedAt, adminDashboardUrl, cronjobDashboardUrl } = useObservabilityData();
+  const { loading, lastUpdatedAt, adminDashboardUrl, cronjobDashboardUrl, clusterDashboardUrl } =
+    useObservabilityData();
   const { from } = useTimeRange();
 
-  const adminDeep = adminDashboardUrl
-    ? appendRange(adminDashboardUrl, from)
-    : null;
-  const cronDeep = cronjobDashboardUrl
-    ? appendRange(cronjobDashboardUrl, from)
-    : null;
+  const adminDeep = adminDashboardUrl ? appendRange(adminDashboardUrl, from) : null;
+  const cronDeep = cronjobDashboardUrl ? appendRange(cronjobDashboardUrl, from) : null;
+  const clusterDeep = clusterDashboardUrl ? appendRange(clusterDashboardUrl, from) : null;
 
   return (
     <div className="space-y-5">
       <ObservabilityToolbar lastUpdatedAt={lastUpdatedAt} loading={loading} />
+      <KpiScorecard />
+      <AlertsStrip />
       <ObservabilitySection
         id="web-tier"
         title="Web tier"
         description="HTTP traffic, latency, errors, and runtime signals from the backend."
-        endSlot={<DashboardLink href={adminDeep} label="Open dashboard" />}
+        endSlot={
+          <div className="flex items-center gap-2">
+            <AnomalyBadge component="web" />
+            <DashboardLink href={adminDeep} label="Open dashboard" />
+          </div>
+        }
       >
         <GrafanaGrid
           source="admin"
@@ -64,14 +87,37 @@ function ObservabilityBody() {
         id="background-jobs"
         title="Background jobs"
         description="K8s CronJob and scraper run-state. Time range fixed to 24h to capture full schedules."
-        endSlot={<DashboardLink href={cronDeep} label="Open dashboard" />}
+        endSlot={
+          <div className="flex items-center gap-2">
+            <AnomalyBadge component="jobs" />
+            <DashboardLink href={cronDeep} label="Open dashboard" />
+          </div>
+        }
       >
         <GrafanaGrid
           source="cronjob"
           skeletonCount={3}
           gridClassName="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3"
           panelHeight="md"
-          embedFilter={(embed) => embed.panelId !== "2"}
+          forceFrom="now-24h"
+        />
+      </ObservabilitySection>
+      <ObservabilitySection
+        id="cluster"
+        title="Cluster"
+        description="Kubernetes pod and container health from kube-state-metrics."
+        endSlot={
+          <div className="flex items-center gap-2">
+            <AnomalyBadge component="cluster" />
+            <DashboardLink href={clusterDeep} label="Open dashboard" />
+          </div>
+        }
+      >
+        <GrafanaGrid
+          source="cluster"
+          skeletonCount={5}
+          gridClassName="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3"
+          panelHeight="md"
           forceFrom="now-24h"
         />
       </ObservabilitySection>
@@ -94,9 +140,11 @@ export function AdminObservabilityShell() {
   return (
     <Suspense fallback={null}>
       <TimeRangeProvider>
-        <ObservabilityDataProvider>
-          <ObservabilityBody />
-        </ObservabilityDataProvider>
+        <AlertsProvider>
+          <ObservabilityDataProvider>
+            <ObservabilityBody />
+          </ObservabilityDataProvider>
+        </AlertsProvider>
       </TimeRangeProvider>
     </Suspense>
   );
