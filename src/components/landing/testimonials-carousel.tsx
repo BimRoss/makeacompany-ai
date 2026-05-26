@@ -97,45 +97,74 @@ export function TestimonialsCarousel({ testimonials }: { testimonials: LanderTes
         >
           {testimonials.map((testimonial) => {
             const [tintLight, tintDark] = pickMonogramTint(testimonial.name);
+            const initials = testimonial.avatar || deriveInitials(testimonial.name);
+            const dragging = phase === "dragging";
+            // Hover/focus expansion classes — suppressed while dragging so the
+            // card under the cursor doesn't pop while the user is scrolling.
+            const expandCard = dragging
+              ? ""
+              : "md:group-hover/card:z-20 md:group-hover/card:-inset-3 md:group-hover/card:bottom-auto md:group-hover/card:h-auto md:group-hover/card:border-foreground/25 md:group-hover/card:bg-card md:group-hover/card:shadow-[0_24px_60px_-16px_rgba(0,0,0,0.22)] dark:md:group-hover/card:shadow-[0_24px_60px_-16px_rgba(255,255,255,0.12)] group-focus-within/card:z-20 group-focus-within/card:-inset-3 group-focus-within/card:bottom-auto group-focus-within/card:h-auto group-focus-within/card:border-foreground/25 group-focus-within/card:bg-card";
+            const expandQuote = dragging
+              ? ""
+              : "md:group-hover/card:line-clamp-none group-focus-within/card:line-clamp-none";
             return (
-            <article
-              key={testimonial.id}
-              className={`testimonial-card flex min-w-[84%] flex-col snap-start rounded-xl border border-border bg-card/60 p-6 md:hover:border-foreground/25 md:hover:bg-card md:hover:shadow-[0_14px_44px_-12px_rgba(0,0,0,0.14)] dark:md:hover:shadow-[0_14px_44px_-12px_rgba(255,255,255,0.08)] sm:min-w-[48%] lg:min-w-[31%] ${phase === "dragging" ? "md:cursor-grabbing" : "md:cursor-pointer"}`}
-            >
-              <p
-                className="mb-6 line-clamp-4 text-pretty text-foreground/90"
-                title={testimonial.content}
+              <div
+                key={testimonial.id}
+                className="group/card relative flex shrink-0 snap-start min-w-[84%] sm:min-w-[48%] lg:min-w-[31%]"
               >
-                &ldquo;{testimonial.content}&rdquo;
-              </p>
-              <div className="mt-auto flex items-center gap-3">
-                <div
-                  className="testimonial-monogram relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border text-sm font-semibold"
-                  style={
-                    {
-                      "--monogram-bg-light": tintLight,
-                      "--monogram-bg-dark": tintDark,
-                    } as React.CSSProperties
-                  }
+                {/* Ghost: holds the slot's dimensions so neighbors don't shift
+                    when the live card expands as an absolute overlay. */}
+                <article
+                  aria-hidden="true"
+                  className="testimonial-card invisible flex w-full flex-col rounded-xl border border-border bg-card/60 p-6"
                 >
-                  {testimonial.avatarImage ? (
-                    <Image
-                      src={testimonial.avatarImage}
-                      alt={testimonial.name}
-                      fill
-                      sizes="40px"
-                      className="object-cover object-top"
-                    />
-                  ) : (
-                    <span aria-hidden>{testimonial.avatar || deriveInitials(testimonial.name)}</span>
-                  )}
-                </div>
-                <div className="min-w-0">
-                  <p className="truncate font-semibold">{testimonial.name}</p>
-                  <p className="truncate text-sm text-muted-foreground">{testimonial.role}</p>
-                </div>
+                  <p className="mb-6 line-clamp-4 text-pretty text-foreground/90">
+                    &ldquo;{testimonial.content}&rdquo;
+                  </p>
+                  <div className="mt-auto flex items-center gap-3">
+                    <div className="h-10 w-10 shrink-0 rounded-full border border-border" />
+                    <div className="min-w-0">
+                      <p className="truncate font-semibold">{testimonial.name}</p>
+                      <p className="truncate text-sm text-muted-foreground">{testimonial.role}</p>
+                    </div>
+                  </div>
+                </article>
+                <article
+                  tabIndex={0}
+                  className={`testimonial-card absolute inset-0 flex flex-col rounded-xl border border-border bg-card/60 p-6 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/25 ${expandCard} ${dragging ? "md:cursor-grabbing" : "md:cursor-pointer"}`}
+                >
+                  <p className={`mb-6 line-clamp-4 text-pretty text-foreground/90 ${expandQuote}`}>
+                    &ldquo;{testimonial.content}&rdquo;
+                  </p>
+                  <div className="mt-auto flex items-center gap-3">
+                    <div
+                      className="testimonial-monogram relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border text-sm font-semibold"
+                      style={
+                        {
+                          "--monogram-bg-light": tintLight,
+                          "--monogram-bg-dark": tintDark,
+                        } as React.CSSProperties
+                      }
+                    >
+                      {testimonial.avatarImage ? (
+                        <Image
+                          src={testimonial.avatarImage}
+                          alt={testimonial.name}
+                          fill
+                          sizes="40px"
+                          className="object-cover object-top"
+                        />
+                      ) : (
+                        <span aria-hidden>{initials}</span>
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="truncate font-semibold">{testimonial.name}</p>
+                      <p className="truncate text-sm text-muted-foreground">{testimonial.role}</p>
+                    </div>
+                  </div>
+                </article>
               </div>
-            </article>
             );
           })}
         </div>
