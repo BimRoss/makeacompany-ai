@@ -103,10 +103,10 @@ export function TestimonialsCarousel({ testimonials }: { testimonials: LanderTes
             // card under the cursor doesn't pop while the user is scrolling.
             const expandCard = dragging
               ? ""
-              : "md:group-hover/card:z-20 md:group-hover/card:-inset-3 md:group-hover/card:bottom-auto md:group-hover/card:h-auto md:group-hover/card:border-foreground/25 md:group-hover/card:bg-card md:group-hover/card:shadow-[0_24px_60px_-16px_rgba(0,0,0,0.22)] dark:md:group-hover/card:shadow-[0_24px_60px_-16px_rgba(255,255,255,0.12)] group-focus-within/card:z-20 group-focus-within/card:-inset-3 group-focus-within/card:bottom-auto group-focus-within/card:h-auto group-focus-within/card:border-foreground/25 group-focus-within/card:bg-card";
+              : "md:group-hover/card:z-20 md:group-hover/card:-inset-3 md:group-hover/card:bottom-auto md:group-hover/card:h-auto md:group-hover/card:border-foreground/25 md:group-hover/card:bg-card md:group-hover/card:shadow-[0_24px_60px_-16px_rgba(0,0,0,0.22)] dark:md:group-hover/card:shadow-[0_24px_60px_-16px_rgba(255,255,255,0.12)] md:group-focus-within/card:z-20 md:group-focus-within/card:-inset-3 md:group-focus-within/card:bottom-auto md:group-focus-within/card:h-auto md:group-focus-within/card:border-foreground/25 md:group-focus-within/card:bg-card";
             const expandQuote = dragging
               ? ""
-              : "md:group-hover/card:line-clamp-none group-focus-within/card:line-clamp-none";
+              : "md:group-hover/card:line-clamp-none md:group-focus-within/card:line-clamp-none";
             return (
               <div
                 key={testimonial.id}
