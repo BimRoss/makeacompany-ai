@@ -8,6 +8,12 @@ const DEFAULT_TEXT = siteDescriptionLine2;
 
 type Voice = "joanne" | "ross" | "duo";
 
+// Longest known subhead string — also used as an invisible height anchor below
+// so the surrounding container reserves the same number of lines for every
+// variant. Re-pick this if you add a longer entry to VARIANTS.
+const HEIGHT_ANCHOR =
+  "Joanne runs ops. Ross writes code. You make the calls only a founder can. It's basically a whole company in your Slack, for what Claude Code costs.";
+
 const VARIANTS: ReadonlyArray<{ voice: Voice; text: string }> = [
   {
     voice: "joanne",
@@ -210,19 +216,27 @@ export function HeroSubheadRewrite({ onAgentChange }: Props) {
 
   return (
     <div className="mx-auto mb-6 flex w-full max-w-4xl flex-col items-center gap-3 sm:mb-10 sm:gap-4">
-      <p
-        className={`text-pretty text-center text-lg font-medium leading-relaxed transition-colors duration-200 sm:text-xl md:text-2xl ${typing || pending ? "text-muted-foreground/40" : "text-muted-foreground"}`}
-      >
-        {text}
-        {typing ? (
-          <span
-            className="ml-0.5 inline-block animate-pulse font-normal text-muted-foreground/70"
-            aria-hidden
-          >
-            |
-          </span>
-        ) : null}
-      </p>
+      <div className="grid w-full">
+        <p
+          aria-hidden
+          className="invisible col-start-1 row-start-1 text-pretty text-center text-lg font-medium leading-relaxed sm:text-xl md:text-2xl"
+        >
+          {HEIGHT_ANCHOR}
+        </p>
+        <p
+          className={`col-start-1 row-start-1 text-pretty text-center text-lg font-medium leading-relaxed transition-colors duration-200 sm:text-xl md:text-2xl ${typing || pending ? "text-muted-foreground/40" : "text-muted-foreground"}`}
+        >
+          {text}
+          {typing ? (
+            <span
+              className="ml-0.5 inline-block animate-pulse font-normal text-muted-foreground/70"
+              aria-hidden
+            >
+              |
+            </span>
+          ) : null}
+        </p>
+      </div>
       <button
         type="button"
         onClick={cycleNext}

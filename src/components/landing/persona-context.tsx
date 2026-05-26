@@ -44,21 +44,37 @@ function fireSwitchEvent(from: Persona, to: Persona, source: PersonaSource) {
   });
 }
 
-export function PersonaProvider({ children }: { children: React.ReactNode }) {
-  const [persona, setPersonaState] = useState<Persona>(DEFAULT_PERSONA);
+interface PersonaProviderProps {
+  children: React.ReactNode;
+  /** Persona resolved on the server (URL param or default). Used as initial state so SSR copy matches the hydrated copy. */
+  initialPersona?: Persona;
+  /** True when `initialPersona` came from the URL — skip URL re-resolution on the client to avoid double work. */
+  initialFromUrl?: boolean;
+}
+
+export function PersonaProvider({
+  children,
+  initialPersona = DEFAULT_PERSONA,
+  initialFromUrl = false,
+}: PersonaProviderProps) {
+  const [persona, setPersonaState] = useState<Persona>(initialPersona);
   const [hydrated, setHydrated] = useState(false);
-  const lastRef = useRef<Persona>(DEFAULT_PERSONA);
+  const lastRef = useRef<Persona>(initialPersona);
 
   useEffect(() => {
-    const resolved = resolveInitialPersona();
-    lastRef.current = resolved.persona;
-    setPersonaState(resolved.persona);
-    setHydrated(true);
-    if (resolved.source !== "default") {
-      // Only fire when the initial choice came from a real signal.
-      fireSwitchEvent(DEFAULT_PERSONA, resolved.persona, resolved.source);
+    // If the URL pinned the persona server-side, trust it — no client upgrade.
+    if (initialFromUrl) {
+      setHydrated(true);
+      return;
     }
-  }, []);
+    const resolved = resolveInitialPersona(true);
+    if (resolved.persona !== initialPersona) {
+      lastRef.current = resolved.persona;
+      setPersonaState(resolved.persona);
+      fireSwitchEvent(initialPersona, resolved.persona, resolved.source);
+    }
+    setHydrated(true);
+  }, [initialFromUrl, initialPersona]);
 
   const setPersona = useCallback((next: Persona) => {
     setPersonaState((prev) => {

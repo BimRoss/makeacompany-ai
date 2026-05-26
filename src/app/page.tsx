@@ -11,6 +11,7 @@ import { TestimonialsCarousel } from "@/components/landing/testimonials-carousel
 import { ValueStack } from "@/components/landing/value-stack";
 import { fetchLanderSlackSeats } from "@/lib/lander-slack-seats";
 import { fetchLanderTestimonials } from "@/lib/lander-testimonials";
+import { DEFAULT_PERSONA, parsePersonaParam } from "@/lib/personas";
 import { siteDescription, siteTagline, siteTitle, siteUrl } from "@/lib/site";
 
 // Re-fetch the seat count on each request so the pill keeps up with onboarding.
@@ -52,8 +53,14 @@ export const metadata: Metadata = {
   },
 };
 
-export default async function HomePage() {
+export default async function HomePage({
+  searchParams,
+}: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const faqJsonLd = faqStructuredData();
+  const params = (await searchParams) ?? {};
+  const urlPersona = parsePersonaParam(params.p);
   const [initialSeats, testimonials] = await Promise.all([
     fetchLanderSlackSeats(),
     fetchLanderTestimonials(),
@@ -66,7 +73,10 @@ export default async function HomePage() {
       </Script>
       <CheckoutReturnToast />
       <Header />
-      <PersonaProvider>
+      <PersonaProvider
+        initialPersona={urlPersona ?? DEFAULT_PERSONA}
+        initialFromUrl={urlPersona !== null}
+      >
         <HeroSection initialSeats={initialSeats} />
         <ValueStack />
         <TestimonialsCarousel testimonials={testimonials} />
