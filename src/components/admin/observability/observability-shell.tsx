@@ -61,7 +61,7 @@ function ObservabilityBody() {
   const clusterDeep = clusterDashboardUrl ? appendRange(clusterDashboardUrl, from) : null;
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <ObservabilityToolbar lastUpdatedAt={lastUpdatedAt} loading={loading} />
       <KpiScorecard />
       <AlertsStrip />
@@ -79,7 +79,7 @@ function ObservabilityBody() {
         <GrafanaGrid
           source="admin"
           skeletonCount={6}
-          gridClassName="grid grid-cols-1 gap-1.5 md:grid-cols-2 md:gap-2 xl:grid-cols-4"
+          gridClassName="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4"
           panelHeight="sm"
         />
       </ObservabilitySection>
@@ -97,7 +97,7 @@ function ObservabilityBody() {
         <GrafanaGrid
           source="cronjob"
           skeletonCount={3}
-          gridClassName="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3"
+          gridClassName="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3"
           panelHeight="md"
           forceFrom="now-24h"
         />
@@ -116,7 +116,7 @@ function ObservabilityBody() {
         <GrafanaGrid
           source="cluster"
           skeletonCount={5}
-          gridClassName="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3"
+          gridClassName="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3"
           panelHeight="md"
           forceFrom="now-24h"
         />
