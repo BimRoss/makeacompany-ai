@@ -1,0 +1,50 @@
+import { Smartphone, Users, Wrench } from "lucide-react";
+
+const PILLARS = [
+  {
+    icon: Wrench,
+    title: "The harness, not the agent.",
+    body: "Claude is commodity. We ship the orchestration — persistent workspaces per channel, baked-in skills, GitOps and intake wired up out of the box.",
+  },
+  {
+    icon: Smartphone,
+    title: "Ship from your phone, in Slack.",
+    body: "We were built that way. This site, the Slack bot, the onboarding flow — this company runs on itself.",
+  },
+  {
+    icon: Users,
+    title: "A curated room of builders + operators.",
+    body: "It's a room, not a CLI. Free for the first 100 users, then $99/mo.",
+  },
+];
+
+export function ValueStack() {
+  return (
+    <section className="py-20">
+      <div className="mx-auto w-full max-w-5xl px-6">
+        <div className="mb-12 text-center">
+          <h2 className="text-balance text-3xl font-bold tracking-tight sm:text-4xl">
+            Why this, instead of a $99/mo Claude sub.
+          </h2>
+          <p className="mx-auto mt-4 max-w-2xl text-pretty text-lg text-muted-foreground">
+            Three legs the raw CLI doesn&apos;t give you.
+          </p>
+        </div>
+        <ul className="grid gap-6 sm:grid-cols-3">
+          {PILLARS.map(({ icon: Icon, title, body }) => (
+            <li
+              key={title}
+              className="rounded-2xl border border-border bg-card p-6 shadow-sm"
+            >
+              <div className="mb-4 inline-flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-foreground">
+                <Icon className="h-5 w-5" aria-hidden="true" />
+              </div>
+              <h3 className="mb-2 text-lg font-semibold tracking-tight">{title}</h3>
+              <p className="text-pretty text-sm text-muted-foreground">{body}</p>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
+  );
+}

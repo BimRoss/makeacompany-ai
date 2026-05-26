@@ -8,6 +8,7 @@ import { HeroSection } from "@/components/landing/hero-section";
 import { PersonaProvider } from "@/components/landing/persona-context";
 import { faqStructuredData, SeoFaqSection } from "@/components/landing/seo-faq";
 import { TestimonialsCarousel } from "@/components/landing/testimonials-carousel";
+import { ValueStack } from "@/components/landing/value-stack";
 import { siteDescription, siteTagline, siteTitle, siteUrl } from "@/lib/site";
 
 export const metadata: Metadata = {
@@ -58,6 +59,7 @@ export default function HomePage() {
       <Header />
       <PersonaProvider>
         <HeroSection />
+        <ValueStack />
         <TestimonialsCarousel />
         <CtaSection />
       </PersonaProvider>
