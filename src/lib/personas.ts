@@ -30,7 +30,7 @@ export const PERSONA_COPY: Record<Persona, PersonaCopy> = {
   },
   engineer: {
     heroLine1: "$99/mo replaces Claude Max —",
-    heroLine2: "and ships in Slack already.",
+    heroLine2: "and ships in Slack.",
     subhead:
       "We sell the harness, not the agent. Persistent workspaces per channel, baked-in skills, GitOps wired up. Built by an engineer who clears your hiring bar.",
     ctaH2: "See the harness.",
