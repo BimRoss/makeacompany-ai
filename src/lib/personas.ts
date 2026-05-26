@@ -29,8 +29,8 @@ export const PERSONA_COPY: Record<Persona, PersonaCopy> = {
     ctaButtonLabel: "Start your company",
   },
   engineer: {
-    heroLine1: "$99/mo replaces Claude Max —",
-    heroLine2: "and ships in Slack.",
+    heroLine1: "$99/mo for Claude.",
+    heroLine2: "Ships in Slack.",
     subhead:
       "We sell the harness, not the agent. Persistent workspaces per channel, baked-in skills, GitOps wired up. Built by an engineer who clears your hiring bar.",
     ctaH2: "See the harness.",
@@ -39,8 +39,8 @@ export const PERSONA_COPY: Record<Persona, PersonaCopy> = {
     ctaButtonLabel: "See the harness",
   },
   team: {
-    heroLine1: "AI teammates,",
-    heroLine2: "where your team already works.",
+    heroLine1: "AI teammates",
+    heroLine2: "where you already work.",
     subhead:
       "Slack-native agents that live in your channels. Persistent workspaces, recurring loops, GitOps baked in. No new tool to roll out — they show up where you already are.",
     ctaH2: "Add it to your Slack.",
