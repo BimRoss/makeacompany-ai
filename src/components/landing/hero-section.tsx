@@ -17,7 +17,12 @@ const AGENT_LINES = {
 const ERASE_MS = 22;
 const TYPE_MS = 42;
 
-export function HeroSection() {
+export type HeroSectionProps = {
+  /** Live "N of CAP free seats claimed" pill counts; SSR-fetched in app/page.tsx. */
+  initialSeats?: { claimed: number | null; cap: number };
+};
+
+export function HeroSection({ initialSeats }: HeroSectionProps = {}) {
   const { copy } = usePersona();
   const personaDefault = { line1: copy.heroLine1, line2: copy.heroLine2 };
 
@@ -140,7 +145,7 @@ export function HeroSection() {
 
       <div className="relative mx-auto w-full max-w-6xl text-center">
         <div className="mb-4 flex justify-center sm:mb-6">
-          <PricingCliffLine />
+          <PricingCliffLine claimed={initialSeats?.claimed ?? null} cap={initialSeats?.cap ?? null} />
         </div>
 
         <div className="mb-6 flex justify-center sm:mb-8">

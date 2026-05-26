@@ -120,6 +120,7 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 	s.mux.HandleFunc("/v1/billing/free-trial-invite", s.handleBillingFreeTrialInvite)
 	s.mux.HandleFunc("/v1/billing/webhook", s.handleWebhook)
 	s.mux.HandleFunc("/v1/billing/waitlist-stats", s.handleWaitlistStats)
+	s.mux.HandleFunc("/v1/lander/slack-seats", s.handleLanderSlackSeats)
 	s.mux.HandleFunc("/v1/admin/waitlist", s.handleAdminWaitlist)
 	s.mux.HandleFunc("/v1/admin/stripe-waitlist-purchasers", s.handleAdminStripeWaitlistPurchasers)
 	s.mux.HandleFunc("/v1/admin/slack-workspace-users", s.handleAdminSlackWorkspaceUsers)
@@ -194,6 +195,8 @@ func normalizeMetricRoute(path string) string {
 		return "/v1/billing/webhook"
 	case path == "/v1/billing/waitlist-stats":
 		return "/v1/billing/waitlist-stats"
+	case path == "/v1/lander/slack-seats":
+		return "/v1/lander/slack-seats"
 	case path == "/v1/admin/waitlist":
 		return "/v1/admin/waitlist"
 	case path == "/v1/admin/stripe-waitlist-purchasers":

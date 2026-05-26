@@ -9,7 +9,11 @@ import { PersonaProvider } from "@/components/landing/persona-context";
 import { faqStructuredData, SeoFaqSection } from "@/components/landing/seo-faq";
 import { TestimonialsCarousel } from "@/components/landing/testimonials-carousel";
 import { ValueStack } from "@/components/landing/value-stack";
+import { fetchLanderSlackSeats } from "@/lib/lander-slack-seats";
 import { siteDescription, siteTagline, siteTitle, siteUrl } from "@/lib/site";
+
+// Re-fetch the seat count on each request so the pill keeps up with onboarding.
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: siteTitle,
@@ -47,8 +51,9 @@ export const metadata: Metadata = {
   },
 };
 
-export default function HomePage() {
+export default async function HomePage() {
   const faqJsonLd = faqStructuredData();
+  const initialSeats = await fetchLanderSlackSeats();
 
   return (
     <main className="min-h-screen bg-background">
@@ -58,7 +63,7 @@ export default function HomePage() {
       <CheckoutReturnToast />
       <Header />
       <PersonaProvider>
-        <HeroSection />
+        <HeroSection initialSeats={initialSeats} />
         <ValueStack />
         <TestimonialsCarousel />
         <CtaSection />
