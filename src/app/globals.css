@@ -327,7 +327,7 @@ button:disabled {
 /* Testimonial carousel cards: same hover polish as .faq-details but no vertical lift — lift + overflow-x
    scroll clips the top edge of the card and its shadow. */
 .testimonial-card {
-  transition-property: box-shadow, border-color, background-color;
+  transition-property: box-shadow, border-color, background-color, top, right, bottom, left, height;
   transition-duration: var(--faq-motion-duration);
   transition-timing-function: var(--faq-motion-ease);
 }
