@@ -338,6 +338,17 @@ button:disabled {
   }
 }
 
+/* Deterministic monogram tint — bg color comes from the per-card --monogram-bg-*
+   custom property set inline by TestimonialsCarousel. Keeps the bg uniform across
+   light/dark and avoids the empty-circle look when no avatarImage is provided. */
+.testimonial-monogram {
+  background-color: var(--monogram-bg-light, var(--background));
+}
+
+.dark .testimonial-monogram {
+  background-color: var(--monogram-bg-dark, var(--background));
+}
+
 @media (prefers-reduced-motion: reduce) {
   .faq-details {
     transition-duration: 0.01ms;
