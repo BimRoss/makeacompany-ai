@@ -10,61 +10,11 @@ export type LanderTestimonial = {
 };
 
 /**
- * Static fallback used when the backend is unreachable (SSG, network blip, cold
- * boot before seed). Mirrors the six entries we seed into Redis on first boot,
- * so the page renders the same content in either path.
+ * Empty fallback. We deliberately no longer ship hardcoded testimonials —
+ * if the backend is unreachable the carousel renders nothing rather than
+ * fabricated quotes. The carousel returns null on an empty array.
  */
-export const FALLBACK_TESTIMONIALS: LanderTestimonial[] = [
-  {
-    id: "sarah_chen",
-    name: "Sarah Chen",
-    role: "Founder, TechFlow",
-    avatar: "SC",
-    content:
-      "We replaced 3 part-time VAs with makeacompany.ai. It's like having a team that never sleeps and actually follows instructions.",
-  },
-  {
-    id: "marcus_johnson",
-    name: "Marcus Johnson",
-    role: "CEO, DataScale",
-    avatar: "MJ",
-    content:
-      "We went from zero to a working support queue in one afternoon—agents handle most tickets; we only step in on edge cases.",
-  },
-  {
-    id: "emily_rodriguez",
-    name: "Emily Rodriguez",
-    role: "Head of Ops, Velocity",
-    avatar: "ER",
-    content:
-      "The ROI is real—we cut what we’d have paid contractors for the same throughput, and quality went up because nothing slips.",
-  },
-  {
-    id: "david_park",
-    name: "David Park",
-    role: "Solo Founder",
-    avatar: "DP",
-    content:
-      "As a solo founder, this gave me a team. I finally have someone to delegate to. Game changer for indie hackers.",
-  },
-  {
-    id: "alex_thompson",
-    name: "Alex Thompson",
-    role: "VP Engineering, CloudBase",
-    avatar: "AT",
-    content:
-      "Slack-native was non-negotiable for us—the handoff feels like @mentioning a teammate, not opening another tool.",
-  },
-  {
-    id: "grant_foster",
-    name: "Grant Foster",
-    role: "Founder, BimRoss",
-    avatar: "GF",
-    avatarImage: "/grant-headshot.png",
-    content:
-      "Well, I'm the founder... and I couldn't exist without it... literally. I can never tell if I'm working on the company or the product, but regardless, it's helped me scale my company to... well, this.",
-  },
-];
+export const FALLBACK_TESTIMONIALS: LanderTestimonial[] = [];
 
 type BackendTestimonial = {
   id?: string;
@@ -78,8 +28,8 @@ type BackendTestimonial = {
 
 /**
  * Server-side fetch for the testimonials carousel. Hits the public
- * `/v1/lander/testimonials` endpoint. On any failure returns the static
- * fallback list — the lander must never render empty.
+ * `/v1/lander/testimonials` endpoint. On any failure returns an empty list
+ * (the carousel hides itself rather than rendering placeholder quotes).
  */
 export async function fetchLanderTestimonials(): Promise<LanderTestimonial[]> {
   const url = `${resolveBackendBaseURL().replace(/\/$/, "")}/v1/lander/testimonials`;
