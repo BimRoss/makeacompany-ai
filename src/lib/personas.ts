@@ -59,6 +59,15 @@ function isPersona(v: unknown): v is Persona {
   return v === "founder" || v === "engineer" || v === "team";
 }
 
+/**
+ * Parse the persona search param on the server. Returns null when the
+ * value is missing or unrecognized so the caller can fall back to the default.
+ */
+export function parsePersonaParam(v: unknown): Persona | null {
+  if (Array.isArray(v)) v = v[0];
+  return isPersona(v) ? v : null;
+}
+
 export type PersonaSource = "url" | "storage" | "referrer" | "default" | "click";
 
 export interface ResolvedPersona {
@@ -69,15 +78,20 @@ export interface ResolvedPersona {
 /**
  * Resolve initial persona on first client load.
  * Precedence: URL param → localStorage → referrer sniff → default.
+ *
+ * When `skipUrl` is true the URL has already been honored server-side; only
+ * storage/referrer get a chance to upgrade the persona post-hydration.
  */
-export function resolveInitialPersona(): ResolvedPersona {
+export function resolveInitialPersona(skipUrl = false): ResolvedPersona {
   if (typeof window === "undefined") {
     return { persona: DEFAULT_PERSONA, source: "default" };
   }
 
-  const url = new URL(window.location.href);
-  const fromUrl = url.searchParams.get(URL_PARAM);
-  if (isPersona(fromUrl)) return { persona: fromUrl, source: "url" };
+  if (!skipUrl) {
+    const url = new URL(window.location.href);
+    const fromUrl = url.searchParams.get(URL_PARAM);
+    if (isPersona(fromUrl)) return { persona: fromUrl, source: "url" };
+  }
 
   try {
     const fromStorage = window.localStorage.getItem(STORAGE_KEY);
