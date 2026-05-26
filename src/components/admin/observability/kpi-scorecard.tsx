@@ -77,7 +77,7 @@ function ScorecardTile({
   const color = value === null ? "amber" : colorFor(thresholds, value, higherIsBetter);
   return (
     <div
-      className={`relative overflow-hidden rounded-xl border p-3 shadow-sm transition ${
+      className={`relative overflow-hidden rounded-xl border p-4 shadow-sm transition ${
         value === null ? "border-border bg-card" : tileBgClass[color]
       }`}
     >
@@ -85,7 +85,7 @@ function ScorecardTile({
         {label}
       </div>
       <div
-        className={`mt-1 font-display text-2xl font-semibold tracking-tight ${
+        className={`mt-2 font-display text-3xl font-semibold tracking-tight ${
           value === null ? "text-muted-foreground" : tileTextClass[color]
         }`}
       >
@@ -209,7 +209,7 @@ export function KpiScorecard() {
   return (
     <section
       aria-label="KPI scorecard"
-      className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5"
+      className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5"
     >
       {tiles.map((tile) => {
         const value =
