@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import type { LanderTestimonial } from "@/lib/lander-testimonials";
 
@@ -40,6 +40,28 @@ function deriveInitials(name: string): string {
 export function TestimonialsCarousel({ testimonials }: { testimonials: LanderTestimonial[] }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [phase, setPhase] = useState<CarouselPhase>("idle");
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const activeTestimonial = activeId ? testimonials.find((t) => t.id === activeId) ?? null : null;
+
+  useEffect(() => {
+    if (!activeId) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setActiveId(null);
+    };
+    window.addEventListener("keydown", onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [activeId]);
+
+  const openModal = (id: string) => {
+    if (typeof window === "undefined") return;
+    if (window.innerWidth >= MD_MIN) return;
+    setActiveId(id);
+  };
 
   const onMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
     if (e.button !== 0) return;
@@ -131,7 +153,16 @@ export function TestimonialsCarousel({ testimonials }: { testimonials: LanderTes
                 </article>
                 <article
                   tabIndex={0}
-                  className={`testimonial-card absolute inset-0 flex flex-col rounded-xl border border-border bg-card/60 p-6 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/25 ${expandCard} ${dragging ? "md:cursor-grabbing" : "md:cursor-pointer"}`}
+                  role="button"
+                  aria-label={`Read full testimonial from ${testimonial.name}`}
+                  onClick={() => openModal(testimonial.id)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      openModal(testimonial.id);
+                    }
+                  }}
+                  className={`testimonial-card absolute inset-0 flex cursor-pointer flex-col rounded-xl border border-border bg-card/60 p-6 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/25 ${expandCard} ${dragging ? "md:cursor-grabbing" : "md:cursor-pointer"}`}
                 >
                   <p className={`mb-6 line-clamp-4 text-pretty text-foreground/90 ${expandQuote}`}>
                     &ldquo;{testimonial.content}&rdquo;
@@ -174,6 +205,67 @@ export function TestimonialsCarousel({ testimonials }: { testimonials: LanderTes
         />
         </div>
       </div>
+      {activeTestimonial && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Testimonial from ${activeTestimonial.name}`}
+          onClick={() => setActiveId(null)}
+          className="testimonial-modal-backdrop fixed inset-0 z-50 flex items-center justify-center bg-background/80 px-6 py-10 backdrop-blur-sm md:hidden"
+        >
+          <article
+            onClick={(e) => e.stopPropagation()}
+            className="testimonial-modal-card relative max-h-full w-full max-w-md overflow-y-auto rounded-2xl border border-border bg-card p-6 shadow-[0_24px_60px_-16px_rgba(0,0,0,0.35)]"
+          >
+            <button
+              type="button"
+              onClick={() => setActiveId(null)}
+              aria-label="Close testimonial"
+              className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full text-foreground/60 hover:bg-foreground/5 hover:text-foreground"
+            >
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+                <path d="M3 3L13 13M13 3L3 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+              </svg>
+            </button>
+            <p className="mb-6 text-pretty pr-6 text-foreground/90">
+              &ldquo;{activeTestimonial.content}&rdquo;
+            </p>
+            <div className="flex items-center gap-3">
+              {(() => {
+                const [tintLight, tintDark] = pickMonogramTint(activeTestimonial.name);
+                const initials = activeTestimonial.avatar || deriveInitials(activeTestimonial.name);
+                return (
+                  <div
+                    className="testimonial-monogram relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border text-sm font-semibold"
+                    style={
+                      {
+                        "--monogram-bg-light": tintLight,
+                        "--monogram-bg-dark": tintDark,
+                      } as React.CSSProperties
+                    }
+                  >
+                    {activeTestimonial.avatarImage ? (
+                      <Image
+                        src={activeTestimonial.avatarImage}
+                        alt={activeTestimonial.name}
+                        fill
+                        sizes="40px"
+                        className="object-cover object-top"
+                      />
+                    ) : (
+                      <span aria-hidden>{initials}</span>
+                    )}
+                  </div>
+                );
+              })()}
+              <div className="min-w-0">
+                <p className="truncate font-semibold">{activeTestimonial.name}</p>
+                <p className="truncate text-sm text-muted-foreground">{activeTestimonial.role}</p>
+              </div>
+            </div>
+          </article>
+        </div>
+      )}
     </section>
   );
 }
