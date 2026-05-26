@@ -10,6 +10,7 @@ import { faqStructuredData, SeoFaqSection } from "@/components/landing/seo-faq";
 import { TestimonialsCarousel } from "@/components/landing/testimonials-carousel";
 import { ValueStack } from "@/components/landing/value-stack";
 import { fetchLanderSlackSeats } from "@/lib/lander-slack-seats";
+import { fetchLanderTestimonials } from "@/lib/lander-testimonials";
 import { siteDescription, siteTagline, siteTitle, siteUrl } from "@/lib/site";
 
 // Re-fetch the seat count on each request so the pill keeps up with onboarding.
@@ -53,7 +54,10 @@ export const metadata: Metadata = {
 
 export default async function HomePage() {
   const faqJsonLd = faqStructuredData();
-  const initialSeats = await fetchLanderSlackSeats();
+  const [initialSeats, testimonials] = await Promise.all([
+    fetchLanderSlackSeats(),
+    fetchLanderTestimonials(),
+  ]);
 
   return (
     <main className="min-h-screen bg-background">
@@ -65,7 +69,7 @@ export default async function HomePage() {
       <PersonaProvider>
         <HeroSection initialSeats={initialSeats} />
         <ValueStack />
-        <TestimonialsCarousel />
+        <TestimonialsCarousel testimonials={testimonials} />
         <CtaSection />
       </PersonaProvider>
       <SeoFaqSection />

@@ -45,6 +45,16 @@ func main() {
 
 	srv.StartStripeWaitlistSnapshotWarmIfMissing()
 
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		if n, err := store.SeedInitialTestimonialsIfEmpty(ctx); err != nil {
+			logger.Printf("seed testimonials: %v", err)
+		} else if n > 0 {
+			logger.Printf("seeded %d initial testimonials", n)
+		}
+	}()
+
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
 	<-stop
