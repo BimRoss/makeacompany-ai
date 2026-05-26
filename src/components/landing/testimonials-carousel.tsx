@@ -110,7 +110,7 @@ export function TestimonialsCarousel({ testimonials }: { testimonials: LanderTes
             return (
               <div
                 key={testimonial.id}
-                className="group/card relative flex shrink-0 snap-start min-w-[84%] sm:min-w-[48%] lg:min-w-[31%]"
+                className="group/card relative flex shrink-0 snap-start w-[85%] max-w-[360px] sm:w-[340px] lg:w-[360px]"
               >
                 {/* Ghost: holds the slot's dimensions so neighbors don't shift
                     when the live card expands as an absolute overlay. */}
