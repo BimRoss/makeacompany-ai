@@ -147,7 +147,7 @@ export function HeroSection() {
           <PersonaSelector />
         </div>
 
-        <h1 className="mx-auto mb-6 max-w-none text-4xl font-bold leading-[1.08] tracking-tight text-foreground whitespace-nowrap sm:mb-10 sm:text-5xl sm:leading-[1.06] md:text-6xl lg:text-7xl">
+        <h1 className="mx-auto mb-6 max-w-none text-balance text-3xl font-bold leading-[1.1] tracking-tight text-foreground sm:mb-10 sm:whitespace-nowrap sm:text-5xl sm:leading-[1.06] md:text-6xl lg:text-7xl">
           <span className="block sm:whitespace-nowrap">
             {displayLine1 || " "}
             {typing && l2Ref.current === "" ? (
