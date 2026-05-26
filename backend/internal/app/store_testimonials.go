@@ -17,9 +17,13 @@ const (
 	testimonialIndexKey  = keyPrefix + ":testimonials:v1:index"
 )
 
-// MaxTestimonialContent caps the quote body. Long enough for two full sentences
-// (the current Grant quote is ~225 chars), short enough to keep cards readable.
-const MaxTestimonialContent = 400
+// MaxTestimonialContent caps the quote body. Short enough that a 4-line clamp
+// at the carousel's card width has no visible cutoff for typical entries.
+const MaxTestimonialContent = 240
+
+// MaxTestimonialRole caps the "Title, Company" string. 80 chars fits the
+// card's single-line subtitle without truncation at the smallest card width.
+const MaxTestimonialRole = 80
 
 // ErrTestimonialNotFound is returned when no testimonial exists for the given id.
 var ErrTestimonialNotFound = errors.New("testimonial not found")
@@ -58,11 +62,12 @@ func NormalizeTestimonialID(raw string) string {
 }
 
 // ValidateTestimonial returns an error if a required field is missing or a
-// length cap is exceeded. Trims string fields in place.
+// length cap is exceeded. Trims string fields in place and normalizes role +
+// content so the public carousel renders a uniform set.
 func ValidateTestimonial(t *Testimonial) error {
 	t.Name = strings.TrimSpace(t.Name)
-	t.Role = strings.TrimSpace(t.Role)
-	t.Content = strings.TrimSpace(t.Content)
+	t.Role = NormalizeTestimonialRole(t.Role)
+	t.Content = NormalizeTestimonialContent(t.Content)
 	t.Avatar = strings.TrimSpace(t.Avatar)
 	t.AvatarImage = strings.TrimSpace(t.AvatarImage)
 	t.Status = strings.TrimSpace(t.Status)
@@ -74,6 +79,12 @@ func ValidateTestimonial(t *Testimonial) error {
 	}
 	if t.Role == "" {
 		return fmt.Errorf("role is required")
+	}
+	if strings.ContainsAny(t.Role, "\r\n") {
+		return fmt.Errorf("role must not contain newlines")
+	}
+	if len(t.Role) > MaxTestimonialRole {
+		return fmt.Errorf("role exceeds %d chars", MaxTestimonialRole)
 	}
 	if t.Content == "" {
 		return fmt.Errorf("content is required")
@@ -92,6 +103,53 @@ func ValidateTestimonial(t *Testimonial) error {
 		t.Avatar = deriveInitials(t.Name)
 	}
 	return nil
+}
+
+// NormalizeTestimonialRole collapses whitespace, splits on commas, and
+// uppercases the first letter of each segment so we get a uniform
+// "Title, Company" shape regardless of how the capturer typed it.
+func NormalizeTestimonialRole(raw string) string {
+	s := strings.TrimSpace(raw)
+	if s == "" {
+		return ""
+	}
+	parts := strings.Split(s, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		// Uppercase the first rune only; preserve casing of the rest so brand
+		// names like "BimRoss" or acronyms like "CTO" survive intact.
+		r := []rune(p)
+		r[0] = []rune(strings.ToUpper(string(r[0])))[0]
+		out = append(out, string(r))
+	}
+	return strings.Join(out, ", ")
+}
+
+// NormalizeTestimonialContent trims whitespace and strips a matched pair of
+// outer quote characters (straight or curly) so cards can wrap the body in
+// their own typographic quotes without double-quoting.
+func NormalizeTestimonialContent(raw string) string {
+	s := strings.TrimSpace(raw)
+	if len([]rune(s)) < 2 {
+		return s
+	}
+	pairs := [][2]string{
+		{"\"", "\""},
+		{"'", "'"},
+		{"“", "”"}, // “ ”
+		{"‘", "’"}, // ‘ ’
+	}
+	for _, p := range pairs {
+		if strings.HasPrefix(s, p[0]) && strings.HasSuffix(s, p[1]) {
+			s = strings.TrimSpace(s[len(p[0]) : len(s)-len(p[1])])
+			break
+		}
+	}
+	return s
 }
 
 func deriveInitials(name string) string {
