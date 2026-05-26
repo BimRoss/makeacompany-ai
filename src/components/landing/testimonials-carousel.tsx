@@ -9,6 +9,34 @@ const MD_MIN = 768;
 
 type CarouselPhase = "idle" | "dragging";
 
+// Six low-saturation tints that fit the monochrome theme. Each entry is
+// [light-mode bg, dark-mode bg] — picked deterministically per name so the
+// same person always lands on the same swatch.
+const MONOGRAM_TINTS: ReadonlyArray<readonly [string, string]> = [
+  ["#f5f5f5", "#1f1f1f"],
+  ["#efeae3", "#231f1a"],
+  ["#e9ecef", "#1a1d20"],
+  ["#eef0ec", "#1c1f1a"],
+  ["#f1ece9", "#211d1a"],
+  ["#e8eaee", "#191b1f"],
+];
+
+function pickMonogramTint(name: string): [string, string] {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
+  }
+  return [...MONOGRAM_TINTS[hash % MONOGRAM_TINTS.length]];
+}
+
+function deriveInitials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "·";
+  const first = parts[0][0] ?? "";
+  const last = parts.length > 1 ? parts[parts.length - 1][0] ?? "" : "";
+  return (first + last).toUpperCase();
+}
+
 export function TestimonialsCarousel({ testimonials }: { testimonials: LanderTestimonial[] }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [phase, setPhase] = useState<CarouselPhase>("idle");
@@ -67,14 +95,29 @@ export function TestimonialsCarousel({ testimonials }: { testimonials: LanderTes
           role="region"
           aria-label="Testimonials"
         >
-          {testimonials.map((testimonial) => (
+          {testimonials.map((testimonial) => {
+            const [tintLight, tintDark] = pickMonogramTint(testimonial.name);
+            return (
             <article
               key={testimonial.id}
-              className={`testimonial-card min-w-[84%] snap-start rounded-xl border border-border bg-card/60 p-6 md:hover:border-foreground/25 md:hover:bg-card md:hover:shadow-[0_14px_44px_-12px_rgba(0,0,0,0.14)] dark:md:hover:shadow-[0_14px_44px_-12px_rgba(255,255,255,0.08)] sm:min-w-[48%] lg:min-w-[31%] ${phase === "dragging" ? "md:cursor-grabbing" : "md:cursor-pointer"}`}
+              className={`testimonial-card flex min-w-[84%] flex-col snap-start rounded-xl border border-border bg-card/60 p-6 md:hover:border-foreground/25 md:hover:bg-card md:hover:shadow-[0_14px_44px_-12px_rgba(0,0,0,0.14)] dark:md:hover:shadow-[0_14px_44px_-12px_rgba(255,255,255,0.08)] sm:min-w-[48%] lg:min-w-[31%] ${phase === "dragging" ? "md:cursor-grabbing" : "md:cursor-pointer"}`}
             >
-              <p className="mb-6 text-pretty text-foreground/90">&ldquo;{testimonial.content}&rdquo;</p>
-              <div className="flex items-center gap-3">
-                <div className="relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-border bg-background text-sm font-semibold">
+              <p
+                className="mb-6 line-clamp-4 text-pretty text-foreground/90"
+                title={testimonial.content}
+              >
+                &ldquo;{testimonial.content}&rdquo;
+              </p>
+              <div className="mt-auto flex items-center gap-3">
+                <div
+                  className="testimonial-monogram relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border text-sm font-semibold"
+                  style={
+                    {
+                      "--monogram-bg-light": tintLight,
+                      "--monogram-bg-dark": tintDark,
+                    } as React.CSSProperties
+                  }
+                >
                   {testimonial.avatarImage ? (
                     <Image
                       src={testimonial.avatarImage}
@@ -84,16 +127,17 @@ export function TestimonialsCarousel({ testimonials }: { testimonials: LanderTes
                       className="object-cover object-top"
                     />
                   ) : (
-                    testimonial.avatar
+                    <span aria-hidden>{testimonial.avatar || deriveInitials(testimonial.name)}</span>
                   )}
                 </div>
-                <div>
-                  <p className="font-semibold">{testimonial.name}</p>
-                  <p className="text-sm text-muted-foreground">{testimonial.role}</p>
+                <div className="min-w-0">
+                  <p className="truncate font-semibold">{testimonial.name}</p>
+                  <p className="truncate text-sm text-muted-foreground">{testimonial.role}</p>
                 </div>
               </div>
             </article>
-          ))}
+            );
+          })}
         </div>
         <div
           aria-hidden
