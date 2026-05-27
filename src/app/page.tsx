@@ -58,13 +58,13 @@ export default async function HomePage({
 }: {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const faqJsonLd = faqStructuredData();
   const params = (await searchParams) ?? {};
   const urlPersona = parsePersonaParam(params.p);
   const [initialSeats, testimonials] = await Promise.all([
     fetchLanderSlackSeats(),
     fetchLanderTestimonials(),
   ]);
+  const faqJsonLd = faqStructuredData(initialSeats);
 
   return (
     <main className="min-h-screen bg-background">
@@ -82,7 +82,7 @@ export default async function HomePage({
         <TestimonialsCarousel testimonials={testimonials} />
         <CtaSection />
       </PersonaProvider>
-      <SeoFaqSection />
+      <SeoFaqSection seats={initialSeats} />
       <Footer />
     </main>
   );
