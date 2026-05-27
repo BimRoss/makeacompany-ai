@@ -52,6 +52,54 @@ export const PERSONA_COPY: Record<Persona, PersonaCopy> = {
 
 export const DEFAULT_PERSONA: Persona = "founder";
 
+/**
+ * URL slug for each persona on the `/for/<slug>` routes. Plural reads more
+ * naturally in URLs ("makeacompany.ai/for/founders") than the singular keys
+ * we use internally.
+ */
+export const PERSONA_SLUGS: Record<Persona, string> = {
+  founder: "founders",
+  engineer: "engineers",
+  team: "teams",
+};
+
+export const PERSONA_BY_SLUG: Record<string, Persona> = Object.fromEntries(
+  (Object.entries(PERSONA_SLUGS) as Array<[Persona, string]>).map(([persona, slug]) => [
+    slug,
+    persona,
+  ]),
+);
+
+export interface PersonaMeta {
+  /** `<title>` for the `/for/<slug>` page. */
+  title: string;
+  /** Meta description + OG description. */
+  description: string;
+  /** OG image alt. */
+  ogAlt: string;
+}
+
+export const PERSONA_META: Record<Persona, PersonaMeta> = {
+  founder: {
+    title: "AI company for founders — makeacompany.ai",
+    description:
+      "Run your whole company from Slack. Joanne handles ops, Ross ships code, you make the calls only a founder can. $99/month — one Claude seat for an entire AI team.",
+    ogAlt: "makeacompany.ai for founders — AI company in Slack for $99/month",
+  },
+  engineer: {
+    title: "Claude in Slack for engineers — makeacompany.ai",
+    description:
+      "$99/month for Claude that ships code in Slack. Persistent workspaces per channel, baked-in skills, GitOps wired up. The harness, not just the agent.",
+    ogAlt: "makeacompany.ai for engineers — Claude that ships code in Slack",
+  },
+  team: {
+    title: "AI teammates in Slack — makeacompany.ai for teams",
+    description:
+      "Slack-native AI teammates that live in your channels. Persistent workspaces, recurring loops, GitOps baked in. No new tool to roll out — they show up where you already work.",
+    ogAlt: "makeacompany.ai for teams — Slack-native AI teammates",
+  },
+};
+
 const STORAGE_KEY = "mac.persona";
 const URL_PARAM = "p";
 
