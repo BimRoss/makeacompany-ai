@@ -260,7 +260,7 @@ export function KpiScorecard() {
     <section
       aria-label="KPI scorecard"
       className={`grid grid-cols-2 gap-3 sm:grid-cols-3 ${
-        showGa4 ? "lg:grid-cols-7" : "md:grid-cols-5"
+        showGa4 ? "min-[1800px]:grid-cols-7" : "min-[1800px]:grid-cols-5"
       }`}
     >
       {showGa4 ? (
