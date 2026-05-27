@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-const checkoutInviteURL = "https://join.slack.com/t/bimrossllc/shared_invite/zt-3wux8vlv8-3OlZ8G4DGo0VNMiVpNoTPA"
+const checkoutInviteURL = "https://join.slack.com/t/bimrossllc/shared_invite/zt-3w432kf90-5B7IwfX2DNGfxLB1VGp6zA"
 
 func fallbackFirstNameFromEmail(email string) string {
 	email = strings.TrimSpace(strings.ToLower(email))
