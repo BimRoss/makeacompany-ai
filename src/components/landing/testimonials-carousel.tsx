@@ -68,6 +68,9 @@ export function TestimonialsCarousel({ testimonials }: { testimonials: LanderTes
     if (typeof window !== "undefined" && window.innerWidth < MD_MIN) return;
     const el = scrollRef.current;
     if (!el) return;
+    // No horizontal overflow → nothing to drag-scroll, and setting phase
+    // would needlessly suppress the hover expansion.
+    if (el.scrollWidth <= el.clientWidth) return;
 
     const startX = e.pageX;
     const startScroll = el.scrollLeft;
@@ -108,10 +111,10 @@ export function TestimonialsCarousel({ testimonials }: { testimonials: LanderTes
         <div
           ref={scrollRef}
           onMouseDown={onMouseDown}
-          className={`-mx-2 flex gap-4 overflow-x-auto overscroll-x-contain px-2 py-2 md:py-5 ${
+          className={`-mx-2 flex gap-4 overflow-x-auto overscroll-x-contain px-2 py-2 md:flex-wrap md:justify-center md:overflow-visible md:overscroll-auto md:py-5 ${
             phase === "dragging"
               ? "snap-none md:cursor-grabbing md:select-none"
-              : "max-md:snap-x max-md:snap-mandatory md:snap-none md:cursor-grab"
+              : "max-md:snap-x max-md:snap-mandatory md:snap-none md:cursor-auto"
           }`}
           style={{ touchAction: "pan-x" }}
           role="region"
