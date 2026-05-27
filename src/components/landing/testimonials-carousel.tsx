@@ -123,7 +123,7 @@ export function TestimonialsCarousel({ testimonials }: { testimonials: LanderTes
                       setActiveId(testimonial.id);
                     }
                   }}
-                  className="testimonial-card group/card flex shrink-0 snap-start w-[85%] max-w-[360px] sm:w-[340px] lg:w-[360px] cursor-pointer flex-col rounded-xl border border-border bg-card/60 p-6 hover:border-foreground/30 hover:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/25"
+                  className="testimonial-card group/card flex shrink-0 snap-start w-[85%] max-w-[360px] sm:w-[340px] lg:w-[360px] min-h-[280px] cursor-pointer flex-col rounded-xl border border-border bg-card/60 p-6 hover:border-foreground/30 hover:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/25"
                 >
                   <p className="mb-6 line-clamp-4 text-pretty text-foreground/90">
                     &ldquo;{testimonial.content}&rdquo;
