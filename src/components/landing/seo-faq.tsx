@@ -21,6 +21,31 @@ const faqItems = [
     answer:
       "The goal is to amplify human operators with always-on AI teammates so more work gets done with less operational overhead.",
   },
+  {
+    question: "What's included in the $99/month plan?",
+    answer:
+      "One workspace with the full roster of role-based AI employees, unlimited Slack conversations, and ongoing platform updates as we ship new capabilities.",
+  },
+  {
+    question: "Can I cancel anytime?",
+    answer:
+      "Yes. The plan is month-to-month through Stripe. Cancel from your billing portal and access ends at the close of the current cycle.",
+  },
+  {
+    question: "Do I need to write code to use it?",
+    answer:
+      "No. Everything happens in Slack — you talk to your AI employees the same way you'd talk to a teammate. Engineers can extend it with custom skills, but it isn't required.",
+  },
+  {
+    question: "What's an AI employee?",
+    answer:
+      "A role-based agent — like a Head of Automation or a Head of Customer Support — that lives in your Slack workspace, holds context across threads, and uses tools to actually do work, not just answer questions.",
+  },
+  {
+    question: "How is this different from ChatGPT or Zapier?",
+    answer:
+      "ChatGPT is a single chatbot; Zapier wires APIs together. makeacompany.ai gives you a team of persistent, role-specialized agents that live where your team already works and execute multi-step work end-to-end.",
+  },
 ];
 
 export function SeoFaqSection() {
