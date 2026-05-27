@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense } from "react";
+import { Suspense, useCallback, useState } from "react";
 import { AlertTriangle, ExternalLink } from "lucide-react";
 
 import { AlertsProvider, useAlerts } from "./alerts-provider";
@@ -10,8 +10,9 @@ import {
   useObservabilityData,
 } from "./data-provider";
 import { GrafanaGrid } from "./grafana-grid";
-import { KpiScorecard } from "./kpi-scorecard";
+import { KpiScorecard, type KpiSelfCheckEntry } from "./kpi-scorecard";
 import { ObservabilitySection } from "./section";
+import { SelfCheckBanner } from "./self-check-banner";
 import { TimeRangeProvider, useTimeRange } from "./time-range";
 import { ObservabilityToolbar } from "./toolbar";
 
@@ -51,10 +52,21 @@ function AnomalyBadge({ component }: { component: string }) {
   );
 }
 
+// Chart grids: at narrow widths (49" 1/3 window ≈ 1700px) keep 2 columns;
+// only fan out to 3-4 on truly wide displays. Each card uses @container so
+// inner content can reflow independently of viewport breakpoints.
+const WEB_TIER_GRID = "grid grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-4";
+const JOBS_GRID = "grid grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-3";
+const CLUSTER_GRID = "grid grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-3";
+
 function ObservabilityBody() {
   const { loading, lastUpdatedAt, adminDashboardUrl, cronjobDashboardUrl, clusterDashboardUrl } =
     useObservabilityData();
   const { from } = useTimeRange();
+  const [selfCheck, setSelfCheck] = useState<KpiSelfCheckEntry[]>([]);
+  const handleSelfCheck = useCallback((entries: KpiSelfCheckEntry[]) => {
+    setSelfCheck(entries);
+  }, []);
 
   const adminDeep = adminDashboardUrl ? appendRange(adminDashboardUrl, from) : null;
   const cronDeep = cronjobDashboardUrl ? appendRange(cronjobDashboardUrl, from) : null;
@@ -62,8 +74,11 @@ function ObservabilityBody() {
 
   return (
     <div className="space-y-6">
-      <ObservabilityToolbar lastUpdatedAt={lastUpdatedAt} loading={loading} />
-      <KpiScorecard />
+      <div className="sticky top-0 z-20 -mx-4 space-y-3 border-b border-border/40 bg-background/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/70">
+        <ObservabilityToolbar lastUpdatedAt={lastUpdatedAt} loading={loading} />
+        <KpiScorecard onSelfCheck={handleSelfCheck} />
+      </div>
+      <SelfCheckBanner entries={selfCheck} />
       <AlertsStrip />
       <ObservabilitySection
         id="web-tier"
@@ -79,7 +94,7 @@ function ObservabilityBody() {
         <GrafanaGrid
           source="admin"
           skeletonCount={6}
-          gridClassName="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4"
+          gridClassName={WEB_TIER_GRID}
           panelHeight="sm"
         />
       </ObservabilitySection>
@@ -97,7 +112,7 @@ function ObservabilityBody() {
         <GrafanaGrid
           source="cronjob"
           skeletonCount={3}
-          gridClassName="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3"
+          gridClassName={JOBS_GRID}
           panelHeight="md"
           forceFrom="now-24h"
         />
@@ -116,7 +131,7 @@ function ObservabilityBody() {
         <GrafanaGrid
           source="cluster"
           skeletonCount={5}
-          gridClassName="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3"
+          gridClassName={CLUSTER_GRID}
           panelHeight="md"
           forceFrom="now-24h"
         />
