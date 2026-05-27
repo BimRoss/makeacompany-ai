@@ -28,11 +28,17 @@ var (
 		},
 		[]string{"method", "route", "status_class"},
 	)
+	// latencyBuckets extends past prometheus.DefBuckets' 10s ceiling so
+	// histogram_quantile can resolve real tail latency on slow paths (e.g.
+	// internal Slack/Stripe snapshot scrapers) instead of clamping every long
+	// request to exactly 10s.
+	latencyBuckets = []float64{.005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10, 30, 60, 120, 300}
+
 	httpRequestDuration = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Name:    "makeacompany_http_request_duration_seconds",
 			Help:    "HTTP request latency in seconds for the makeacompany backend.",
-			Buckets: prometheus.DefBuckets,
+			Buckets: latencyBuckets,
 		},
 		[]string{"method", "route"},
 	)
@@ -64,7 +70,7 @@ var (
 		prometheus.HistogramOpts{
 			Name:    "makeacompany_cronjob_duration_seconds",
 			Help:    "Wall-clock duration of internal cronjob handlers, by job and result (success|error).",
-			Buckets: prometheus.DefBuckets,
+			Buckets: latencyBuckets,
 		},
 		[]string{"job", "result"},
 	)
