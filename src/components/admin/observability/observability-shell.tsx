@@ -63,7 +63,9 @@ function ObservabilityBody() {
   return (
     <div className="space-y-6">
       <ObservabilityToolbar lastUpdatedAt={lastUpdatedAt} loading={loading} />
-      <KpiScorecard />
+      <div className="sticky top-0 z-20 -mx-4 border-b border-transparent bg-background/95 px-4 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
+        <KpiScorecard />
+      </div>
       <AlertsStrip />
       <ObservabilitySection
         id="web-tier"
@@ -79,7 +81,7 @@ function ObservabilityBody() {
         <GrafanaGrid
           source="admin"
           skeletonCount={6}
-          gridClassName="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4"
+          gridClassName="grid grid-cols-1 gap-3 sm:grid-cols-2 min-[1800px]:grid-cols-4"
           panelHeight="sm"
         />
       </ObservabilitySection>
@@ -97,7 +99,7 @@ function ObservabilityBody() {
         <GrafanaGrid
           source="cronjob"
           skeletonCount={3}
-          gridClassName="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3"
+          gridClassName="grid grid-cols-1 gap-3 sm:grid-cols-2 min-[1800px]:grid-cols-3"
           panelHeight="md"
           forceFrom="now-24h"
         />
@@ -116,7 +118,7 @@ function ObservabilityBody() {
         <GrafanaGrid
           source="cluster"
           skeletonCount={5}
-          gridClassName="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3"
+          gridClassName="grid grid-cols-1 gap-3 sm:grid-cols-2 min-[1800px]:grid-cols-3"
           panelHeight="md"
           forceFrom="now-24h"
         />
