@@ -44,6 +44,7 @@ func main() {
 	}()
 
 	srv.StartStripeWaitlistSnapshotWarmIfMissing()
+	srv.StartSyntheticProbe()
 
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
