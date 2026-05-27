@@ -1,8 +1,16 @@
 import type { MetadataRoute } from "next";
+import { PERSONA_SLUGS } from "@/lib/personas";
 import { siteUrl } from "@/lib/site";
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const now = new Date();
+
+  const personaRoutes: MetadataRoute.Sitemap = Object.values(PERSONA_SLUGS).map((slug) => ({
+    url: `${siteUrl}/for/${slug}`,
+    lastModified: now,
+    changeFrequency: "weekly",
+    priority: 0.8,
+  }));
 
   return [
     {
@@ -11,6 +19,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "weekly",
       priority: 1,
     },
+    ...personaRoutes,
     {
       url: `${siteUrl}/privacy`,
       lastModified: now,
