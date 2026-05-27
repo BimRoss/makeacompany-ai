@@ -78,10 +78,41 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         url: "https://bimross.com",
       },
       {
+        "@type": "Organization",
+        name: "makeacompany.ai",
+        url: siteUrl,
+        logo: `${siteUrl}/logo.png`,
+      },
+      {
         "@type": "WebSite",
         name: siteName,
         url: siteUrl,
         description: siteDescription,
+        publisher: {
+          "@type": "Organization",
+          name: "BimRoss",
+          url: "https://bimross.com",
+        },
+      },
+      {
+        "@type": "SoftwareApplication",
+        name: "makeacompany.ai",
+        applicationCategory: "BusinessApplication",
+        operatingSystem: "Web, Slack",
+        description: siteDescription,
+        url: siteUrl,
+        offers: {
+          "@type": "Offer",
+          price: "99",
+          priceCurrency: "USD",
+          priceSpecification: {
+            "@type": "UnitPriceSpecification",
+            price: "99",
+            priceCurrency: "USD",
+            billingIncrement: 1,
+            unitCode: "MON",
+          },
+        },
         publisher: {
           "@type": "Organization",
           name: "BimRoss",
