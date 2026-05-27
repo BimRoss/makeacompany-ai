@@ -1,11 +1,9 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { LanderTestimonial } from "@/lib/lander-testimonials";
-
-type CarouselPhase = "idle" | "dragging";
 
 // Six low-saturation tints that fit the monochrome theme. Each entry is
 // [light-mode bg, dark-mode bg] — picked deterministically per name so the
@@ -37,12 +35,30 @@ function deriveInitials(name: string): string {
 
 export function TestimonialsCarousel({ testimonials }: { testimonials: LanderTestimonial[] }) {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const [phase, setPhase] = useState<CarouselPhase>("idle");
   const [activeId, setActiveId] = useState<string | null>(null);
-  // Set when a mousedown turns into a real drag, so the subsequent click on
-  // the same card doesn't open the modal.
-  const draggedRef = useRef(false);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
   const activeTestimonial = activeId ? testimonials.find((t) => t.id === activeId) ?? null : null;
+
+  const updateScrollState = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const maxScroll = el.scrollWidth - el.clientWidth;
+    setCanScrollLeft(el.scrollLeft > 1);
+    setCanScrollRight(el.scrollLeft < maxScroll - 1);
+  }, []);
+
+  useEffect(() => {
+    updateScrollState();
+    const el = scrollRef.current;
+    if (!el) return;
+    el.addEventListener("scroll", updateScrollState, { passive: true });
+    window.addEventListener("resize", updateScrollState);
+    return () => {
+      el.removeEventListener("scroll", updateScrollState);
+      window.removeEventListener("resize", updateScrollState);
+    };
+  }, [updateScrollState, testimonials.length]);
 
   useEffect(() => {
     if (!activeId) return;
@@ -58,45 +74,14 @@ export function TestimonialsCarousel({ testimonials }: { testimonials: LanderTes
     };
   }, [activeId]);
 
-  const openModal = (id: string) => {
-    if (draggedRef.current) {
-      draggedRef.current = false;
-      return;
-    }
-    setActiveId(id);
-  };
-
-  const onMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (e.button !== 0) return;
+  const scrollByDirection = (dir: 1 | -1) => {
     const el = scrollRef.current;
     if (!el) return;
-    if (el.scrollWidth <= el.clientWidth) return;
-
-    const startX = e.pageX;
-    const startScroll = el.scrollLeft;
-    let moved = false;
-
-    const onMove = (ev: MouseEvent) => {
-      const dx = ev.pageX - startX;
-      if (!moved && Math.abs(dx) > 4) {
-        moved = true;
-        setPhase("dragging");
-      }
-      if (moved) {
-        el.scrollLeft = startScroll - dx;
-      }
-    };
-    const onUp = () => {
-      window.removeEventListener("mousemove", onMove);
-      window.removeEventListener("mouseup", onUp);
-      if (moved) {
-        draggedRef.current = true;
-        setPhase("idle");
-      }
-    };
-
-    window.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseup", onUp);
+    // Step by the visible width of one card (incl. gap) so a click reveals the next card cleanly.
+    const card = el.querySelector<HTMLElement>("[data-testimonial-card]");
+    const gap = 16; // matches gap-4
+    const step = (card?.offsetWidth ?? el.clientWidth * 0.8) + gap;
+    el.scrollBy({ left: dir * step, behavior: "smooth" });
   };
 
   if (testimonials.length === 0) return null;
@@ -114,72 +99,102 @@ export function TestimonialsCarousel({ testimonials }: { testimonials: LanderTes
         </div>
 
         <div className="relative">
-        <div
-          ref={scrollRef}
-          onMouseDown={onMouseDown}
-          className={`-mx-2 flex gap-4 overflow-x-auto overscroll-x-contain px-2 py-2 snap-x snap-mandatory ${
-            phase === "dragging" ? "cursor-grabbing select-none snap-none" : "md:cursor-grab"
-          }`}
-          style={{ touchAction: "pan-x" }}
-          role="region"
-          aria-label="Testimonials"
-        >
-          {testimonials.map((testimonial) => {
-            const [tintLight, tintDark] = pickMonogramTint(testimonial.name);
-            const initials = testimonial.avatar || deriveInitials(testimonial.name);
-            return (
-              <article
-                key={testimonial.id}
-                tabIndex={0}
-                role="button"
-                aria-label={`Read full testimonial from ${testimonial.name}`}
-                onClick={() => openModal(testimonial.id)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    openModal(testimonial.id);
-                  }
-                }}
-                className="testimonial-card group/card flex shrink-0 snap-start w-[85%] max-w-[360px] sm:w-[340px] lg:w-[360px] cursor-pointer flex-col rounded-xl border border-border bg-card/60 p-6 transition-colors hover:border-foreground/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/25"
-              >
-                <p className="mb-6 line-clamp-4 text-pretty text-foreground/90">
-                  &ldquo;{testimonial.content}&rdquo;
-                </p>
-                <div className="mt-auto flex items-center gap-3">
-                  <div
-                    className="testimonial-monogram relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border text-sm font-semibold"
-                    style={
-                      {
-                        "--monogram-bg-light": tintLight,
-                        "--monogram-bg-dark": tintDark,
-                      } as React.CSSProperties
+          <div
+            ref={scrollRef}
+            className="-mx-2 flex gap-4 overflow-x-auto overscroll-x-contain px-2 py-6 snap-x snap-mandatory scroll-smooth"
+            style={{ touchAction: "pan-x" }}
+            role="region"
+            aria-label="Testimonials"
+          >
+            {testimonials.map((testimonial) => {
+              const [tintLight, tintDark] = pickMonogramTint(testimonial.name);
+              const initials = testimonial.avatar || deriveInitials(testimonial.name);
+              return (
+                <article
+                  key={testimonial.id}
+                  data-testimonial-card
+                  tabIndex={0}
+                  role="button"
+                  aria-label={`Read full testimonial from ${testimonial.name}`}
+                  onClick={() => setActiveId(testimonial.id)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setActiveId(testimonial.id);
                     }
-                  >
-                    {testimonial.avatarImage ? (
-                      <Image
-                        src={testimonial.avatarImage}
-                        alt={testimonial.name}
-                        fill
-                        sizes="40px"
-                        className="object-cover object-top"
-                      />
-                    ) : (
-                      <span aria-hidden>{initials}</span>
-                    )}
+                  }}
+                  className="testimonial-card group/card flex shrink-0 snap-start w-[85%] max-w-[360px] sm:w-[340px] lg:w-[360px] cursor-pointer flex-col rounded-xl border border-border bg-card/60 p-6 hover:border-foreground/30 hover:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/25"
+                >
+                  <p className="mb-6 line-clamp-4 text-pretty text-foreground/90">
+                    &ldquo;{testimonial.content}&rdquo;
+                  </p>
+                  <div className="mt-auto flex items-center gap-3">
+                    <div
+                      className="testimonial-monogram relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border text-sm font-semibold"
+                      style={
+                        {
+                          "--monogram-bg-light": tintLight,
+                          "--monogram-bg-dark": tintDark,
+                        } as React.CSSProperties
+                      }
+                    >
+                      {testimonial.avatarImage ? (
+                        <Image
+                          src={testimonial.avatarImage}
+                          alt={testimonial.name}
+                          fill
+                          sizes="40px"
+                          className="object-cover object-top"
+                        />
+                      ) : (
+                        <span aria-hidden>{initials}</span>
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="truncate font-semibold">{testimonial.name}</p>
+                      <p className="truncate text-sm text-muted-foreground">{testimonial.role}</p>
+                    </div>
                   </div>
-                  <div className="min-w-0">
-                    <p className="truncate font-semibold">{testimonial.name}</p>
-                    <p className="truncate text-sm text-muted-foreground">{testimonial.role}</p>
-                  </div>
-                </div>
-              </article>
-            );
-          })}
-        </div>
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-background to-transparent"
-        />
+                </article>
+              );
+            })}
+          </div>
+
+          <button
+            type="button"
+            aria-label="Scroll testimonials left"
+            onClick={() => scrollByDirection(-1)}
+            disabled={!canScrollLeft}
+            className="testimonial-nav-btn hidden md:flex absolute left-0 top-1/2 -translate-x-1/2 -translate-y-1/2 h-12 w-12 items-center justify-center rounded-full border border-border bg-background text-foreground shadow-lg transition hover:bg-foreground hover:text-background disabled:pointer-events-none disabled:opacity-0"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+              <path d="M15 6l-6 6 6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            aria-label="Scroll testimonials right"
+            onClick={() => scrollByDirection(1)}
+            disabled={!canScrollRight}
+            className="testimonial-nav-btn hidden md:flex absolute right-0 top-1/2 translate-x-1/2 -translate-y-1/2 h-12 w-12 items-center justify-center rounded-full border border-border bg-background text-foreground shadow-lg transition hover:bg-foreground hover:text-background disabled:pointer-events-none disabled:opacity-0"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+              <path d="M9 6l6 6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+
+          <div
+            aria-hidden
+            className={`pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-background to-transparent transition-opacity ${
+              canScrollRight ? "opacity-100" : "opacity-0"
+            }`}
+          />
+          <div
+            aria-hidden
+            className={`pointer-events-none absolute inset-y-0 left-0 w-10 bg-gradient-to-r from-background to-transparent transition-opacity ${
+              canScrollLeft ? "opacity-100" : "opacity-0"
+            }`}
+          />
         </div>
       </div>
       {activeTestimonial && (

@@ -324,17 +324,30 @@ button:disabled {
   }
 }
 
-/* Testimonial carousel cards: same hover polish as .faq-details but no vertical lift — lift + overflow-x
-   scroll clips the top edge of the card and its shadow. */
+/* Testimonial carousel cards: lift + shadow on desktop hover. Vertical padding on the
+   scroll container reserves room so the lift doesn't clip against the overflow edge. */
 .testimonial-card {
-  transition-property: box-shadow, border-color, background-color, top, right, bottom, left, height;
+  transition-property: box-shadow, border-color, background-color, transform;
   transition-duration: var(--faq-motion-duration);
   transition-timing-function: var(--faq-motion-ease);
+  will-change: transform;
+}
+
+@media (min-width: 768px) {
+  .testimonial-card:hover {
+    transform: translate3d(0, -0.25rem, 0);
+    box-shadow: 0 18px 40px -20px rgba(0, 0, 0, 0.25);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .testimonial-card {
     transition-duration: 0.01ms;
+  }
+  @media (min-width: 768px) {
+    .testimonial-card:hover {
+      transform: translate3d(0, 0, 0);
+    }
   }
 }
 
