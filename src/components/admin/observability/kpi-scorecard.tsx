@@ -95,8 +95,56 @@ function ScorecardTile({
   );
 }
 
+/** Informational tile (no threshold coloring) for traffic metrics like GA4. */
+function InfoTile({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="relative overflow-hidden rounded-xl border border-border bg-card p-4 shadow-sm">
+      <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+        {label}
+      </div>
+      <div className="mt-2 font-display text-3xl font-semibold tracking-tight tabular-nums">
+        {value}
+      </div>
+    </div>
+  );
+}
+
+type Ga4Summary = {
+  status?: "ok" | "disabled" | "degraded";
+  activeUsers?: number;
+  sessions?: number;
+};
+
+function formatCount(n: number | undefined): string {
+  if (typeof n !== "number" || !Number.isFinite(n)) return "—";
+  return new Intl.NumberFormat("en-US").format(n);
+}
+
+function useGa4Summary(): Ga4Summary | null {
+  const [payload, setPayload] = useState<Ga4Summary | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const response = await fetch("/api/admin/ga4-summary", { cache: "no-store" });
+        if (kickToLoginForUnauthorizedApi(response.status, "admin")) return;
+        const json = (await response.json()) as Ga4Summary;
+        if (!cancelled) setPayload(json);
+      } catch {
+        if (!cancelled) setPayload({ status: "degraded" });
+      }
+    };
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  return payload;
+}
+
 export function KpiScorecard() {
   const { firing } = useAlerts();
+  const ga4 = useGa4Summary();
   const [results, setResults] = useState<PromResult[] | null>(null);
   const [errored, setErrored] = useState(false);
   const cancelledRef = useRef(false);
@@ -206,11 +254,21 @@ export function KpiScorecard() {
     return map;
   }, [results]);
 
+  const showGa4 = ga4 !== null && ga4.status !== "disabled";
+
   return (
     <section
       aria-label="KPI scorecard"
-      className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5"
+      className={`grid grid-cols-2 gap-3 sm:grid-cols-3 ${
+        showGa4 ? "lg:grid-cols-7" : "md:grid-cols-5"
+      }`}
     >
+      {showGa4 ? (
+        <>
+          <InfoTile label="Active users · 7d" value={formatCount(ga4?.activeUsers)} />
+          <InfoTile label="Sessions · 7d" value={formatCount(ga4?.sessions)} />
+        </>
+      ) : null}
       {tiles.map((tile) => {
         const value =
           tile.query === null
