@@ -188,6 +188,10 @@ func normalizeMetricRoute(path string) string {
 		return "/health"
 	case path == "/metrics":
 		return "/metrics"
+	case path == "/api/internal/cookie-health":
+		return "/api/internal/cookie-health"
+	case path == "/api/internal/indexer-recent-requests":
+		return "/api/internal/indexer-recent-requests"
 	case path == "/v1/billing/checkout":
 		return "/v1/billing/checkout"
 	case path == "/v1/billing/checkout-status":
@@ -340,7 +344,9 @@ func (s *Server) handleIndexerRecentRequests(w http.ResponseWriter, r *http.Requ
 
 	payload, err := s.health.fetchIndexerRecentRequests(r.Context(), limit, offset)
 	if err != nil {
-		writeJSON(w, http.StatusBadGateway, map[string]any{
+		// Match buildIndexer: report a missing/unreachable upstream as degraded inside a 200 OK
+		// envelope so a known-absent dependency does not burn the backend 5xx SLO every poll.
+		writeJSON(w, http.StatusOK, map[string]any{
 			"status":   "degraded",
 			"error":    err.Error(),
 			"offset":   offset,
