@@ -4,7 +4,9 @@ set -euo pipefail
 # Push this app's Stripe (and related) runtime secrets to the admin Kubernetes cluster.
 # Sources repo-root .env.prod (if present), else .env, unless ENV_FILE is set.
 # Do not point this at .env.dev — production cluster secrets belong in .env.prod.
-# Creates/updates Secret makeacompany-ai-runtime-secrets.
+# Creates/updates Secret makeacompany-ai-runtime-secrets, plus the GA4 SA key
+# Secret makeacompany-ai-ga4-credentials when ${HOME}/ga4-reader-key.json
+# exists (override path via GA4_SA_KEY_PATH; skipped silently when absent).
 #
 # By default also copies dockerhub-pull from namespace subnet-signal (fallback: bimross-web)
 # so private geeemoney/* images can pull — same pattern as rancher-admin/scripts/sync-makeacompany-ai-pull-secret.sh.
@@ -232,6 +234,22 @@ kubectl_app create secret generic "${SECRET_NAME}" \
   --dry-run=client -o yaml | kubectl_app apply -f -
 
 echo "applied secret ${SECRET_NAME} in namespace ${NAMESPACE}"
+
+# GA4 service-account key for /admin GA4 summary panel. The key is a JSON file
+# (not env), so it lives in its own Secret mounted as a volume on the backend
+# Deployment (see rancher-admin admin/apps/makeacompany-ai/backend.yaml).
+# Pushed only when the key file exists locally; safe to skip on dev machines
+# without GA4 access.
+GA4_SECRET_NAME="${GA4_SECRET_NAME:-makeacompany-ai-ga4-credentials}"
+GA4_SA_KEY_PATH="${GA4_SA_KEY_PATH:-${HOME}/ga4-reader-key.json}"
+if [[ -f "${GA4_SA_KEY_PATH}" ]]; then
+  kubectl_app create secret generic "${GA4_SECRET_NAME}" \
+    --from-file="key.json=${GA4_SA_KEY_PATH}" \
+    --dry-run=client -o yaml | kubectl_app apply -f -
+  echo "applied secret ${GA4_SECRET_NAME} in namespace ${NAMESPACE} (from ${GA4_SA_KEY_PATH})"
+else
+  echo "skipping ${GA4_SECRET_NAME}: ${GA4_SA_KEY_PATH} not found (set GA4_SA_KEY_PATH to push GA4 panel credentials)"
+fi
 
 ROLLOUT_AFTER_SECRET_SYNC="${ROLLOUT_AFTER_SECRET_SYNC:-true}"
 if [[ "${ROLLOUT_AFTER_SECRET_SYNC}" == "true" ]]; then

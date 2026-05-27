@@ -46,6 +46,10 @@ type Config struct {
 	// ResendCheckoutWelcomeTemplateID, when set (e.g. welcome-email), sends post-checkout welcome mail via Resend Templates API.
 	// Uses the same variable keys as RESEND_MAGIC_LINK_TEMPLATE_* (defaults: login_url → Slack invite, recipient_first_name).
 	ResendCheckoutWelcomeTemplateID string
+	// GA4PropertyID is the numeric Google Analytics 4 property id (e.g. "527260023") for the admin GA4 panel.
+	// When unset, /v1/admin/ga4-summary returns 503. Reads via Google Application Default Credentials
+	// (GOOGLE_APPLICATION_CREDENTIALS pointing to a service-account key with Viewer on the property).
+	GA4PropertyID string
 }
 
 // stripePriceIDBasePlan returns STRIPE_PRICE_ID_BASE_PLAN, else legacy STRIPE_PRICE_ID_WAITLIST.
@@ -87,6 +91,7 @@ func LoadConfig() Config {
 		ResendMagicLinkTemplateLinkVar:      strings.TrimSpace(os.Getenv("RESEND_MAGIC_LINK_TEMPLATE_LINK_VAR")),
 		ResendMagicLinkTemplateFirstNameVar: strings.TrimSpace(os.Getenv("RESEND_MAGIC_LINK_TEMPLATE_FIRST_NAME_VAR")),
 		ResendCheckoutWelcomeTemplateID:     strings.TrimSpace(os.Getenv("RESEND_CHECKOUT_WELCOME_TEMPLATE_ID")),
+		GA4PropertyID:                       strings.TrimSpace(os.Getenv("GA4_PROPERTY_ID")),
 	}
 }
 

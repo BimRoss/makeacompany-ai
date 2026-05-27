@@ -12,3 +12,4 @@ coverage/
 backend/bin/
 *.exe
 *.tsbuildinfo
+docker-compose.override.yml

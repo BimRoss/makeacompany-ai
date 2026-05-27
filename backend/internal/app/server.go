@@ -137,6 +137,7 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 	s.mux.HandleFunc("/v1/admin/channels", s.handleAdminChannels)
 	s.mux.HandleFunc("/v1/admin/channel-members", s.handleAdminChannelMembers)
 	s.mux.HandleFunc("/v1/admin/user-profiles", s.handleAdminUserProfiles)
+	s.mux.HandleFunc("/v1/admin/ga4-summary", s.handleAdminGA4Summary)
 	s.mux.HandleFunc("/v1/internal/refresh-stripe-waitlist-snapshot", s.handleInternalRefreshStripeWaitlistSnapshot)
 	s.mux.HandleFunc("/v1/internal/refresh-slack-users-snapshot", s.handleInternalRefreshSlackUsersSnapshot)
 	s.mux.HandleFunc("/v1/admin/auth/me", s.handleAdminAuthMe)
@@ -230,6 +231,8 @@ func normalizeMetricRoute(path string) string {
 		return "/v1/admin/channel-members"
 	case path == "/v1/admin/user-profiles":
 		return "/v1/admin/user-profiles"
+	case path == "/v1/admin/ga4-summary":
+		return "/v1/admin/ga4-summary"
 	case path == "/v1/internal/refresh-stripe-waitlist-snapshot":
 		return "/v1/internal/refresh-stripe-waitlist-snapshot"
 	case path == "/v1/internal/refresh-slack-users-snapshot":
