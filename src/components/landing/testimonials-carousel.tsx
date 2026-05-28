@@ -125,8 +125,9 @@ export function TestimonialsCarousel({ testimonials }: { testimonials: LanderTes
                   }}
                   className="testimonial-card group/card flex shrink-0 snap-start w-[85%] max-w-[360px] sm:w-[340px] lg:w-[360px] min-h-[280px] cursor-pointer flex-col rounded-xl border border-border bg-card/60 p-6 hover:border-foreground/30 hover:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/25"
                 >
-                  <p className="mb-6 line-clamp-4 text-pretty text-foreground/90">
-                    &ldquo;{testimonial.content}&rdquo;
+                  <div className="mb-1 text-3xl font-black leading-none text-foreground/15 select-none">&ldquo;</div>
+                  <p className="mb-6 line-clamp-4 whitespace-pre-line text-foreground/90">
+                    {testimonial.content}
                   </p>
                   <div className="mt-auto flex items-center gap-3">
                     <div
@@ -151,7 +152,7 @@ export function TestimonialsCarousel({ testimonials }: { testimonials: LanderTes
                       )}
                     </div>
                     <div className="min-w-0">
-                      <p className="truncate font-semibold">{testimonial.name}</p>
+                      <p className="truncate font-bold">{testimonial.name}</p>
                       <p className="truncate text-sm text-muted-foreground">{testimonial.role}</p>
                     </div>
                   </div>
@@ -219,8 +220,9 @@ export function TestimonialsCarousel({ testimonials }: { testimonials: LanderTes
                 <path d="M3 3L13 13M13 3L3 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
               </svg>
             </button>
-            <p className="mb-6 text-pretty pr-6 text-foreground/90">
-              &ldquo;{activeTestimonial.content}&rdquo;
+            <div className="mb-1 text-3xl font-black leading-none text-foreground/15 select-none">&ldquo;</div>
+            <p className="mb-6 whitespace-pre-line pr-6 text-foreground/90">
+              {activeTestimonial.content}
             </p>
             <div className="flex items-center gap-3">
               {(() => {
@@ -251,7 +253,7 @@ export function TestimonialsCarousel({ testimonials }: { testimonials: LanderTes
                 );
               })()}
               <div className="min-w-0">
-                <p className="truncate font-semibold">{activeTestimonial.name}</p>
+                <p className="truncate font-bold">{activeTestimonial.name}</p>
                 <p className="truncate text-sm text-muted-foreground">{activeTestimonial.role}</p>
               </div>
             </div>
