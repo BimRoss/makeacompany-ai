@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { kickToLoginForUnauthorizedApi } from "@/lib/client-auth-unauthorized-redirect";
-import { useAlerts } from "./alerts-provider";
 
 type KpiTile = {
   id: string;
@@ -145,7 +144,6 @@ function useGa4Summary(): Ga4Summary | null {
 }
 
 export function KpiScorecard() {
-  const { firing } = useAlerts();
   const ga4 = useGa4Summary();
   const [results, setResults] = useState<PromResult[] | null>(null);
   const [errored, setErrored] = useState(false);
@@ -202,20 +200,8 @@ export function KpiScorecard() {
           { value: 5400, color: "red" },
         ],
       },
-      {
-        id: "alerts",
-        label: "Active alerts",
-        query: null,
-        format: (v) => v.toFixed(0),
-        thresholds: [
-          { value: 0, color: "green" },
-          { value: 1, color: "amber" },
-          { value: 3, color: "red" },
-        ],
-        staticValue: firing.length,
-      },
     ],
-    [firing.length]
+    []
   );
 
   useEffect(() => {
