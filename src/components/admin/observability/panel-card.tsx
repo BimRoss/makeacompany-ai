@@ -12,8 +12,8 @@ type PanelCardProps = {
 export function PanelCard({ title, iframeSrc, deepLink, height = "sm" }: PanelCardProps) {
   const iframeHeight = height === "md" ? "h-56 md:h-60" : "h-48";
   return (
-    <article className="group/panel relative overflow-hidden rounded-lg border border-emerald-500/20 bg-gradient-to-br from-emerald-500/5 via-background to-emerald-500/0 shadow-[0_8px_32px_rgba(16,185,129,0.08)] transition-all duration-300 hover:border-emerald-500/30 hover:shadow-[0_16px_48px_rgba(16,185,129,0.12)] hover:from-emerald-500/10">
-      <div className="absolute inset-0 bg-gradient-to-br from-emerald-400/0 via-transparent to-emerald-500/0 opacity-0 transition-opacity duration-300 group-hover/panel:opacity-40 pointer-events-none" />
+    <article className="group/panel relative overflow-hidden rounded-xl border border-emerald-500/20 dark:border-emerald-400/35 bg-gradient-to-br from-emerald-500/5 via-background to-emerald-500/0 dark:from-emerald-400/12 dark:via-background dark:to-emerald-400/0 shadow-[0_8px_32px_rgba(16,185,129,0.08)] dark:shadow-[0_4px_32px_rgba(52,211,153,0.18)] transition-all duration-300 hover:border-emerald-500/40 dark:hover:border-emerald-400/60 hover:shadow-[0_16px_48px_rgba(16,185,129,0.14)] dark:hover:shadow-[0_8px_48px_rgba(52,211,153,0.3)] hover:from-emerald-500/10 dark:hover:from-emerald-400/20 hover:-translate-y-0.5">
+      <div className="absolute inset-0 bg-gradient-to-br from-emerald-400/0 via-transparent to-emerald-500/0 dark:from-emerald-400/8 dark:via-transparent dark:to-emerald-500/0 opacity-0 transition-opacity duration-300 group-hover/panel:opacity-100 pointer-events-none" />
       <iframe
         title={title}
         src={iframeSrc}
@@ -38,9 +38,9 @@ export function PanelCard({ title, iframeSrc, deepLink, height = "sm" }: PanelCa
 export function PanelSkeleton({ height = "sm" }: { height?: "sm" | "md" }) {
   const iframeHeight = height === "md" ? "h-56 md:h-60" : "h-48";
   return (
-    <article className="overflow-hidden rounded-lg border border-emerald-500/10 bg-gradient-to-br from-emerald-500/3 via-background to-emerald-500/0 shadow-[0_8px_32px_rgba(16,185,129,0.04)]">
+    <article className="overflow-hidden rounded-xl border border-emerald-500/10 dark:border-emerald-400/20 bg-gradient-to-br from-emerald-500/3 via-background to-emerald-500/0 dark:from-emerald-400/8 dark:to-emerald-400/0 shadow-[0_8px_32px_rgba(16,185,129,0.04)] dark:shadow-[0_4px_24px_rgba(52,211,153,0.1)]">
       <div className={`relative w-full overflow-hidden bg-card ${iframeHeight}`}>
-        <div className="absolute inset-0 animate-pulse bg-gradient-to-r from-transparent via-emerald-500/20 to-transparent" />
+        <div className="absolute inset-0 animate-pulse bg-gradient-to-r from-transparent via-emerald-500/20 dark:via-emerald-400/25 to-transparent" />
       </div>
     </article>
   );

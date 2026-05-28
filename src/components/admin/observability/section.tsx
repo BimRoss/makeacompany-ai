@@ -31,8 +31,12 @@ export function ObservabilitySection({
           onClick={() => setOpen((prev) => !prev)}
           aria-expanded={open}
           aria-controls={contentId}
-          className="group inline-flex items-center gap-2 rounded-md py-0.5 text-left text-foreground transition hover:text-foreground/80"
+          className="group inline-flex items-center gap-2.5 rounded-md py-0.5 text-left text-foreground transition hover:text-foreground/80"
         >
+          <span
+            className={`block h-6 w-0.5 shrink-0 rounded-full bg-gradient-to-b from-emerald-500 to-emerald-500/10 dark:from-emerald-400 dark:to-emerald-400/0 transition-opacity duration-200 ${open ? "opacity-100" : "opacity-40"}`}
+            aria-hidden="true"
+          />
           <ChevronDown
             className={`h-4 w-4 text-muted-foreground transition-transform ${open ? "" : "-rotate-90"}`}
             aria-hidden="true"

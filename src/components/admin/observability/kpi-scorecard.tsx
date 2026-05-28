@@ -47,9 +47,21 @@ function colorFor(thresholds: Threshold[], value: number, higherIsBetter: boolea
 }
 
 const tileBgClass: Record<"green" | "amber" | "red", string> = {
-  green: "border-emerald-500/35 bg-gradient-to-br from-emerald-500/8 to-emerald-500/3 shadow-[0_8px_16px_rgba(16,185,129,0.1)]",
-  amber: "border-amber-500/40 bg-gradient-to-br from-amber-500/12 to-amber-500/4 shadow-[0_8px_16px_rgba(217,119,6,0.1)]",
-  red: "border-red-500/40 bg-gradient-to-br from-red-500/12 to-red-500/4 shadow-[0_8px_16px_rgba(239,68,68,0.1)]",
+  green: [
+    "border-emerald-500/35 dark:border-emerald-400/55",
+    "bg-gradient-to-br from-emerald-500/8 to-emerald-500/3 dark:from-emerald-400/22 dark:to-emerald-400/8",
+    "shadow-[0_8px_16px_rgba(16,185,129,0.1)] dark:shadow-[0_4px_32px_rgba(52,211,153,0.26),0_0_0_1px_rgba(52,211,153,0.1)]",
+  ].join(" "),
+  amber: [
+    "border-amber-500/40 dark:border-amber-400/55",
+    "bg-gradient-to-br from-amber-500/12 to-amber-500/4 dark:from-amber-400/22 dark:to-amber-400/8",
+    "shadow-[0_8px_16px_rgba(217,119,6,0.1)] dark:shadow-[0_4px_32px_rgba(251,191,36,0.2),0_0_0_1px_rgba(251,191,36,0.1)]",
+  ].join(" "),
+  red: [
+    "border-red-500/40 dark:border-red-400/55",
+    "bg-gradient-to-br from-red-500/12 to-red-500/4 dark:from-red-400/22 dark:to-red-400/8",
+    "shadow-[0_8px_16px_rgba(239,68,68,0.1)] dark:shadow-[0_4px_32px_rgba(248,113,113,0.24),0_0_0_1px_rgba(248,113,113,0.1)]",
+  ].join(" "),
 };
 
 const tileTextClass: Record<"green" | "amber" | "red", string> = {
@@ -76,16 +88,16 @@ function ScorecardTile({
   const color = value === null ? "amber" : colorFor(thresholds, value, higherIsBetter);
   return (
     <div
-      className={`group/tile relative overflow-hidden rounded-xl border p-3 transition-all duration-200 hover:shadow-md ${
-        value === null ? "border-border bg-card shadow-sm" : `${tileBgClass[color]} hover:border-opacity-60`
+      className={`group/tile relative overflow-hidden rounded-xl border p-3 transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5 ${
+        value === null ? "border-border bg-card shadow-sm" : `${tileBgClass[color]} hover:border-opacity-80`
       }`}
     >
-      <div className="absolute inset-0 bg-gradient-to-br from-white/0 via-transparent to-white/0 opacity-0 transition-opacity duration-200 group-hover/tile:opacity-40 pointer-events-none" />
+      <div className="absolute inset-0 bg-gradient-to-br from-white/0 via-transparent to-white/0 dark:from-white/5 dark:via-transparent dark:to-white/0 opacity-0 transition-opacity duration-300 group-hover/tile:opacity-100 pointer-events-none" />
       <div className="relative z-10 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
         {label}
       </div>
       <div
-        className={`mt-2 font-display text-3xl font-bold tracking-tight tabular-nums transition-transform duration-200 group-hover/tile:scale-105 origin-left ${
+        className={`mt-2 font-display text-3xl font-bold tracking-tight tabular-nums transition-all duration-300 group-hover/tile:scale-[1.07] group-hover/tile:drop-shadow-sm origin-left ${
           value === null ? "text-muted-foreground" : tileTextClass[color]
         }`}
       >
@@ -98,12 +110,12 @@ function ScorecardTile({
 /** Informational tile (no threshold coloring) for traffic metrics like GA4. */
 function InfoTile({ label, value }: { label: string; value: string }) {
   return (
-    <div className="group/tile relative overflow-hidden rounded-xl border border-cyan-500/25 bg-gradient-to-br from-cyan-500/6 to-cyan-500/2 p-3 shadow-[0_8px_16px_rgba(34,211,238,0.08)] transition-all duration-200 hover:border-cyan-500/35 hover:shadow-[0_12px_24px_rgba(34,211,238,0.12)]">
-      <div className="absolute inset-0 bg-gradient-to-br from-cyan-400/0 via-transparent to-cyan-500/0 opacity-0 transition-opacity duration-200 group-hover/tile:opacity-30 pointer-events-none" />
+    <div className="group/tile relative overflow-hidden rounded-xl border border-cyan-500/25 dark:border-cyan-400/45 bg-gradient-to-br from-cyan-500/6 to-cyan-500/2 dark:from-cyan-400/18 dark:to-cyan-400/6 p-3 shadow-[0_8px_16px_rgba(34,211,238,0.08)] dark:shadow-[0_4px_28px_rgba(34,211,238,0.2),0_0_0_1px_rgba(34,211,238,0.08)] transition-all duration-300 hover:border-cyan-500/45 dark:hover:border-cyan-400/65 hover:shadow-[0_12px_32px_rgba(34,211,238,0.16)] dark:hover:shadow-[0_8px_40px_rgba(34,211,238,0.28)] hover:-translate-y-0.5">
+      <div className="absolute inset-0 bg-gradient-to-br from-cyan-400/0 via-transparent to-cyan-500/0 dark:from-cyan-400/8 dark:to-cyan-500/0 opacity-0 transition-opacity duration-300 group-hover/tile:opacity-100 pointer-events-none" />
       <div className="relative z-10 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
         {label}
       </div>
-      <div className="mt-2 font-display text-3xl font-bold tracking-tight tabular-nums text-cyan-700 dark:text-cyan-300 transition-transform duration-200 group-hover/tile:scale-105 origin-left">
+      <div className="mt-2 font-display text-3xl font-bold tracking-tight tabular-nums text-cyan-700 dark:text-cyan-300 transition-all duration-300 group-hover/tile:scale-[1.07] group-hover/tile:drop-shadow-sm origin-left">
         {value}
       </div>
     </div>
@@ -248,7 +260,9 @@ export function KpiScorecard() {
     <section
       aria-label="KPI scorecard"
       className={`grid grid-cols-2 gap-2 sm:grid-cols-3 ${
-        showGa4 ? "min-[1800px]:grid-cols-7" : "min-[1800px]:grid-cols-5"
+        showGa4
+          ? "lg:grid-cols-4 xl:grid-cols-5 min-[1800px]:grid-cols-7"
+          : "lg:grid-cols-4 xl:grid-cols-5 min-[1800px]:grid-cols-5"
       }`}
     >
       {showGa4 ? (
