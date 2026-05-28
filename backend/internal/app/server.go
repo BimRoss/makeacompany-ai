@@ -147,6 +147,8 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 	s.mux.HandleFunc("/v1/admin/auth/magic/finish", s.handleAdminAuthMagicFinish)
 	s.mux.HandleFunc("/v1/portal/auth/me", s.handlePortalAuthMe)
 	s.mux.HandleFunc("POST /v1/portal/billing/cancel-subscription", s.handlePortalBillingCancelSubscription)
+	s.mux.HandleFunc("GET /v1/portal/deploy-gate", s.handlePortalDeployGateCheck)
+	s.mux.HandleFunc("POST /v1/portal/deploy-gate/consume", s.handlePortalDeployGateConsume)
 	s.mux.HandleFunc("/v1/portal/auth/logout", s.handlePortalAuthLogout)
 	s.mux.HandleFunc("/v1/portal/auth/google/finish", s.handlePortalAuthGoogleFinish)
 	s.mux.HandleFunc("/v1/portal/auth/magic/start", s.handlePortalAuthMagicStart)
@@ -251,6 +253,10 @@ func normalizeMetricRoute(path string) string {
 		return "/v1/portal/auth/me"
 	case path == "/v1/portal/billing/cancel-subscription":
 		return "/v1/portal/billing/cancel-subscription"
+	case path == "/v1/portal/deploy-gate":
+		return "/v1/portal/deploy-gate"
+	case path == "/v1/portal/deploy-gate/consume":
+		return "/v1/portal/deploy-gate/consume"
 	case path == "/v1/portal/auth/logout":
 		return "/v1/portal/auth/logout"
 	case path == "/v1/portal/auth/google/finish":
