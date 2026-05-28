@@ -189,7 +189,10 @@ type UserProfileRow struct {
 	StripeSubscriptionCurrentPeriodEnd  int64  `json:"stripeSubscriptionCurrentPeriodEnd,omitempty"`
 	HumansTermsAcceptedAt               string `json:"humansTermsAcceptedAt,omitempty"`
 	HumansTermsAcceptedMessageTs        string `json:"humansTermsAcceptedMessageTs,omitempty"`
-	Linked                              bool   `json:"linked"`
+	// FreeTierConsumed is set when a free (unpaid) user ships their first deployment.
+	// Once true, Joanne blocks further deploys until the user subscribes via Stripe.
+	FreeTierConsumed bool `json:"freeTierConsumed,omitempty"`
+	Linked           bool `json:"linked"`
 }
 
 func parseUnixSecondsString(v string) int64 {
@@ -213,6 +216,7 @@ func userProfileRowFromHash(email string, vals map[string]string) UserProfileRow
 	stripeCust := strings.TrimSpace(vals["stripe_customer_id"])
 	slackID := strings.TrimSpace(vals["slack_user_id"])
 	cancelAtEnd := strings.EqualFold(strings.TrimSpace(vals["stripe_subscription_cancel_at_period_end"]), "true")
+	freeTierConsumed := strings.EqualFold(strings.TrimSpace(vals["free_tier_consumed"]), "true")
 	return UserProfileRow{
 		Email:                               email,
 		StripeCustomerID:                    stripeCust,
@@ -231,6 +235,7 @@ func userProfileRowFromHash(email string, vals map[string]string) UserProfileRow
 		StripeSubscriptionCurrentPeriodEnd:  parseUnixSecondsString(vals["stripe_subscription_current_period_end"]),
 		HumansTermsAcceptedAt:               strings.TrimSpace(vals["humans_terms_accepted_at"]),
 		HumansTermsAcceptedMessageTs:        strings.TrimSpace(vals["humans_terms_accepted_slack_message_ts"]),
+		FreeTierConsumed:                    freeTierConsumed,
 		Linked:                              stripeCust != "" && slackID != "",
 	}
 }
@@ -346,6 +351,45 @@ func (s *Store) SlackUserIDByProfileEmail(ctx context.Context, email string) (st
 		return "", err
 	}
 	return strings.TrimSpace(v), nil
+}
+
+// SetFreeTierConsumed marks the user's free deploy allotment as used. Idempotent.
+// Called by the deploy-gate consume endpoint after Joanne confirms a deploy action completed successfully.
+func (s *Store) SetFreeTierConsumed(ctx context.Context, email string) error {
+	if s == nil {
+		return fmt.Errorf("nil store")
+	}
+	email = normalizeProfileEmail(email)
+	if email == "" {
+		return fmt.Errorf("missing email")
+	}
+	now := time.Now().UTC().Format(time.RFC3339)
+	return s.rdb.HSet(ctx, userProfileRedisKey(email), map[string]any{
+		"free_tier_consumed": "true",
+		"profile_updated_at": now,
+	}).Err()
+}
+
+// DeployGateStatus describes whether a user may ship a deployment.
+type DeployGateStatus struct {
+	Allowed bool   `json:"allowed"`
+	Reason  string `json:"reason"` // "gate_disabled" | "paid" | "free_tier_available" | "free_tier_consumed"
+}
+
+// CheckDeployGate returns whether the user is allowed to ship based on subscription and free-tier state.
+// When gateEnabled is false, always allows (the gate can ship to prod before being turned on).
+func CheckDeployGate(row UserProfileRow, gateEnabled bool) DeployGateStatus {
+	if !gateEnabled {
+		return DeployGateStatus{Allowed: true, Reason: "gate_disabled"}
+	}
+	switch strings.ToLower(strings.TrimSpace(row.StripeSubscriptionStatus)) {
+	case "active", "trialing":
+		return DeployGateStatus{Allowed: true, Reason: "paid"}
+	}
+	if !row.FreeTierConsumed {
+		return DeployGateStatus{Allowed: true, Reason: "free_tier_available"}
+	}
+	return DeployGateStatus{Allowed: false, Reason: "free_tier_consumed"}
 }
 
 // EnrichSlackWorkspaceUsersWithProfileTerms merges humans terms fields from makeacompany:user_profile into each row

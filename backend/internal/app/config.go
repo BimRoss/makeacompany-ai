@@ -50,6 +50,9 @@ type Config struct {
 	// When unset, /v1/admin/ga4-summary returns 503. Reads via Google Application Default Credentials
 	// (GOOGLE_APPLICATION_CREDENTIALS pointing to a service-account key with Viewer on the property).
 	GA4PropertyID string
+	// FreeTierGateEnabled activates the deploy gate: free users are blocked from shipping until they subscribe.
+	// Env: STRIPE_FREE_TIER_GATE_ENABLED=true. Defaults off so the code can ship to prod before the gate is turned on.
+	FreeTierGateEnabled bool
 }
 
 // stripePriceIDBasePlan returns STRIPE_PRICE_ID_BASE_PLAN, else legacy STRIPE_PRICE_ID_WAITLIST.
@@ -92,6 +95,7 @@ func LoadConfig() Config {
 		ResendMagicLinkTemplateFirstNameVar: strings.TrimSpace(os.Getenv("RESEND_MAGIC_LINK_TEMPLATE_FIRST_NAME_VAR")),
 		ResendCheckoutWelcomeTemplateID:     strings.TrimSpace(os.Getenv("RESEND_CHECKOUT_WELCOME_TEMPLATE_ID")),
 		GA4PropertyID:                       strings.TrimSpace(os.Getenv("GA4_PROPERTY_ID")),
+		FreeTierGateEnabled:                 envBool("STRIPE_FREE_TIER_GATE_ENABLED", false),
 	}
 }
 

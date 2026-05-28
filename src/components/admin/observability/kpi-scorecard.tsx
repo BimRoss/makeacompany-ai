@@ -88,16 +88,15 @@ function ScorecardTile({
   const color = value === null ? "amber" : colorFor(thresholds, value, higherIsBetter);
   return (
     <div
-      className={`group/tile relative overflow-hidden rounded-xl border p-3 transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5 ${
-        value === null ? "border-border bg-card shadow-sm" : `${tileBgClass[color]} hover:border-opacity-80`
+      className={`relative overflow-hidden rounded-lg border p-2 transition-colors duration-200 ${
+        value === null ? "border-border bg-card" : `${tileBgClass[color]}`
       }`}
     >
-      <div className="absolute inset-0 bg-gradient-to-br from-white/0 via-transparent to-white/0 dark:from-white/5 dark:via-transparent dark:to-white/0 opacity-0 transition-opacity duration-300 group-hover/tile:opacity-100 pointer-events-none" />
-      <div className="relative z-10 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+      <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
         {label}
       </div>
       <div
-        className={`mt-2 font-display text-3xl font-bold tracking-tight tabular-nums transition-all duration-300 group-hover/tile:scale-[1.07] group-hover/tile:drop-shadow-sm origin-left ${
+        className={`mt-0.5 font-display text-xl font-semibold tracking-tight tabular-nums ${
           value === null ? "text-muted-foreground" : tileTextClass[color]
         }`}
       >
@@ -110,12 +109,11 @@ function ScorecardTile({
 /** Informational tile (no threshold coloring) for traffic metrics like GA4. */
 function InfoTile({ label, value }: { label: string; value: string }) {
   return (
-    <div className="group/tile relative overflow-hidden rounded-xl border border-cyan-500/25 dark:border-cyan-400/45 bg-gradient-to-br from-cyan-500/6 to-cyan-500/2 dark:from-cyan-400/18 dark:to-cyan-400/6 p-3 shadow-[0_8px_16px_rgba(34,211,238,0.08)] dark:shadow-[0_4px_28px_rgba(34,211,238,0.2),0_0_0_1px_rgba(34,211,238,0.08)] transition-all duration-300 hover:border-cyan-500/45 dark:hover:border-cyan-400/65 hover:shadow-[0_12px_32px_rgba(34,211,238,0.16)] dark:hover:shadow-[0_8px_40px_rgba(34,211,238,0.28)] hover:-translate-y-0.5">
-      <div className="absolute inset-0 bg-gradient-to-br from-cyan-400/0 via-transparent to-cyan-500/0 dark:from-cyan-400/8 dark:to-cyan-500/0 opacity-0 transition-opacity duration-300 group-hover/tile:opacity-100 pointer-events-none" />
-      <div className="relative z-10 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+    <div className="relative overflow-hidden rounded-lg border border-cyan-500/25 dark:border-cyan-400/45 bg-gradient-to-br from-cyan-500/6 to-cyan-500/2 dark:from-cyan-400/18 dark:to-cyan-400/6 p-2 transition-colors duration-200 hover:border-cyan-500/40 dark:hover:border-cyan-400/60">
+      <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
         {label}
       </div>
-      <div className="mt-2 font-display text-3xl font-bold tracking-tight tabular-nums text-cyan-700 dark:text-cyan-300 transition-all duration-300 group-hover/tile:scale-[1.07] group-hover/tile:drop-shadow-sm origin-left">
+      <div className="mt-0.5 font-display text-xl font-semibold tracking-tight tabular-nums text-cyan-700 dark:text-cyan-300">
         {value}
       </div>
     </div>
