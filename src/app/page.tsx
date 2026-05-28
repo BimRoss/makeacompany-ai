@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Script from "next/script";
 import { CheckoutReturnToast } from "@/components/landing/checkout-return-toast";
 import { CtaSection } from "@/components/landing/cta-section";
 import { Footer } from "@/components/landing/footer";
@@ -68,9 +67,10 @@ export default async function HomePage({
 
   return (
     <main className="min-h-screen bg-background">
-      <Script id="faq-structured-data" type="application/ld+json" strategy="afterInteractive">
-        {JSON.stringify(faqJsonLd)}
-      </Script>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
+      />
       <CheckoutReturnToast />
       <Header />
       <PersonaProvider

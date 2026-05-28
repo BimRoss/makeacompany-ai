@@ -5,7 +5,14 @@ import Script from "next/script";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { WorkspaceNavbarTrailProvider } from "@/components/workspace-navbar-trail-provider";
-import { siteDescription, siteName, siteTagline, siteTitle, siteUrl } from "@/lib/site";
+import {
+  siteDescription,
+  siteName,
+  siteSocialDescription,
+  siteTagline,
+  siteTitle,
+  siteUrl,
+} from "@/lib/site";
 
 const dmSans = DM_Sans({
   variable: "--font-dm-sans",
@@ -41,8 +48,8 @@ export const metadata: Metadata = {
       : {}),
   },
   openGraph: {
-    title: siteTitle,
-    description: siteDescription,
+    title: siteTagline,
+    description: siteSocialDescription,
     url: siteUrl,
     siteName: "makeacompany.ai",
     locale: "en_US",
@@ -52,14 +59,14 @@ export const metadata: Metadata = {
         url: "/opengraph-image",
         width: 1200,
         height: 630,
-        alt: `${siteTagline} — ${siteDescription}`,
+        alt: `${siteTagline} — ${siteSocialDescription}`,
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: siteTitle,
-    description: siteDescription,
+    title: siteTagline,
+    description: siteSocialDescription,
     images: ["/twitter-image"],
   },
 };
@@ -128,12 +135,19 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         className={`${dmSans.variable} ${syne.variable} min-h-dvh antialiased`}
         suppressHydrationWarning
       >
+        {/*
+         * JSON-LD must be in the SSR HTML so first-crawl Googlebot sees it.
+         * `next/script` with `afterInteractive` injects post-hydration and is
+         * routinely missed by initial indexing — render it as a plain inline
+         * <script> instead.
+         */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+        />
         <ThemeProvider>
           <WorkspaceNavbarTrailProvider>{children}</WorkspaceNavbarTrailProvider>
         </ThemeProvider>
-        <Script id="structured-data" type="application/ld+json" strategy="afterInteractive">
-          {JSON.stringify(structuredData)}
-        </Script>
         {shouldLoadGA ? (
           <>
             <Script

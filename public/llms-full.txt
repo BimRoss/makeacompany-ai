@@ -1,42 +1,47 @@
 # makeacompany.ai — full context
 
-makeacompany.ai is the marketing and signup surface for a product focused on building highly automated, AI-powered companies.
-Primary hero lines: "Deploy an AI team" / "in seconds." Hero subhead (single line on desktop, also link-preview / og/twitter): "For companies who want departments at a fraction of the cost." Checkout **$99/month** via Stripe ("Start Building"). (Human keeps strategy; AI employees run execution in Slack.)
+makeacompany.ai is the marketing + signup surface for a Slack-native AI workforce. One **$99/month** Claude seat backs a whole role-based AI team that lives in your Slack channels. Pitched as "the harness, not the agent" — the orchestration around Claude (persistent workspaces, baked-in skills, GitOps wiring) is the product, not the underlying model.
 
 ## Positioning
 
-- Audience: solo founders and lean teams who want leverage without proportional headcount.
-- Primary workflow: create and configure an AI-powered company with role-based agents that operate inside Slack.
-- Product intent: reduce operational overhead and increase leverage—AI “employees” that execute 24/7 alongside human operators.
-- Homepage hero (current): H1 is **Deploy an AI team** / **in seconds**; one subhead **For companies who want departments at a fraction of the cost.** (also og/twitter description); demo videos below the fold. Sparkles pill: **Unlimited AI teams for $99/mo**; pill above checkout: **$99/mo · unlimited AI teams**. Legacy early-access counters may still appear until backend checkout fully switches to the new Stripe product.
+- **Audience:** solo founders, engineers, and lean teams who want leverage without proportional headcount.
+- **Primary workflow:** AI employees with named roles (Joanne — Head of Operations; Ross — Head of Automation; plus per-channel persistent workspaces) execute inside Slack alongside human operators.
+- **Product intent:** reduce operational overhead and increase per-human leverage. AI "employees" run 24/7 and the founder makes the calls only a founder can.
+- **Hero copy (default / founder persona):** H1 is **"Your whole company, running in Slack."** Subhead: *Joanne handles ops. Ross ships code. You make the calls only a founder can — for what one Claude seat costs.*
+- **Brand tagline (site OG title + tab on share):** **The Power of Claude, The Ease of Slack.** Short link-preview description: *AI does the work. You make the calls.*
+- **Pricing:** $99/month month-to-month through Stripe. The first 100 seats are free-for-life; the live count is rendered in a pill at the top of the page. Free-for-life seats stay free even after the cap fills.
+
+## Persona pages
+
+The `/for/<persona>` routes re-skin the hero + CTA for each audience. Same product, three reads:
+
+- **`/for/founders`** — Title: *AI company for founders.* H1: "Your whole company, running in Slack." Pitch: Joanne ops + Ross engineering + you on strategy, for one Claude seat.
+- **`/for/engineers`** — Title: *Claude in Slack for engineers.* H1: "$99/mo for Claude. Ships in Slack." Pitch: we sell the harness — persistent workspaces per channel, baked-in skills, GitOps wired up. Built by an engineer who clears the hiring bar.
+- **`/for/teams`** — Title: *AI teammates in Slack.* H1: "AI teammates where you already work." Pitch: Slack-native agents that live in your channels. Persistent workspaces, recurring loops, GitOps baked in. No new tool to roll out.
 
 ## Important pages
 
-- https://makeacompany.ai/
-  - Primary landing page, value proposition, and Stripe checkout ($99/mo).
-- https://makeacompany.ai/privacy
-  - Privacy policy and handling of personal information.
-- https://makeacompany.ai/terms
-  - Terms of use and legal conditions.
+- https://makeacompany.ai/ — Primary landing page, hero, value pillars, testimonials, FAQ, Stripe checkout.
+- https://makeacompany.ai/for/founders — Founder-targeted landing variant.
+- https://makeacompany.ai/for/engineers — Engineer-targeted landing variant.
+- https://makeacompany.ai/for/teams — Team-targeted landing variant.
+- https://makeacompany.ai/privacy — Privacy policy and data handling.
+- https://makeacompany.ai/terms — Terms of use and legal conditions.
 
 ## Machine-discovery surfaces
 
-- https://makeacompany.ai/llms.txt
-  - Curated summary for fast agent discovery.
-- https://makeacompany.ai/sitemap.xml
-  - Canonical URL map for crawl/index support.
-- https://makeacompany.ai/robots.txt
-  - Crawler policy and sitemap pointer.
+- https://makeacompany.ai/llms.txt — Curated summary for fast agent discovery.
+- https://makeacompany.ai/sitemap.xml — Canonical URL map for crawl/index support.
+- https://makeacompany.ai/robots.txt — Crawler policy and sitemap pointer.
 
 ## Related public context
 
-- https://bimross.com
-  - Parent company context.
-- https://grantfoster.dev
-  - Founder context.
+- https://bimross.com — Parent company.
+- https://grantfoster.dev — Founder.
 
 ## Preferred interpretation notes for agents
 
-- Treat the homepage as the canonical source for current positioning.
+- Treat the homepage and `/for/*` routes as the canonical source for current positioning.
 - Treat legal pages as canonical for policy and terms.
 - Prefer direct citation of page URLs above when answering user questions about this site.
+- When pricing comes up: $99/month, but the first 100 seats are free-for-life — the live remaining count is rendered on the page; cite the page rather than guessing.
