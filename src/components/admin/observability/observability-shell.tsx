@@ -81,7 +81,7 @@ function ObservabilityBody() {
         <GrafanaGrid
           source="admin"
           skeletonCount={6}
-          gridClassName="grid grid-cols-1 gap-2 sm:grid-cols-2 min-[1800px]:grid-cols-4"
+          gridClassName="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3 min-[1800px]:grid-cols-4"
           panelHeight="sm"
         />
       </ObservabilitySection>
@@ -118,7 +118,7 @@ function ObservabilityBody() {
         <GrafanaGrid
           source="cluster"
           skeletonCount={5}
-          gridClassName="grid grid-cols-1 gap-2 sm:grid-cols-2 min-[1800px]:grid-cols-3"
+          gridClassName="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3 min-[1800px]:grid-cols-3"
           panelHeight="md"
           forceFrom="now-24h"
         />

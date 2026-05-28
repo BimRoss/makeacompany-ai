@@ -222,10 +222,10 @@ export function AdminStripeUsersTable() {
           </p>
         ) : null}
         {stripePurchasers.length > 0 ? (
-          <div className="overflow-x-auto rounded-xl border border-border">
+          <div className="overflow-x-auto rounded-xl border border-border dark:border-emerald-400/15 dark:shadow-[0_4px_24px_rgba(52,211,153,0.08)]">
             <table className="w-full min-w-[840px] border-collapse text-left text-sm">
               <thead>
-                <tr className="border-b border-border bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
+                <tr className="border-b border-border bg-muted/40 dark:bg-emerald-400/5 text-xs uppercase tracking-wide text-muted-foreground">
                   <th className="px-3 py-1.5">Email</th>
                   <th className="px-3 py-1.5">Plan</th>
                   <th className="px-3 py-1.5">Payment</th>
@@ -240,7 +240,7 @@ export function AdminStripeUsersTable() {
                 {stripePurchasers.map((w) => (
                   <tr
                     key={`${w.email}:${w.waitlistPriceId}:${w.stripeSessionId}`}
-                    className="border-b border-border/80 last:border-0"
+                    className="border-b border-border/80 last:border-0 transition-colors duration-150 hover:bg-emerald-500/4 dark:hover:bg-emerald-400/6"
                   >
                     <td className="whitespace-nowrap px-3 py-1.5 align-middle font-mono text-xs">{short(w.email, 48)}</td>
                     <td className="whitespace-nowrap px-3 py-1.5 align-middle text-xs">{stripePlanLabel(w.priceRole)}</td>
@@ -467,10 +467,10 @@ export function AdminSlackUsersTable() {
           </ul>
         ) : null}
         {slackUsers.length > 0 ? (
-          <div className="hidden overflow-x-auto rounded-xl border border-border sm:block">
+          <div className="hidden overflow-x-auto rounded-xl border border-border dark:border-emerald-400/15 sm:block dark:shadow-[0_4px_24px_rgba(52,211,153,0.08)]">
             <table className="w-full min-w-[920px] border-collapse text-left text-sm">
               <thead>
-                <tr className="border-b border-border bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
+                <tr className="border-b border-border bg-muted/40 dark:bg-emerald-400/5 text-xs uppercase tracking-wide text-muted-foreground">
                   <th className="w-9 px-2 py-1.5" scope="col">
                     <span className="sr-only">Photo</span>
                   </th>
@@ -489,7 +489,7 @@ export function AdminSlackUsersTable() {
                   const display = (u.realName || u.displayName || u.username || "").trim();
                   const avatarSrc = (u.profileImageUrl ?? "").trim();
                   return (
-                  <tr key={u.slackUserId} className="border-b border-border/80 last:border-0">
+                  <tr key={u.slackUserId} className="border-b border-border/80 last:border-0 transition-colors duration-150 hover:bg-emerald-500/4 dark:hover:bg-emerald-400/6">
                     <td className="px-2 py-1.5 align-middle">
                       {avatarSrc ? (
                         <Image
