@@ -33,6 +33,33 @@ function deriveInitials(name: string): string {
   return (first + last).toUpperCase();
 }
 
+// Renders content that may contain bullet lines (starting with •) as a proper
+// <ul>/<li> list, with any non-bullet paragraphs rendered as <p> elements.
+function TestimonialContent({ content, clamp }: { content: string; clamp?: boolean }) {
+  const blocks = content.split(/\n{2,}/);
+  return (
+    <div className={clamp ? "line-clamp-5" : undefined}>
+      {blocks.map((block, bi) => {
+        const lines = block.split("\n").filter(Boolean);
+        const isList = lines.every((l) => l.startsWith("•"));
+        if (isList) {
+          return (
+            <ul key={bi} className="mb-2 space-y-0.5 list-none pl-0">
+              {lines.map((l, li) => (
+                <li key={li} className="flex gap-1.5">
+                  <span className="select-none text-foreground/40">•</span>
+                  <span>{l.replace(/^•\s*/, "")}</span>
+                </li>
+              ))}
+            </ul>
+          );
+        }
+        return <p key={bi} className="mb-2 last:mb-0">{block}</p>;
+      })}
+    </div>
+  );
+}
+
 export function TestimonialsCarousel({ testimonials }: { testimonials: LanderTestimonial[] }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -126,9 +153,9 @@ export function TestimonialsCarousel({ testimonials }: { testimonials: LanderTes
                   className="testimonial-card group/card flex shrink-0 snap-start w-[85%] max-w-[360px] sm:w-[340px] lg:w-[360px] min-h-[280px] cursor-pointer flex-col rounded-xl border border-border bg-card/60 p-6 hover:border-foreground/30 hover:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/25"
                 >
                   <div className="mb-1 text-3xl font-black leading-none text-foreground/15 select-none">&ldquo;</div>
-                  <p className="mb-6 line-clamp-4 whitespace-pre-line text-foreground/90">
-                    {testimonial.content}
-                  </p>
+                  <div className="mb-6 text-foreground/90 text-sm">
+                    <TestimonialContent content={testimonial.content} clamp />
+                  </div>
                   <div className="mt-auto flex items-center gap-3">
                     <div
                       className="testimonial-monogram relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border text-sm font-semibold"
@@ -221,9 +248,9 @@ export function TestimonialsCarousel({ testimonials }: { testimonials: LanderTes
               </svg>
             </button>
             <div className="mb-1 text-3xl font-black leading-none text-foreground/15 select-none">&ldquo;</div>
-            <p className="mb-6 whitespace-pre-line pr-6 text-foreground/90">
-              {activeTestimonial.content}
-            </p>
+            <div className="mb-6 pr-6 text-foreground/90">
+              <TestimonialContent content={activeTestimonial.content} />
+            </div>
             <div className="flex items-center gap-3">
               {(() => {
                 const [tintLight, tintDark] = pickMonogramTint(activeTestimonial.name);
