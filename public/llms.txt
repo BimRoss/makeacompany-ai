@@ -1,24 +1,25 @@
 # makeacompany.ai
 
-> makeacompany.ai is the domain for this product. Primary headline: **Deploy an AI team** / **in seconds**; hero and link-preview description (og/twitter): **For companies who want departments at a fraction of the cost.** Pricing **$99/month** via Stripe (**Start Building**). Human keeps strategy; AI employees execute in Slack. Aimed at solo founders and lean teams.
+> makeacompany.ai is a Slack-native AI team for founders, engineers, and lean teams. One **$99/month** Claude seat backs a whole role-based AI workforce that lives in your Slack channels — Joanne runs ops, Ross ships code, you make the calls only a founder can. Hero H1 (default persona): **Your whole company, running in Slack.** Site tagline + OG title: **The Power of Claude, The Ease of Slack.** Onboarding is Slack-only — no install, no setup, no second tool to roll out.
 
-This site is focused on company-building systems, automation, and operations design.
-Use this file as the primary entry point for agent-friendly discovery.
+Use this file as the primary entry point for agent-friendly discovery. The homepage is the canonical source for current positioning; persona pages (`/for/founders`, `/for/engineers`, `/for/teams`) re-skin the same value prop for different audiences.
 
 ## Core pages
 
-- [Home](https://makeacompany.ai/): Main value proposition and Stripe checkout ($99/mo).
+- [Home](https://makeacompany.ai/): Main value proposition, hero, FAQ, and Stripe checkout ($99/mo).
+- [For founders](https://makeacompany.ai/for/founders): "Your whole company, running in Slack." Joanne ops + Ross engineering for solo founders.
+- [For engineers](https://makeacompany.ai/for/engineers): "$99/mo for Claude. Ships in Slack." The harness, not just the agent — persistent workspaces per channel, baked-in skills, GitOps.
+- [For teams](https://makeacompany.ai/for/teams): "AI teammates where you already work." Slack-native agents for lean teams.
 - [Privacy Policy](https://makeacompany.ai/privacy): Data collection, processing, and retention policy.
 - [Terms of Use](https://makeacompany.ai/terms): Website use terms, limitations, and legal conditions.
 
 ## Organization context
 
-- [BimRoss](https://bimross.com): Parent company context.
+- [BimRoss](https://bimross.com): Parent company.
 - [Founder](https://grantfoster.dev): Founder profile and related public context.
 
-## Optional
+## Machine-discovery surfaces
 
-- Operator observability (authenticated / internal): [Admin overview](https://makeacompany.ai/admin), [Twitter stack](https://makeacompany.ai/twitter) — Grafana embeds for runtime health (not primary product content).
-- [Root sitemap](https://makeacompany.ai/sitemap.xml): Search-engine URL map for canonical page discovery.
-- [Robots policy](https://makeacompany.ai/robots.txt): Crawler access directives.
+- [Sitemap](https://makeacompany.ai/sitemap.xml): Canonical URL map.
+- [Robots policy](https://makeacompany.ai/robots.txt): Crawler directives.
 - [Full context](https://makeacompany.ai/llms-full.txt): Expanded context for agent ingestion when larger context windows are available.
