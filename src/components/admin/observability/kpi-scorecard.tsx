@@ -77,7 +77,7 @@ function ScorecardTile({
   const color = value === null ? "amber" : colorFor(thresholds, value, higherIsBetter);
   return (
     <div
-      className={`group/tile relative overflow-hidden rounded-xl border p-4 transition-all duration-200 hover:shadow-md ${
+      className={`group/tile relative overflow-hidden rounded-xl border p-3 transition-all duration-200 hover:shadow-md ${
         value === null ? "border-border bg-card shadow-sm" : `${tileBgClass[color]} hover:border-opacity-60`
       }`}
     >
@@ -86,7 +86,7 @@ function ScorecardTile({
         {label}
       </div>
       <div
-        className={`mt-3 font-display text-3xl font-bold tracking-tight tabular-nums transition-transform duration-200 group-hover/tile:scale-105 origin-left ${
+        className={`mt-2 font-display text-3xl font-bold tracking-tight tabular-nums transition-transform duration-200 group-hover/tile:scale-105 origin-left ${
           value === null ? "text-muted-foreground" : tileTextClass[color]
         }`}
       >
@@ -99,12 +99,12 @@ function ScorecardTile({
 /** Informational tile (no threshold coloring) for traffic metrics like GA4. */
 function InfoTile({ label, value }: { label: string; value: string }) {
   return (
-    <div className="group/tile relative overflow-hidden rounded-xl border border-cyan-500/25 bg-gradient-to-br from-cyan-500/6 to-cyan-500/2 p-4 shadow-[0_8px_16px_rgba(34,211,238,0.08)] transition-all duration-200 hover:border-cyan-500/35 hover:shadow-[0_12px_24px_rgba(34,211,238,0.12)]">
+    <div className="group/tile relative overflow-hidden rounded-xl border border-cyan-500/25 bg-gradient-to-br from-cyan-500/6 to-cyan-500/2 p-3 shadow-[0_8px_16px_rgba(34,211,238,0.08)] transition-all duration-200 hover:border-cyan-500/35 hover:shadow-[0_12px_24px_rgba(34,211,238,0.12)]">
       <div className="absolute inset-0 bg-gradient-to-br from-cyan-400/0 via-transparent to-cyan-500/0 opacity-0 transition-opacity duration-200 group-hover/tile:opacity-30 pointer-events-none" />
       <div className="relative z-10 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
         {label}
       </div>
-      <div className="mt-3 font-display text-3xl font-bold tracking-tight tabular-nums text-cyan-700 dark:text-cyan-300 transition-transform duration-200 group-hover/tile:scale-105 origin-left">
+      <div className="mt-2 font-display text-3xl font-bold tracking-tight tabular-nums text-cyan-700 dark:text-cyan-300 transition-transform duration-200 group-hover/tile:scale-105 origin-left">
         {value}
       </div>
     </div>
@@ -261,7 +261,7 @@ export function KpiScorecard() {
   return (
     <section
       aria-label="KPI scorecard"
-      className={`grid grid-cols-2 gap-3 sm:grid-cols-3 ${
+      className={`grid grid-cols-2 gap-2 sm:grid-cols-3 ${
         showGa4 ? "min-[1800px]:grid-cols-7" : "min-[1800px]:grid-cols-5"
       }`}
     >
