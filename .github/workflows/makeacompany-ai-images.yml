@@ -184,7 +184,7 @@ jobs:
       - frontend
       - backend
       - version
-    uses: BimRoss/.github/.github/workflows/gitops-release.yml@e1c6cde8779db61d5a0c6727a5efa41e96e92adb
+    uses: BimRoss/.github/.github/workflows/gitops-release.yml@v1
     secrets: inherit
     with:
       app_slug: makeacompany-ai
