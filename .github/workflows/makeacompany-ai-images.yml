@@ -178,6 +178,25 @@ jobs:
           VERSION="${TAG#v}"
           echo "version=${VERSION}" >> "${GITHUB_OUTPUT}"
 
+      - name: Verify image tags exist on Docker Hub
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          # Belt-and-suspenders against the "build job reported success but
+          # push silently failed" failure mode (see rancher-admin commit
+          # 32407c1 — "0.1.73 image never built" — for the precedent on
+          # claude-code-ross). The `needs:` above only proves the build job
+          # exited 0; it doesn't prove the registry has the tag.
+          for image in geeemoney/makeacompany-ai-frontend geeemoney/makeacompany-ai-backend; do
+            url="https://hub.docker.com/v2/repositories/${image}/tags/${VERSION}"
+            status=$(curl -s -o /dev/null -w '%{http_code}' "${url}")
+            if [ "${status}" != "200" ]; then
+              echo "::error::Tag ${VERSION} not found for ${image} (HTTP ${status}). Refusing to open rancher-admin PR."
+              exit 1
+            fi
+            echo "Verified: ${image}:${VERSION} exists on Docker Hub"
+          done
+
       - name: Checkout rancher-admin
         uses: actions/checkout@v6
         with:
