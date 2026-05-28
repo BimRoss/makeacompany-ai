@@ -373,8 +373,8 @@ export function AdminHealthDashboard() {
 
   return (
     <section className="space-y-3">
-      <nav className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
-        <article className="rounded-xl border border-border bg-card p-3">
+      <nav className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-6 2xl:grid-cols-8">
+        <article className="rounded-xl border border-border bg-card p-3 lg:col-span-2">
           <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">account</h2>
           <div className="mt-1 flex items-end gap-2">
             <strong className="text-3xl leading-none text-emerald-500">{loading ? "—" : cookieSuccess}</strong>
@@ -384,19 +384,19 @@ export function AdminHealthDashboard() {
           <p className="mt-1 text-xs text-muted-foreground">{accountMetaParts.join(" · ")}</p>
         </article>
 
-        <article className="rounded-xl border border-border bg-card p-3">
+        <article className="rounded-xl border border-border bg-card p-3 lg:col-span-2">
           <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">total jobs</h2>
           <strong className="mt-1 block text-3xl leading-none">
             {loading ? "—" : formatNumber(indexer?.totalJobsAccepted ?? indexer?.receivedJobs ?? 0)}
           </strong>
         </article>
 
-        <article className="rounded-xl border border-border bg-card p-3">
+        <article className="rounded-xl border border-border bg-card p-3 lg:col-span-2">
           <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">indexer rpm</h2>
           <strong className="mt-1 block text-3xl leading-none">{loading ? "—" : formatNumber(indexer?.jobsPerMinute, 1)}</strong>
         </article>
 
-        <article className="rounded-xl border border-border bg-card p-3">
+        <article className="rounded-xl border border-border bg-card p-3 lg:col-span-2">
           <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">err %</h2>
           <strong className={`mt-1 block text-3xl leading-none ${errorRateColor}`}>
             {loading ? "—" : formatPercent(displayErrorRate)}
@@ -412,8 +412,8 @@ export function AdminHealthDashboard() {
       ) : null}
       {!loading && payload?.error ? <p className="text-xs text-amber-500">health proxy error: {payload.error}</p> : null}
 
-      <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">
-        <section ref={recentRequestsScrollRef} className="max-h-[42vh] min-h-[260px] overflow-auto rounded-xl border border-border bg-card">
+      <div className="grid grid-cols-1 gap-2 xl:grid-cols-3">
+        <section ref={recentRequestsScrollRef} className="max-h-[45vh] min-h-[260px] overflow-auto rounded-xl border border-border bg-card xl:col-span-2">
           {recentRequestsError ? (
             <div className="px-3 py-2 text-xs text-amber-500">failed to load recent requests: {recentRequestsError}</div>
           ) : null}
@@ -488,7 +488,7 @@ export function AdminHealthDashboard() {
           </table>
         </section>
 
-        <section className="max-h-[42vh] min-h-[260px] overflow-auto rounded-xl border border-border bg-card">
+        <section className="max-h-[45vh] min-h-[260px] overflow-auto rounded-xl border border-border bg-card">
           <table className="w-full min-w-[420px] border-collapse text-sm">
             <caption className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               workers
@@ -531,7 +531,7 @@ export function AdminHealthDashboard() {
         </section>
       </div>
 
-      <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6">
         {embedCards.length === 0 ? (
           <div className="rounded-xl border border-dashed border-border bg-card p-4 text-sm text-muted-foreground">
             Configure health Grafana panel IDs to render charts on `/twitter`.
