@@ -48,9 +48,9 @@ function colorFor(thresholds: Threshold[], value: number, higherIsBetter: boolea
 }
 
 const tileBgClass: Record<"green" | "amber" | "red", string> = {
-  green: "border-emerald-500/30 bg-emerald-500/5",
-  amber: "border-amber-500/40 bg-amber-500/10",
-  red: "border-red-500/40 bg-red-500/10",
+  green: "border-emerald-500/35 bg-gradient-to-br from-emerald-500/8 to-emerald-500/3 shadow-[0_8px_16px_rgba(16,185,129,0.1)]",
+  amber: "border-amber-500/40 bg-gradient-to-br from-amber-500/12 to-amber-500/4 shadow-[0_8px_16px_rgba(217,119,6,0.1)]",
+  red: "border-red-500/40 bg-gradient-to-br from-red-500/12 to-red-500/4 shadow-[0_8px_16px_rgba(239,68,68,0.1)]",
 };
 
 const tileTextClass: Record<"green" | "amber" | "red", string> = {
@@ -77,15 +77,16 @@ function ScorecardTile({
   const color = value === null ? "amber" : colorFor(thresholds, value, higherIsBetter);
   return (
     <div
-      className={`relative overflow-hidden rounded-xl border p-4 shadow-sm transition ${
-        value === null ? "border-border bg-card" : tileBgClass[color]
+      className={`group/tile relative overflow-hidden rounded-xl border p-4 transition-all duration-200 hover:shadow-md ${
+        value === null ? "border-border bg-card shadow-sm" : `${tileBgClass[color]} hover:border-opacity-60`
       }`}
     >
-      <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+      <div className="absolute inset-0 bg-gradient-to-br from-white/0 via-transparent to-white/0 opacity-0 transition-opacity duration-200 group-hover/tile:opacity-40 pointer-events-none" />
+      <div className="relative z-10 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
         {label}
       </div>
       <div
-        className={`mt-2 font-display text-3xl font-semibold tracking-tight ${
+        className={`mt-3 font-display text-3xl font-bold tracking-tight tabular-nums transition-transform duration-200 group-hover/tile:scale-105 origin-left ${
           value === null ? "text-muted-foreground" : tileTextClass[color]
         }`}
       >
@@ -98,11 +99,12 @@ function ScorecardTile({
 /** Informational tile (no threshold coloring) for traffic metrics like GA4. */
 function InfoTile({ label, value }: { label: string; value: string }) {
   return (
-    <div className="relative overflow-hidden rounded-xl border border-border bg-card p-4 shadow-sm">
-      <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+    <div className="group/tile relative overflow-hidden rounded-xl border border-cyan-500/25 bg-gradient-to-br from-cyan-500/6 to-cyan-500/2 p-4 shadow-[0_8px_16px_rgba(34,211,238,0.08)] transition-all duration-200 hover:border-cyan-500/35 hover:shadow-[0_12px_24px_rgba(34,211,238,0.12)]">
+      <div className="absolute inset-0 bg-gradient-to-br from-cyan-400/0 via-transparent to-cyan-500/0 opacity-0 transition-opacity duration-200 group-hover/tile:opacity-30 pointer-events-none" />
+      <div className="relative z-10 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
         {label}
       </div>
-      <div className="mt-2 font-display text-3xl font-semibold tracking-tight tabular-nums">
+      <div className="mt-3 font-display text-3xl font-bold tracking-tight tabular-nums text-cyan-700 dark:text-cyan-300 transition-transform duration-200 group-hover/tile:scale-105 origin-left">
         {value}
       </div>
     </div>
