@@ -85,7 +85,7 @@ export default function ArchitecturePage() {
             </div>
 
             <h1 className="text-6xl md:text-8xl font-bold leading-tight">
-              How it's actually built
+              How it&apos;s actually built
             </h1>
 
             <p className="text-xl md:text-2xl text-gray-400 font-light max-w-3xl mx-auto leading-relaxed">
@@ -125,7 +125,7 @@ export default function ArchitecturePage() {
             >
               <h3 className="text-2xl font-bold mb-4">Deployments, not frameworks</h3>
               <p className="text-gray-400 leading-relaxed">
-                Every "employee" is a Claude Code agent running on Kubernetes. Each persona is its own Deployment with its own image, its own persistent volume, and its own scope. There's no agent framework, no message queue, no orchestration layer.
+                Every &quot;employee&quot; is a Claude Code agent running on Kubernetes. Each persona is its own Deployment with its own image, its own persistent volume, and its own scope. There&apos;s no agent framework, no message queue, no orchestration layer.
               </p>
             </div>
 
