@@ -11,7 +11,7 @@ import { ValueStack } from "@/components/landing/value-stack";
 import { fetchLanderSlackSeats } from "@/lib/lander-slack-seats";
 import { fetchLanderTestimonials } from "@/lib/lander-testimonials";
 import { DEFAULT_PERSONA, parsePersonaParam } from "@/lib/personas";
-import { siteDescription, siteTagline, siteTitle, siteUrl } from "@/lib/site";
+import { siteDescription, siteTitle } from "@/lib/site";
 
 // Re-fetch the seat count on each request so the pill keeps up with onboarding.
 export const dynamic = "force-dynamic";
@@ -31,25 +31,10 @@ export const metadata: Metadata = {
     "solo founder leverage",
     "BimRoss",
   ],
-  openGraph: {
-    title: siteTitle,
-    description: siteDescription,
-    url: siteUrl,
-    images: [
-      {
-        url: "/opengraph-image",
-        width: 1200,
-        height: 630,
-        alt: `${siteTagline} — ${siteDescription}`,
-      },
-    ],
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: siteTitle,
-    description: siteDescription,
-    images: ["/twitter-image"],
-  },
+  // openGraph + twitter inherit from layout.tsx so social shares keep the brand
+  // voice (`siteTagline`) instead of the keyword-rich SERP `siteTitle`. The
+  // duplicate page-level OG block previously overrode the layout and forced the
+  // keyword title onto Slack/Twitter unfurls.
 };
 
 export default async function HomePage({
