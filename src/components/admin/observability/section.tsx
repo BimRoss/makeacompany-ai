@@ -24,7 +24,7 @@ export function ObservabilitySection({
   const [open, setOpen] = useState(defaultOpen);
   const contentId = `${id}-content`;
   return (
-    <section className="space-y-2.5">
+    <section className="space-y-2">
       <header className="flex items-center justify-between gap-3 px-0.5">
         <button
           type="button"
