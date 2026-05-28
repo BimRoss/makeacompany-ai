@@ -98,7 +98,7 @@ export function TestimonialsCarousel({ testimonials }: { testimonials: LanderTes
           </p>
         </div>
 
-        <div className="relative">
+        <div className="relative mx-4">
           <div
             ref={scrollRef}
             className="-mx-2 flex gap-4 overflow-x-auto overscroll-x-contain px-2 py-6 snap-x snap-mandatory scroll-smooth"
