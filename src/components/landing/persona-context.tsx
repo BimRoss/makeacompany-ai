@@ -17,6 +17,7 @@ import {
   persistPersona,
   resolveInitialPersona,
 } from "@/lib/personas";
+import { captureRefFromUrl } from "@/lib/ref";
 
 interface PersonaContextValue {
   persona: Persona;
@@ -62,6 +63,7 @@ export function PersonaProvider({
   const lastRef = useRef<Persona>(initialPersona);
 
   useEffect(() => {
+    captureRefFromUrl();
     // If the URL pinned the persona server-side, trust it — no client upgrade.
     if (initialFromUrl) {
       setHydrated(true);

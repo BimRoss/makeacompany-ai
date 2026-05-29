@@ -32,8 +32,8 @@ func userBySlackRedisKey(slackUserID string) string {
 }
 
 // UpsertUserProfileAfterWaitlist merges Stripe waitlist fields into the canonical profile hash.
-// stripeProductID is written only when non-empty so callers without line-item data do not clear an existing value.
-func (s *Store) UpsertUserProfileAfterWaitlist(ctx context.Context, email, stripeCustomer, stripeSessionID, paymentStatus, stripeProductID string) error {
+// stripeProductID and attributedTo are written only when non-empty so callers without those values do not clear existing data.
+func (s *Store) UpsertUserProfileAfterWaitlist(ctx context.Context, email, stripeCustomer, stripeSessionID, paymentStatus, stripeProductID, attributedTo string) error {
 	email = normalizeProfileEmail(email)
 	if email == "" {
 		return fmt.Errorf("missing email")
@@ -48,6 +48,9 @@ func (s *Store) UpsertUserProfileAfterWaitlist(ctx context.Context, email, strip
 	}
 	if pid := strings.TrimSpace(stripeProductID); pid != "" {
 		fields["stripe_product_id"] = pid
+	}
+	if ref := strings.TrimSpace(attributedTo); ref != "" {
+		fields["attributed_to"] = ref
 	}
 	return s.rdb.HSet(ctx, userProfileRedisKey(email), fields).Err()
 }
@@ -162,7 +165,7 @@ func (s *Store) UpsertUserProfilesFromStripeWaitlistPurchasers(ctx context.Conte
 		if email == "" {
 			continue
 		}
-		if err := s.UpsertUserProfileAfterWaitlist(ctx, email, strings.TrimSpace(p.StripeCustomer), strings.TrimSpace(p.StripeSessionID), strings.TrimSpace(p.PaymentStatus), strings.TrimSpace(p.StripeProductID)); err != nil {
+		if err := s.UpsertUserProfileAfterWaitlist(ctx, email, strings.TrimSpace(p.StripeCustomer), strings.TrimSpace(p.StripeSessionID), strings.TrimSpace(p.PaymentStatus), strings.TrimSpace(p.StripeProductID), ""); err != nil {
 			return n, fmt.Errorf("waitlist profile %s: %w", email, err)
 		}
 		n++
@@ -191,8 +194,9 @@ type UserProfileRow struct {
 	HumansTermsAcceptedMessageTs        string `json:"humansTermsAcceptedMessageTs,omitempty"`
 	// FreeTierConsumed is set when a free (unpaid) user ships their first deployment.
 	// Once true, Joanne blocks further deploys until the user subscribes via Stripe.
-	FreeTierConsumed bool `json:"freeTierConsumed,omitempty"`
-	Linked           bool `json:"linked"`
+	FreeTierConsumed bool   `json:"freeTierConsumed,omitempty"`
+	AttributedTo     string `json:"attributedTo,omitempty"`
+	Linked           bool   `json:"linked"`
 }
 
 func parseUnixSecondsString(v string) int64 {
@@ -236,6 +240,7 @@ func userProfileRowFromHash(email string, vals map[string]string) UserProfileRow
 		HumansTermsAcceptedAt:               strings.TrimSpace(vals["humans_terms_accepted_at"]),
 		HumansTermsAcceptedMessageTs:        strings.TrimSpace(vals["humans_terms_accepted_slack_message_ts"]),
 		FreeTierConsumed:                    freeTierConsumed,
+		AttributedTo:                        strings.TrimSpace(vals["attributed_to"]),
 		Linked:                              stripeCust != "" && slackID != "",
 	}
 }

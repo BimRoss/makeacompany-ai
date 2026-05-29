@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { ArrowRight, Loader2 } from "lucide-react";
 import { apiBase } from "@/lib/site";
+import { getStoredRef } from "@/lib/ref";
 import { DEFAULT_WAITLIST_CAP, WAITLIST_REFRESH_EVENT } from "@/lib/waitlist";
 
 const CHECKOUT_PENDING_KEY = "makeacompany:checkout-pending";
@@ -84,10 +85,11 @@ export function CheckoutButton({ label, className }: CheckoutButtonProps) {
     setLoading(true);
     setError(null);
     try {
+      const ref = getStoredRef();
       const res = await fetch(`${apiBase()}/v1/billing/checkout`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: "{}",
+        body: JSON.stringify(ref ? { ref } : {}),
       });
       const data = (await res.json()) as { url?: string; error?: string };
       if (!res.ok) {
