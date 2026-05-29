@@ -53,7 +53,7 @@ const VARIANTS: ReadonlyArray<{ voice: Voice; text: string }> = [
   {
     voice: "duo",
     text:
-      "Your next hire costs $150K/yr. These two cost $99/mo and start today.",
+      "Your next two hires cost $300K/yr. These two cost $99/mo and start today.",
   },
 ];
 
