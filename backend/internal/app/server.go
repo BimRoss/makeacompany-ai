@@ -412,6 +412,14 @@ func (s *Server) handleCheckout(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusForbidden, map[string]any{"error": "waitlist full"})
 		return
 	}
+	var reqBody struct {
+		Ref string `json:"ref"`
+	}
+	if r.Body != nil {
+		_ = json.NewDecoder(io.LimitReader(r.Body, 4096)).Decode(&reqBody)
+	}
+	ref := strings.TrimSpace(reqBody.Ref)
+
 	priceID, err := s.basePlanPriceID()
 	if err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
@@ -419,6 +427,10 @@ func (s *Server) handleCheckout(w http.ResponseWriter, r *http.Request) {
 	}
 	successURL := s.cfg.AppBaseURL + "/success?session_id={CHECKOUT_SESSION_ID}"
 	cancelURL := s.cfg.AppBaseURL + "/?checkout=cancelled"
+	metadata := map[string]string{"source": "base_plan"}
+	if ref != "" {
+		metadata["ref"] = ref
+	}
 	params := &stripe.CheckoutSessionParams{
 		Mode:       stripe.String(string(stripe.CheckoutSessionModeSubscription)),
 		SuccessURL: stripe.String(successURL),
@@ -426,9 +438,7 @@ func (s *Server) handleCheckout(w http.ResponseWriter, r *http.Request) {
 		LineItems: []*stripe.CheckoutSessionLineItemParams{
 			{Price: stripe.String(priceID), Quantity: stripe.Int64(1)},
 		},
-		Metadata: map[string]string{
-			"source": "base_plan",
-		},
+		Metadata: metadata,
 	}
 	sess, err := checkoutsession.New(params)
 	if err != nil {
@@ -739,7 +749,8 @@ func (s *Server) saveWaitlistFromSession(ctx context.Context, sess *stripe.Check
 			stripeProductID = pid
 		}
 	}
-	if err := s.store.SaveWaitlistSignup(ctx, sess.ID, email, custID, status, amount, cur, stripeProductID); err != nil {
+	ref := strings.TrimSpace(sess.Metadata["ref"])
+	if err := s.store.SaveWaitlistSignup(ctx, sess.ID, email, custID, status, amount, cur, stripeProductID, ref); err != nil {
 		return "", err
 	}
 	if err := s.sendCheckoutWelcomeInviteEmail(ctx, sess.ID, email); err != nil {

@@ -19,7 +19,7 @@ func TestUserProfile_LinkedAndList(t *testing.T) {
 	ctx := context.Background()
 	st := &Store{rdb: rdb}
 
-	if err := st.UpsertUserProfileAfterWaitlist(ctx, "A@Example.com", "cus_1", "cs_x", "paid", "prod_waitlist"); err != nil {
+	if err := st.UpsertUserProfileAfterWaitlist(ctx, "A@Example.com", "cus_1", "cs_x", "paid", "prod_waitlist", ""); err != nil {
 		t.Fatal(err)
 	}
 	if err := st.UpsertUserProfileSlackID(ctx, "a@example.com", "U123"); err != nil {
@@ -167,7 +167,7 @@ func TestUpsertUserProfileStripeSubscription_setsStripeProductID(t *testing.T) {
 	ctx := context.Background()
 	st := &Store{rdb: rdb}
 
-	if err := st.UpsertUserProfileAfterWaitlist(ctx, "tier@example.com", "cus_1", "cs_1", "paid", "prod_waitlist"); err != nil {
+	if err := st.UpsertUserProfileAfterWaitlist(ctx, "tier@example.com", "cus_1", "cs_1", "paid", "prod_waitlist", ""); err != nil {
 		t.Fatal(err)
 	}
 	if err := st.UpsertUserProfileStripeSubscription(ctx, "tier@example.com", "cus_1", "sub_99", "active", "subscriber", "price_monthly", "prod_monthly", false, 1735689600); err != nil {

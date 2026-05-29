@@ -2,7 +2,7 @@ import { AdminSlackWorkspaceLiveSyncOnce } from "@/components/admin/admin-slack-
 import { AdminPostAuthWelcomeBoundary } from "@/components/admin/admin-post-auth-welcome-toast";
 import { AdminObservabilityShell } from "@/components/admin/observability/observability-shell";
 import { AdminShell } from "@/components/admin/admin-shell";
-import { AdminSlackUsersTable, AdminStripeUsersTable } from "@/components/admin/user-profiles-panel";
+import { AdminSlackUsersTable, AdminStripeUsersTable, AdminUserProfilesTable } from "@/components/admin/user-profiles-panel";
 
 export default function AdminPage() {
   return (
@@ -11,6 +11,7 @@ export default function AdminPage() {
       <AdminPostAuthWelcomeBoundary />
       <div className="space-y-12">
         <AdminObservabilityShell />
+        <AdminUserProfilesTable />
         <AdminSlackUsersTable />
         <AdminStripeUsersTable />
       </div>
