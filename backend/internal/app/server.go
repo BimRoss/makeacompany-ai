@@ -419,6 +419,9 @@ func (s *Server) handleCheckout(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewDecoder(io.LimitReader(r.Body, 4096)).Decode(&reqBody)
 	}
 	ref := strings.TrimSpace(reqBody.Ref)
+	if len(ref) > 64 {
+		ref = ref[:64]
+	}
 
 	priceID, err := s.basePlanPriceID()
 	if err != nil {

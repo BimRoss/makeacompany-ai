@@ -156,6 +156,41 @@ func TestUpsertUserProfilesFromStripeWaitlistPurchasers_basePlanWinsSameEmail(t 
 	}
 }
 
+func TestUpsertUserProfileAfterWaitlist_setsAttributedTo(t *testing.T) {
+	srv, err := miniredis.Run()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer srv.Close()
+	rdb := redis.NewClient(&redis.Options{Addr: srv.Addr()})
+	defer rdb.Close()
+	ctx := context.Background()
+	st := &Store{rdb: rdb}
+
+	if err := st.UpsertUserProfileAfterWaitlist(ctx, "ref@example.com", "cus_1", "cs_1", "paid", "prod_waitlist", "john"); err != nil {
+		t.Fatal(err)
+	}
+	v, err := rdb.HGet(ctx, userProfileRedisKey("ref@example.com"), "attributed_to").Result()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v != "john" {
+		t.Fatalf("attributed_to: %q, want %q", v, "john")
+	}
+
+	// Empty attributedTo must not overwrite an existing value.
+	if err := st.UpsertUserProfileAfterWaitlist(ctx, "ref@example.com", "cus_1", "cs_1", "paid", "prod_waitlist", ""); err != nil {
+		t.Fatal(err)
+	}
+	v, err = rdb.HGet(ctx, userProfileRedisKey("ref@example.com"), "attributed_to").Result()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v != "john" {
+		t.Fatalf("attributed_to after empty upsert: %q, want %q", v, "john")
+	}
+}
+
 func TestUpsertUserProfileStripeSubscription_setsStripeProductID(t *testing.T) {
 	srv, err := miniredis.Run()
 	if err != nil {

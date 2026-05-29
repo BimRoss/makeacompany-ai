@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { apiBase } from "@/lib/site";
+import { clearStoredRef } from "@/lib/ref";
 import { WAITLIST_REFRESH_EVENT } from "@/lib/waitlist";
 const TOAST_MS = 6000;
 
@@ -67,6 +68,7 @@ export function CheckoutReturnToast() {
           window.dispatchEvent(new CustomEvent(WAITLIST_REFRESH_EVENT));
           window.sessionStorage.setItem(dedupeKey, "done");
           window.localStorage.setItem("makeacompany:registered", "true");
+          clearStoredRef();
         } else if (data.waitlistFull) {
           setMessage(
             "We couldn't complete your signup. If you were charged, contact us for a refund.",
