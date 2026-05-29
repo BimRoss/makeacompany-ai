@@ -1,5 +1,11 @@
 import { Smartphone, Users, Wrench } from "lucide-react";
 
+const STATS = [
+  { value: "10 min", label: "first project scoped" },
+  { value: "same day", label: "shipped to prod" },
+  { value: "$99/mo", label: "vs. $3–5K/mo in contractors" },
+];
+
 const PILLARS = [
   {
     icon: Wrench,
@@ -30,6 +36,16 @@ export function ValueStack() {
             Three legs the raw CLI doesn&apos;t give you.
           </p>
         </div>
+
+        <div className="mb-12 grid grid-cols-3 divide-x divide-border rounded-2xl border border-border bg-card">
+          {STATS.map(({ value, label }) => (
+            <div key={label} className="flex flex-col items-center px-4 py-6 text-center sm:px-8">
+              <span className="text-2xl font-bold tracking-tight sm:text-3xl">{value}</span>
+              <span className="mt-1 text-xs text-muted-foreground sm:text-sm">{label}</span>
+            </div>
+          ))}
+        </div>
+
         <ul className="grid gap-6 sm:grid-cols-3">
           {PILLARS.map(({ icon: Icon, title, body }) => (
             <li

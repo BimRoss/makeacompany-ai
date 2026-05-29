@@ -19,20 +19,20 @@ export interface PersonaCopy {
 
 export const PERSONA_COPY: Record<Persona, PersonaCopy> = {
   founder: {
-    heroLine1: "Your whole company,",
-    heroLine2: "running in Slack.",
+    heroLine1: "Your next hire costs $150K.",
+    heroLine2: "This one costs $99/mo.",
     subhead:
-      "Joanne handles ops. Ross ships code. You make the calls only a founder can — for what one Claude seat costs.",
+      "Joanne runs ops. Ross ships code. You make the calls only a founder can — for what one Claude seat costs, and a fraction of your next contractor invoice.",
     ctaH2: "Start your company.",
     ctaParagraph:
       "Drop your email. Joanne sends you a Slack invite and your AI team is in there waiting.",
     ctaButtonLabel: "Start your company",
   },
   engineer: {
-    heroLine1: "$99/mo for Claude.",
-    heroLine2: "Ships in Slack.",
+    heroLine1: "The harness your team",
+    heroLine2: "wishes you'd bought sooner.",
     subhead:
-      "We sell the harness, not the agent. Persistent workspaces per channel, baked-in skills, GitOps wired up. Built by an engineer who clears your hiring bar.",
+      "We sell the harness, not the agent. Persistent workspaces per channel, baked-in skills, GitOps wired up. Built by an engineer who clears your hiring bar — shipping from the same product you'd be buying.",
     ctaH2: "See the harness.",
     ctaParagraph:
       "Drop your email. You'll be in Slack with the agents and the full kit in minutes — the same setup the founder uses to ship this product.",
@@ -42,7 +42,7 @@ export const PERSONA_COPY: Record<Persona, PersonaCopy> = {
     heroLine1: "AI teammates",
     heroLine2: "where you already work.",
     subhead:
-      "Slack-native agents that live in your channels. Persistent workspaces, recurring loops, GitOps baked in. No new tool to roll out — they show up where you already are.",
+      "Your next ops hire costs $80K/yr. Joanne and Ross cost $99/mo, start today, and live in the Slack you're already in. No new tool to roll out.",
     ctaH2: "Add it to your Slack.",
     ctaParagraph:
       "Drop your work email. We'll get your team into a Slack workspace with Joanne and Ross ready to go.",

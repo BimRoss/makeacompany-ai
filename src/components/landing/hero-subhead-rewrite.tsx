@@ -12,7 +12,7 @@ type Voice = "joanne" | "ross" | "duo";
 // so the surrounding container reserves the same number of lines for every
 // variant. Re-pick this if you add a longer entry to VARIANTS.
 const HEIGHT_ANCHOR =
-  "Joanne runs ops. Ross writes code. You make the calls only a founder can. It's basically a whole company in your Slack, for what Claude Code costs.";
+  "10 minutes to scope. Same day to shipped. $99/mo instead of $3–5K in contractors. The ROI shows up in the first week.";
 
 const VARIANTS: ReadonlyArray<{ voice: Voice; text: string }> = [
   {
@@ -44,6 +44,16 @@ const VARIANTS: ReadonlyArray<{ voice: Voice; text: string }> = [
     voice: "duo",
     text:
       "A Chief of Staff and a Developer, living in your Slack. Nothing to set up. Two new DMs and a whole company at your fingertips.",
+  },
+  {
+    voice: "duo",
+    text:
+      "10 minutes to scope. Same day to shipped. $99/mo instead of $3–5K in contractors. The ROI shows up in the first week.",
+  },
+  {
+    voice: "duo",
+    text:
+      "Your next hire costs $150K/yr. These two cost $99/mo and start today.",
   },
 ];
 
