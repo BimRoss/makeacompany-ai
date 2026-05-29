@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { BuiltFromInside } from "@/components/landing/built-from-inside";
 import { CheckoutReturnToast } from "@/components/landing/checkout-return-toast";
 import { CtaSection } from "@/components/landing/cta-section";
 import { Footer } from "@/components/landing/footer";
@@ -64,6 +65,7 @@ export default async function HomePage({
       >
         <HeroSection initialSeats={initialSeats} />
         <ValueStack />
+        <BuiltFromInside />
         <TestimonialsCarousel testimonials={testimonials} />
         <CtaSection />
       </PersonaProvider>
