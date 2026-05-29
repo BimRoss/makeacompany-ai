@@ -42,6 +42,11 @@ func (s *Server) handleAdminTestimonials(w http.ResponseWriter, r *http.Request)
 	id := strings.TrimPrefix(r.URL.Path, "/v1/admin/testimonials")
 	id = strings.Trim(id, "/")
 
+	if id == "reorder" && r.Method == http.MethodPost {
+		s.serveAdminTestimonialReorder(w, r)
+		return
+	}
+
 	switch r.Method {
 	case http.MethodGet:
 		if id != "" {
@@ -113,4 +118,33 @@ func (s *Server) serveAdminTestimonialUpsert(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	writeJSON(w, http.StatusOK, saved)
+}
+
+// serveAdminTestimonialReorder handles POST /v1/admin/testimonials/reorder.
+// Body: {"ids": ["id1", "id2", ...]} — position 0 is shown first in the carousel.
+// Bypasses content-length validation so it works for records that pre-date the
+// 240-char limit.
+func (s *Server) serveAdminTestimonialReorder(w http.ResponseWriter, r *http.Request) {
+	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 16*1024))
+	if err != nil {
+		http.Error(w, "body too large or unreadable", http.StatusBadRequest)
+		return
+	}
+	var req struct {
+		IDs []string `json:"ids"`
+	}
+	if err := json.Unmarshal(body, &req); err != nil {
+		http.Error(w, "bad json: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+	if len(req.IDs) == 0 {
+		http.Error(w, "ids is required", http.StatusBadRequest)
+		return
+	}
+	if err := s.store.SetTestimonialSortOrders(r.Context(), req.IDs); err != nil {
+		s.log.Printf("testimonial reorder: %v", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "count": len(req.IDs)})
 }

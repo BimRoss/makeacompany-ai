@@ -30,6 +30,10 @@ var ErrTestimonialNotFound = errors.New("testimonial not found")
 
 // Testimonial is one entry on the public testimonials carousel. `Avatar` is the
 // initials fallback rendered when `AvatarImage` is empty.
+//
+// SortOrder, when set, overrides createdAt-based ordering. Lower values appear
+// first in the carousel. Use the /v1/admin/testimonials/reorder endpoint to
+// set it — don't write it directly via upsert, which re-validates content.
 type Testimonial struct {
 	ID          string `json:"id"`
 	Name        string `json:"name"`
@@ -37,6 +41,7 @@ type Testimonial struct {
 	Content     string `json:"content"`
 	Avatar      string `json:"avatar"`
 	AvatarImage string `json:"avatarImage,omitempty"`
+	SortOrder   *int   `json:"sortOrder,omitempty"`
 	Status      string `json:"status"`
 	Source      string `json:"source,omitempty"`
 	SourceRef   string `json:"sourceRef,omitempty"`
@@ -202,7 +207,7 @@ func (s *Store) SaveTestimonial(ctx context.Context, t Testimonial) (Testimonial
 		return Testimonial{}, err
 	}
 
-	score := unixNanoScore(t.CreatedAt)
+	score := testimonialScore(t)
 	pipe := s.rdb.TxPipeline()
 	pipe.Set(ctx, testimonialKey(t.ID), blob, 0)
 	pipe.ZAdd(ctx, testimonialIndexKey, redis.Z{Score: score, Member: t.ID})
@@ -220,6 +225,56 @@ func unixNanoScore(rfc3339 string) float64 {
 		return float64(ts.UnixNano())
 	}
 	return float64(time.Now().UnixNano())
+}
+
+// sortOrderBase is a score ceiling well above any unix-nano timestamp (year
+// 2262 = ~9.2e18 ns) so explicit sortOrder entries always sort before
+// unordered ones in ZRevRange.
+const sortOrderBase = 1e19
+
+func testimonialScore(t Testimonial) float64 {
+	if t.SortOrder != nil {
+		return sortOrderBase - float64(*t.SortOrder)
+	}
+	return unixNanoScore(t.CreatedAt)
+}
+
+// SetTestimonialSortOrders applies an explicit ordering to the given IDs
+// (index 0 = first shown in carousel). It updates both the stored JSON and
+// the Redis score without re-running content validation, so it works for
+// records whose content pre-dates the 240-char limit.
+func (s *Store) SetTestimonialSortOrders(ctx context.Context, ids []string) error {
+	pipe := s.rdb.TxPipeline()
+	now := time.Now().UTC().Format(time.RFC3339Nano)
+	for i, rawID := range ids {
+		id := NormalizeTestimonialID(rawID)
+		if id == "" {
+			return fmt.Errorf("invalid id at position %d", i)
+		}
+		blob, err := s.rdb.Get(ctx, testimonialKey(id)).Bytes()
+		if err != nil {
+			if errors.Is(err, redis.Nil) {
+				return fmt.Errorf("testimonial not found: %s", id)
+			}
+			return err
+		}
+		var t Testimonial
+		if err := json.Unmarshal(blob, &t); err != nil {
+			return err
+		}
+		order := i
+		t.SortOrder = &order
+		t.UpdatedAt = now
+		updated, err := json.Marshal(t)
+		if err != nil {
+			return err
+		}
+		score := sortOrderBase - float64(i)
+		pipe.Set(ctx, testimonialKey(id), updated, 0)
+		pipe.ZAdd(ctx, testimonialIndexKey, redis.Z{Score: score, Member: id})
+	}
+	_, err := pipe.Exec(ctx)
+	return err
 }
 
 // GetTestimonial loads a single testimonial by id.
