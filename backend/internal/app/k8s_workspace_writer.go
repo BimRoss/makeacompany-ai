@@ -208,32 +208,51 @@ func (w *WorkspaceWriter) ListWorkspaceCredentials(
 }
 
 // DeleteWorkspaceCredentials wipes the per-operator Secret + triggers a
-// pod restart. Used by /v1/portal/workspace/disconnect.
+// pod restart. Used by /v1/portal/workspace/disconnect/finish. Returns
+// the refresh_token that was on the Secret before deletion (empty if the
+// Secret didn't exist or was malformed) so the caller can best-effort
+// revoke it at Google's /revoke endpoint before the Secret is gone. The
+// caller is responsible for that revoke — keeping the K8s ops decoupled
+// from outbound HTTP.
 func (w *WorkspaceWriter) DeleteWorkspaceCredentials(
 	ctx context.Context,
 	channelID, operatorEmail string,
-) (namespace string, slot int, err error) {
+) (namespace string, slot int, refreshToken string, err error) {
 	if w.Disabled() {
-		return "", 0, ErrWorkspaceWriterDisabled
+		return "", 0, "", ErrWorkspaceWriterDisabled
 	}
 	ns, deploy, slot, err := w.resolveTenant(channelID, operatorEmail)
 	if err != nil {
-		return "", 0, err
+		return "", 0, "", err
 	}
 	name := fmt.Sprintf("gws-mcp-oauth-slot-%d", slot)
-	err = w.cs.CoreV1().Secrets(ns).Delete(ctx, name, metav1.DeleteOptions{})
-	if err != nil && !apierrors.IsNotFound(err) {
-		return ns, slot, fmt.Errorf("delete secret %s/%s: %w", ns, name, err)
+
+	// Read first so the caller can revoke the refresh token at Google
+	// before we drop the only copy we have. NotFound is fine — disconnect
+	// is idempotent and a second click should still triggers the pod
+	// restart so the sidecar enters waiting state immediately.
+	existing, getErr := w.cs.CoreV1().Secrets(ns).Get(ctx, name, metav1.GetOptions{})
+	if getErr == nil {
+		if v, ok := existing.Data["refresh_token"]; ok {
+			refreshToken = string(v)
+		}
+	} else if !apierrors.IsNotFound(getErr) {
+		return ns, slot, "", fmt.Errorf("read secret %s/%s: %w", ns, name, getErr)
+	}
+
+	delErr := w.cs.CoreV1().Secrets(ns).Delete(ctx, name, metav1.DeleteOptions{})
+	if delErr != nil && !apierrors.IsNotFound(delErr) {
+		return ns, slot, refreshToken, fmt.Errorf("delete secret %s/%s: %w", ns, name, delErr)
 	}
 	patch := fmt.Sprintf(
 		`{"spec":{"template":{"metadata":{"annotations":{"bimross.com/restartedAt":%q}}}}}`,
 		time.Now().UTC().Format(time.RFC3339),
 	)
-	_, err = w.cs.AppsV1().Deployments(ns).Patch(
+	_, patchErr := w.cs.AppsV1().Deployments(ns).Patch(
 		ctx, deploy, types.StrategicMergePatchType, []byte(patch), metav1.PatchOptions{},
 	)
-	if err != nil {
-		return ns, slot, fmt.Errorf("patch deployment %s/%s: %w", ns, deploy, err)
+	if patchErr != nil {
+		return ns, slot, refreshToken, fmt.Errorf("patch deployment %s/%s: %w", ns, deploy, patchErr)
 	}
-	return ns, slot, nil
+	return ns, slot, refreshToken, nil
 }
