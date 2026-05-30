@@ -48,7 +48,7 @@ export const metadata: Metadata = {
       : {}),
   },
   openGraph: {
-    title: siteTagline,
+    title: siteTitle,
     description: siteSocialDescription,
     url: siteUrl,
     siteName: "makeacompany.ai",
@@ -65,7 +65,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: siteTagline,
+    title: siteTitle,
     description: siteSocialDescription,
     images: ["/twitter-image"],
   },
