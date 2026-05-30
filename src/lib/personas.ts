@@ -98,25 +98,25 @@ export interface PersonaMeta {
 
 export const PERSONA_META: Record<Persona, PersonaMeta> = {
   founder: {
-    title: "AI company for founders — makeacompany.ai",
+    title: "AI company for founders",
     description:
       "Run your whole company from Slack. Joanne handles ops, Ross ships code, you make the calls only a founder can. $99/month — one Claude seat for an entire AI team.",
     ogAlt: "makeacompany.ai for founders — AI company in Slack for $99/month",
   },
   engineer: {
-    title: "Claude in Slack for engineers — makeacompany.ai",
+    title: "Claude in Slack for engineers",
     description:
       "$99/month for Claude that ships code in Slack. Persistent workspaces per channel, baked-in skills, GitOps wired up. The harness, not just the agent.",
     ogAlt: "makeacompany.ai for engineers — Claude that ships code in Slack",
   },
   team: {
-    title: "AI teammates in Slack — makeacompany.ai for teams",
+    title: "AI teammates in Slack for teams",
     description:
       "Slack-native AI teammates that live in your channels. Persistent workspaces, recurring loops, GitOps baked in. No new tool to roll out — they show up where you already work.",
     ogAlt: "makeacompany.ai for teams — Slack-native AI teammates",
   },
   contractor: {
-    title: "AI teammates for contractors — makeacompany.ai",
+    title: "AI teammates for contractors",
     description:
       "Solo developer? Ship like a small team. Ross pairs in Slack, Joanne handles client comms and invoicing. $99/month — bill senior rates without senior overhead.",
     ogAlt:
