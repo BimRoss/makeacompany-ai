@@ -4,14 +4,26 @@ import { WorkspaceConnectPanel } from "@/components/portal/workspace-connect-pan
 
 type Props = {
   params: Promise<{ channelId: string }>;
-  searchParams: Promise<{ workspace_connected?: string; workspace_disconnected?: string }>;
+  searchParams: Promise<{
+    workspace_connected?: string;
+    workspace_disconnected?: string;
+    workspace_disconnect_error?: string;
+  }>;
 };
 
 export default async function CompanyChannelPage({ params, searchParams }: Props) {
   const { channelId } = await params;
-  const { workspace_connected, workspace_disconnected } = await searchParams;
+  const {
+    workspace_connected,
+    workspace_disconnected,
+    workspace_disconnect_error,
+  } = await searchParams;
   const justConnected = workspace_connected === "1";
   const justDisconnected = workspace_disconnected === "1";
+  const disconnectError =
+    typeof workspace_disconnect_error === "string" && workspace_disconnect_error.length > 0
+      ? workspace_disconnect_error
+      : null;
 
   return (
     <main className="flex min-h-dvh flex-col bg-background">
@@ -29,6 +41,7 @@ export default async function CompanyChannelPage({ params, searchParams }: Props
           channelId={channelId}
           justConnected={justConnected}
           justDisconnected={justDisconnected}
+          disconnectError={disconnectError}
         />
       </div>
       <Footer />

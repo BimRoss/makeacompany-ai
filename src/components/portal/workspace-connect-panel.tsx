@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Check, ExternalLink, Loader2, RefreshCw } from "lucide-react";
+import { AlertTriangle, Check, ExternalLink, Loader2, RefreshCw } from "lucide-react";
 import { apiBase } from "@/lib/site";
 
 type Operator = {
@@ -18,6 +18,7 @@ type Props = {
   channelId: string;
   justConnected: boolean;
   justDisconnected: boolean;
+  disconnectError: string | null;
 };
 
 type LoadState =
@@ -25,7 +26,12 @@ type LoadState =
   | { kind: "unavailable" }
   | { kind: "ready"; status: WorkspaceStatus };
 
-export function WorkspaceConnectPanel({ channelId, justConnected, justDisconnected }: Props) {
+export function WorkspaceConnectPanel({
+  channelId,
+  justConnected,
+  justDisconnected,
+  disconnectError,
+}: Props) {
   const [state, setState] = useState<LoadState>({ kind: "loading" });
 
   useEffect(() => {
@@ -90,6 +96,15 @@ export function WorkspaceConnectPanel({ channelId, justConnected, justDisconnect
         <div className="mt-4 flex items-start gap-2 rounded-md border border-border bg-muted/30 p-3 text-xs text-muted-foreground">
           <RefreshCw className="mt-0.5 h-3.5 w-3.5 flex-none" />
           <span>Workspace disconnected. Re-connect anytime.</span>
+        </div>
+      ) : null}
+
+      {disconnectError ? (
+        <div className="mt-4 flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 p-3 text-xs text-amber-900 dark:text-amber-300">
+          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 flex-none" />
+          <span>
+            Couldn&apos;t disconnect ({disconnectError}). Try again or refresh the page.
+          </span>
         </div>
       ) : null}
 
