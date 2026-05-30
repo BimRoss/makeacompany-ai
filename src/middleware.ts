@@ -22,6 +22,15 @@ function stripLegacyPortalStripeSearchParams(url: URL): boolean {
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  // cost.makeacompany.ai → serve /cost (and /cost.pdf passthrough)
+  const host = (request.headers.get("host") || "").toLowerCase();
+  if (host.startsWith("cost.")) {
+    if (pathname === "/" || pathname === "") {
+      return NextResponse.rewrite(new URL("/cost", request.url));
+    }
+  }
+
   const session = request.cookies.get(adminSessionCookieName)?.value?.trim();
   const hasSession = Boolean(session);
   const portalSession = request.cookies.get(portalSessionCookieName)?.value?.trim();
