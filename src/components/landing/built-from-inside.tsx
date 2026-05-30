@@ -1,4 +1,8 @@
+import Image from "next/image";
 import { Hash } from "lucide-react";
+
+import grantAvatar from "../../../public/avatars/grant.jpg";
+import rossAvatar from "../../../public/avatars/ross.png";
 
 type SlackMessage = {
   author: "grant" | "ross";
@@ -61,17 +65,16 @@ const THREAD: SlackMessage[] = [
 ];
 
 function Avatar({ author }: { author: SlackMessage["author"] }) {
-  if (author === "ross") {
-    return (
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-foreground text-xs font-bold text-background">
-        R
-      </div>
-    );
-  }
+  const src = author === "ross" ? rossAvatar : grantAvatar;
+  const alt = author === "ross" ? "Ross" : "Grant";
   return (
-    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-[#E8B4B8] text-xs font-bold text-[#1A1A1A]">
-      G
-    </div>
+    <Image
+      src={src}
+      alt={alt}
+      width={36}
+      height={36}
+      className="h-9 w-9 shrink-0 rounded-md object-cover"
+    />
   );
 }
 
