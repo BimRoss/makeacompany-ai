@@ -3,6 +3,7 @@
 import { type FormEvent, useEffect, useState } from "react";
 import { ArrowRight, Loader2 } from "lucide-react";
 import { apiBase } from "@/lib/site";
+import { clearStoredRef, getStoredRef } from "@/lib/ref";
 
 export function EmailCaptureForm({ submitLabel = "Start Building" }: { submitLabel?: string } = {}) {
   const [email, setEmail] = useState("");
@@ -31,16 +32,18 @@ export function EmailCaptureForm({ submitLabel = "Start Building" }: { submitLab
     setLoading(true);
     setError(null);
     try {
+      const ref = getStoredRef();
       const response = await fetch(`${apiBase()}/v1/billing/free-trial-invite`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: normalizedEmail }),
+        body: JSON.stringify(ref ? { email: normalizedEmail, ref } : { email: normalizedEmail }),
       });
       const payload = (await response.json().catch(() => ({}))) as { error?: string };
       if (!response.ok) {
         setError(payload.error ?? "Unable to send invite right now. Please try again.");
         return;
       }
+      clearStoredRef();
       setEmail("");
       setShowToast(true);
     } catch (submitError) {

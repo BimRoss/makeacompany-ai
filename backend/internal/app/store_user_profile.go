@@ -55,6 +55,26 @@ func (s *Store) UpsertUserProfileAfterWaitlist(ctx context.Context, email, strip
 	return s.rdb.HSet(ctx, userProfileRedisKey(email), fields).Err()
 }
 
+// UpsertUserProfileFreeTrialInvite records a free-trial invite request on the profile hash without
+// touching Stripe-derived fields (so re-submitting from a logged-in browser can't clobber paid data).
+// attributedTo is written only when non-empty for the same reason as the waitlist path.
+func (s *Store) UpsertUserProfileFreeTrialInvite(ctx context.Context, email, attributedTo string) error {
+	email = normalizeProfileEmail(email)
+	if email == "" {
+		return fmt.Errorf("missing email")
+	}
+	now := time.Now().UTC().Format(time.RFC3339)
+	fields := map[string]any{
+		"email":                       email,
+		"free_trial_invite_sent_at":   now,
+		"profile_updated_at":          now,
+	}
+	if ref := strings.TrimSpace(attributedTo); ref != "" {
+		fields["attributed_to"] = ref
+	}
+	return s.rdb.HSet(ctx, userProfileRedisKey(email), fields).Err()
+}
+
 // UpsertUserProfileStripeSubscription updates subscription-derived fields on the profile hash.
 // stripeProductID is set only when non-empty (same as waitlist upsert) so a payload without an expanded price.product does not erase a previously stored product.
 func (s *Store) UpsertUserProfileStripeSubscription(ctx context.Context, email, stripeCustomerID, subscriptionID, subscriptionStatus, tier, priceID, stripeProductID string, cancelAtPeriodEnd bool, currentPeriodEndUnix int64) error {

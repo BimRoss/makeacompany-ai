@@ -2,6 +2,7 @@ package app
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -9,6 +10,7 @@ import (
 
 type billingFreeTrialInviteBody struct {
 	Email string `json:"email"`
+	Ref   string `json:"ref"`
 }
 
 // handleBillingFreeTrialInvite sends the Joanne welcome email without requiring Stripe checkout.
@@ -30,11 +32,15 @@ func (s *Server) handleBillingFreeTrialInvite(w http.ResponseWriter, r *http.Req
 	}
 
 	var body billingFreeTrialInviteBody
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+	if err := json.NewDecoder(io.LimitReader(r.Body, 4096)).Decode(&body); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "invalid json"})
 		return
 	}
 	email := strings.TrimSpace(strings.ToLower(body.Email))
+	ref := strings.TrimSpace(body.Ref)
+	if len(ref) > 64 {
+		ref = ref[:64]
+	}
 	if email == "" {
 		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "email is required"})
 		return
@@ -48,6 +54,12 @@ func (s *Server) handleBillingFreeTrialInvite(w http.ResponseWriter, r *http.Req
 		s.log.Printf("free-trial invite email: %v", err)
 		writeJSON(w, http.StatusBadGateway, map[string]any{"error": "unable to send invite email"})
 		return
+	}
+
+	if s.store != nil {
+		if err := s.store.UpsertUserProfileFreeTrialInvite(r.Context(), email, ref); err != nil {
+			s.log.Printf("free-trial invite: persist profile %s: %v", email, err)
+		}
 	}
 
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
