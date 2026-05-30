@@ -155,11 +155,9 @@ func (w *WorkspaceWriter) WriteWorkspaceCredentials(
 }
 
 // WorkspaceCredentialSummary is one connected-operator entry returned by
-// ListWorkspaceCredentials. Email comes from the Secret annotation written
-// by WriteWorkspaceCredentials, not the static tenant slot map — so an
-// operator with a Secret but no slot in the map (stale entry from a
-// removed-then-re-added operator, say) still surfaces. Slot is from the
-// Secret label so a re-numbered tenant doesn't drop entries.
+// ListWorkspaceCredentials. Email comes from the tenant config (the
+// source of truth for which operator owns which slot); slot is the
+// integer from the same config.
 type WorkspaceCredentialSummary struct {
 	Email string `json:"email"`
 	Slot  int    `json:"slot"`
@@ -170,6 +168,14 @@ type WorkspaceCredentialSummary struct {
 // the connect panel's "connected operators" list. Returns ErrUnknownTenant
 // if the channelId is not in the tenant config — the status endpoint
 // surfaces this as 404 so the panel falls back to the connect button.
+//
+// Implementation: iterates the tenant's Slots map (email→slot) and does
+// one Get per slot. This keeps the RBAC narrow — the workspace-writer
+// ClusterRole grants get on the specific gws-mcp-oauth-slot-N
+// resourceNames, which K8s RBAC doesn't allow with list (resourceNames
+// + list is invalid). N is small (3 in v1), so the extra round trips
+// are cheap. Bonus: tenant config is the source of truth for who owns
+// each slot, so a stale Secret can't surface a phantom operator.
 func (w *WorkspaceWriter) ListWorkspaceCredentials(
 	ctx context.Context,
 	channelID string,
@@ -181,26 +187,18 @@ func (w *WorkspaceWriter) ListWorkspaceCredentials(
 	if !ok {
 		return "", nil, ErrUnknownTenant
 	}
-	list, err := w.cs.CoreV1().Secrets(t.Namespace).List(ctx, metav1.ListOptions{
-		LabelSelector: "app.kubernetes.io/managed-by=makeacompany-ai",
-	})
-	if err != nil {
-		return t.Namespace, nil, fmt.Errorf("list secrets %s: %w", t.Namespace, err)
-	}
-	out := make([]WorkspaceCredentialSummary, 0, len(list.Items))
-	for _, s := range list.Items {
-		if !strings.HasPrefix(s.Name, "gws-mcp-oauth-slot-") {
+	out := make([]WorkspaceCredentialSummary, 0, len(t.Slots))
+	for email, slot := range t.Slots {
+		if slot <= 0 {
 			continue
 		}
-		email := strings.TrimSpace(s.Annotations["bimross.com/operator-email"])
-		slot := 0
-		if v := strings.TrimSpace(s.Labels["bimross.com/workspace-slot"]); v != "" {
-			// Best-effort parse; an unparseable slot is still listed as 0
-			// so callers see *something* rather than dropping the row.
-			fmt.Sscanf(v, "%d", &slot)
-		}
-		if email == "" {
+		name := fmt.Sprintf("gws-mcp-oauth-slot-%d", slot)
+		_, getErr := w.cs.CoreV1().Secrets(t.Namespace).Get(ctx, name, metav1.GetOptions{})
+		if apierrors.IsNotFound(getErr) {
 			continue
+		}
+		if getErr != nil {
+			return t.Namespace, nil, fmt.Errorf("get secret %s/%s: %w", t.Namespace, name, getErr)
 		}
 		out = append(out, WorkspaceCredentialSummary{Email: email, Slot: slot})
 	}
