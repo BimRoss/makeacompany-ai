@@ -53,6 +53,11 @@ type Config struct {
 	// FreeTierGateEnabled activates the deploy gate: free users are blocked from shipping until they subscribe.
 	// Env: STRIPE_FREE_TIER_GATE_ENABLED=true. Defaults off so the code can ship to prod before the gate is turned on.
 	FreeTierGateEnabled bool
+	// WorkspaceTenantConfig is a JSON map: channelId -> { namespace, deployment, slots: { email: slotN } }.
+	// Powers /v1/portal/workspace/connect/finish (BimRoss/google-workspace-mcp#15). Empty disables the
+	// endpoint with 503. v1 is static (hand-roll claude-code-ross-customer-grant per rancher-admin#465);
+	// dynamic per-tenant config arrives with rancher-admin#354's template extraction.
+	WorkspaceTenantConfig string
 }
 
 // stripePriceIDBasePlan returns STRIPE_PRICE_ID_BASE_PLAN, else legacy STRIPE_PRICE_ID_WAITLIST.
@@ -96,6 +101,7 @@ func LoadConfig() Config {
 		ResendCheckoutWelcomeTemplateID:     strings.TrimSpace(os.Getenv("RESEND_CHECKOUT_WELCOME_TEMPLATE_ID")),
 		GA4PropertyID:                       strings.TrimSpace(os.Getenv("GA4_PROPERTY_ID")),
 		FreeTierGateEnabled:                 envBool("STRIPE_FREE_TIER_GATE_ENABLED", false),
+		WorkspaceTenantConfig:               strings.TrimSpace(os.Getenv("WORKSPACE_TENANT_CONFIG")),
 	}
 }
 

@@ -102,10 +102,19 @@ type Server struct {
 	cors                  string
 	health                *healthChecker
 	freeTrialInviteLimiter *ipRateLimiter
+	workspace             *WorkspaceWriter
 }
 
 func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 	stripe.Key = cfg.StripeSecretKey
+	workspaceWriter, werr := NewWorkspaceWriter(cfg.WorkspaceTenantConfig)
+	if werr != nil {
+		// Bad tenant config JSON is a config error — fail loud, don't 503 silently in prod.
+		return nil, fmt.Errorf("workspace writer init: %w", werr)
+	}
+	if workspaceWriter.Disabled() {
+		logger.Printf("workspace writer disabled (no in-cluster config or WORKSPACE_TENANT_CONFIG unset)")
+	}
 	s := &Server{
 		cfg:    cfg,
 		log:    logger,
@@ -114,6 +123,7 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 		cors:                   cfg.AppBaseURL,
 		health:                 newHealthChecker(store.rdb, os.Getenv("COOKIE_HEALTH_TOKEN")),
 		freeTrialInviteLimiter: newIPRateLimiter(5, 30),
+		workspace:              workspaceWriter,
 	}
 	s.mux.HandleFunc("/livez", s.handleLivez)
 	s.mux.HandleFunc("/readyz", s.handleReadiness)
@@ -153,6 +163,7 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 	s.mux.HandleFunc("POST /v1/portal/deploy-gate/consume", s.handlePortalDeployGateConsume)
 	s.mux.HandleFunc("/v1/portal/auth/logout", s.handlePortalAuthLogout)
 	s.mux.HandleFunc("/v1/portal/auth/google/finish", s.handlePortalAuthGoogleFinish)
+	s.mux.HandleFunc("POST /v1/portal/workspace/connect/finish", s.handlePortalWorkspaceConnectFinish)
 	s.mux.HandleFunc("/v1/portal/auth/magic/start", s.handlePortalAuthMagicStart)
 	s.mux.HandleFunc("/v1/portal/auth/magic/finish", s.handlePortalAuthMagicFinish)
 	return s, nil
