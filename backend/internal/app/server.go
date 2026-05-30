@@ -164,6 +164,7 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 	s.mux.HandleFunc("/v1/portal/auth/logout", s.handlePortalAuthLogout)
 	s.mux.HandleFunc("/v1/portal/auth/google/finish", s.handlePortalAuthGoogleFinish)
 	s.mux.HandleFunc("POST /v1/portal/workspace/connect/finish", s.handlePortalWorkspaceConnectFinish)
+	s.mux.HandleFunc("GET /v1/portal/workspace/status", s.handlePortalWorkspaceStatus)
 	s.mux.HandleFunc("/v1/portal/auth/magic/start", s.handlePortalAuthMagicStart)
 	s.mux.HandleFunc("/v1/portal/auth/magic/finish", s.handlePortalAuthMagicFinish)
 	return s, nil
@@ -282,6 +283,10 @@ func normalizeMetricRoute(path string) string {
 		return "/v1/portal/auth/magic/start"
 	case path == "/v1/portal/auth/magic/finish":
 		return "/v1/portal/auth/magic/finish"
+	case path == "/v1/portal/workspace/connect/finish":
+		return "/v1/portal/workspace/connect/finish"
+	case path == "/v1/portal/workspace/status":
+		return "/v1/portal/workspace/status"
 	case strings.HasPrefix(path, "/v1/"):
 		return "/v1/other"
 	default:

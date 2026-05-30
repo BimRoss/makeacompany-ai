@@ -154,6 +154,59 @@ func (w *WorkspaceWriter) WriteWorkspaceCredentials(
 	return ns, slot, nil
 }
 
+// WorkspaceCredentialSummary is one connected-operator entry returned by
+// ListWorkspaceCredentials. Email comes from the Secret annotation written
+// by WriteWorkspaceCredentials, not the static tenant slot map — so an
+// operator with a Secret but no slot in the map (stale entry from a
+// removed-then-re-added operator, say) still surfaces. Slot is from the
+// Secret label so a re-numbered tenant doesn't drop entries.
+type WorkspaceCredentialSummary struct {
+	Email string `json:"email"`
+	Slot  int    `json:"slot"`
+}
+
+// ListWorkspaceCredentials returns one entry per existing slot Secret in
+// the tenant's namespace. Used by /v1/portal/workspace/status to render
+// the connect panel's "connected operators" list. Returns ErrUnknownTenant
+// if the channelId is not in the tenant config — the status endpoint
+// surfaces this as 404 so the panel falls back to the connect button.
+func (w *WorkspaceWriter) ListWorkspaceCredentials(
+	ctx context.Context,
+	channelID string,
+) (namespace string, operators []WorkspaceCredentialSummary, err error) {
+	if w.Disabled() {
+		return "", nil, ErrWorkspaceWriterDisabled
+	}
+	t, ok := w.tenants[strings.TrimSpace(channelID)]
+	if !ok {
+		return "", nil, ErrUnknownTenant
+	}
+	list, err := w.cs.CoreV1().Secrets(t.Namespace).List(ctx, metav1.ListOptions{
+		LabelSelector: "app.kubernetes.io/managed-by=makeacompany-ai",
+	})
+	if err != nil {
+		return t.Namespace, nil, fmt.Errorf("list secrets %s: %w", t.Namespace, err)
+	}
+	out := make([]WorkspaceCredentialSummary, 0, len(list.Items))
+	for _, s := range list.Items {
+		if !strings.HasPrefix(s.Name, "gws-mcp-oauth-slot-") {
+			continue
+		}
+		email := strings.TrimSpace(s.Annotations["bimross.com/operator-email"])
+		slot := 0
+		if v := strings.TrimSpace(s.Labels["bimross.com/workspace-slot"]); v != "" {
+			// Best-effort parse; an unparseable slot is still listed as 0
+			// so callers see *something* rather than dropping the row.
+			fmt.Sscanf(v, "%d", &slot)
+		}
+		if email == "" {
+			continue
+		}
+		out = append(out, WorkspaceCredentialSummary{Email: email, Slot: slot})
+	}
+	return t.Namespace, out, nil
+}
+
 // DeleteWorkspaceCredentials wipes the per-operator Secret + triggers a
 // pod restart. Used by /v1/portal/workspace/disconnect.
 func (w *WorkspaceWriter) DeleteWorkspaceCredentials(
