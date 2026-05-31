@@ -158,7 +158,7 @@ export default function CostPageClient() {
       {/* HERO */}
       <section
         ref={hero.ref}
-        className="mx-auto flex max-w-5xl flex-col items-center px-6 pb-12 pt-24 text-center sm:pt-32"
+        className="mx-auto flex max-w-5xl flex-col items-center px-5 pb-8 pt-16 text-center sm:px-6 sm:pb-12 sm:pt-32"
       >
         <Image
           src="/cost-og.png"
@@ -166,15 +166,15 @@ export default function CostPageClient() {
           width={1080}
           height={1080}
           priority
-          className={`mb-12 w-full max-w-md rounded-2xl border border-neutral-200 shadow-sm transition-all duration-700 ${
+          className={`mb-8 w-full max-w-xs rounded-2xl border border-neutral-200 shadow-sm transition-all duration-700 sm:mb-12 sm:max-w-md ${
             hero.visible ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0"
           }`}
         />
-        <span className="mb-6 text-[11px] font-semibold uppercase tracking-[0.35em] text-neutral-400">
+        <span className="mb-4 text-[10px] font-semibold uppercase tracking-[0.3em] text-neutral-400 sm:mb-6 sm:text-[11px] sm:tracking-[0.35em]">
           For leaders
         </span>
         <h1
-          className={`font-[var(--font-syne)] text-4xl font-bold leading-[1.05] tracking-tight sm:text-6xl md:text-7xl transition-all duration-700 ${
+          className={`font-[var(--font-syne)] text-[2rem] font-bold leading-[1.08] tracking-tight sm:text-6xl md:text-7xl transition-all duration-700 ${
             hero.visible ? "translate-y-0 opacity-100" : "translate-y-6 opacity-0"
           }`}
         >
@@ -184,9 +184,9 @@ export default function CostPageClient() {
       </section>
 
       {/* VALUE PROP */}
-      <section className="mx-auto max-w-3xl px-6 pb-24 text-center">
+      <section className="mx-auto max-w-3xl px-5 pb-16 text-center sm:px-6 sm:pb-24">
         <p
-          className={`font-[var(--font-dm-sans)] text-lg font-semibold leading-relaxed text-neutral-800 sm:text-2xl transition-all duration-700 delay-150 ${
+          className={`font-[var(--font-dm-sans)] text-base font-semibold leading-relaxed text-neutral-800 sm:text-2xl transition-all duration-700 delay-150 ${
             hero.visible ? "translate-y-0 opacity-100" : "translate-y-6 opacity-0"
           }`}
         >
@@ -194,11 +194,11 @@ export default function CostPageClient() {
           <br />
           Your team ships what used to need 5 hires.
         </p>
-        <span className="mt-10 block text-[11px] font-semibold uppercase tracking-[0.35em] text-neutral-400">
+        <span className="mt-8 block text-[10px] font-semibold uppercase tracking-[0.3em] text-neutral-400 sm:mt-10 sm:text-[11px] sm:tracking-[0.35em]">
           For your team
         </span>
         <p
-          className={`mt-4 text-lg font-medium leading-relaxed text-blue-500 sm:text-2xl transition-all duration-700 delay-300 ${
+          className={`mt-3 text-base font-medium leading-relaxed text-blue-500 sm:mt-4 sm:text-2xl transition-all duration-700 delay-300 ${
             hero.visible ? "translate-y-0 opacity-100" : "translate-y-6 opacity-0"
           }`}
         >
@@ -211,24 +211,24 @@ export default function CostPageClient() {
       {/* THE MATH */}
       <section
         ref={math.ref}
-        className="mx-auto max-w-6xl px-6 pb-28"
+        className="mx-auto max-w-6xl px-5 pb-20 sm:px-6 sm:pb-28"
       >
-        <div className="mb-12 text-center">
-          <span className="text-[11px] font-semibold uppercase tracking-[0.35em] text-neutral-400">
+        <div className="mb-8 text-center sm:mb-12">
+          <span className="text-[10px] font-semibold uppercase tracking-[0.3em] text-neutral-400 sm:text-[11px] sm:tracking-[0.35em]">
             The math
           </span>
-          <h2 className="mt-3 text-3xl font-bold sm:text-4xl">
+          <h2 className="mt-3 text-2xl font-bold leading-tight sm:text-4xl">
             New York City. Fully loaded. Honest numbers.
           </h2>
         </div>
 
-        <div className="grid items-start gap-12 md:grid-cols-2">
+        <div className="grid items-start gap-6 sm:gap-12 md:grid-cols-2">
           {/* LEFT: 2 hires */}
-          <div className="rounded-3xl border border-neutral-200/70 bg-white/70 p-8 shadow-sm backdrop-blur">
+          <div className="rounded-2xl border border-neutral-200/70 bg-white/70 p-6 shadow-sm backdrop-blur sm:rounded-3xl sm:p-8">
             <div className="mb-2 text-xs font-semibold uppercase tracking-widest text-neutral-500">
               2 New Mid/Senior Hires
             </div>
-            <div className="text-6xl font-extrabold tracking-tight text-neutral-900 sm:text-7xl">
+            <div className="text-5xl font-extrabold tracking-tight text-neutral-900 sm:text-7xl">
               <AnimatedNumber
                 target={HIRES_TOTAL}
                 active={math.visible}
@@ -237,7 +237,7 @@ export default function CostPageClient() {
             </div>
             <div className="mt-2 text-sm text-neutral-600">/ year, fully loaded</div>
 
-            <div className="mt-8 space-y-4">
+            <div className="mt-6 space-y-3 sm:mt-8 sm:space-y-4">
               {COST_BREAKDOWN.map((b, i) => (
                 <ScarcityBar
                   key={b.label}
@@ -255,11 +255,11 @@ export default function CostPageClient() {
           </div>
 
           {/* RIGHT: MaC */}
-          <div className="rounded-3xl border border-blue-100 bg-gradient-to-br from-white via-blue-50/40 to-white p-8 shadow-sm">
+          <div className="rounded-2xl border border-blue-100 bg-gradient-to-br from-white via-blue-50/40 to-white p-6 shadow-sm sm:rounded-3xl sm:p-8">
             <div className="mb-2 text-xs font-semibold uppercase tracking-widest text-blue-500">
               makeacompany
             </div>
-            <div className="text-6xl font-extrabold tracking-tight text-blue-500 sm:text-7xl">
+            <div className="text-5xl font-extrabold tracking-tight text-blue-500 sm:text-7xl">
               <AnimatedNumber
                 target={MAC_TOTAL}
                 active={math.visible}
@@ -272,7 +272,7 @@ export default function CostPageClient() {
               $99/mo · no taxes · no turnover
             </div>
 
-            <div className="mt-10 rounded-2xl border border-blue-100 bg-white/70 p-6">
+            <div className="mt-8 rounded-2xl border border-blue-100 bg-white/70 p-5 sm:mt-10 sm:p-6">
               <div className="text-xs font-semibold uppercase tracking-widest text-neutral-500">
                 Visual reality
               </div>
@@ -301,12 +301,12 @@ export default function CostPageClient() {
       {/* MULTIPLIER */}
       <section
         ref={multiplier.ref}
-        className="mx-auto max-w-5xl px-6 pb-32 text-center"
+        className="mx-auto max-w-5xl px-5 pb-20 text-center sm:px-6 sm:pb-32"
       >
-        <span className="text-[11px] font-semibold uppercase tracking-[0.35em] text-neutral-400">
+        <span className="text-[10px] font-semibold uppercase tracking-[0.3em] text-neutral-400 sm:text-[11px] sm:tracking-[0.35em]">
           Up to
         </span>
-        <div className="mt-6 text-[140px] font-extrabold leading-none tracking-tight text-neutral-900 sm:text-[200px]">
+        <div className="mt-4 text-[96px] font-extrabold leading-none tracking-tight text-neutral-900 sm:mt-6 sm:text-[200px]">
           <AnimatedNumber
             target={MULTIPLIER}
             active={multiplier.visible}
@@ -315,7 +315,7 @@ export default function CostPageClient() {
             duration={1800}
           />
         </div>
-        <p className="mt-6 text-lg font-medium text-neutral-600 sm:text-2xl">
+        <p className="mt-4 text-base font-medium text-neutral-600 sm:mt-6 sm:text-2xl">
           more leverage per dollar
         </p>
       </section>
@@ -323,30 +323,30 @@ export default function CostPageClient() {
       {/* PILLARS */}
       <section
         ref={pillars.ref}
-        className="mx-auto max-w-6xl px-6 pb-32"
+        className="mx-auto max-w-6xl px-5 pb-20 sm:px-6 sm:pb-32"
       >
-        <div className="mb-12 text-center">
-          <span className="text-[11px] font-semibold uppercase tracking-[0.35em] text-neutral-400">
+        <div className="mb-8 text-center sm:mb-12">
+          <span className="text-[10px] font-semibold uppercase tracking-[0.3em] text-neutral-400 sm:text-[11px] sm:tracking-[0.35em]">
             What you get
           </span>
         </div>
         {[PILLARS_TOP, PILLARS_BOTTOM].map((row, rIdx) => (
           <div
             key={rIdx}
-            className="mb-6 grid grid-cols-2 gap-6 md:grid-cols-4"
+            className="mb-4 grid grid-cols-2 gap-3 sm:mb-6 sm:gap-6 md:grid-cols-4"
           >
             {row.map((p, i) => (
               <div
                 key={p.title}
-                className={`rounded-2xl border border-neutral-200 bg-white/60 p-6 text-center backdrop-blur transition-all duration-700 ${
+                className={`rounded-xl border border-neutral-200 bg-white/60 p-4 text-center backdrop-blur transition-all duration-700 sm:rounded-2xl sm:p-6 ${
                   pillars.visible
                     ? "translate-y-0 opacity-100"
                     : "translate-y-4 opacity-0"
                 }`}
                 style={{ transitionDelay: `${(rIdx * 4 + i) * 80}ms` }}
               >
-                <div className="text-lg font-bold text-neutral-900">{p.title}</div>
-                <div className="mt-1 text-sm text-neutral-500">{p.sub}</div>
+                <div className="text-base font-bold text-neutral-900 sm:text-lg">{p.title}</div>
+                <div className="mt-1 text-xs text-neutral-500 sm:text-sm">{p.sub}</div>
               </div>
             ))}
           </div>
@@ -354,7 +354,7 @@ export default function CostPageClient() {
       </section>
 
       {/* CTA */}
-      <section className="mx-auto max-w-3xl px-6 pb-32 text-center">
+      <section className="mx-auto max-w-3xl px-5 pb-20 text-center sm:px-6 sm:pb-32">
         <Link
           href="/cost.pdf"
           className="inline-flex items-center gap-2 rounded-full bg-neutral-900 px-6 py-3 text-sm font-semibold text-white transition hover:bg-neutral-800"
