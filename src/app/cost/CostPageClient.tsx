@@ -158,7 +158,7 @@ export default function CostPageClient() {
       {/* HERO */}
       <section
         ref={hero.ref}
-        className="mx-auto flex max-w-5xl flex-col items-center px-5 pb-8 pt-16 text-center sm:px-6 sm:pb-12 sm:pt-32"
+        className="mx-auto flex max-w-5xl flex-col items-center px-5 pb-8 pt-16 text-center sm:px-6 sm:pb-12 sm:pt-32 lg:pt-40"
       >
         <Image
           src="/cost-og.png"
@@ -166,7 +166,7 @@ export default function CostPageClient() {
           width={1080}
           height={1080}
           priority
-          className={`mb-8 w-full max-w-xs rounded-2xl border border-neutral-200 shadow-sm transition-all duration-700 sm:mb-12 sm:max-w-md ${
+          className={`mb-8 w-full max-w-xs rounded-2xl border border-neutral-200 shadow-sm transition-all duration-700 sm:mb-14 sm:max-w-md lg:max-w-lg ${
             hero.visible ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0"
           }`}
         />
@@ -174,7 +174,7 @@ export default function CostPageClient() {
           For leaders
         </span>
         <h1
-          className={`font-[var(--font-syne)] text-[2rem] font-bold leading-[1.08] tracking-tight sm:text-6xl md:text-7xl transition-all duration-700 ${
+          className={`font-[var(--font-syne)] text-[2rem] font-bold leading-[1.08] tracking-tight sm:text-6xl md:text-7xl lg:tracking-tighter transition-all duration-700 ${
             hero.visible ? "translate-y-0 opacity-100" : "translate-y-6 opacity-0"
           }`}
         >
@@ -217,14 +217,14 @@ export default function CostPageClient() {
           <span className="text-[10px] font-semibold uppercase tracking-[0.3em] text-neutral-400 sm:text-[11px] sm:tracking-[0.35em]">
             The math
           </span>
-          <h2 className="mt-3 text-2xl font-bold leading-tight sm:text-4xl">
+          <h2 className="mt-3 text-2xl font-bold leading-tight sm:text-4xl lg:text-5xl lg:tracking-tight">
             New York City. Fully loaded. Honest numbers.
           </h2>
         </div>
 
-        <div className="grid items-start gap-6 sm:gap-12 md:grid-cols-2">
+        <div className="grid items-start gap-6 sm:gap-10 md:grid-cols-2 lg:gap-14">
           {/* LEFT: 2 hires */}
-          <div className="rounded-2xl border border-neutral-200/70 bg-white/70 p-6 shadow-sm backdrop-blur sm:rounded-3xl sm:p-8">
+          <div className="rounded-2xl border border-neutral-200/70 bg-white/70 p-6 shadow-sm backdrop-blur transition duration-300 sm:rounded-3xl sm:p-8 lg:p-10 hover:-translate-y-0.5 hover:shadow-md">
             <div className="mb-2 text-xs font-semibold uppercase tracking-widest text-neutral-500">
               2 New Mid/Senior Hires
             </div>
@@ -255,7 +255,7 @@ export default function CostPageClient() {
           </div>
 
           {/* RIGHT: MaC */}
-          <div className="rounded-2xl border border-blue-100 bg-gradient-to-br from-white via-blue-50/40 to-white p-6 shadow-sm sm:rounded-3xl sm:p-8">
+          <div className="rounded-2xl border border-blue-100 bg-gradient-to-br from-white via-blue-50/40 to-white p-6 shadow-sm transition duration-300 sm:rounded-3xl sm:p-8 lg:p-10 hover:-translate-y-0.5 hover:shadow-md hover:shadow-blue-100">
             <div className="mb-2 text-xs font-semibold uppercase tracking-widest text-blue-500">
               makeacompany
             </div>
@@ -306,7 +306,7 @@ export default function CostPageClient() {
         <span className="text-[10px] font-semibold uppercase tracking-[0.3em] text-neutral-400 sm:text-[11px] sm:tracking-[0.35em]">
           Up to
         </span>
-        <div className="mt-4 text-[96px] font-extrabold leading-none tracking-tight text-neutral-900 sm:mt-6 sm:text-[200px]">
+        <div className="mt-4 text-[96px] font-extrabold leading-none tracking-tighter text-neutral-900 sm:mt-6 sm:text-[200px] lg:text-[240px]">
           <AnimatedNumber
             target={MULTIPLIER}
             active={multiplier.visible}
@@ -338,14 +338,14 @@ export default function CostPageClient() {
             {row.map((p, i) => (
               <div
                 key={p.title}
-                className={`rounded-xl border border-neutral-200 bg-white/60 p-4 text-center backdrop-blur transition-all duration-700 sm:rounded-2xl sm:p-6 ${
+                className={`rounded-xl border border-neutral-200 bg-white/60 p-4 text-center backdrop-blur transition-all duration-700 sm:rounded-2xl sm:p-6 lg:p-7 hover:-translate-y-0.5 hover:border-neutral-300 hover:bg-white hover:shadow-md ${
                   pillars.visible
                     ? "translate-y-0 opacity-100"
                     : "translate-y-4 opacity-0"
                 }`}
                 style={{ transitionDelay: `${(rIdx * 4 + i) * 80}ms` }}
               >
-                <div className="text-base font-bold text-neutral-900 sm:text-lg">{p.title}</div>
+                <div className="text-base font-bold text-neutral-900 sm:text-lg lg:text-xl">{p.title}</div>
                 <div className="mt-1 text-xs text-neutral-500 sm:text-sm">{p.sub}</div>
               </div>
             ))}
@@ -357,7 +357,7 @@ export default function CostPageClient() {
       <section className="mx-auto max-w-3xl px-5 pb-20 text-center sm:px-6 sm:pb-32">
         <Link
           href="/cost.pdf"
-          className="inline-flex items-center gap-2 rounded-full bg-neutral-900 px-6 py-3 text-sm font-semibold text-white transition hover:bg-neutral-800"
+          className="inline-flex items-center gap-2 rounded-full bg-neutral-900 px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-neutral-800 hover:shadow-md sm:px-8 sm:py-4 sm:text-base"
         >
           Download the one-pager (PDF)
         </Link>
