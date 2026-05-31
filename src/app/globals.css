@@ -721,3 +721,24 @@ button:disabled {
     animation: none;
   }
 }
+
+@keyframes ask-teammate-dot {
+  0%, 80%, 100% { opacity: 0.25; transform: translateY(0); }
+  40% { opacity: 1; transform: translateY(-2px); }
+}
+
+.ask-teammate-input {
+  field-sizing: content;
+  max-height: 8rem;
+}
+
+.ask-teammate-scroll {
+  scrollbar-gutter: stable;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ask-teammate [class*="animate-[ask-teammate-dot"] {
+    animation: none;
+    opacity: 0.6;
+  }
+}

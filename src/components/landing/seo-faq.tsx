@@ -1,4 +1,10 @@
 import Link from "next/link";
+
+import {
+  AskTeammateCard,
+  JOANNE_PERSONA,
+  ROSS_PERSONA,
+} from "@/components/landing/ask-teammate-card";
 import { FaqAccordionItem } from "@/components/landing/faq-accordion-item";
 import type { LanderSlackSeats } from "@/lib/lander-slack-seats";
 
@@ -84,6 +90,8 @@ export function SeoFaqSection({
         <h2 className="text-center text-3xl font-semibold tracking-tight sm:text-4xl">Frequently asked questions</h2>
       )}
       <div className={hideHeading ? "space-y-4" : "mt-10 space-y-4"}>
+        <AskTeammateCard persona={JOANNE_PERSONA} />
+        <AskTeammateCard persona={ROSS_PERSONA} />
         {faqItems.map((item) => (
           <FaqAccordionItem key={item.question} question={item.question} answer={item.answer} />
         ))}
