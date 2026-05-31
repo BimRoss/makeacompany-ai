@@ -25,8 +25,8 @@ export interface PersonaCopy {
 
 export const PERSONA_COPY: Record<Persona, PersonaCopy> = {
   founder: {
-    heroLine1: "Your next two hires cost $300K/yr.",
-    heroLine2: "These two cost $99/mo.",
+    heroLine1: "Two hires: $300K/yr.",
+    heroLine2: "These two: $99/mo.",
     subhead:
       "Joanne runs ops. Ross ships code. You make the calls only a founder can — for what one Claude seat costs.",
     ctaH2: "Start your company.",
