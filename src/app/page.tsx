@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { BuiltFromInside } from "@/components/landing/built-from-inside";
+import { CostStatStrip } from "@/components/landing/cost-stat-strip";
 import { HarnessVsAgent } from "@/components/landing/harness-vs-agent";
 import { CheckoutReturnToast } from "@/components/landing/checkout-return-toast";
 import { CtaSection } from "@/components/landing/cta-section";
@@ -65,6 +66,7 @@ export default async function HomePage({
         initialFromUrl={urlPersona !== null}
       >
         <HeroSection initialSeats={initialSeats} />
+        <CostStatStrip />
         <ValueStack />
         <HarnessVsAgent />
         <BuiltFromInside />
