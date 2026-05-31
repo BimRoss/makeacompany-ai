@@ -12,18 +12,16 @@ import { TestimonialsCarousel } from "@/components/landing/testimonials-carousel
 import { ValueStack } from "@/components/landing/value-stack";
 import { fetchLanderSlackSeats } from "@/lib/lander-slack-seats";
 import { fetchLanderTestimonials } from "@/lib/lander-testimonials";
-import { DEFAULT_PERSONA, parsePersonaParam } from "@/lib/personas";
-import { siteDescription, siteTitle } from "@/lib/site";
+import { DEFAULT_PERSONA, PERSONA_SLUGS, parsePersonaParam } from "@/lib/personas";
+import { siteDescription, siteTitle, siteUrl } from "@/lib/site";
 
 // Re-fetch the seat count on each request so the pill keeps up with onboarding.
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = {
+const BASE_METADATA: Metadata = {
   title: siteTitle,
   description: siteDescription,
-  alternates: {
-    canonical: "/",
-  },
+  alternates: { canonical: "/" },
   keywords: [
     "AI company",
     "Make a Company $99/mo",
@@ -33,11 +31,29 @@ export const metadata: Metadata = {
     "solo founder leverage",
     "BimRoss",
   ],
-  // openGraph + twitter inherit from layout.tsx so social shares keep the brand
-  // voice (`siteTagline`) instead of the keyword-rich SERP `siteTitle`. The
-  // duplicate page-level OG block previously overrode the layout and forced the
-  // keyword title onto Slack/Twitter unfurls.
 };
+
+// Crawlers that honor query strings (Slack, some custom unfurlers) get a
+// persona-specific unfurl card when the URL is `/?p=engineer` etc. Crawlers
+// that strip the query — LinkedIn/Twitter — fall back to the layout-level OG.
+// Operators sharing persona-flavored links should prefer `/for/<slug>` for the
+// most reliable persona unfurl.
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}): Promise<Metadata> {
+  const params = (await searchParams) ?? {};
+  const urlPersona = parsePersonaParam(params.p);
+  if (!urlPersona) return BASE_METADATA;
+  const slug = PERSONA_SLUGS[urlPersona];
+  const ogUrl = `${siteUrl}/for/${slug}/opengraph-image`;
+  return {
+    ...BASE_METADATA,
+    openGraph: { images: [ogUrl] },
+    twitter: { card: "summary_large_image", images: [ogUrl] },
+  };
+}
 
 export default async function HomePage({
   searchParams,

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import {
   PERSONA_BY_SLUG,
   PERSONA_COPY,
+  PERSONA_LABELS,
   PERSONA_SLUGS,
   type Persona,
 } from "@/lib/personas";
@@ -44,7 +45,8 @@ export default async function PersonaOpenGraphImage({
   const persona: Persona | undefined = PERSONA_BY_SLUG[slug];
   if (!persona) notFound();
 
-  const { heroLine1, heroLine2 } = PERSONA_COPY[persona];
+  const { heroLine1, heroLine2, subhead, ctaButtonLabel } = PERSONA_COPY[persona];
+  const personaLabel = PERSONA_LABELS[persona];
 
   return new ImageResponse(
     (
@@ -54,61 +56,181 @@ export default async function PersonaOpenGraphImage({
           width: "100%",
           display: "flex",
           flexDirection: "column",
-          justifyContent: "space-between",
-          padding: "64px",
+          padding: "56px 72px",
           background:
-            "radial-gradient(circle at 10% 20%, #27272a 0%, #0a0a0a 45%, #09090b 100%)",
-          color: "#fafafa",
+            "linear-gradient(180deg, #ffffff 0%, #f8fafc 60%, #eef2f7 100%)",
+          color: "#0a0a0a",
           fontFamily:
             "ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif",
+          position: "relative",
         }}
       >
+        {/* faint blue glow behind hero */}
+        <div
+          style={{
+            position: "absolute",
+            top: "120px",
+            left: "50%",
+            transform: "translateX(-50%)",
+            width: "700px",
+            height: "300px",
+            background: "radial-gradient(closest-side, #dbeafe, transparent)",
+            opacity: 0.7,
+            display: "flex",
+          }}
+        />
+
+        {/* top row: wordmark + persona chip */}
         <div
           style={{
             display: "flex",
             alignItems: "center",
-            border: "1px solid rgba(255,255,255,0.22)",
-            borderRadius: "9999px",
-            padding: "10px 18px",
-            fontSize: 26,
-            letterSpacing: "-0.01em",
-            color: "#d4d4d8",
+            justifyContent: "space-between",
+            zIndex: 1,
           }}
         >
-          makeacompany.ai
-        </div>
-
-        <div style={{ display: "flex", flexDirection: "column", gap: 20, maxWidth: "86%" }}>
           <div
             style={{
               display: "flex",
-              flexDirection: "column",
-              gap: 12,
-              fontSize: 64,
-              lineHeight: 1.04,
-              fontWeight: 700,
-              letterSpacing: "-0.03em",
+              fontSize: 28,
+              fontWeight: 800,
+              letterSpacing: "-0.02em",
+              color: "#0a0a0a",
             }}
           >
-            <div>{heroLine1}</div>
-            <div>{heroLine2}</div>
+            makeacompany
+          </div>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              border: "1px solid #0a0a0a",
+              borderRadius: "9999px",
+              padding: "8px 18px",
+              fontSize: 18,
+              fontWeight: 600,
+              color: "#0a0a0a",
+            }}
+          >
+            For {personaLabel.toLowerCase()}s
           </div>
         </div>
 
+        {/* scarcity pill */}
         <div
           style={{
             display: "flex",
-            justifyContent: "space-between",
-            width: "100%",
-            fontSize: 28,
-            color: "#a1a1aa",
+            alignSelf: "center",
+            alignItems: "center",
+            marginTop: "40px",
+            border: "1px solid #0a0a0a",
+            borderRadius: "9999px",
+            padding: "8px 18px",
+            fontSize: 16,
+            color: "#0a0a0a",
+            background: "rgba(255,255,255,0.6)",
+            zIndex: 1,
           }}
         >
-          <span>Joanne + Ross in your Slack · $99/mo</span>
-          <span>BimRoss</span>
+          <span style={{ fontWeight: 600 }}>20 of 100 free for life seats claimed. Then $99/mo to join.</span>
+        </div>
+
+        {/* hero headline */}
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            textAlign: "center",
+            marginTop: "36px",
+            zIndex: 1,
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              fontSize: 72,
+              fontWeight: 800,
+              letterSpacing: "-0.03em",
+              lineHeight: 1.05,
+              color: "#0a0a0a",
+            }}
+          >
+            {heroLine1}
+          </div>
+          <div
+            style={{
+              display: "flex",
+              fontSize: 72,
+              fontWeight: 800,
+              letterSpacing: "-0.03em",
+              lineHeight: 1.05,
+              color: "#0a0a0a",
+              marginTop: "8px",
+            }}
+          >
+            {heroLine2}
+          </div>
+        </div>
+
+        {/* subhead */}
+        <div
+          style={{
+            display: "flex",
+            textAlign: "center",
+            alignSelf: "center",
+            marginTop: "24px",
+            maxWidth: "920px",
+            fontSize: 22,
+            lineHeight: 1.4,
+            color: "#374151",
+            zIndex: 1,
+          }}
+        >
+          {subhead}
+        </div>
+
+        {/* footer: CTA button + url */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            marginTop: "auto",
+            zIndex: 1,
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              background: "#2563eb",
+              color: "#ffffff",
+              borderRadius: "9999px",
+              padding: "14px 28px",
+              fontSize: 20,
+              fontWeight: 700,
+            }}
+          >
+            {ctaButtonLabel} →
+          </div>
+          <div
+            style={{
+              display: "flex",
+              fontSize: 18,
+              fontWeight: 600,
+              color: "#0a0a0a",
+              textDecoration: "underline",
+              textUnderlineOffset: "4px",
+            }}
+          >
+            makeacompany.ai/for/{slug}
+          </div>
         </div>
       </div>
     ),
-    size,
+    {
+      ...size,
+    },
   );
 }
