@@ -161,12 +161,14 @@ export default function CostPageClient() {
         className="mx-auto flex max-w-5xl flex-col items-center px-6 pb-12 pt-24 text-center sm:pt-32"
       >
         <Image
-          src="/logo-navbar-black.png"
-          alt="makeacompany"
-          width={56}
-          height={64}
+          src="/cost-og.png"
+          alt="Your next hire is a $543,000 bet. With us, it's $1,188."
+          width={1080}
+          height={1080}
           priority
-          className="mb-8 opacity-95"
+          className={`mb-12 w-full max-w-md rounded-2xl border border-neutral-200 shadow-sm transition-all duration-700 ${
+            hero.visible ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0"
+          }`}
         />
         <span className="mb-6 text-[11px] font-semibold uppercase tracking-[0.35em] text-neutral-400">
           For leaders
