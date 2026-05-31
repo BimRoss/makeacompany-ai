@@ -80,9 +80,9 @@ export async function handleAskEmployee(
   req: NextRequest,
   systemPrompt: string,
 ): Promise<Response> {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  const apiKey = process.env.ANTHROPIC_API_KEY_ASK;
   if (!apiKey) {
-    return NextResponse.json({ error: "ANTHROPIC_API_KEY not set" }, { status: 500 });
+    return NextResponse.json({ error: "ANTHROPIC_API_KEY_ASK not set" }, { status: 500 });
   }
 
   const rate = checkRate(clientIp(req));
