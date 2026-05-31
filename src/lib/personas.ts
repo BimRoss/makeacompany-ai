@@ -55,10 +55,10 @@ export const PERSONA_COPY: Record<Persona, PersonaCopy> = {
     ctaButtonLabel: "Add to your Slack",
   },
   contractor: {
-    heroLine1: "Bill for the senior dev.",
-    heroLine2: "Ship like a small team.",
+    heroLine1: "Hire a team: $300K/yr.",
+    heroLine2: "Just you: $99/mo.",
     subhead:
-      "Ross pairs with you in Slack — pushes branches, opens PRs, watches deploys. Joanne handles client comms and the invoicing busywork. $99/mo, no employees to manage.",
+      "Ross pairs with you in Slack — pushes branches, opens PRs, watches deploys. Joanne handles client comms and invoicing. Senior-team output, no headcount to manage.",
     ctaH2: "Get the unfair advantage.",
     ctaParagraph:
       "Drop your email. We'll get you into a Slack workspace with Ross and Joanne ready to ship.",
