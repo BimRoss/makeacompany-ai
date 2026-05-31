@@ -11,14 +11,14 @@ export function PersonaSelector() {
     <div
       role="tablist"
       aria-label="Who are you?"
-      className="relative mx-auto grid w-full max-w-md grid-cols-3 rounded-full border border-border bg-background p-1 text-sm font-medium shadow-sm"
+      className="relative mx-auto grid w-full max-w-lg grid-cols-4 rounded-full border border-border bg-background p-1 text-sm font-medium shadow-sm"
     >
       {/* Sliding pill highlight */}
       <span
         aria-hidden
         className="pointer-events-none absolute inset-y-1 left-1 rounded-full bg-foreground transition-transform duration-300 ease-out"
         style={{
-          width: "calc((100% - 0.5rem) / 3)",
+          width: "calc((100% - 0.5rem) / 4)",
           transform: `translateX(${activeIndex * 100}%)`,
         }}
       />

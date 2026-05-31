@@ -1,11 +1,17 @@
-export type Persona = "founder" | "engineer" | "team";
+export type Persona = "founder" | "engineer" | "team" | "contractor";
 
-export const PERSONAS: ReadonlyArray<Persona> = ["founder", "engineer", "team"];
+export const PERSONAS: ReadonlyArray<Persona> = [
+  "founder",
+  "engineer",
+  "team",
+  "contractor",
+];
 
 export const PERSONA_LABELS: Record<Persona, string> = {
   founder: "Founder",
   engineer: "Engineer",
   team: "Team",
+  contractor: "Contractor",
 };
 
 export interface PersonaCopy {
@@ -19,10 +25,10 @@ export interface PersonaCopy {
 
 export const PERSONA_COPY: Record<Persona, PersonaCopy> = {
   founder: {
-    heroLine1: "Your next hire costs $150K.",
-    heroLine2: "This one costs $99/mo.",
+    heroLine1: "Your next two hires cost $300K/yr.",
+    heroLine2: "These two cost $99/mo.",
     subhead:
-      "Joanne runs ops. Ross ships code. You make the calls only a founder can — for what one Claude seat costs, and a fraction of your next contractor invoice.",
+      "Joanne runs ops. Ross ships code. You make the calls only a founder can — for what one Claude seat costs.",
     ctaH2: "Start your company.",
     ctaParagraph:
       "Drop your email. Joanne sends you a Slack invite and your AI team is in there waiting.",
@@ -30,12 +36,12 @@ export const PERSONA_COPY: Record<Persona, PersonaCopy> = {
   },
   engineer: {
     heroLine1: "The harness your team",
-    heroLine2: "wishes you'd bought sooner.",
+    heroLine2: "wishes you'd bought.",
     subhead:
       "We sell the harness, not the agent. Persistent workspaces per channel, baked-in skills, GitOps wired up. Built by an engineer who clears your hiring bar — shipping from the same product you'd be buying.",
     ctaH2: "See the harness.",
     ctaParagraph:
-      "Drop your email. You'll be in Slack with the agents and the full kit in minutes — the same setup the founder uses to ship this product.",
+      "Drop your email. You'll be in Slack with the agents and the full kit in minutes — the same setup we use to ship this product.",
     ctaButtonLabel: "See the harness",
   },
   team: {
@@ -47,6 +53,16 @@ export const PERSONA_COPY: Record<Persona, PersonaCopy> = {
     ctaParagraph:
       "Drop your work email. We'll get your team into a Slack workspace with Joanne and Ross ready to go.",
     ctaButtonLabel: "Add to your Slack",
+  },
+  contractor: {
+    heroLine1: "Bill for the senior dev.",
+    heroLine2: "Ship like a small team.",
+    subhead:
+      "Ross pairs with you in Slack — pushes branches, opens PRs, watches deploys. Joanne handles client comms and the invoicing busywork. $99/mo, no employees to manage.",
+    ctaH2: "Get the unfair advantage.",
+    ctaParagraph:
+      "Drop your email. We'll get you into a Slack workspace with Ross and Joanne ready to ship.",
+    ctaButtonLabel: "Get started",
   },
 };
 
@@ -61,6 +77,7 @@ export const PERSONA_SLUGS: Record<Persona, string> = {
   founder: "founders",
   engineer: "engineers",
   team: "teams",
+  contractor: "contractors",
 };
 
 export const PERSONA_BY_SLUG: Record<string, Persona> = Object.fromEntries(
@@ -81,22 +98,29 @@ export interface PersonaMeta {
 
 export const PERSONA_META: Record<Persona, PersonaMeta> = {
   founder: {
-    title: "AI company for founders — makeacompany.ai",
+    title: "AI company for founders",
     description:
       "Run your whole company from Slack. Joanne handles ops, Ross ships code, you make the calls only a founder can. $99/month — one Claude seat for an entire AI team.",
     ogAlt: "makeacompany.ai for founders — AI company in Slack for $99/month",
   },
   engineer: {
-    title: "Claude in Slack for engineers — makeacompany.ai",
+    title: "Claude in Slack for engineers",
     description:
       "$99/month for Claude that ships code in Slack. Persistent workspaces per channel, baked-in skills, GitOps wired up. The harness, not just the agent.",
     ogAlt: "makeacompany.ai for engineers — Claude that ships code in Slack",
   },
   team: {
-    title: "AI teammates in Slack — makeacompany.ai for teams",
+    title: "AI teammates in Slack for teams",
     description:
       "Slack-native AI teammates that live in your channels. Persistent workspaces, recurring loops, GitOps baked in. No new tool to roll out — they show up where you already work.",
     ogAlt: "makeacompany.ai for teams — Slack-native AI teammates",
+  },
+  contractor: {
+    title: "AI teammates for contractors",
+    description:
+      "Solo developer? Ship like a small team. Ross pairs in Slack, Joanne handles client comms and invoicing. $99/month — bill senior rates without senior overhead.",
+    ogAlt:
+      "makeacompany.ai for contractors — ship like a small team for $99/month",
   },
 };
 
@@ -104,7 +128,9 @@ const STORAGE_KEY = "mac.persona";
 const URL_PARAM = "p";
 
 function isPersona(v: unknown): v is Persona {
-  return v === "founder" || v === "engineer" || v === "team";
+  return (
+    v === "founder" || v === "engineer" || v === "team" || v === "contractor"
+  );
 }
 
 /**
@@ -167,6 +193,8 @@ const ENGINEER_HOSTS = [
 
 const FOUNDER_HOSTS = ["linkedin.com", "producthunt.com"];
 
+const CONTRACTOR_HOSTS = ["upwork.com", "toptal.com", "freelancer.com"];
+
 function matchesHost(host: string, suffix: string): boolean {
   return host === suffix || host.endsWith("." + suffix);
 }
@@ -182,6 +210,7 @@ function sniffReferrer(ref: string): Persona | null {
 
   if (ENGINEER_HOSTS.some((h) => matchesHost(host, h))) return "engineer";
   if (FOUNDER_HOSTS.some((h) => matchesHost(host, h))) return "founder";
+  if (CONTRACTOR_HOSTS.some((h) => matchesHost(host, h))) return "contractor";
   return null;
 }
 

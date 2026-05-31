@@ -24,6 +24,13 @@
   --radius: 0.625rem;
   --accent-glow: rgba(0, 0, 0, 0.3);
   --grid: rgba(0, 0, 0, 0.08);
+  /* Observability charts: predominantly monochrome with one restrained blue accent. */
+  --chart-ink: #0a0a0a;
+  --chart-muted: #a3a3a3;
+  --chart-accent: #2563eb;
+  --chart-grid: rgba(0, 0, 0, 0.06);
+  --chart-pos: #16a34a;
+  --chart-neg: #dc2626;
   --faq-motion-duration: 0.55s;
   --faq-motion-ease: cubic-bezier(0.33, 1, 0.68, 1);
   /* Slim scrollbars — monochrome, minimal chrome */
@@ -52,6 +59,12 @@
   --radius: 0.625rem;
   --accent-glow: rgba(255, 255, 255, 0.3);
   --grid: rgba(255, 255, 255, 0.08);
+  --chart-ink: #fafafa;
+  --chart-muted: #737373;
+  --chart-accent: #60a5fa;
+  --chart-grid: rgba(255, 255, 255, 0.07);
+  --chart-pos: #4ade80;
+  --chart-neg: #f87171;
   --scrollbar-thumb: rgba(255, 255, 255, 0.22);
   --scrollbar-thumb-hover: rgba(255, 255, 255, 0.4);
 }

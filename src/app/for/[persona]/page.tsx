@@ -45,20 +45,11 @@ export async function generateMetadata({
       title: meta.title,
       description: meta.description,
       url,
-      images: [
-        {
-          url: "/opengraph-image",
-          width: 1200,
-          height: 630,
-          alt: meta.ogAlt,
-        },
-      ],
     },
     twitter: {
       card: "summary_large_image",
       title: meta.title,
       description: meta.description,
-      images: ["/twitter-image"],
     },
   };
 }

@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { BuiltFromInside } from "@/components/landing/built-from-inside";
+import { HarnessVsAgent } from "@/components/landing/harness-vs-agent";
 import { CheckoutReturnToast } from "@/components/landing/checkout-return-toast";
 import { CtaSection } from "@/components/landing/cta-section";
 import { Footer } from "@/components/landing/footer";
@@ -64,10 +66,12 @@ export default async function HomePage({
       >
         <HeroSection initialSeats={initialSeats} />
         <ValueStack />
+        <HarnessVsAgent />
+        <BuiltFromInside />
         <TestimonialsCarousel testimonials={testimonials} />
         <CtaSection />
       </PersonaProvider>
-      <SeoFaqSection seats={initialSeats} />
+      <SeoFaqSection seats={initialSeats} viewAllHref="/faq" />
       <Footer />
     </main>
   );

@@ -34,7 +34,7 @@ export function ObservabilitySection({
           className="group inline-flex items-center gap-2.5 rounded-md py-0.5 text-left text-foreground transition hover:text-foreground/80"
         >
           <span
-            className={`block h-6 w-0.5 shrink-0 rounded-full bg-gradient-to-b from-emerald-500 to-emerald-500/10 dark:from-emerald-400 dark:to-emerald-400/0 transition-opacity duration-200 ${open ? "opacity-100" : "opacity-40"}`}
+            className={`block h-6 w-1 shrink-0 rounded-full bg-[var(--chart-accent)] transition-opacity duration-200 ${open ? "opacity-100" : "opacity-30"}`}
             aria-hidden="true"
           />
           <ChevronDown

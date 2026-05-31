@@ -37,15 +37,19 @@ export function ObservabilityToolbar({ lastUpdatedAt, loading }: ToolbarProps) {
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
         <span
           aria-hidden="true"
-          className={`relative inline-flex h-2 w-2 items-center justify-center rounded-full ${
-            loading ? "bg-amber-500" : lastUpdatedAt ? "bg-emerald-500" : "bg-muted-foreground/40"
-          }`}
+          className="relative inline-flex h-2 w-2 items-center justify-center rounded-full"
+          style={{
+            backgroundColor: loading
+              ? "#f59e0b"
+              : lastUpdatedAt
+                ? "var(--chart-pos)"
+                : "var(--chart-muted)",
+          }}
         >
           {loading || lastUpdatedAt ? (
             <span
-              className={`absolute inline-flex h-full w-full rounded-full opacity-60 ${
-                loading ? "animate-ping bg-amber-500" : "animate-ping bg-emerald-500"
-              }`}
+              className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-60"
+              style={{ backgroundColor: loading ? "#f59e0b" : "var(--chart-pos)" }}
             />
           ) : null}
         </span>

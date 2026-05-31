@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import {
   AskTeammateCard,
   JOANNE_PERSONA,
@@ -76,18 +78,34 @@ function buildFaqItems(seats?: LanderSlackSeats) {
   ];
 }
 
-export function SeoFaqSection({ seats }: { seats?: LanderSlackSeats } = {}) {
+export function SeoFaqSection({
+  seats,
+  viewAllHref,
+  hideHeading,
+}: { seats?: LanderSlackSeats; viewAllHref?: string; hideHeading?: boolean } = {}) {
   const faqItems = buildFaqItems(seats);
   return (
     <section className="mx-auto w-full max-w-4xl px-6 py-20">
-      <h2 className="text-center text-3xl font-semibold tracking-tight sm:text-4xl">Frequently asked questions</h2>
-      <div className="mt-10 space-y-4">
+      {hideHeading ? null : (
+        <h2 className="text-center text-3xl font-semibold tracking-tight sm:text-4xl">Frequently asked questions</h2>
+      )}
+      <div className={hideHeading ? "space-y-4" : "mt-10 space-y-4"}>
         <AskTeammateCard persona={JOANNE_PERSONA} />
         <AskTeammateCard persona={ROSS_PERSONA} />
         {faqItems.map((item) => (
           <FaqAccordionItem key={item.question} question={item.question} answer={item.answer} />
         ))}
       </div>
+      {viewAllHref ? (
+        <div className="mt-10 text-center">
+          <Link
+            href={viewAllHref}
+            className="text-sm font-medium text-foreground/70 underline-offset-4 hover:text-foreground hover:underline"
+          >
+            View all FAQs →
+          </Link>
+        </div>
+      ) : null}
     </section>
   );
 }

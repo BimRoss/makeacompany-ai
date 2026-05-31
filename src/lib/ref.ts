@@ -5,7 +5,7 @@ const REF_URL_PARAM = "ref";
 export function captureRefFromUrl(): void {
   if (typeof window === "undefined") return;
   try {
-    const v = new URL(window.location.href).searchParams.get(REF_URL_PARAM);
+    const v = new URLSearchParams(window.location.search).get(REF_URL_PARAM);
     if (v && v.trim()) {
       window.localStorage.setItem(REF_STORAGE_KEY, v.trim());
     }
@@ -18,8 +18,18 @@ export function captureRefFromUrl(): void {
 export function getStoredRef(): string {
   if (typeof window === "undefined") return "";
   try {
-    return window.localStorage.getItem(REF_STORAGE_KEY)?.trim() ?? "";
+    return window.localStorage.getItem(REF_STORAGE_KEY) ?? "";
   } catch {
     return "";
+  }
+}
+
+/** Clear the stored ref after a successful checkout so shared-browser misattribution can't happen. */
+export function clearStoredRef(): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(REF_STORAGE_KEY);
+  } catch {
+    // ignore
   }
 }

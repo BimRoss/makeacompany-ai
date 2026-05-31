@@ -51,10 +51,10 @@ export function AlertsStrip() {
 
   if (firing.length === 0) {
     return (
-      <div className="flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/5 px-4 py-3 text-sm text-emerald-700 dark:text-emerald-300">
-        <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+      <div className="flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-sm text-foreground">
+        <CheckCircle2 className="h-4 w-4" style={{ color: "var(--chart-pos)" }} aria-hidden="true" />
         <span className="font-medium">All clear.</span>
-        <span className="text-xs opacity-80">No alerts firing.</span>
+        <span className="text-xs text-muted-foreground">No alerts firing.</span>
       </div>
     );
   }

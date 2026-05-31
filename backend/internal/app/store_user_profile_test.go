@@ -156,6 +156,79 @@ func TestUpsertUserProfilesFromStripeWaitlistPurchasers_basePlanWinsSameEmail(t 
 	}
 }
 
+func TestUpsertUserProfileAfterWaitlist_setsAttributedTo(t *testing.T) {
+	srv, err := miniredis.Run()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer srv.Close()
+	rdb := redis.NewClient(&redis.Options{Addr: srv.Addr()})
+	defer rdb.Close()
+	ctx := context.Background()
+	st := &Store{rdb: rdb}
+
+	if err := st.UpsertUserProfileAfterWaitlist(ctx, "ref@example.com", "cus_1", "cs_1", "paid", "prod_waitlist", "john"); err != nil {
+		t.Fatal(err)
+	}
+	v, err := rdb.HGet(ctx, userProfileRedisKey("ref@example.com"), "attributed_to").Result()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v != "john" {
+		t.Fatalf("attributed_to: %q, want %q", v, "john")
+	}
+
+	// Empty attributedTo must not overwrite an existing value.
+	if err := st.UpsertUserProfileAfterWaitlist(ctx, "ref@example.com", "cus_1", "cs_1", "paid", "prod_waitlist", ""); err != nil {
+		t.Fatal(err)
+	}
+	v, err = rdb.HGet(ctx, userProfileRedisKey("ref@example.com"), "attributed_to").Result()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v != "john" {
+		t.Fatalf("attributed_to after empty upsert: %q, want %q", v, "john")
+	}
+}
+
+func TestUpsertUserProfileFreeTrialInvite(t *testing.T) {
+	srv, err := miniredis.Run()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer srv.Close()
+	rdb := redis.NewClient(&redis.Options{Addr: srv.Addr()})
+	defer rdb.Close()
+	ctx := context.Background()
+	st := &Store{rdb: rdb}
+
+	if err := st.UpsertUserProfileFreeTrialInvite(ctx, "Free@Example.com", "john"); err != nil {
+		t.Fatal(err)
+	}
+	key := userProfileRedisKey("free@example.com")
+	if v, _ := rdb.HGet(ctx, key, "attributed_to").Result(); v != "john" {
+		t.Fatalf("attributed_to: %q, want %q", v, "john")
+	}
+	if v, _ := rdb.HGet(ctx, key, "free_trial_invite_sent_at").Result(); v == "" {
+		t.Fatal("free_trial_invite_sent_at not set")
+	}
+
+	// Must not clobber prior paid Stripe fields when re-submitted from the same browser.
+	if err := st.UpsertUserProfileAfterWaitlist(ctx, "paid@example.com", "cus_1", "cs_1", "paid", "prod_waitlist", "grant"); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.UpsertUserProfileFreeTrialInvite(ctx, "paid@example.com", ""); err != nil {
+		t.Fatal(err)
+	}
+	paidKey := userProfileRedisKey("paid@example.com")
+	if v, _ := rdb.HGet(ctx, paidKey, "stripe_customer_id").Result(); v != "cus_1" {
+		t.Fatalf("stripe_customer_id clobbered: %q", v)
+	}
+	if v, _ := rdb.HGet(ctx, paidKey, "attributed_to").Result(); v != "grant" {
+		t.Fatalf("attributed_to clobbered: %q", v)
+	}
+}
+
 func TestUpsertUserProfileStripeSubscription_setsStripeProductID(t *testing.T) {
 	srv, err := miniredis.Run()
 	if err != nil {

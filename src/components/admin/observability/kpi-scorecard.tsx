@@ -46,28 +46,10 @@ function colorFor(thresholds: Threshold[], value: number, higherIsBetter: boolea
   return color;
 }
 
-const tileBgClass: Record<"green" | "amber" | "red", string> = {
-  green: [
-    "border-emerald-500/35 dark:border-emerald-400/55",
-    "bg-gradient-to-br from-emerald-500/8 to-emerald-500/3 dark:from-emerald-400/22 dark:to-emerald-400/8",
-    "shadow-[0_8px_16px_rgba(16,185,129,0.1)] dark:shadow-[0_4px_32px_rgba(52,211,153,0.26),0_0_0_1px_rgba(52,211,153,0.1)]",
-  ].join(" "),
-  amber: [
-    "border-amber-500/40 dark:border-amber-400/55",
-    "bg-gradient-to-br from-amber-500/12 to-amber-500/4 dark:from-amber-400/22 dark:to-amber-400/8",
-    "shadow-[0_8px_16px_rgba(217,119,6,0.1)] dark:shadow-[0_4px_32px_rgba(251,191,36,0.2),0_0_0_1px_rgba(251,191,36,0.1)]",
-  ].join(" "),
-  red: [
-    "border-red-500/40 dark:border-red-400/55",
-    "bg-gradient-to-br from-red-500/12 to-red-500/4 dark:from-red-400/22 dark:to-red-400/8",
-    "shadow-[0_8px_16px_rgba(239,68,68,0.1)] dark:shadow-[0_4px_32px_rgba(248,113,113,0.24),0_0_0_1px_rgba(248,113,113,0.1)]",
-  ].join(" "),
-};
-
-const tileTextClass: Record<"green" | "amber" | "red", string> = {
-  green: "text-emerald-700 dark:text-emerald-300",
-  amber: "text-amber-700 dark:text-amber-300",
-  red: "text-red-700 dark:text-red-300",
+const dotColor: Record<"green" | "amber" | "red", string> = {
+  green: "var(--chart-pos)",
+  amber: "#f59e0b",
+  red: "var(--chart-neg)",
 };
 
 function ScorecardTile({
@@ -85,19 +67,24 @@ function ScorecardTile({
   higherIsBetter: boolean;
   hasError: boolean;
 }) {
-  const color = value === null ? "amber" : colorFor(thresholds, value, higherIsBetter);
+  const color = value === null ? null : colorFor(thresholds, value, higherIsBetter);
   return (
-    <div
-      className={`relative overflow-hidden rounded-lg border p-2 transition-colors duration-200 ${
-        value === null ? "border-border bg-card" : `${tileBgClass[color]}`
-      }`}
-    >
-      <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-        {label}
+    <div className="group relative overflow-hidden rounded-xl border border-border bg-card p-3 transition-colors duration-200 hover:border-foreground/25">
+      <div className="flex items-center justify-between gap-2">
+        <div className="truncate text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+          {label}
+        </div>
+        {color ? (
+          <span
+            className="h-1.5 w-1.5 shrink-0 rounded-full"
+            style={{ backgroundColor: dotColor[color] }}
+            aria-hidden="true"
+          />
+        ) : null}
       </div>
       <div
-        className={`mt-0.5 font-display text-xl font-semibold tracking-tight tabular-nums ${
-          value === null ? "text-muted-foreground" : tileTextClass[color]
+        className={`mt-1 font-display text-2xl font-semibold tracking-tight tabular-nums ${
+          value === null ? "text-muted-foreground" : "text-foreground"
         }`}
       >
         {value === null ? (hasError ? "—" : "…") : formatted}
@@ -109,11 +96,18 @@ function ScorecardTile({
 /** Informational tile (no threshold coloring) for traffic metrics like GA4. */
 function InfoTile({ label, value }: { label: string; value: string }) {
   return (
-    <div className="relative overflow-hidden rounded-lg border border-cyan-500/25 dark:border-cyan-400/45 bg-gradient-to-br from-cyan-500/6 to-cyan-500/2 dark:from-cyan-400/18 dark:to-cyan-400/6 p-2 transition-colors duration-200 hover:border-cyan-500/40 dark:hover:border-cyan-400/60">
-      <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-        {label}
+    <div className="group relative overflow-hidden rounded-xl border border-border bg-card p-3 transition-colors duration-200 hover:border-foreground/25">
+      <div className="flex items-center justify-between gap-2">
+        <div className="truncate text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+          {label}
+        </div>
+        <span
+          className="h-1.5 w-1.5 shrink-0 rounded-full"
+          style={{ backgroundColor: "var(--chart-accent)" }}
+          aria-hidden="true"
+        />
       </div>
-      <div className="mt-0.5 font-display text-xl font-semibold tracking-tight tabular-nums text-cyan-700 dark:text-cyan-300">
+      <div className="mt-1 font-display text-2xl font-semibold tracking-tight tabular-nums text-foreground">
         {value}
       </div>
     </div>
@@ -182,17 +176,6 @@ export function KpiScorecard() {
           { value: 0, color: "green" },
           { value: 0.5, color: "amber" },
           { value: 1, color: "red" },
-        ],
-      },
-      {
-        id: "errors",
-        label: "5xx /min (5m)",
-        query: POOL.errorsPerMin,
-        format: (v) => v.toFixed(1),
-        thresholds: [
-          { value: 0, color: "green" },
-          { value: 1, color: "amber" },
-          { value: 5, color: "red" },
         ],
       },
       {
