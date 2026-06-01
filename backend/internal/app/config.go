@@ -58,6 +58,14 @@ type Config struct {
 	// endpoint with 503. v1 is static (hand-roll claude-code-ross-customer-grant per rancher-admin#465);
 	// dynamic per-tenant config arrives with rancher-admin#354's template extraction.
 	WorkspaceTenantConfig string
+	// PersonalAgentsEnabled gates the personal-agent tenancy surface (issue #183):
+	// /me/agents portal pages, POST /v1/portal/agents, /admin/personal-agents admin
+	// view, the per-agent OAuth fork, and the dispatcher's owner-only guard at the
+	// pod-boot level. Default false — backend ships dormant; flag-flip in rancher-
+	// admin's makeacompany-ai configmap activates the surface. Off must be a hard
+	// shutdown of personal-agent pods (not a no-op of the guard), per #183 audit
+	// point 11; runtime template enforces that in PR4 of #186.
+	PersonalAgentsEnabled bool
 }
 
 // stripePriceIDBasePlan returns STRIPE_PRICE_ID_BASE_PLAN, else legacy STRIPE_PRICE_ID_WAITLIST.
@@ -102,6 +110,7 @@ func LoadConfig() Config {
 		GA4PropertyID:                       strings.TrimSpace(os.Getenv("GA4_PROPERTY_ID")),
 		FreeTierGateEnabled:                 envBool("STRIPE_FREE_TIER_GATE_ENABLED", false),
 		WorkspaceTenantConfig:               strings.TrimSpace(os.Getenv("WORKSPACE_TENANT_CONFIG")),
+		PersonalAgentsEnabled:               envBool("PERSONAL_AGENTS_ENABLED", false),
 	}
 }
 
