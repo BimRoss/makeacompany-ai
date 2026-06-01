@@ -13,6 +13,8 @@ import (
 
 	"github.com/alicebob/miniredis/v2"
 	"github.com/redis/go-redis/v9"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes/fake"
 )
 
 // newPersonalAgentTestServer builds a Server wired against an in-memory
@@ -302,6 +304,113 @@ func TestAdminPersonalAgents_ListsAcrossOwners(t *testing.T) {
 	}
 	if len(listed.Agents) != 2 {
 		t.Fatalf("expected 2 agents, got %d (%+v)", len(listed.Agents), listed.Agents)
+	}
+}
+
+func TestPortalAgentSlackToken_WritesSecretAndBindsBotUser(t *testing.T) {
+	s, _, done := newPersonalAgentTestServer(t, true, nil)
+	defer done()
+	cs := fake.NewSimpleClientset()
+	s.personalAgentSecrets = newPersonalAgentSecretWriterFromClient(cs)
+	token := seedPortalSession(t, s.store, "grant@bimross.com", "U0APBT3364D")
+
+	if rec := doJSONRequest(t, s, http.MethodPost, "/v1/portal/agents", token, portalAgentRequest{Name: "Bart"}); rec.Code != http.StatusCreated {
+		t.Fatalf("create: got %d", rec.Code)
+	}
+	rec := doJSONRequest(t, s, http.MethodPost, "/v1/portal/agents/bart/slack-token", token, portalAgentSlackTokenRequest{
+		BotToken:  "xoxb-1234567890-abcdef",
+		AppToken:  "xapp-1234567890-abcdef",
+		BotUserID: "U0BARTBOT01",
+	})
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("paste: got %d, body=%s", rec.Code, rec.Body.String())
+	}
+
+	// Secret in the right namespace + name.
+	got, err := cs.CoreV1().Secrets(PersonalAgentNamespace).Get(context.Background(), "personal-agent-bart-secrets", metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("secret get: %v", err)
+	}
+	if string(got.Data["slack_bot_token"]) != "xoxb-1234567890-abcdef" {
+		t.Errorf("bot token not persisted")
+	}
+
+	// Reverse index now resolves bot user → slug.
+	slug, err := s.store.LookupPersonalAgentByBotUser(context.Background(), "U0BARTBOT01")
+	if err != nil || slug != "bart" {
+		t.Fatalf("reverse index: slug=%q err=%v", slug, err)
+	}
+}
+
+func TestPortalAgentSlackToken_RejectsMalformedTokens(t *testing.T) {
+	s, _, done := newPersonalAgentTestServer(t, true, nil)
+	defer done()
+	s.personalAgentSecrets = newPersonalAgentSecretWriterFromClient(fake.NewSimpleClientset())
+	token := seedPortalSession(t, s.store, "grant@bimross.com", "U0APBT3364D")
+	_ = doJSONRequest(t, s, http.MethodPost, "/v1/portal/agents", token, portalAgentRequest{Name: "Bart"})
+
+	rec := doJSONRequest(t, s, http.MethodPost, "/v1/portal/agents/bart/slack-token", token, portalAgentSlackTokenRequest{
+		BotToken:  "xapp-swapped",
+		AppToken:  "xoxb-swapped",
+		BotUserID: "U0BARTBOT01",
+	})
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("swap: got %d, want 400", rec.Code)
+	}
+}
+
+func TestPortalAgentSlackToken_404OnNotOwned(t *testing.T) {
+	s, _, done := newPersonalAgentTestServer(t, true, nil)
+	defer done()
+	s.personalAgentSecrets = newPersonalAgentSecretWriterFromClient(fake.NewSimpleClientset())
+	tokA := seedPortalSession(t, s.store, "a@example.com", "U0OWNERAAAA")
+	tokB := seedPortalSession(t, s.store, "b@example.com", "U0OWNERBBBB")
+	_ = doJSONRequest(t, s, http.MethodPost, "/v1/portal/agents", tokA, portalAgentRequest{Name: "Bart"})
+
+	rec := doJSONRequest(t, s, http.MethodPost, "/v1/portal/agents/bart/slack-token", tokB, portalAgentSlackTokenRequest{
+		BotToken: "xoxb-1234567890-abc", AppToken: "xapp-1234567890-abc", BotUserID: "U0BARTBOT01",
+	})
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("B paste on A's agent: got %d, want 404", rec.Code)
+	}
+}
+
+func TestPortalAgentSlackToken_503WhenWriterDisabled(t *testing.T) {
+	s, _, done := newPersonalAgentTestServer(t, true, nil)
+	defer done()
+	// Writer not injected → personalAgentSecrets is nil → Disabled() true.
+	token := seedPortalSession(t, s.store, "grant@bimross.com", "U0APBT3364D")
+	_ = doJSONRequest(t, s, http.MethodPost, "/v1/portal/agents", token, portalAgentRequest{Name: "Bart"})
+
+	rec := doJSONRequest(t, s, http.MethodPost, "/v1/portal/agents/bart/slack-token", token, portalAgentSlackTokenRequest{
+		BotToken: "xoxb-1234567890-abc", AppToken: "xapp-1234567890-abc", BotUserID: "U0BARTBOT01",
+	})
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Fatalf("disabled writer: got %d, want 503", rec.Code)
+	}
+}
+
+func TestPortalAgentDelete_CleansUpSecret(t *testing.T) {
+	s, _, done := newPersonalAgentTestServer(t, true, nil)
+	defer done()
+	cs := fake.NewSimpleClientset()
+	s.personalAgentSecrets = newPersonalAgentSecretWriterFromClient(cs)
+	token := seedPortalSession(t, s.store, "grant@bimross.com", "U0APBT3364D")
+	_ = doJSONRequest(t, s, http.MethodPost, "/v1/portal/agents", token, portalAgentRequest{Name: "Bart"})
+	_ = doJSONRequest(t, s, http.MethodPost, "/v1/portal/agents/bart/slack-token", token, portalAgentSlackTokenRequest{
+		BotToken: "xoxb-1234567890-abc", AppToken: "xapp-1234567890-abc", BotUserID: "U0BARTBOT01",
+	})
+
+	if rec := doJSONRequest(t, s, http.MethodDelete, "/v1/portal/agents/bart", token, nil); rec.Code != http.StatusNoContent {
+		t.Fatalf("delete: got %d", rec.Code)
+	}
+
+	list, err := cs.CoreV1().Secrets(PersonalAgentNamespace).List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if len(list.Items) != 0 {
+		t.Fatalf("expected secret cleaned up, got %d", len(list.Items))
 	}
 }
 
