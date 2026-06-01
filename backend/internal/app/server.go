@@ -168,6 +168,12 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 	s.mux.HandleFunc("GET /v1/portal/workspace/status", s.handlePortalWorkspaceStatus)
 	s.mux.HandleFunc("/v1/portal/auth/magic/start", s.handlePortalAuthMagicStart)
 	s.mux.HandleFunc("/v1/portal/auth/magic/finish", s.handlePortalAuthMagicFinish)
+	// Personal agents (issue #183, gated on PERSONAL_AGENTS_ENABLED).
+	// Trailing-slash route covers the per-slug subtree; bare path is
+	// list+create. Method dispatch happens inside the handler.
+	s.mux.HandleFunc("/v1/portal/agents", s.handlePortalAgents)
+	s.mux.HandleFunc("/v1/portal/agents/", s.handlePortalAgents)
+	s.mux.HandleFunc("/v1/admin/personal-agents", s.handleAdminPersonalAgents)
 	return s, nil
 }
 
