@@ -1,3 +1,4 @@
+import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
 import {
@@ -5,6 +6,7 @@ import {
   parseWorkspaceUrlState,
   portalWorkspacePendingCookieName,
 } from "@/lib/portal-workspace-connect-state";
+import { portalSessionCookieName } from "@/lib/portal-session-cookies";
 import { resolveBackendBaseURL } from "@/lib/backend-proxy-auth";
 import { resolvePublicOrigin } from "@/lib/http-origin";
 
@@ -127,10 +129,22 @@ export async function GET(request: Request) {
   // namespace and triggers the pod restart so the sidecar boots with
   // the new identity. Backend endpoint to be implemented as part of #15.
   const backendURL = `${resolveBackendBaseURL().replace(/\/$/, "")}/v1/portal/workspace/connect/finish`;
+  // Forward the user's portal session as a Bearer token — the backend's
+  // /connect/finish handler uses validatePortalSessionForChannel to assert
+  // the caller has a portal session matching this channelId. Without this
+  // header, the backend returns 401 and the user sees backend_finish_failed.
+  const cookieStore = await cookies();
+  const sessionToken = cookieStore.get(portalSessionCookieName)?.value ?? "";
+  if (!sessionToken) {
+    return fail(origin, channelId, "missing_portal_session");
+  }
   try {
     const response = await fetch(backendURL, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${sessionToken}`,
+      },
       cache: "no-store",
       body: JSON.stringify({
         channelId: pending.channelId,
@@ -142,7 +156,7 @@ export async function GET(request: Request) {
         scope: tok.scope ?? "",
       }),
     });
-    if (response.status === 403) {
+    if (response.status === 401 || response.status === 403) {
       return fail(origin, channelId, "unauthorized");
     }
     if (!response.ok) {
