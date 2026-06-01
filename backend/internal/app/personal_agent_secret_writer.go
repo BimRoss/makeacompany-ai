@@ -179,6 +179,68 @@ func (w *PersonalAgentSecretWriter) WriteSlackSecret(ctx context.Context, slug s
 	return nil
 }
 
+// PersonalAgentGoogleIdentity is the validated Google credential
+// bundle the OAuth callback hands the writer (#186 PR6). Persisted as
+// extra keys on the same per-agent Secret as the Slack tokens so the
+// runtime mounts one Secret + reads everything from there.
+type PersonalAgentGoogleIdentity struct {
+	Email        string // resolved from id_token's "email" claim
+	Subject      string // id_token "sub" claim
+	RefreshToken string // OAuth 2.1 refresh_token (rotates server-side)
+	ClientID     string // gateway DCR client_id (per-agent)
+	ClientSecret string // gateway DCR client_secret
+}
+
+// WriteGoogleIdentity adds the four google_* keys to the per-agent
+// Secret. Doesn't touch the slack_* keys; uses a strategic Update on
+// the existing Secret rather than a recreate so a Slack-token refresh
+// later can't accidentally wipe the Google bundle and vice versa.
+// Returns ErrPersonalAgentNotFound semantics (via NotFound from k8s)
+// if the agent's Secret hasn't been created by WriteSlackSecret yet —
+// callers should write the Slack token before connecting Google so
+// the deployment template has something to mount.
+func (w *PersonalAgentSecretWriter) WriteGoogleIdentity(ctx context.Context, slug string, g PersonalAgentGoogleIdentity) error {
+	if w.Disabled() {
+		return ErrPersonalAgentSecretWriterDisabled
+	}
+	if !ValidPersonalAgentSlug(slug) {
+		return ErrInvalidPersonalAgentSlug
+	}
+	if strings.TrimSpace(g.RefreshToken) == "" ||
+		strings.TrimSpace(g.ClientID) == "" ||
+		strings.TrimSpace(g.ClientSecret) == "" {
+		return errors.New("refresh_token, client_id, and client_secret are all required")
+	}
+
+	name := PersonalAgentSecretName(slug)
+	existing, err := w.cs.CoreV1().Secrets(PersonalAgentNamespace).Get(ctx, name, metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("get personal-agent secret %s/%s: %w", PersonalAgentNamespace, name, err)
+	}
+	if existing.Data == nil {
+		existing.Data = map[string][]byte{}
+	}
+	existing.Data["google_refresh_token"] = []byte(strings.TrimSpace(g.RefreshToken))
+	existing.Data["google_client_id"] = []byte(strings.TrimSpace(g.ClientID))
+	existing.Data["google_client_secret"] = []byte(strings.TrimSpace(g.ClientSecret))
+	if e := strings.TrimSpace(g.Email); e != "" {
+		existing.Data["google_email"] = []byte(strings.ToLower(e))
+	}
+	if s := strings.TrimSpace(g.Subject); s != "" {
+		existing.Data["google_subject"] = []byte(s)
+	}
+	if existing.Annotations == nil {
+		existing.Annotations = map[string]string{}
+	}
+	existing.Annotations["bimross.com/google-connected-at"] = time.Now().UTC().Format(time.RFC3339)
+
+	_, err = w.cs.CoreV1().Secrets(PersonalAgentNamespace).Update(ctx, existing, metav1.UpdateOptions{})
+	if err != nil {
+		return fmt.Errorf("update google identity on %s/%s: %w", PersonalAgentNamespace, name, err)
+	}
+	return nil
+}
+
 // DeleteSlackSecret removes the per-agent Secret when an agent is
 // deleted from the portal. Idempotent: missing Secret is not an error
 // (the agent was created but never had a token pasted yet). Caller is

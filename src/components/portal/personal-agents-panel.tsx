@@ -228,6 +228,12 @@ export function PersonalAgentsPanel() {
                 </div>
                 <div className="flex items-center gap-2">
                   <SlackTokenPasteButton slug={agent.slug} onSaved={load} />
+                  <a
+                    href={`/api/portal/agents/${encodeURIComponent(agent.slug)}/connect/start`}
+                    className="rounded-md border border-border bg-background px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-muted"
+                  >
+                    {agent.googleConnected ? "Reconnect Google" : "Connect Google"}
+                  </a>
                   <button
                     type="button"
                     onClick={() => onDelete(agent.slug)}
