@@ -103,6 +103,11 @@ type Server struct {
 	health                *healthChecker
 	freeTrialInviteLimiter *ipRateLimiter
 	workspace             *WorkspaceWriter
+	// personalAgentSecrets writes per-agent k8s Secrets in the
+	// `personal-agents` namespace (issue #183 / #186 PR3). nil-safe
+	// Disabled() check so handlers can branch without crashing on
+	// out-of-cluster local dev.
+	personalAgentSecrets *PersonalAgentSecretWriter
 }
 
 func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
@@ -115,6 +120,13 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 	if workspaceWriter.Disabled() {
 		logger.Printf("workspace writer disabled (no in-cluster config or WORKSPACE_TENANT_CONFIG unset)")
 	}
+	personalAgentSecrets, perr := NewPersonalAgentSecretWriter()
+	if perr != nil {
+		return nil, fmt.Errorf("personal-agent secret writer init: %w", perr)
+	}
+	if personalAgentSecrets.Disabled() {
+		logger.Printf("personal-agent secret writer disabled (no in-cluster config)")
+	}
 	s := &Server{
 		cfg:    cfg,
 		log:    logger,
@@ -124,6 +136,7 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 		health:                 newHealthChecker(store.rdb, os.Getenv("COOKIE_HEALTH_TOKEN")),
 		freeTrialInviteLimiter: newIPRateLimiter(5, 30),
 		workspace:              workspaceWriter,
+		personalAgentSecrets:   personalAgentSecrets,
 	}
 	s.mux.HandleFunc("/livez", s.handleLivez)
 	s.mux.HandleFunc("/readyz", s.handleReadiness)
