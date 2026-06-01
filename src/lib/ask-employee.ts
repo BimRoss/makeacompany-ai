@@ -13,7 +13,7 @@ type Bucket = {
   hour: { count: number; resetAt: number };
 };
 const RATE_BUCKETS = new Map<string, Bucket>();
-const PER_MINUTE = 15;
+const PER_MINUTE = 3;
 const PER_HOUR = 80;
 
 function clientIp(req: NextRequest): string {
