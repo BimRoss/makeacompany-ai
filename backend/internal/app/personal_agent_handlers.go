@@ -103,18 +103,42 @@ func (s *Server) handlePortalAgents(w http.ResponseWriter, r *http.Request) {
 	suffix := strings.TrimPrefix(r.URL.Path, "/v1/portal/agents")
 	suffix = strings.TrimPrefix(suffix, "/")
 
+	// Subpath dispatch. /v1/portal/agents/<slug>/slack-token is the
+	// only nested action in v1; everything else with a slash is 404
+	// to keep the surface explicit.
 	switch {
 	case suffix == "" && r.Method == http.MethodGet:
 		s.handlePortalAgentsList(w, r)
 	case suffix == "" && r.Method == http.MethodPost:
 		s.handlePortalAgentsCreate(w, r)
-	case suffix != "" && !strings.Contains(suffix, "/") && r.Method == http.MethodGet:
+	case !strings.Contains(suffix, "/") && r.Method == http.MethodGet:
 		s.handlePortalAgentGet(w, r, suffix)
-	case suffix != "" && !strings.Contains(suffix, "/") && r.Method == http.MethodDelete:
+	case !strings.Contains(suffix, "/") && r.Method == http.MethodDelete:
 		s.handlePortalAgentDelete(w, r, suffix)
 	default:
+		if slug, action, ok := splitAgentSubpath(suffix); ok && action == "slack-token" && r.Method == http.MethodPost {
+			s.handlePortalAgentSlackToken(w, r, slug)
+			return
+		}
 		http.NotFound(w, r)
 	}
+}
+
+// splitAgentSubpath parses "<slug>/<action>" suffixes. Returns ok=true
+// only when the slug passes ValidPersonalAgentSlug — malformed paths
+// short-circuit to 404 in the caller.
+func splitAgentSubpath(suffix string) (slug, action string, ok bool) {
+	parts := strings.SplitN(suffix, "/", 2)
+	if len(parts) != 2 {
+		return "", "", false
+	}
+	if !ValidPersonalAgentSlug(parts[0]) {
+		return "", "", false
+	}
+	if parts[1] == "" || strings.Contains(parts[1], "/") {
+		return "", "", false
+	}
+	return parts[0], parts[1], true
 }
 
 func (s *Server) handlePortalAgentsList(w http.ResponseWriter, r *http.Request) {
@@ -215,6 +239,15 @@ func (s *Server) handlePortalAgentDelete(w http.ResponseWriter, r *http.Request,
 		http.Error(w, "failed", http.StatusInternalServerError)
 		return
 	}
+	// Best-effort Secret cleanup. Errors here don't fail the delete —
+	// the tenant record is already gone, and a stale Secret is a
+	// soft inconsistency that PR4's RBAC scope makes harmless (no pod
+	// reads it once the deployment is torn down). Surface to audit log.
+	if !s.personalAgentSecrets.Disabled() {
+		if err := s.personalAgentSecrets.DeleteSlackSecret(r.Context(), slug); err != nil {
+			s.log.Printf("personal agent secret cleanup %s: %v", slug, err)
+		}
+	}
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -245,6 +278,76 @@ func (s *Server) handlePersonalAgentLookupError(w http.ResponseWriter, err error
 	}
 	s.log.Printf("personal agent lookup: %v", err)
 	http.Error(w, "failed", http.StatusInternalServerError)
+}
+
+type portalAgentSlackTokenRequest struct {
+	BotToken  string `json:"bot_token"`
+	AppToken  string `json:"app_token"`
+	BotUserID string `json:"bot_user_id"`
+}
+
+// handlePortalAgentSlackToken accepts the three pasted Slack
+// credentials, validates them, writes the per-agent k8s Secret in the
+// `personal-agents` namespace, then records the bot user id on the
+// AgentTenant so the dispatcher reverse index resolves inbound events.
+//
+// Returns:
+//   - 204 No Content on success.
+//   - 400 if validation fails (malformed token shape, swapped fields).
+//   - 404 if slug isn't owned by the caller.
+//   - 503 if the secret writer is disabled (local dev, no in-cluster
+//     config). Operator never sees this in prod.
+func (s *Server) handlePortalAgentSlackToken(w http.ResponseWriter, r *http.Request, slug string) {
+	owner, _, status, err := s.resolvePortalAgentOwner(r)
+	if err != nil {
+		http.Error(w, err.Error(), status)
+		return
+	}
+	if _, err := s.fetchOwnedAgent(r, owner, slug); err != nil {
+		s.handlePersonalAgentLookupError(w, err)
+		return
+	}
+	var body portalAgentSlackTokenRequest
+	dec := json.NewDecoder(r.Body)
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&body); err != nil {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+	tokens := PersonalAgentSlackTokens{
+		BotToken:  body.BotToken,
+		AppToken:  body.AppToken,
+		BotUserID: body.BotUserID,
+	}
+	if err := ValidatePersonalAgentSlackTokens(tokens); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{
+			"error":  "invalid tokens",
+			"detail": err.Error(),
+		})
+		return
+	}
+	if s.personalAgentSecrets.Disabled() {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]any{
+			"error":  "secret writer disabled",
+			"detail": "the backend is not running in-cluster — token paste only works in prod/dev k8s",
+		})
+		return
+	}
+	if err := s.personalAgentSecrets.WriteSlackSecret(r.Context(), slug, tokens); err != nil {
+		s.log.Printf("personal agent slack secret write %s: %v", slug, err)
+		http.Error(w, "failed", http.StatusInternalServerError)
+		return
+	}
+	// Bind the bot user id on the tenant record after the Secret write
+	// succeeds. If this fails the Secret is the source of truth and a
+	// retry will re-converge — the reverse index is purely an index
+	// over the canonical Secret content, not a separate fact.
+	if err := s.store.SetPersonalAgentSlackBot(r.Context(), slug, strings.TrimSpace(tokens.BotUserID)); err != nil {
+		s.log.Printf("personal agent set bot %s: %v", slug, err)
+		http.Error(w, "failed", http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // handleAdminPersonalAgents is the read-only admin aggregate
