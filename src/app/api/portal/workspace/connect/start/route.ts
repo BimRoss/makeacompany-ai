@@ -76,9 +76,9 @@ function fail(origin: string, channelId: string, reason: string) {
 
 export async function GET(request: Request) {
   const reqURL = new URL(request.url);
-  const channelId = reqURL.searchParams.get("cid")?.trim() ?? "";
+  const channelId = reqURL.searchParams.get("channelId")?.trim() ?? "";
   if (!channelId) {
-    return NextResponse.json({ error: "missing cid" }, { status: 400 });
+    return NextResponse.json({ error: "missing channelId" }, { status: 400 });
   }
   const origin = resolvePublicOrigin(request);
   const secureCookies = cookieSecureFromRequest(request);
