@@ -414,6 +414,93 @@ func TestPortalAgentDelete_CleansUpSecret(t *testing.T) {
 	}
 }
 
+func TestPortalAgentConnectFinish_WritesSecretAndUpdatesTenant(t *testing.T) {
+	s, _, done := newPersonalAgentTestServer(t, true, nil)
+	defer done()
+	cs := fake.NewSimpleClientset()
+	s.personalAgentSecrets = newPersonalAgentSecretWriterFromClient(cs)
+	token := seedPortalSession(t, s.store, "grant@bimross.com", "U0APBT3364D")
+
+	// Create + paste-slack-token so the per-agent Secret exists.
+	_ = doJSONRequest(t, s, http.MethodPost, "/v1/portal/agents", token, portalAgentRequest{Name: "Bart"})
+	if rec := doJSONRequest(t, s, http.MethodPost, "/v1/portal/agents/bart/slack-token", token, portalAgentSlackTokenRequest{
+		BotToken: "xoxb-1234567890-abc", AppToken: "xapp-1234567890-abc", BotUserID: "U0BARTBOT01",
+	}); rec.Code != http.StatusNoContent {
+		t.Fatalf("seed slack: %d", rec.Code)
+	}
+
+	body := map[string]any{
+		"dcr": map[string]string{
+			"clientId":     "client_dcr_id",
+			"clientSecret": "client_dcr_secret",
+		},
+		"refreshToken": "1//rt-test",
+		"scope":        "openid email",
+		"googleEmail":  "grant@bimross.com",
+		"googleSubject": "117654321",
+	}
+	rec := doJSONRequest(t, s, http.MethodPost, "/v1/portal/agents/bart/connect/finish", token, body)
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("connect/finish: %d, body=%s", rec.Code, rec.Body.String())
+	}
+
+	// Secret has google_* keys now.
+	got, err := cs.CoreV1().Secrets(PersonalAgentNamespace).Get(context.Background(), "personal-agent-bart-secrets", metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("secret get: %v", err)
+	}
+	if string(got.Data["google_refresh_token"]) != "1//rt-test" {
+		t.Errorf("google_refresh_token: %q", got.Data["google_refresh_token"])
+	}
+	if string(got.Data["google_email"]) != "grant@bimross.com" {
+		t.Errorf("google_email: %q", got.Data["google_email"])
+	}
+
+	// AgentTenant projection updated.
+	pa, err := s.store.GetPersonalAgent(context.Background(), "bart")
+	if err != nil {
+		t.Fatalf("tenant: %v", err)
+	}
+	if !strings.EqualFold(pa.GoogleEmail, "grant@bimross.com") || pa.GoogleSubject != "117654321" {
+		t.Fatalf("tenant google identity not set: %+v", pa)
+	}
+}
+
+func TestPortalAgentConnectFinish_RejectsMissingRefreshToken(t *testing.T) {
+	s, _, done := newPersonalAgentTestServer(t, true, nil)
+	defer done()
+	s.personalAgentSecrets = newPersonalAgentSecretWriterFromClient(fake.NewSimpleClientset())
+	token := seedPortalSession(t, s.store, "grant@bimross.com", "U0APBT3364D")
+	_ = doJSONRequest(t, s, http.MethodPost, "/v1/portal/agents", token, portalAgentRequest{Name: "Bart"})
+
+	rec := doJSONRequest(t, s, http.MethodPost, "/v1/portal/agents/bart/connect/finish", token, map[string]any{
+		"dcr":          map[string]string{"clientId": "cid", "clientSecret": "csec"},
+		"refreshToken": "",
+		"googleEmail":  "x@y.z",
+		"googleSubject": "12345",
+	})
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("missing refresh: %d, want 400", rec.Code)
+	}
+}
+
+func TestPortalAgentConnectFinish_404OnNotOwned(t *testing.T) {
+	s, _, done := newPersonalAgentTestServer(t, true, nil)
+	defer done()
+	s.personalAgentSecrets = newPersonalAgentSecretWriterFromClient(fake.NewSimpleClientset())
+	tokA := seedPortalSession(t, s.store, "a@example.com", "U0OWNERAAAA")
+	tokB := seedPortalSession(t, s.store, "b@example.com", "U0OWNERBBBB")
+	_ = doJSONRequest(t, s, http.MethodPost, "/v1/portal/agents", tokA, portalAgentRequest{Name: "Bart"})
+
+	rec := doJSONRequest(t, s, http.MethodPost, "/v1/portal/agents/bart/connect/finish", tokB, map[string]any{
+		"dcr":          map[string]string{"clientId": "c", "clientSecret": "s"},
+		"refreshToken": "rt",
+	})
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("B finish on A's agent: %d, want 404", rec.Code)
+	}
+}
+
 func TestAdminPersonalAgents_NonGetIs405(t *testing.T) {
 	s, _, done := newPersonalAgentTestServer(t, true, []string{"admin@example.com"})
 	defer done()

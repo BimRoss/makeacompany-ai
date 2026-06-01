@@ -116,12 +116,42 @@ func (s *Server) handlePortalAgents(w http.ResponseWriter, r *http.Request) {
 	case !strings.Contains(suffix, "/") && r.Method == http.MethodDelete:
 		s.handlePortalAgentDelete(w, r, suffix)
 	default:
-		if slug, action, ok := splitAgentSubpath(suffix); ok && action == "slack-token" && r.Method == http.MethodPost {
-			s.handlePortalAgentSlackToken(w, r, slug)
-			return
+		if slug, action, ok := splitAgentSubpath(suffix); ok {
+			switch {
+			case action == "slack-token" && r.Method == http.MethodPost:
+				s.handlePortalAgentSlackToken(w, r, slug)
+				return
+			case action == "connect/finish" && r.Method == http.MethodPost:
+				// Wide split — see splitAgentSubpath: this action has a
+				// slash. Handled via the second dispatch below.
+			}
+		}
+		// Two-segment actions ("connect/finish" today). The first
+		// splitAgentSubpath rejects suffixes with extra slashes, so do
+		// a dedicated parse here.
+		if slug, sub, ok := splitAgentTwoLevelSubpath(suffix); ok {
+			if sub == "connect/finish" && r.Method == http.MethodPost {
+				s.handlePortalAgentConnectFinish(w, r, slug)
+				return
+			}
 		}
 		http.NotFound(w, r)
 	}
+}
+
+func splitAgentTwoLevelSubpath(suffix string) (slug, action string, ok bool) {
+	parts := strings.SplitN(suffix, "/", 2)
+	if len(parts) != 2 {
+		return "", "", false
+	}
+	if !ValidPersonalAgentSlug(parts[0]) {
+		return "", "", false
+	}
+	rest := parts[1]
+	if rest == "" || strings.Contains(strings.TrimSuffix(rest, "/"), "//") {
+		return "", "", false
+	}
+	return parts[0], rest, true
 }
 
 // splitAgentSubpath parses "<slug>/<action>" suffixes. Returns ok=true
@@ -346,6 +376,91 @@ func (s *Server) handlePortalAgentSlackToken(w http.ResponseWriter, r *http.Requ
 		s.log.Printf("personal agent set bot %s: %v", slug, err)
 		http.Error(w, "failed", http.StatusInternalServerError)
 		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+type portalAgentConnectFinishRequest struct {
+	Dcr struct {
+		ClientID     string `json:"clientId"`
+		ClientSecret string `json:"clientSecret"`
+	} `json:"dcr"`
+	RefreshToken  string `json:"refreshToken"`
+	Scope         string `json:"scope"`
+	GoogleEmail   string `json:"googleEmail"`
+	GoogleSubject string `json:"googleSubject"`
+}
+
+// handlePortalAgentConnectFinish completes the personal-agent Connect
+// Google dance (#186 PR6). Called by the Next.js callback route after
+// it exchanges the auth code at the gateway. Two state updates,
+// ordered so a failure mid-flight leaves the Secret consistent:
+//
+//  1. Update the per-agent k8s Secret with the four google_* keys.
+//     This must succeed first — if it fails, the AgentTenant doesn't
+//     advertise "connected" so the runtime won't try to use a
+//     half-populated Secret.
+//  2. Set `GoogleEmail` + `GoogleSubject` on the AgentTenant. Best-
+//     effort; the Secret is the source of truth for the runtime, and
+//     the AgentTenant fields are just the admin / UI projection.
+//
+// Returns 204 on success. 503 if the secret writer is disabled (local
+// dev). 401 / 403 / 404 follow the same patterns as the other handlers.
+func (s *Server) handlePortalAgentConnectFinish(w http.ResponseWriter, r *http.Request, slug string) {
+	owner, _, status, err := s.resolvePortalAgentOwner(r)
+	if err != nil {
+		http.Error(w, err.Error(), status)
+		return
+	}
+	if _, err := s.fetchOwnedAgent(r, owner, slug); err != nil {
+		s.handlePersonalAgentLookupError(w, err)
+		return
+	}
+	var body portalAgentConnectFinishRequest
+	dec := json.NewDecoder(r.Body)
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&body); err != nil {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+	if strings.TrimSpace(body.RefreshToken) == "" ||
+		strings.TrimSpace(body.Dcr.ClientID) == "" ||
+		strings.TrimSpace(body.Dcr.ClientSecret) == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]any{
+			"error":  "missing credentials",
+			"detail": "refreshToken + dcr.clientId + dcr.clientSecret are all required",
+		})
+		return
+	}
+	if s.personalAgentSecrets.Disabled() {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]any{
+			"error":  "secret writer disabled",
+			"detail": "the backend is not running in-cluster — connect/finish only works in prod/dev k8s",
+		})
+		return
+	}
+	if err := s.personalAgentSecrets.WriteGoogleIdentity(r.Context(), slug, PersonalAgentGoogleIdentity{
+		Email:        body.GoogleEmail,
+		Subject:      body.GoogleSubject,
+		RefreshToken: body.RefreshToken,
+		ClientID:     body.Dcr.ClientID,
+		ClientSecret: body.Dcr.ClientSecret,
+	}); err != nil {
+		s.log.Printf("personal agent google secret write %s: %v", slug, err)
+		http.Error(w, "failed", http.StatusInternalServerError)
+		return
+	}
+	// AgentTenant projection. Only persist when we have both email and
+	// subject — partial state would show "Google connected" without
+	// the identity, which is worse than "not connected" in the UI.
+	if strings.TrimSpace(body.GoogleEmail) != "" && strings.TrimSpace(body.GoogleSubject) != "" {
+		if err := s.store.SetPersonalAgentGoogleIdentity(r.Context(), slug, body.GoogleEmail, body.GoogleSubject); err != nil {
+			s.log.Printf("personal agent google tenant update %s: %v", slug, err)
+			// Secret is already written; the runtime will still work.
+			// Surface a 500 so the operator sees something failed.
+			http.Error(w, "failed", http.StatusInternalServerError)
+			return
+		}
 	}
 	w.WriteHeader(http.StatusNoContent)
 }

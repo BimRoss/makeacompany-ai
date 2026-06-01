@@ -159,6 +159,64 @@ func TestPersonalAgentSecretWriter_WriteRejectsInvalidInput(t *testing.T) {
 	}
 }
 
+func TestPersonalAgentSecretWriter_WriteGoogleIdentity(t *testing.T) {
+	cs := fake.NewSimpleClientset()
+	w := newPersonalAgentSecretWriterFromClient(cs)
+	ctx := context.Background()
+
+	// Must Create the Slack secret first — WriteGoogleIdentity expects
+	// it to exist (per agent paste flow).
+	if err := w.WriteSlackSecret(ctx, "bart", PersonalAgentSlackTokens{
+		BotToken: "xoxb-1234567890-abc", AppToken: "xapp-1234567890-abc", BotUserID: "U0BARTBOT01",
+	}); err != nil {
+		t.Fatalf("seed slack: %v", err)
+	}
+	if err := w.WriteGoogleIdentity(ctx, "bart", PersonalAgentGoogleIdentity{
+		Email:        "grant@bimross.com",
+		Subject:      "117654321",
+		RefreshToken: "1//rt-test",
+		ClientID:     "client_dcr_id",
+		ClientSecret: "client_dcr_secret",
+	}); err != nil {
+		t.Fatalf("write google: %v", err)
+	}
+	got, err := cs.CoreV1().Secrets(PersonalAgentNamespace).Get(ctx, "personal-agent-bart-secrets", metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	checks := map[string]string{
+		"google_refresh_token": "1//rt-test",
+		"google_client_id":     "client_dcr_id",
+		"google_client_secret": "client_dcr_secret",
+		"google_email":         "grant@bimross.com",
+		"google_subject":       "117654321",
+	}
+	for k, want := range checks {
+		if string(got.Data[k]) != want {
+			t.Errorf("%s: got %q, want %q", k, got.Data[k], want)
+		}
+	}
+	// Slack keys should still be present (Google write must not stomp them).
+	if string(got.Data["slack_bot_token"]) != "xoxb-1234567890-abc" {
+		t.Errorf("slack_bot_token stomped: %q", got.Data["slack_bot_token"])
+	}
+	if got.Annotations["bimross.com/google-connected-at"] == "" {
+		t.Error("google-connected-at annotation should be set")
+	}
+}
+
+func TestPersonalAgentSecretWriter_WriteGoogleRejectsMissingCreds(t *testing.T) {
+	cs := fake.NewSimpleClientset()
+	w := newPersonalAgentSecretWriterFromClient(cs)
+	ctx := context.Background()
+
+	if err := w.WriteGoogleIdentity(ctx, "bart", PersonalAgentGoogleIdentity{
+		RefreshToken: "", ClientID: "x", ClientSecret: "y",
+	}); err == nil {
+		t.Fatal("missing refresh token: expected error")
+	}
+}
+
 func TestPersonalAgentSecretWriter_DeleteSlackSecret(t *testing.T) {
 	cs := fake.NewSimpleClientset()
 	w := newPersonalAgentSecretWriterFromClient(cs)
