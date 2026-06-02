@@ -15,22 +15,11 @@ export const size = {
 };
 export const contentType = "image/png";
 
-export function generateImageMetadata({
-  params,
-}: {
-  params: { persona: string };
-}) {
-  const persona: Persona | undefined = PERSONA_BY_SLUG[params.persona];
-  if (!persona) return [];
-  return [
-    {
-      id: persona,
-      alt: PERSONA_COPY[persona].heroLine1 + " " + PERSONA_COPY[persona].heroLine2,
-      contentType,
-      size,
-    },
-  ];
-}
+// Per-persona `og:image:alt` is set in the page's generateMetadata via
+// `openGraph.images: [{ url, alt }]`. We deliberately do NOT export
+// `generateImageMetadata` here: in Next 15, returning `[{ id }]` makes the
+// emitted `og:image` URL include `/<id>` while the route is still registered
+// at `/opengraph-image` (no id) — the resulting URL 404s.
 
 export function generateStaticParams() {
   return Object.values(PERSONA_SLUGS).map((slug) => ({ persona: slug }));
