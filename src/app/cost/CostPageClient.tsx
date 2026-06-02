@@ -175,15 +175,15 @@ export default function CostPageClient() {
             hero.visible ? "translate-y-0 opacity-100" : "translate-y-6 opacity-0"
           }`}
         >
-          Your team doesn&apos;t shrink.{" "}
-          <span className="text-blue-500">The work it ships manually does.</span>
+          <span className="block">Your team doesn&apos;t shrink.</span>
+          <span className="mt-1 block text-blue-500 sm:mt-2">The work it ships manually does.</span>
         </p>
       </section>
 
       {/* VALUE PROP */}
-      <section className="mx-auto max-w-3xl px-5 pb-16 text-center sm:px-6 sm:pb-24">
+      <section className="mx-auto max-w-5xl px-5 pb-16 text-center sm:px-6 sm:pb-24">
         <p
-          className={`text-base font-semibold leading-relaxed text-neutral-800 sm:text-xl md:text-2xl transition-all duration-700 ${
+          className={`text-base font-semibold leading-relaxed text-neutral-800 sm:text-xl md:whitespace-nowrap md:text-2xl transition-all duration-700 ${
             hero.visible ? "translate-y-0 opacity-100" : "translate-y-6 opacity-0"
           }`}
         >
