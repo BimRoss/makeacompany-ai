@@ -1,6 +1,7 @@
 import { ImageResponse } from "next/og";
 import { notFound } from "next/navigation";
 import {
+  PERSONAS,
   PERSONA_BY_SLUG,
   PERSONA_COPY,
   PERSONA_LABELS,
@@ -34,8 +35,7 @@ export default async function PersonaOpenGraphImage({
   const persona: Persona | undefined = PERSONA_BY_SLUG[slug];
   if (!persona) notFound();
 
-  const { heroLine1, heroLine2, subhead, ctaButtonLabel } = PERSONA_COPY[persona];
-  const personaLabel = PERSONA_LABELS[persona];
+  const { heroLine1, heroLine2, ctaButtonLabel } = PERSONA_COPY[persona];
 
   return new ImageResponse(
     (
@@ -45,103 +45,117 @@ export default async function PersonaOpenGraphImage({
           width: "100%",
           display: "flex",
           flexDirection: "column",
-          padding: "56px 72px",
-          background:
-            "linear-gradient(180deg, #ffffff 0%, #f8fafc 60%, #eef2f7 100%)",
+          padding: "52px 80px 60px",
+          background: "#ffffff",
           color: "#0a0a0a",
           fontFamily:
             "ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif",
-          position: "relative",
         }}
       >
-        {/* faint blue glow behind hero */}
-        <div
-          style={{
-            position: "absolute",
-            top: "120px",
-            left: "50%",
-            transform: "translateX(-50%)",
-            width: "700px",
-            height: "300px",
-            background: "radial-gradient(closest-side, #dbeafe, transparent)",
-            opacity: 0.7,
-            display: "flex",
-          }}
-        />
-
-        {/* top row: wordmark + persona chip */}
+        {/* TOP ROW: wordmark (left) + url (right) */}
         <div
           style={{
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            zIndex: 1,
           }}
         >
           <div
             style={{
               display: "flex",
-              fontSize: 28,
+              fontSize: 26,
               fontWeight: 800,
               letterSpacing: "-0.02em",
               color: "#0a0a0a",
             }}
           >
-            makeacompany
+            makeacompany.ai
           </div>
           <div
             style={{
               display: "flex",
-              alignItems: "center",
-              border: "1px solid #0a0a0a",
-              borderRadius: "9999px",
-              padding: "8px 18px",
               fontSize: 18,
               fontWeight: 600,
-              color: "#0a0a0a",
+              color: "#737373",
             }}
           >
-            For {personaLabel.toLowerCase()}s
+            /for/{slug}
           </div>
         </div>
 
-        {/* scarcity pill */}
+        {/* Scarcity pill — centered, single line */}
         <div
           style={{
             display: "flex",
             alignSelf: "center",
             alignItems: "center",
-            marginTop: "40px",
-            border: "1px solid #0a0a0a",
+            marginTop: "32px",
+            border: "1px solid #e5e5e5",
             borderRadius: "9999px",
-            padding: "8px 18px",
-            fontSize: 16,
-            color: "#0a0a0a",
-            background: "rgba(255,255,255,0.6)",
-            zIndex: 1,
+            padding: "10px 22px",
+            fontSize: 17,
+            color: "#404040",
+            background: "#ffffff",
           }}
         >
-          <span style={{ fontWeight: 600 }}>20 of 100 free for life seats claimed. Then $99/mo to join.</span>
+          <span style={{ fontWeight: 600, color: "#0a0a0a" }}>20 of 100</span>
+          <span style={{ marginLeft: 6 }}>
+            free for life seats claimed. Then $99/mo to join.
+          </span>
         </div>
 
-        {/* hero headline */}
+        {/* 4-pill persona tab row (active = filled black) */}
+        <div
+          style={{
+            display: "flex",
+            alignSelf: "center",
+            marginTop: "20px",
+            border: "1px solid #e5e5e5",
+            borderRadius: "9999px",
+            padding: "5px",
+            background: "#ffffff",
+          }}
+        >
+          {PERSONAS.map((p: Persona) => {
+            const active = p === persona;
+            return (
+              <div
+                key={p}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  padding: "9px 26px",
+                  borderRadius: "9999px",
+                  background: active ? "#0a0a0a" : "transparent",
+                  color: active ? "#ffffff" : "#737373",
+                  fontSize: 18,
+                  fontWeight: 600,
+                }}
+              >
+                {PERSONA_LABELS[p]}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* HEADLINE — big, bold, black */}
         <div
           style={{
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
             textAlign: "center",
-            marginTop: "36px",
-            zIndex: 1,
+            marginTop: "44px",
           }}
         >
           <div
             style={{
               display: "flex",
-              fontSize: 72,
+              fontSize: 80,
               fontWeight: 800,
-              letterSpacing: "-0.03em",
-              lineHeight: 1.05,
+              letterSpacing: "-0.035em",
+              lineHeight: 1.02,
               color: "#0a0a0a",
             }}
           >
@@ -150,10 +164,10 @@ export default async function PersonaOpenGraphImage({
           <div
             style={{
               display: "flex",
-              fontSize: 72,
+              fontSize: 80,
               fontWeight: 800,
-              letterSpacing: "-0.03em",
-              lineHeight: 1.05,
+              letterSpacing: "-0.035em",
+              lineHeight: 1.02,
               color: "#0a0a0a",
               marginTop: "8px",
             }}
@@ -162,58 +176,27 @@ export default async function PersonaOpenGraphImage({
           </div>
         </div>
 
-        {/* subhead */}
+        {/* CTA — single black pill, centered, pushed to bottom */}
         <div
           style={{
             display: "flex",
-            textAlign: "center",
-            alignSelf: "center",
-            marginTop: "24px",
-            maxWidth: "920px",
-            fontSize: 22,
-            lineHeight: 1.4,
-            color: "#374151",
-            zIndex: 1,
-          }}
-        >
-          {subhead}
-        </div>
-
-        {/* footer: CTA button + url */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
+            justifyContent: "center",
             marginTop: "auto",
-            zIndex: 1,
           }}
         >
           <div
             style={{
               display: "flex",
               alignItems: "center",
-              background: "#2563eb",
+              background: "#0a0a0a",
               color: "#ffffff",
               borderRadius: "9999px",
-              padding: "14px 28px",
-              fontSize: 20,
+              padding: "16px 32px",
+              fontSize: 22,
               fontWeight: 700,
             }}
           >
             {ctaButtonLabel} →
-          </div>
-          <div
-            style={{
-              display: "flex",
-              fontSize: 18,
-              fontWeight: 600,
-              color: "#0a0a0a",
-              textDecoration: "underline",
-              textUnderlineOffset: "4px",
-            }}
-          >
-            makeacompany.ai/for/{slug}
           </div>
         </div>
       </div>
