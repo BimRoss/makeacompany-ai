@@ -171,7 +171,25 @@ func (w *PersonalAgentSecretWriter) WriteSlackSecret(ctx context.Context, slug s
 
 	_, err := w.cs.CoreV1().Secrets(PersonalAgentNamespace).Create(ctx, secret, metav1.CreateOptions{})
 	if apierrors.IsAlreadyExists(err) {
-		_, err = w.cs.CoreV1().Secrets(PersonalAgentNamespace).Update(ctx, secret, metav1.UpdateOptions{})
+		// Merge into existing Secret instead of overwriting — the
+		// google_* keys may already be present (Connect-Google-before-
+		// Slack-paste path). The previous `Update(secret)` here
+		// replaced the entire `Data` map and silently wiped them.
+		existing, getErr := w.cs.CoreV1().Secrets(PersonalAgentNamespace).Get(ctx, name, metav1.GetOptions{})
+		if getErr != nil {
+			return fmt.Errorf("get personal-agent secret %s/%s for merge: %w", PersonalAgentNamespace, name, getErr)
+		}
+		if existing.Data == nil {
+			existing.Data = map[string][]byte{}
+		}
+		for k, v := range secret.Data {
+			existing.Data[k] = v
+		}
+		if existing.Annotations == nil {
+			existing.Annotations = map[string]string{}
+		}
+		existing.Annotations["bimross.com/written-at"] = secret.Annotations["bimross.com/written-at"]
+		_, err = w.cs.CoreV1().Secrets(PersonalAgentNamespace).Update(ctx, existing, metav1.UpdateOptions{})
 	}
 	if err != nil {
 		return fmt.Errorf("write personal-agent secret %s/%s: %w", PersonalAgentNamespace, name, err)
@@ -191,14 +209,17 @@ type PersonalAgentGoogleIdentity struct {
 	ClientSecret string // gateway DCR client_secret
 }
 
-// WriteGoogleIdentity adds the four google_* keys to the per-agent
-// Secret. Doesn't touch the slack_* keys; uses a strategic Update on
-// the existing Secret rather than a recreate so a Slack-token refresh
-// later can't accidentally wipe the Google bundle and vice versa.
-// Returns ErrPersonalAgentNotFound semantics (via NotFound from k8s)
-// if the agent's Secret hasn't been created by WriteSlackSecret yet —
-// callers should write the Slack token before connecting Google so
-// the deployment template has something to mount.
+// WriteGoogleIdentity writes the four google_* keys onto the per-agent
+// Secret. Creates the Secret if it doesn't exist yet (i.e. the operator
+// clicked "Connect Google" before pasting Slack tokens). On an existing
+// Secret it does a strategic Update that doesn't touch the slack_* keys
+// so a Slack rotation can't wipe the Google bundle and vice versa.
+//
+// The Pod can't actually boot until BOTH halves are present (deployment
+// template references slack_bot_token + google_refresh_token), so the
+// runtime impact of the create-first-or-update-later ordering is the
+// same — but the user can now perform the two paste/OAuth steps in
+// either order without the second one 500ing.
 func (w *PersonalAgentSecretWriter) WriteGoogleIdentity(ctx context.Context, slug string, g PersonalAgentGoogleIdentity) error {
 	if w.Disabled() {
 		return ErrPersonalAgentSecretWriterDisabled
@@ -214,20 +235,37 @@ func (w *PersonalAgentSecretWriter) WriteGoogleIdentity(ctx context.Context, slu
 
 	name := PersonalAgentSecretName(slug)
 	existing, err := w.cs.CoreV1().Secrets(PersonalAgentNamespace).Get(ctx, name, metav1.GetOptions{})
-	if err != nil {
+	switch {
+	case apierrors.IsNotFound(err):
+		// First-time write: create the Secret with just google_* keys.
+		// Slack paste later will Update and add slack_* keys.
+		fresh := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name,
+				Namespace: PersonalAgentNamespace,
+				Labels: map[string]string{
+					"bimross.com/personal-agent": slug,
+				},
+				Annotations: map[string]string{
+					"bimross.com/google-connected-at": time.Now().UTC().Format(time.RFC3339),
+				},
+			},
+			Type: corev1.SecretTypeOpaque,
+			Data: googleIdentityDataMap(g),
+		}
+		if _, err := w.cs.CoreV1().Secrets(PersonalAgentNamespace).Create(ctx, fresh, metav1.CreateOptions{}); err != nil {
+			return fmt.Errorf("create personal-agent secret %s/%s: %w", PersonalAgentNamespace, name, err)
+		}
+		return nil
+	case err != nil:
 		return fmt.Errorf("get personal-agent secret %s/%s: %w", PersonalAgentNamespace, name, err)
 	}
+
 	if existing.Data == nil {
 		existing.Data = map[string][]byte{}
 	}
-	existing.Data["google_refresh_token"] = []byte(strings.TrimSpace(g.RefreshToken))
-	existing.Data["google_client_id"] = []byte(strings.TrimSpace(g.ClientID))
-	existing.Data["google_client_secret"] = []byte(strings.TrimSpace(g.ClientSecret))
-	if e := strings.TrimSpace(g.Email); e != "" {
-		existing.Data["google_email"] = []byte(strings.ToLower(e))
-	}
-	if s := strings.TrimSpace(g.Subject); s != "" {
-		existing.Data["google_subject"] = []byte(s)
+	for k, v := range googleIdentityDataMap(g) {
+		existing.Data[k] = v
 	}
 	if existing.Annotations == nil {
 		existing.Annotations = map[string]string{}
@@ -239,6 +277,23 @@ func (w *PersonalAgentSecretWriter) WriteGoogleIdentity(ctx context.Context, slu
 		return fmt.Errorf("update google identity on %s/%s: %w", PersonalAgentNamespace, name, err)
 	}
 	return nil
+}
+
+// googleIdentityDataMap is the canonical mapping of google_* Secret data
+// keys for both Create and Update paths in WriteGoogleIdentity.
+func googleIdentityDataMap(g PersonalAgentGoogleIdentity) map[string][]byte {
+	d := map[string][]byte{
+		"google_refresh_token": []byte(strings.TrimSpace(g.RefreshToken)),
+		"google_client_id":     []byte(strings.TrimSpace(g.ClientID)),
+		"google_client_secret": []byte(strings.TrimSpace(g.ClientSecret)),
+	}
+	if e := strings.TrimSpace(g.Email); e != "" {
+		d["google_email"] = []byte(strings.ToLower(e))
+	}
+	if s := strings.TrimSpace(g.Subject); s != "" {
+		d["google_subject"] = []byte(s)
+	}
+	return d
 }
 
 // DeleteSlackSecret removes the per-agent Secret when an agent is
