@@ -121,15 +121,15 @@ function ScarcityBar({
 
 const PILLARS_TOP = [
   { title: "24/7", sub: "always on" },
-  { title: "No PTO", sub: "no sick days" },
-  { title: "No churn", sub: "doesn't quit" },
-  { title: "Instant ramp", sub: "zero onboarding" },
+  { title: "Never out", sub: "no PTO, no sick days" },
+  { title: "Doesn't quit", sub: "zero churn" },
+  { title: "Ramps instantly", sub: "no onboarding" },
 ];
 const PILLARS_BOTTOM = [
   { title: "Scales in minutes", sub: "no hiring pipeline" },
   { title: "Always learning", sub: "never stale" },
-  { title: "Multilingual", sub: "every market" },
-  { title: "Audit-trailed", sub: "every action logged" },
+  { title: "Every language", sub: "every market" },
+  { title: "Fully audited", sub: "every action logged" },
 ];
 
 export default function CostPageClient() {
@@ -179,7 +179,7 @@ export default function CostPageClient() {
           }`}
         >
           <span className="block">Your team doesn&apos;t shrink.</span>
-          <span className="mt-2 block text-blue-500">Your output multiplies.</span>
+          <span className="mt-2 block text-blue-500">The work it ships does.</span>
         </h1>
       </section>
 
@@ -190,9 +190,7 @@ export default function CostPageClient() {
             hero.visible ? "translate-y-0 opacity-100" : "translate-y-6 opacity-0"
           }`}
         >
-          Your best employees become 10× more effective.
-          <br />
-          Your team ships what used to need 5 hires.
+          What used to take 5 hires now takes the team you already have.
         </p>
         <span className="mt-8 block text-[10px] font-semibold uppercase tracking-[0.3em] text-neutral-400 sm:mt-10 sm:text-[11px] sm:tracking-[0.35em]">
           For your team
@@ -204,7 +202,7 @@ export default function CostPageClient() {
         >
           Nobody gets laid off.
           <br />
-          The humans you already have just stop drowning.
+          The people you already have stop drowning.
         </p>
       </section>
 
@@ -218,7 +216,7 @@ export default function CostPageClient() {
             The math
           </span>
           <h2 className="mt-3 text-2xl font-bold leading-tight sm:text-4xl lg:text-5xl lg:tracking-tight">
-            New York City. Fully loaded. Honest numbers.
+            NYC. Fully loaded. No spin.
           </h2>
         </div>
 
@@ -277,7 +275,7 @@ export default function CostPageClient() {
                 Visual reality
               </div>
               <div className="mt-3 text-sm text-neutral-700">
-                $1,188 next to $543K — to scale.
+                That blue sliver is MaC. The rest is what you&apos;d spend instead.
               </div>
               <div className="mt-4 h-2 w-full rounded-full bg-neutral-200">
                 <div
@@ -291,7 +289,7 @@ export default function CostPageClient() {
                 />
               </div>
               <div className="mt-2 text-[11px] uppercase tracking-widest text-neutral-400">
-                That blue sliver is MaC.
+                $1,188 vs $543K — to scale.
               </div>
             </div>
           </div>
@@ -304,7 +302,7 @@ export default function CostPageClient() {
         className="mx-auto max-w-5xl px-5 pb-20 text-center sm:px-6 sm:pb-32"
       >
         <span className="text-[10px] font-semibold uppercase tracking-[0.3em] text-neutral-400 sm:text-[11px] sm:tracking-[0.35em]">
-          Up to
+          The leverage
         </span>
         <div className="mt-4 text-[96px] font-extrabold leading-none tracking-tighter text-neutral-900 sm:mt-6 sm:text-[200px] lg:text-[240px]">
           <AnimatedNumber
