@@ -176,7 +176,7 @@ export default function CostPageClient() {
           }`}
         >
           Your team doesn&apos;t shrink.{" "}
-          <span className="text-blue-500">The work it ships does.</span>
+          <span className="text-blue-500">The work it ships manually does.</span>
         </p>
       </section>
 
