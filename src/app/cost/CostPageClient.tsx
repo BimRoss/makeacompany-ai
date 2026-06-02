@@ -5,16 +5,16 @@ import Link from "next/link";
 import { EmailCaptureForm } from "@/components/landing/email-capture-form";
 
 const COST_BREAKDOWN = [
-  { label: "Base salary", value: 300_000, opacity: 1.0 },
-  { label: "Benefits + healthcare", value: 51_600, opacity: 0.82 },
-  { label: "Payroll taxes + insurance", value: 27_850, opacity: 0.66 },
-  { label: "Equipment + office", value: 28_000, opacity: 0.52 },
-  { label: "Recruiting + onboarding", value: 67_500, opacity: 0.40 },
-  { label: "Bonus + L&D", value: 51_000, opacity: 0.28 },
-  { label: "Ramp + tenure cost", value: 17_400, opacity: 0.18 },
+  { label: "Base salary", value: 145_000, opacity: 1.0 },
+  { label: "Benefits + healthcare", value: 25_000, opacity: 0.82 },
+  { label: "Payroll taxes + insurance", value: 13_000, opacity: 0.66 },
+  { label: "Equipment + office", value: 13_000, opacity: 0.52 },
+  { label: "Recruiting + onboarding", value: 30_000, opacity: 0.40 },
+  { label: "Bonus + L&D", value: 16_500, opacity: 0.28 },
+  { label: "Ramp + tenure cost", value: 7_500, opacity: 0.18 },
 ];
 const HIRES_TOTAL = COST_BREAKDOWN.reduce((sum, b) => sum + b.value, 0);
-const MAC_TOTAL = 1_188;
+const MAC_TOTAL = 1_200;
 const MULTIPLIER = Math.round(HIRES_TOTAL / MAC_TOTAL);
 
 function useReveal<T extends HTMLElement>() {
@@ -164,11 +164,11 @@ export default function CostPageClient() {
           }`}
         >
           <span className="block">Your next hire is</span>
-          <span className="mt-1 block text-foreground">$543,000.</span>
+          <span className="mt-1 block text-foreground">$250,000<span className="text-3xl font-medium text-muted-foreground sm:text-4xl md:text-5xl lg:text-6xl">/yr</span>.</span>
           <span className="mt-4 block text-3xl font-medium text-muted-foreground sm:mt-5 sm:text-4xl md:text-5xl lg:text-6xl">
             With us, it&apos;s
           </span>
-          <span className="mt-1 block text-blue-500">$1,188.</span>
+          <span className="mt-1 block text-blue-500">$1,200<span className="text-3xl font-medium text-muted-foreground sm:text-4xl md:text-5xl lg:text-6xl">/yr</span>.</span>
         </h1>
         <p
           className={`mt-8 max-w-2xl text-balance font-[var(--font-syne)] text-xl font-semibold leading-snug text-foreground/90 sm:mt-10 sm:text-2xl md:text-3xl transition-all duration-700 delay-150 ${
@@ -221,7 +221,7 @@ export default function CostPageClient() {
           {/* LEFT: 2 hires */}
           <div className="rounded-2xl border border-border bg-card/70 dark:bg-card/50 p-6 shadow-sm backdrop-blur transition duration-300 sm:rounded-3xl sm:p-8 lg:p-10 hover:-translate-y-0.5 hover:shadow-md">
             <div className="mb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-              2 New Mid/Senior Hires
+              1 New Mid/Senior Hire
             </div>
             <div className="text-5xl font-extrabold tracking-tight text-foreground sm:text-7xl">
               <AnimatedNumber
@@ -286,7 +286,7 @@ export default function CostPageClient() {
                 />
               </div>
               <div className="mt-2 text-[11px] uppercase tracking-widest text-muted-foreground/70">
-                $1,188 vs $543K — to scale.
+                $1,200 vs $250K — to scale.
               </div>
             </div>
           </div>
@@ -361,7 +361,7 @@ export default function CostPageClient() {
           />
           <div className="relative">
             <h2 className="text-balance text-2xl font-bold leading-tight sm:text-3xl md:text-4xl">
-              Skip the $543K.{" "}
+              Skip the $250K.{" "}
               <span className="text-blue-500">Start your company.</span>
             </h2>
             <p className="mx-auto mt-3 max-w-xl text-pretty text-sm text-muted-foreground sm:text-base">
