@@ -59,16 +59,17 @@ function ObservabilityBody() {
     <div className="space-y-4">
       <div className="sticky top-0 z-20 -mx-4 space-y-3 border-b border-border bg-background/95 px-4 py-2.5 backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
         <ObservabilityToolbar lastUpdatedAt={lastUpdatedAt} loading={loading} />
-        <KpiScorecard />
       </div>
-
-      <AlertsStrip />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
         <div className="lg:col-span-12">
           <GoldenPath />
         </div>
       </div>
+
+      <KpiScorecard />
+
+      <AlertsStrip />
 
       <ObservabilitySection
         id="web-tier"
