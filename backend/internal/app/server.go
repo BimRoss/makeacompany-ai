@@ -108,6 +108,9 @@ type Server struct {
 	// Disabled() check so handlers can branch without crashing on
 	// out-of-cluster local dev.
 	personalAgentSecrets *PersonalAgentSecretWriter
+	// agentToggle scales the ross/joanne prod Deployments between 0 and 1
+	// for the /admin kill switch (#215). nil-safe Disabled() for local dev.
+	agentToggle *AgentToggleClient
 }
 
 func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
@@ -127,6 +130,13 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 	if personalAgentSecrets.Disabled() {
 		logger.Printf("personal-agent secret writer disabled (no in-cluster config)")
 	}
+	agentToggle, aerr := NewAgentToggleClient()
+	if aerr != nil {
+		return nil, fmt.Errorf("agent toggle init: %w", aerr)
+	}
+	if agentToggle.Disabled() {
+		logger.Printf("agent toggle disabled (no in-cluster config)")
+	}
 	s := &Server{
 		cfg:    cfg,
 		log:    logger,
@@ -137,6 +147,7 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 		freeTrialInviteLimiter: newIPRateLimiter(5, 30),
 		workspace:              workspaceWriter,
 		personalAgentSecrets:   personalAgentSecrets,
+		agentToggle:            agentToggle,
 	}
 	s.mux.HandleFunc("/livez", s.handleLivez)
 	s.mux.HandleFunc("/readyz", s.handleReadiness)
@@ -161,6 +172,8 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 	s.mux.HandleFunc("/v1/admin/channel-members", s.handleAdminChannelMembers)
 	s.mux.HandleFunc("/v1/admin/user-profiles", s.handleAdminUserProfiles)
 	s.mux.HandleFunc("/v1/admin/ga4-summary", s.handleAdminGA4Summary)
+	s.mux.HandleFunc("GET /v1/admin/agents/status", s.handleAdminAgentsStatus)
+	s.mux.HandleFunc("POST /v1/admin/agents/{name}/toggle", s.handleAdminAgentToggle)
 	s.mux.HandleFunc("/v1/internal/refresh-stripe-waitlist-snapshot", s.handleInternalRefreshStripeWaitlistSnapshot)
 	s.mux.HandleFunc("/v1/internal/refresh-slack-users-snapshot", s.handleInternalRefreshSlackUsersSnapshot)
 	s.mux.HandleFunc("GET /v1/internal/deploy-gate", s.handleInternalDeployGateCheck)
@@ -273,6 +286,10 @@ func normalizeMetricRoute(path string) string {
 		return "/v1/admin/user-profiles"
 	case path == "/v1/admin/ga4-summary":
 		return "/v1/admin/ga4-summary"
+	case path == "/v1/admin/agents/status":
+		return "/v1/admin/agents/status"
+	case strings.HasPrefix(path, "/v1/admin/agents/") && strings.HasSuffix(path, "/toggle"):
+		return "/v1/admin/agents/:name/toggle"
 	case path == "/v1/internal/refresh-stripe-waitlist-snapshot":
 		return "/v1/internal/refresh-stripe-waitlist-snapshot"
 	case path == "/v1/internal/refresh-slack-users-snapshot":
