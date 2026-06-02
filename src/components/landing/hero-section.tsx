@@ -23,8 +23,10 @@ export type HeroSectionProps = {
 };
 
 export function HeroSection({ initialSeats }: HeroSectionProps = {}) {
-  const { copy } = usePersona();
-  const personaDefault = { line1: copy.heroLine1, line2: copy.heroLine2 };
+  const { copy, selected } = usePersona();
+  const heroLine1 = selected ? copy.heroLine1 : "The future of work.";
+  const heroLine2 = selected ? copy.heroLine2 : "Where it already happens.";
+  const personaDefault = { line1: heroLine1, line2: heroLine2 };
 
   const [displayLine1, setDisplayLine1] = useState(personaDefault.line1);
   const [displayLine2, setDisplayLine2] = useState(personaDefault.line2);
@@ -113,10 +115,10 @@ export function HeroSection({ initialSeats }: HeroSectionProps = {}) {
       const effective = agent ?? forcedAgentRef.current;
       const target = effective
         ? AGENT_LINES[effective]
-        : { line1: copy.heroLine1, line2: copy.heroLine2 };
+        : { line1: heroLine1, line2: heroLine2 };
       animateTo(target);
     },
-    [animateTo, copy.heroLine1, copy.heroLine2],
+    [animateTo, heroLine1, heroLine2],
   );
 
   const onRewriteAgentChange = useCallback(
@@ -132,8 +134,8 @@ export function HeroSection({ initialSeats }: HeroSectionProps = {}) {
   // joanne/ross override is active — those win over the persona default).
   useEffect(() => {
     if (hoverAgentRef.current || forcedAgentRef.current) return;
-    animateTo({ line1: copy.heroLine1, line2: copy.heroLine2 });
-  }, [animateTo, copy.heroLine1, copy.heroLine2]);
+    animateTo({ line1: heroLine1, line2: heroLine2 });
+  }, [animateTo, heroLine1, heroLine2]);
 
   useEffect(() => () => cancelRef.current?.(), []);
 
