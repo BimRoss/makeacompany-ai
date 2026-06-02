@@ -5,13 +5,13 @@ import Image from "next/image";
 import Link from "next/link";
 
 const COST_BREAKDOWN = [
-  { label: "Base salary", value: 300_000, color: "#0a0a0a" },
-  { label: "Benefits + healthcare", value: 51_600, color: "#1f2937" },
-  { label: "Payroll taxes + insurance", value: 27_850, color: "#374151" },
-  { label: "Equipment + office", value: 28_000, color: "#4b5563" },
-  { label: "Recruiting + onboarding", value: 67_500, color: "#6b7280" },
-  { label: "Bonus + L&D", value: 51_000, color: "#9ca3af" },
-  { label: "Ramp + tenure cost", value: 17_400, color: "#d1d5db" },
+  { label: "Base salary", value: 300_000, opacity: 1.0 },
+  { label: "Benefits + healthcare", value: 51_600, opacity: 0.82 },
+  { label: "Payroll taxes + insurance", value: 27_850, opacity: 0.66 },
+  { label: "Equipment + office", value: 28_000, opacity: 0.52 },
+  { label: "Recruiting + onboarding", value: 67_500, opacity: 0.40 },
+  { label: "Bonus + L&D", value: 51_000, opacity: 0.28 },
+  { label: "Ramp + tenure cost", value: 17_400, opacity: 0.18 },
 ];
 const HIRES_TOTAL = COST_BREAKDOWN.reduce((sum, b) => sum + b.value, 0);
 const MAC_TOTAL = 1_188;
@@ -90,26 +90,26 @@ function ScarcityBar({
   label,
   fillPct,
   active,
-  color,
+  opacity,
   delay = 0,
 }: {
   label: string;
   fillPct: number;
   active: boolean;
-  color: string;
+  opacity: number;
   delay?: number;
 }) {
   return (
     <div className="w-full">
-      <div className="mb-2 text-xs font-medium uppercase tracking-widest text-neutral-500">
+      <div className="mb-2 text-xs font-medium uppercase tracking-widest text-muted-foreground">
         {label}
       </div>
-      <div className="h-4 w-full overflow-hidden rounded-full bg-neutral-200/60">
+      <div className="h-4 w-full overflow-hidden rounded-full bg-muted">
         <div
-          className="h-full rounded-full transition-[width] ease-out"
+          className="h-full rounded-full bg-foreground transition-[width] ease-out"
           style={{
             width: active ? `${fillPct}%` : "0%",
-            background: color,
+            opacity,
             transitionDuration: "1400ms",
             transitionDelay: `${delay}ms`,
           }}
@@ -139,20 +139,15 @@ export default function CostPageClient() {
   const pillars = useReveal<HTMLDivElement>();
 
   return (
-    <main className="relative isolate overflow-x-hidden bg-white text-neutral-900">
+    <div className="relative isolate overflow-x-hidden bg-background text-foreground">
       {/* gradient backdrop */}
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[1100px]"
-        style={{
-          background:
-            "linear-gradient(180deg, #ffffff 0%, #f8fafc 55%, #eef2f7 100%)",
-        }}
+        className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[1100px] bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_55%,#eef2f7_100%)] dark:bg-[linear-gradient(180deg,#000000_0%,#0a0f1a_55%,#0b1220_100%)]"
       />
       <div
         aria-hidden
-        className="pointer-events-none absolute left-1/2 top-[260px] -z-10 h-[700px] w-[900px] -translate-x-1/2 rounded-full opacity-60 blur-3xl"
-        style={{ background: "radial-gradient(closest-side, #dbeafe, transparent)" }}
+        className="pointer-events-none absolute left-1/2 top-[260px] -z-10 h-[700px] w-[900px] -translate-x-1/2 rounded-full opacity-60 blur-3xl bg-[radial-gradient(closest-side,#dbeafe,transparent)] dark:bg-[radial-gradient(closest-side,rgba(59,130,246,0.25),transparent)] dark:opacity-50"
       />
 
       {/* HERO */}
@@ -166,11 +161,11 @@ export default function CostPageClient() {
           width={1080}
           height={1080}
           priority
-          className={`mb-8 w-full max-w-xs rounded-2xl border border-neutral-200 shadow-sm transition-all duration-700 sm:mb-14 sm:max-w-md lg:max-w-lg ${
+          className={`mb-8 w-full max-w-xs rounded-2xl border border-border shadow-sm transition-all duration-700 sm:mb-14 sm:max-w-md lg:max-w-lg ${
             hero.visible ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0"
           }`}
         />
-        <span className="mb-4 text-[10px] font-semibold uppercase tracking-[0.3em] text-neutral-400 sm:mb-6 sm:text-[11px] sm:tracking-[0.35em]">
+        <span className="mb-4 text-[10px] font-semibold uppercase tracking-[0.3em] text-muted-foreground/70 sm:mb-6 sm:text-[11px] sm:tracking-[0.35em]">
           For leaders
         </span>
         <h1
@@ -192,7 +187,7 @@ export default function CostPageClient() {
         >
           What used to take 5 hires now takes the team you already have.
         </p>
-        <span className="mt-8 block text-[10px] font-semibold uppercase tracking-[0.3em] text-neutral-400 sm:mt-10 sm:text-[11px] sm:tracking-[0.35em]">
+        <span className="mt-8 block text-[10px] font-semibold uppercase tracking-[0.3em] text-muted-foreground/70 sm:mt-10 sm:text-[11px] sm:tracking-[0.35em]">
           For your team
         </span>
         <p
@@ -212,7 +207,7 @@ export default function CostPageClient() {
         className="mx-auto max-w-6xl px-5 pb-20 sm:px-6 sm:pb-28"
       >
         <div className="mb-8 text-center sm:mb-12">
-          <span className="text-[10px] font-semibold uppercase tracking-[0.3em] text-neutral-400 sm:text-[11px] sm:tracking-[0.35em]">
+          <span className="text-[10px] font-semibold uppercase tracking-[0.3em] text-muted-foreground/70 sm:text-[11px] sm:tracking-[0.35em]">
             The math
           </span>
           <h2 className="mt-3 text-2xl font-bold leading-tight sm:text-4xl lg:text-5xl lg:tracking-tight">
@@ -222,18 +217,18 @@ export default function CostPageClient() {
 
         <div className="grid items-start gap-6 sm:gap-10 md:grid-cols-2 lg:gap-14">
           {/* LEFT: 2 hires */}
-          <div className="rounded-2xl border border-neutral-200/70 bg-white/70 p-6 shadow-sm backdrop-blur transition duration-300 sm:rounded-3xl sm:p-8 lg:p-10 hover:-translate-y-0.5 hover:shadow-md">
-            <div className="mb-2 text-xs font-semibold uppercase tracking-widest text-neutral-500">
+          <div className="rounded-2xl border border-border bg-card/70 dark:bg-card/50 p-6 shadow-sm backdrop-blur transition duration-300 sm:rounded-3xl sm:p-8 lg:p-10 hover:-translate-y-0.5 hover:shadow-md">
+            <div className="mb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
               2 New Mid/Senior Hires
             </div>
-            <div className="text-5xl font-extrabold tracking-tight text-neutral-900 sm:text-7xl">
+            <div className="text-5xl font-extrabold tracking-tight text-foreground sm:text-7xl">
               <AnimatedNumber
                 target={HIRES_TOTAL}
                 active={math.visible}
                 format="k"
               />
             </div>
-            <div className="mt-2 text-sm text-neutral-600">/ year, fully loaded</div>
+            <div className="mt-2 text-sm text-muted-foreground">/ year, fully loaded</div>
 
             <div className="mt-6 space-y-3 sm:mt-8 sm:space-y-4">
               {COST_BREAKDOWN.map((b, i) => (
@@ -242,18 +237,18 @@ export default function CostPageClient() {
                   label={b.label}
                   fillPct={(b.value / HIRES_TOTAL) * 100}
                   active={math.visible}
-                  color={b.color}
+                  opacity={b.opacity}
                   delay={i * 90}
                 />
               ))}
             </div>
-            <div className="mt-6 text-xs text-neutral-500">
+            <div className="mt-6 text-xs text-muted-foreground">
               Salary · Benefits · Taxes · Office · Recruiting · Bonus · Ramp
             </div>
           </div>
 
           {/* RIGHT: MaC */}
-          <div className="rounded-2xl border border-blue-100 bg-gradient-to-br from-white via-blue-50/40 to-white p-6 shadow-sm transition duration-300 sm:rounded-3xl sm:p-8 lg:p-10 hover:-translate-y-0.5 hover:shadow-md hover:shadow-blue-100">
+          <div className="rounded-2xl border border-blue-100 bg-gradient-to-br from-white via-blue-50/40 to-white p-6 shadow-sm transition duration-300 dark:border-blue-500/20 dark:from-blue-950/30 dark:via-blue-900/20 dark:to-blue-950/30 sm:rounded-3xl sm:p-8 lg:p-10 hover:-translate-y-0.5 hover:shadow-md hover:shadow-blue-100 dark:hover:shadow-blue-900/40">
             <div className="mb-2 text-xs font-semibold uppercase tracking-widest text-blue-500">
               makeacompany
             </div>
@@ -265,19 +260,19 @@ export default function CostPageClient() {
                 format="comma"
               />
             </div>
-            <div className="mt-2 text-sm text-neutral-600">/ year, all-in</div>
-            <div className="mt-1 text-xs text-neutral-500">
+            <div className="mt-2 text-sm text-muted-foreground">/ year, all-in</div>
+            <div className="mt-1 text-xs text-muted-foreground">
               $99/mo · no taxes · no turnover
             </div>
 
-            <div className="mt-8 rounded-2xl border border-blue-100 bg-white/70 p-5 sm:mt-10 sm:p-6">
-              <div className="text-xs font-semibold uppercase tracking-widest text-neutral-500">
+            <div className="mt-8 rounded-2xl border border-blue-100 bg-card/70 p-5 dark:border-blue-500/20 dark:bg-card/50 sm:mt-10 sm:p-6">
+              <div className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                 Visual reality
               </div>
-              <div className="mt-3 text-sm text-neutral-700">
+              <div className="mt-3 text-sm text-foreground/80">
                 That blue sliver is MaC. The rest is what you&apos;d spend instead.
               </div>
-              <div className="mt-4 h-2 w-full rounded-full bg-neutral-200">
+              <div className="mt-4 h-2 w-full rounded-full bg-muted">
                 <div
                   className="h-full rounded-full bg-blue-500 transition-[width] duration-[1400ms] ease-out"
                   style={{
@@ -288,7 +283,7 @@ export default function CostPageClient() {
                   }}
                 />
               </div>
-              <div className="mt-2 text-[11px] uppercase tracking-widest text-neutral-400">
+              <div className="mt-2 text-[11px] uppercase tracking-widest text-muted-foreground/70">
                 $1,188 vs $543K — to scale.
               </div>
             </div>
@@ -301,10 +296,10 @@ export default function CostPageClient() {
         ref={multiplier.ref}
         className="mx-auto max-w-5xl px-5 pb-20 text-center sm:px-6 sm:pb-32"
       >
-        <span className="text-[10px] font-semibold uppercase tracking-[0.3em] text-neutral-400 sm:text-[11px] sm:tracking-[0.35em]">
+        <span className="text-[10px] font-semibold uppercase tracking-[0.3em] text-muted-foreground/70 sm:text-[11px] sm:tracking-[0.35em]">
           The leverage
         </span>
-        <div className="mt-4 text-[96px] font-extrabold leading-none tracking-tighter text-neutral-900 sm:mt-6 sm:text-[200px] lg:text-[240px]">
+        <div className="mt-4 text-[96px] font-extrabold leading-none tracking-tighter text-foreground sm:mt-6 sm:text-[200px] lg:text-[240px]">
           <AnimatedNumber
             target={MULTIPLIER}
             active={multiplier.visible}
@@ -313,7 +308,7 @@ export default function CostPageClient() {
             duration={1800}
           />
         </div>
-        <p className="mt-4 text-base font-medium text-neutral-600 sm:mt-6 sm:text-2xl">
+        <p className="mt-4 text-base font-medium text-muted-foreground sm:mt-6 sm:text-2xl">
           more leverage per dollar
         </p>
       </section>
@@ -324,7 +319,7 @@ export default function CostPageClient() {
         className="mx-auto max-w-6xl px-5 pb-20 sm:px-6 sm:pb-32"
       >
         <div className="mb-8 text-center sm:mb-12">
-          <span className="text-[10px] font-semibold uppercase tracking-[0.3em] text-neutral-400 sm:text-[11px] sm:tracking-[0.35em]">
+          <span className="text-[10px] font-semibold uppercase tracking-[0.3em] text-muted-foreground/70 sm:text-[11px] sm:tracking-[0.35em]">
             What you get
           </span>
         </div>
@@ -336,15 +331,15 @@ export default function CostPageClient() {
             {row.map((p, i) => (
               <div
                 key={p.title}
-                className={`rounded-xl border border-neutral-200 bg-white/60 p-4 text-center backdrop-blur transition-all duration-700 sm:rounded-2xl sm:p-6 lg:p-7 hover:-translate-y-0.5 hover:border-neutral-300 hover:bg-white hover:shadow-md ${
+                className={`rounded-xl border border-border bg-card/60 dark:bg-card/40 p-4 text-center backdrop-blur transition-all duration-700 sm:rounded-2xl sm:p-6 lg:p-7 hover:-translate-y-0.5 hover:border-border/80 hover:bg-card hover:shadow-md ${
                   pillars.visible
                     ? "translate-y-0 opacity-100"
                     : "translate-y-4 opacity-0"
                 }`}
                 style={{ transitionDelay: `${(rIdx * 4 + i) * 80}ms` }}
               >
-                <div className="text-base font-bold text-neutral-900 sm:text-lg lg:text-xl">{p.title}</div>
-                <div className="mt-1 text-xs text-neutral-500 sm:text-sm">{p.sub}</div>
+                <div className="text-base font-bold text-foreground sm:text-lg lg:text-xl">{p.title}</div>
+                <div className="mt-1 text-xs text-muted-foreground sm:text-sm">{p.sub}</div>
               </div>
             ))}
           </div>
@@ -355,7 +350,7 @@ export default function CostPageClient() {
       <section className="mx-auto max-w-3xl px-5 pb-20 text-center sm:px-6 sm:pb-32">
         <Link
           href="/cost.pdf"
-          className="inline-flex items-center gap-2 rounded-full bg-neutral-900 px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-neutral-800 hover:shadow-md sm:px-8 sm:py-4 sm:text-base"
+          className="inline-flex items-center gap-2 rounded-full bg-foreground px-6 py-3 text-sm font-semibold text-background shadow-sm transition hover:-translate-y-0.5 hover:bg-foreground/85 hover:shadow-md sm:px-8 sm:py-4 sm:text-base"
         >
           Download the one-pager (PDF)
         </Link>
@@ -368,6 +363,6 @@ export default function CostPageClient() {
           </Link>
         </div>
       </section>
-    </main>
+    </div>
   );
 }

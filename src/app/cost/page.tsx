@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { Footer } from "@/components/landing/footer";
+import { Header } from "@/components/landing/header";
 import CostPageClient from "./CostPageClient";
 
 export const metadata: Metadata = {
@@ -23,5 +25,11 @@ export const metadata: Metadata = {
 };
 
 export default function CostPage() {
-  return <CostPageClient />;
+  return (
+    <main className="min-h-screen bg-background">
+      <Header />
+      <CostPageClient />
+      <Footer />
+    </main>
+  );
 }
