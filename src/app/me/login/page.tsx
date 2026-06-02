@@ -12,6 +12,15 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
+// Force runtime rendering so process.env.GOOGLE_OAUTH_CLIENT_ID is read on
+// every request. Without this, Next.js statically prerenders the page at
+// build time — when those env vars don't exist yet — and the page ships
+// permanently rendering the "sign-in is not configured" fallback even
+// though the live pod has them. /<channelId>/login avoids this naturally
+// because the [channelId] dynamic segment forces SSR; this page has no
+// dynamic segment, so we need the explicit opt-out.
+export const dynamic = "force-dynamic";
+
 export default function MeLoginPage() {
   const googleOAuthReady = Boolean(
     process.env.GOOGLE_OAUTH_CLIENT_ID?.trim() && process.env.GOOGLE_OAUTH_CLIENT_SECRET?.trim(),
