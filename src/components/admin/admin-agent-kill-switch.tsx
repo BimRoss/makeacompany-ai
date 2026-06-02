@@ -173,19 +173,20 @@ export function AdminAgentKillSwitch() {
                 </div>
                 <button
                   type="button"
+                  role="switch"
                   onClick={() => handleClick(a)}
                   disabled={isBusy || !agents}
-                  aria-pressed={live}
+                  aria-checked={live}
                   className={[
-                    "relative h-7 w-12 rounded-full transition-colors disabled:opacity-60",
+                    "inline-flex h-6 w-11 shrink-0 items-center rounded-full p-0.5 transition-colors disabled:opacity-60",
                     live ? "bg-emerald-500" : "bg-zinc-300 dark:bg-zinc-700",
                   ].join(" ")}
                   aria-label={`Toggle ${a.name}`}
                 >
                   <span
                     className={[
-                      "absolute top-0.5 inline-block h-6 w-6 rounded-full bg-white shadow transition-transform",
-                      live ? "translate-x-5" : "translate-x-0.5",
+                      "inline-block h-5 w-5 rounded-full bg-white shadow transition-transform",
+                      live ? "translate-x-5" : "translate-x-0",
                     ].join(" ")}
                   />
                 </button>
