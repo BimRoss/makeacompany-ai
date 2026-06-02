@@ -159,13 +159,74 @@ func TestPersonalAgentSecretWriter_WriteRejectsInvalidInput(t *testing.T) {
 	}
 }
 
+// TestPersonalAgentSecretWriter_WriteGoogleCreatesIfMissing exercises the
+// Connect-Google-before-Slack-paste path. Before this case, the operator
+// hit a 500 (k8s NotFound on Get) and the OAuth callback redirected with
+// reason=backend_finish_failed. Now WriteGoogleIdentity creates the
+// Secret with just the google_* keys; a later Slack paste fills the
+// slack_* keys via the Update path.
+func TestPersonalAgentSecretWriter_WriteGoogleCreatesIfMissing(t *testing.T) {
+	cs := fake.NewSimpleClientset()
+	w := newPersonalAgentSecretWriterFromClient(cs)
+	ctx := context.Background()
+
+	// No Slack secret exists yet — connect Google first.
+	if err := w.WriteGoogleIdentity(ctx, "bart", PersonalAgentGoogleIdentity{
+		Email:        "grant@bimross.com",
+		Subject:      "117654321",
+		RefreshToken: "1//rt-test",
+		ClientID:     "client_dcr_id",
+		ClientSecret: "client_dcr_secret",
+	}); err != nil {
+		t.Fatalf("write google (create path): %v", err)
+	}
+	got, err := cs.CoreV1().Secrets(PersonalAgentNamespace).Get(ctx, "personal-agent-bart-secrets", metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("get after google-first write: %v", err)
+	}
+	for k, want := range map[string]string{
+		"google_refresh_token": "1//rt-test",
+		"google_client_id":     "client_dcr_id",
+		"google_client_secret": "client_dcr_secret",
+		"google_email":         "grant@bimross.com",
+	} {
+		if string(got.Data[k]) != want {
+			t.Errorf("%s: got %q, want %q", k, got.Data[k], want)
+		}
+	}
+	if _, present := got.Data["slack_bot_token"]; present {
+		t.Errorf("slack_bot_token should not be set on Google-first create, got %q", got.Data["slack_bot_token"])
+	}
+	if got.Labels["bimross.com/personal-agent"] != "bart" {
+		t.Errorf("label missing on Google-first create: %q", got.Labels["bimross.com/personal-agent"])
+	}
+
+	// Now paste Slack tokens — must add slack_* without wiping google_*.
+	if err := w.WriteSlackSecret(ctx, "bart", PersonalAgentSlackTokens{
+		BotToken: "xoxb-1234567890-abc", AppToken: "xapp-1234567890-abc", BotUserID: "U0BARTBOT01",
+	}); err != nil {
+		t.Fatalf("paste slack after google: %v", err)
+	}
+	got, err = cs.CoreV1().Secrets(PersonalAgentNamespace).Get(ctx, "personal-agent-bart-secrets", metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("get after slack paste: %v", err)
+	}
+	// Google keys must survive the Slack paste.
+	if string(got.Data["google_refresh_token"]) != "1//rt-test" {
+		t.Errorf("Slack paste stomped google_refresh_token: %q", got.Data["google_refresh_token"])
+	}
+	if string(got.Data["slack_bot_token"]) != "xoxb-1234567890-abc" {
+		t.Errorf("slack_bot_token missing after paste: %q", got.Data["slack_bot_token"])
+	}
+}
+
 func TestPersonalAgentSecretWriter_WriteGoogleIdentity(t *testing.T) {
 	cs := fake.NewSimpleClientset()
 	w := newPersonalAgentSecretWriterFromClient(cs)
 	ctx := context.Background()
 
-	// Must Create the Slack secret first — WriteGoogleIdentity expects
-	// it to exist (per agent paste flow).
+	// Slack-first path: seed Slack secret then add Google identity to
+	// the existing Secret via the Update branch.
 	if err := w.WriteSlackSecret(ctx, "bart", PersonalAgentSlackTokens{
 		BotToken: "xoxb-1234567890-abc", AppToken: "xapp-1234567890-abc", BotUserID: "U0BARTBOT01",
 	}); err != nil {
