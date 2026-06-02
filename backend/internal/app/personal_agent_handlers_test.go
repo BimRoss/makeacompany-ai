@@ -60,7 +60,7 @@ func seedPortalSession(t *testing.T, st *Store, email, ownerUserID string) strin
 		t.Fatalf("seed slack id: %v", err)
 	}
 	token := "tok_" + ownerUserID
-	if err := st.CreatePortalSession(ctx, token, email, "C0FAKETESTCH", time.Now().UTC().Add(time.Hour)); err != nil {
+	if err := st.CreatePortalSession(ctx, token, email, "C0FAKETESTCH", PortalTenantTypeCompany, time.Now().UTC().Add(time.Hour)); err != nil {
 		t.Fatalf("seed session: %v", err)
 	}
 	return token
@@ -113,7 +113,7 @@ func TestPortalAgents_ForbiddenWhenProfileMissingSlackID(t *testing.T) {
 	// Seed profile + portal session, but no slack id linked.
 	_ = s.store.UpsertUserProfileAfterWaitlist(ctx, "grant@example.com", "cus_x", "cs_y", "paid", "", "")
 	token := "tok_no_slack"
-	_ = s.store.CreatePortalSession(ctx, token, "grant@example.com", "C0FAKETESTCH", time.Now().UTC().Add(time.Hour))
+	_ = s.store.CreatePortalSession(ctx, token, "grant@example.com", "C0FAKETESTCH", PortalTenantTypeCompany, time.Now().UTC().Add(time.Hour))
 
 	rec := doJSONRequest(t, s, http.MethodGet, "/v1/portal/agents", token, nil)
 	if rec.Code != http.StatusForbidden {

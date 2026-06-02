@@ -66,7 +66,9 @@ export function PersonalAgentsPanel() {
         credentials: "include",
       });
       if (res.status === 401 || res.status === 403) {
-        setState({ kind: "unavailable", reason: "sign in to manage personal agents" });
+        // No portal session — bounce to /me/login. The auth callback
+        // drops us back at /me/agents after sign-in (#199).
+        window.location.href = "/me/login";
         return;
       }
       if (res.status === 404) {

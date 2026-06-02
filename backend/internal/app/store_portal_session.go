@@ -15,21 +15,55 @@ func portalSessionKey(token string) string {
 	return portalSessionKeyPrefix + strings.TrimSpace(token)
 }
 
-// PortalSession is a browser session for /{channelId} company portal (verified owner email).
+// PortalSession is a browser session in the portal. Two tenancy shapes:
+//
+//   - tenant_type="company" (default, legacy): keyed by (email, channelId).
+//     Granted by /<channelId>/login flows. ChannelID required.
+//   - tenant_type="personal": keyed by email alone. Granted by /me/login.
+//     ChannelID is empty.
+//
+// The discriminator lives on the session row (Redis hash field tenant_type)
+// so handlers can branch authorization without re-reading the auth flow.
+// Existing sessions written before this field shipped read as "company" via
+// the default in GetPortalSession — no migration needed.
+const (
+	PortalTenantTypeCompany  = "company"
+	PortalTenantTypePersonal = "personal"
+)
+
 type PortalSession struct {
-	Token     string `json:"token"`
-	Email     string `json:"email"`
-	ChannelID string `json:"channelId"`
-	CreatedAt string `json:"createdAt"`
-	ExpiresAt string `json:"expiresAt"`
+	Token      string `json:"token"`
+	Email      string `json:"email"`
+	ChannelID  string `json:"channelId"`
+	TenantType string `json:"tenantType"`
+	CreatedAt  string `json:"createdAt"`
+	ExpiresAt  string `json:"expiresAt"`
 }
 
-func (s *Store) CreatePortalSession(ctx context.Context, token, email, channelID string, expiresAt time.Time) error {
+func (s *Store) CreatePortalSession(ctx context.Context, token, email, channelID, tenantType string, expiresAt time.Time) error {
 	token = strings.TrimSpace(token)
 	email = normalizeProfileEmail(email)
 	channelID = strings.TrimSpace(channelID)
-	if token == "" || email == "" || channelID == "" {
-		return fmt.Errorf("missing portal session token/email/channel")
+	tenantType = strings.TrimSpace(tenantType)
+	if tenantType == "" {
+		tenantType = PortalTenantTypeCompany
+	}
+	if token == "" || email == "" {
+		return fmt.Errorf("missing portal session token/email")
+	}
+	switch tenantType {
+	case PortalTenantTypeCompany:
+		if channelID == "" {
+			return fmt.Errorf("company portal session missing channel")
+		}
+	case PortalTenantTypePersonal:
+		// ChannelID must be empty for personal sessions — guards against a
+		// caller accidentally mixing the two scopes.
+		if channelID != "" {
+			return fmt.Errorf("personal portal session must not carry channel")
+		}
+	default:
+		return fmt.Errorf("unknown portal tenant_type %q", tenantType)
 	}
 	if expiresAt.IsZero() {
 		return fmt.Errorf("missing portal session expiration")
@@ -42,10 +76,11 @@ func (s *Store) CreatePortalSession(ctx context.Context, token, email, channelID
 	key := portalSessionKey(token)
 	pipe := s.rdb.TxPipeline()
 	pipe.HSet(ctx, key, map[string]any{
-		"email":      email,
-		"channel_id": channelID,
-		"createdAt":  now,
-		"expiresAt":  expiresAt.UTC().Format(time.RFC3339),
+		"email":       email,
+		"channel_id":  channelID,
+		"tenant_type": tenantType,
+		"createdAt":   now,
+		"expiresAt":   expiresAt.UTC().Format(time.RFC3339),
 	})
 	pipe.Expire(ctx, key, ttl)
 	_, err := pipe.Exec(ctx)
@@ -70,13 +105,23 @@ func (s *Store) GetPortalSession(ctx context.Context, token string) (PortalSessi
 		return PortalSession{}, redis.Nil
 	}
 	out := PortalSession{
-		Token:     token,
-		Email:     normalizeProfileEmail(vals["email"]),
-		ChannelID: strings.TrimSpace(vals["channel_id"]),
-		CreatedAt: strings.TrimSpace(vals["createdAt"]),
-		ExpiresAt: strings.TrimSpace(vals["expiresAt"]),
+		Token:      token,
+		Email:      normalizeProfileEmail(vals["email"]),
+		ChannelID:  strings.TrimSpace(vals["channel_id"]),
+		TenantType: strings.TrimSpace(vals["tenant_type"]),
+		CreatedAt:  strings.TrimSpace(vals["createdAt"]),
+		ExpiresAt:  strings.TrimSpace(vals["expiresAt"]),
 	}
-	if out.Email == "" || out.ChannelID == "" {
+	if out.TenantType == "" {
+		// Back-compat: rows written before tenant_type shipped are company
+		// scope. They always had a non-empty channel_id, so the company
+		// validation below still applies.
+		out.TenantType = PortalTenantTypeCompany
+	}
+	if out.Email == "" {
+		return PortalSession{}, redis.Nil
+	}
+	if out.TenantType == PortalTenantTypeCompany && out.ChannelID == "" {
 		return PortalSession{}, redis.Nil
 	}
 	gone, err := s.repairPortalSessionTTLIfNeeded(ctx, key, out.ExpiresAt)

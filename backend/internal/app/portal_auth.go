@@ -13,11 +13,12 @@ import (
 type portalAuthFinishResponse struct {
 	Email        string `json:"email"`
 	ChannelID    string `json:"channelId"`
+	TenantType   string `json:"tenantType"`
 	SessionToken string `json:"sessionToken"`
 	ExpiresAt    string `json:"expiresAt"`
 }
 
-// writePortalMintResponse persists a portal session after the caller has verified the email
+// writePortalMintResponse persists a company-scope portal session after the caller has verified the email
 // (Google id_token, magic link, etc.) and writes the same JSON shape as the legacy Stripe finish response.
 func (s *Server) writePortalMintResponse(w http.ResponseWriter, r *http.Request, email, chID string) {
 	email = normalizeProfileEmail(email)
@@ -26,6 +27,22 @@ func (s *Server) writePortalMintResponse(w http.ResponseWriter, r *http.Request,
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
 	}
+	s.writePortalSession(w, r, email, chID, PortalTenantTypeCompany)
+}
+
+// writePortalPersonalMintResponse persists a personal-scope portal session
+// (no channel). Issued by /v1/portal/auth/personal/* finish endpoints —
+// the entry point for /me/login from the frontend.
+func (s *Server) writePortalPersonalMintResponse(w http.ResponseWriter, r *http.Request, email string) {
+	email = normalizeProfileEmail(email)
+	if email == "" {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+	s.writePortalSession(w, r, email, "", PortalTenantTypePersonal)
+}
+
+func (s *Server) writePortalSession(w http.ResponseWriter, r *http.Request, email, chID, tenantType string) {
 	sessionToken, err := randomTokenHex(32)
 	if err != nil {
 		http.Error(w, "unable to create portal session", http.StatusInternalServerError)
@@ -36,13 +53,14 @@ func (s *Server) writePortalMintResponse(w http.ResponseWriter, r *http.Request,
 		ttlSec = 43200
 	}
 	expiresAt := time.Now().UTC().Add(time.Duration(ttlSec) * time.Second)
-	if err := s.store.CreatePortalSession(r.Context(), sessionToken, email, chID, expiresAt); err != nil {
+	if err := s.store.CreatePortalSession(r.Context(), sessionToken, email, chID, tenantType, expiresAt); err != nil {
 		http.Error(w, "unable to persist portal session", http.StatusInternalServerError)
 		return
 	}
 	writeJSON(w, http.StatusOK, portalAuthFinishResponse{
 		Email:        email,
 		ChannelID:    chID,
+		TenantType:   tenantType,
 		SessionToken: sessionToken,
 		ExpiresAt:    expiresAt.Format(time.RFC3339),
 	})
@@ -92,6 +110,7 @@ func (s *Server) handlePortalAuthMe(w http.ResponseWriter, r *http.Request) {
 		"authenticated": true,
 		"email":         session.Email,
 		"channelId":     session.ChannelID,
+		"tenantType":    session.TenantType,
 		"expiresAt":     session.ExpiresAt,
 		"billing":       billing,
 	})

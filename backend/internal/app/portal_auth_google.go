@@ -14,6 +14,10 @@ type portalAuthGoogleFinishRequest struct {
 	ChannelID string `json:"channelId"`
 }
 
+type portalAuthGooglePersonalFinishRequest struct {
+	IDToken string `json:"idToken"`
+}
+
 func (s *Server) portalGoogleAuthEnabled() bool {
 	return strings.TrimSpace(s.cfg.GoogleOAuthClientID) != ""
 }
@@ -54,6 +58,48 @@ func (s *Server) handlePortalAuthGoogleFinish(w http.ResponseWriter, r *http.Req
 		return
 	}
 	s.writePortalMintResponse(w, r, email, chID)
+}
+
+// handlePortalAuthGooglePersonalFinish is the personal-scope twin of
+// handlePortalAuthGoogleFinish: validates the Google id_token and mints a
+// portal session with tenant_type=personal (no ChannelID). Powers
+// /me/login from the frontend; routed under
+// /v1/portal/auth/personal/google/finish.
+func (s *Server) handlePortalAuthGooglePersonalFinish(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if !s.portalGoogleAuthEnabled() {
+		http.Error(w, "google portal auth not configured", http.StatusServiceUnavailable)
+		return
+	}
+	var req portalAuthGooglePersonalFinishRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid json", http.StatusBadRequest)
+		return
+	}
+	idTok := strings.TrimSpace(req.IDToken)
+	if idTok == "" {
+		http.Error(w, "missing id_token", http.StatusBadRequest)
+		return
+	}
+	payload, err := idtoken.Validate(r.Context(), idTok, strings.TrimSpace(s.cfg.GoogleOAuthClientID))
+	if err != nil {
+		s.log.Printf("portal google id token validate (personal): %v", err)
+		http.Error(w, "invalid id token", http.StatusUnauthorized)
+		return
+	}
+	email := normalizeProfileEmail(fmt.Sprint(payload.Claims["email"]))
+	if email == "" {
+		http.Error(w, "missing email claim", http.StatusUnauthorized)
+		return
+	}
+	if !googleEmailVerifiedClaim(payload.Claims["email_verified"]) {
+		http.Error(w, "email not verified with google", http.StatusForbidden)
+		return
+	}
+	s.writePortalPersonalMintResponse(w, r, email)
 }
 
 func googleEmailVerifiedClaim(v any) bool {

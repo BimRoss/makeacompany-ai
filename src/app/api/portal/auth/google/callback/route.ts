@@ -15,6 +15,9 @@ function oauthLoginBase(origin: string, parsed: ReturnType<typeof parseGoogleOAu
   if (parsed?.kind === "admin") {
     return `${origin}/admin/login`;
   }
+  if (parsed?.kind === "personal") {
+    return `${origin}/me/login`;
+  }
   return `${origin}/`;
 }
 
@@ -97,6 +100,43 @@ export async function GET(request: Request) {
         path: "/",
         expires,
       });
+      return redirectResponse;
+    } catch {
+      return NextResponse.redirect(new URL(`${loginBase}?auth=failed`, origin));
+    }
+  }
+
+  if (parsed.kind === "personal") {
+    const backendURL = `${resolveBackendBaseURL().replace(/\/$/, "")}/v1/portal/auth/personal/google/finish`;
+    try {
+      const response = await fetch(backendURL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        cache: "no-store",
+        body: JSON.stringify({ idToken }),
+      });
+      const payload = (await response.json().catch(() => null)) as
+        | { sessionToken?: string; expiresAt?: string }
+        | null;
+
+      if (response.status === 403) {
+        return NextResponse.redirect(new URL(`${loginBase}?auth=unauthorized`, origin));
+      }
+      if (!response.ok || !payload?.sessionToken) {
+        return NextResponse.redirect(new URL(`${loginBase}?auth=failed`, origin));
+      }
+
+      const redirectResponse = NextResponse.redirect(new URL("/me/agents", origin));
+      const expires = payload.expiresAt ? new Date(payload.expiresAt) : undefined;
+      redirectResponse.cookies.set(portalSessionCookieName, payload.sessionToken, {
+        httpOnly: true,
+        secure: secureCookies,
+        sameSite: "lax",
+        path: "/",
+        expires,
+      });
+      // Personal sessions intentionally do NOT set portalChannelCookieName —
+      // there's no channel scope.
       return redirectResponse;
     } catch {
       return NextResponse.redirect(new URL(`${loginBase}?auth=failed`, origin));

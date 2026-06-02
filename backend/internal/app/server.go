@@ -176,6 +176,10 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 	s.mux.HandleFunc("POST /v1/portal/deploy-gate/consume", s.handlePortalDeployGateConsume)
 	s.mux.HandleFunc("/v1/portal/auth/logout", s.handlePortalAuthLogout)
 	s.mux.HandleFunc("/v1/portal/auth/google/finish", s.handlePortalAuthGoogleFinish)
+	// Personal-scope (cid-less) sign-in — entry point for /me/login.
+	// Magic-link variant deferred to a follow-up; Google-only is enough
+	// to unblock #199 / Garth provisioning.
+	s.mux.HandleFunc("/v1/portal/auth/personal/google/finish", s.handlePortalAuthGooglePersonalFinish)
 	s.mux.HandleFunc("POST /v1/portal/workspace/connect/finish", s.handlePortalWorkspaceConnectFinish)
 	s.mux.HandleFunc("POST /v1/portal/workspace/disconnect/finish", s.handlePortalWorkspaceDisconnectFinish)
 	s.mux.HandleFunc("GET /v1/portal/workspace/status", s.handlePortalWorkspaceStatus)
