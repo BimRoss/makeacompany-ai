@@ -153,7 +153,7 @@ export default function CostPageClient() {
       {/* HERO */}
       <section
         ref={hero.ref}
-        className="mx-auto flex max-w-5xl flex-col items-center px-5 pb-10 pt-20 text-center sm:px-6 sm:pb-16 sm:pt-32 lg:pt-40"
+        className="mx-auto flex max-w-5xl flex-col items-center px-5 pb-10 pt-8 text-center sm:px-6 sm:pb-16 sm:pt-12 lg:pt-16"
       >
         <span className="mb-5 text-[10px] font-semibold uppercase tracking-[0.3em] text-muted-foreground/70 sm:mb-7 sm:text-[11px] sm:tracking-[0.35em]">
           For leaders

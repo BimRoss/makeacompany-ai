@@ -59,8 +59,8 @@ export default async function CostOpenGraphImage() {
           style={{
             display: "flex",
             alignSelf: "center",
-            marginTop: "40px",
-            fontSize: 14,
+            marginTop: "26px",
+            fontSize: 13,
             fontWeight: 700,
             letterSpacing: "0.32em",
             color: "#737373",
@@ -77,13 +77,13 @@ export default async function CostOpenGraphImage() {
             flexDirection: "column",
             alignItems: "center",
             textAlign: "center",
-            marginTop: "24px",
+            marginTop: "14px",
           }}
         >
           <div
             style={{
               display: "flex",
-              fontSize: 44,
+              fontSize: 38,
               fontWeight: 600,
               color: "#0a0a0a",
               letterSpacing: "-0.02em",
@@ -95,18 +95,18 @@ export default async function CostOpenGraphImage() {
             style={{
               display: "flex",
               alignItems: "baseline",
-              fontSize: 124,
+              fontSize: 104,
               fontWeight: 800,
               letterSpacing: "-0.04em",
               color: "#0a0a0a",
               lineHeight: 1.0,
-              marginTop: "6px",
+              marginTop: "4px",
             }}
           >
             $250,000
             <span
               style={{
-                fontSize: 48,
+                fontSize: 40,
                 fontWeight: 600,
                 color: "#737373",
                 marginLeft: "4px",
@@ -119,10 +119,10 @@ export default async function CostOpenGraphImage() {
           <div
             style={{
               display: "flex",
-              fontSize: 36,
+              fontSize: 32,
               fontWeight: 500,
               color: "#737373",
-              marginTop: "26px",
+              marginTop: "18px",
             }}
           >
             With us, it&apos;s
@@ -131,18 +131,18 @@ export default async function CostOpenGraphImage() {
             style={{
               display: "flex",
               alignItems: "baseline",
-              fontSize: 124,
+              fontSize: 104,
               fontWeight: 800,
               letterSpacing: "-0.04em",
               color: "#3b82f6",
               lineHeight: 1.0,
-              marginTop: "6px",
+              marginTop: "4px",
             }}
           >
             $1,200
             <span
               style={{
-                fontSize: 48,
+                fontSize: 40,
                 fontWeight: 600,
                 color: "#93c5fd",
                 marginLeft: "4px",
