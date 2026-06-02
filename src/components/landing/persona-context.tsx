@@ -25,6 +25,8 @@ interface PersonaContextValue {
   setPersona: (next: Persona) => void;
   /** True once the client has resolved the persona from URL/storage/referrer. */
   hydrated: boolean;
+  /** False when the homepage loaded with no persona pinned — hero shows neutral copy and no tab is active. */
+  selected: boolean;
 }
 
 const PersonaContext = createContext<PersonaContextValue | null>(null);
@@ -51,14 +53,18 @@ interface PersonaProviderProps {
   initialPersona?: Persona;
   /** True when `initialPersona` came from the URL — skip URL re-resolution on the client to avoid double work. */
   initialFromUrl?: boolean;
+  /** When false, the page loaded with no persona pinned — hero renders neutral copy and tabs render unselected. */
+  initialSelected?: boolean;
 }
 
 export function PersonaProvider({
   children,
   initialPersona = DEFAULT_PERSONA,
   initialFromUrl = false,
+  initialSelected = true,
 }: PersonaProviderProps) {
   const [persona, setPersonaState] = useState<Persona>(initialPersona);
+  const [selected, setSelected] = useState<boolean>(initialSelected);
   const [hydrated, setHydrated] = useState(false);
   const lastRef = useRef<Persona>(initialPersona);
 
@@ -70,20 +76,27 @@ export function PersonaProvider({
       return;
     }
     const resolved = resolveInitialPersona(true);
-    if (resolved.persona !== initialPersona) {
-      lastRef.current = resolved.persona;
-      setPersonaState(resolved.persona);
-      fireSwitchEvent(initialPersona, resolved.persona, resolved.source);
+    if (resolved.source !== "default") {
+      if (resolved.persona !== initialPersona) {
+        lastRef.current = resolved.persona;
+        setPersonaState(resolved.persona);
+        fireSwitchEvent(initialPersona, resolved.persona, resolved.source);
+      }
+      setSelected(true);
     }
     setHydrated(true);
   }, [initialFromUrl, initialPersona]);
 
   const setPersona = useCallback((next: Persona) => {
     setPersonaState((prev) => {
-      if (prev === next) return prev;
+      if (prev === next) {
+        setSelected(true);
+        return prev;
+      }
       fireSwitchEvent(prev, next, "click");
       persistPersona(next);
       lastRef.current = next;
+      setSelected(true);
       return next;
     });
   }, []);
@@ -93,6 +106,7 @@ export function PersonaProvider({
     copy: PERSONA_COPY[persona],
     setPersona,
     hydrated,
+    selected,
   };
 
   return <PersonaContext.Provider value={value}>{children}</PersonaContext.Provider>;

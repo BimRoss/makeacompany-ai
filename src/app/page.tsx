@@ -79,6 +79,7 @@ export default async function HomePage({
       <PersonaProvider
         initialPersona={urlPersona ?? DEFAULT_PERSONA}
         initialFromUrl={urlPersona !== null}
+        initialSelected={urlPersona !== null}
       >
         <HeroSection initialSeats={initialSeats} />
         <ValueStack />
