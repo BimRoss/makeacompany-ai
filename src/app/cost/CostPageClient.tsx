@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
+import { EmailCaptureForm } from "@/components/landing/email-capture-form";
 
 const COST_BREAKDOWN = [
   { label: "Base salary", value: 300_000, opacity: 1.0 },
@@ -153,35 +153,37 @@ export default function CostPageClient() {
       {/* HERO */}
       <section
         ref={hero.ref}
-        className="mx-auto flex max-w-5xl flex-col items-center px-5 pb-8 pt-16 text-center sm:px-6 sm:pb-12 sm:pt-32 lg:pt-40"
+        className="mx-auto flex max-w-5xl flex-col items-center px-5 pb-10 pt-20 text-center sm:px-6 sm:pb-16 sm:pt-32 lg:pt-40"
       >
-        <Image
-          src="/cost-og.png"
-          alt="Your next hire is a $543,000 bet. With us, it's $1,188."
-          width={1080}
-          height={1080}
-          priority
-          className={`mb-8 w-full max-w-xs rounded-2xl border border-border shadow-sm transition-all duration-700 sm:mb-14 sm:max-w-md lg:max-w-lg ${
-            hero.visible ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0"
-          }`}
-        />
-        <span className="mb-4 text-[10px] font-semibold uppercase tracking-[0.3em] text-muted-foreground/70 sm:mb-6 sm:text-[11px] sm:tracking-[0.35em]">
+        <span className="mb-5 text-[10px] font-semibold uppercase tracking-[0.3em] text-muted-foreground/70 sm:mb-7 sm:text-[11px] sm:tracking-[0.35em]">
           For leaders
         </span>
         <h1
-          className={`font-[var(--font-syne)] text-[2rem] font-bold leading-[1.08] tracking-tight sm:text-6xl md:text-7xl lg:tracking-tighter transition-all duration-700 ${
+          className={`font-[var(--font-syne)] text-4xl font-bold leading-[1.04] tracking-tight sm:text-5xl md:text-6xl lg:text-7xl lg:tracking-tighter transition-all duration-700 ${
             hero.visible ? "translate-y-0 opacity-100" : "translate-y-6 opacity-0"
           }`}
         >
-          <span className="block">Your team doesn&apos;t shrink.</span>
-          <span className="mt-2 block text-blue-500">The work it ships does.</span>
+          <span className="block">Your next hire is</span>
+          <span className="mt-1 block text-foreground">$543,000.</span>
+          <span className="mt-4 block text-3xl font-medium text-muted-foreground sm:mt-5 sm:text-4xl md:text-5xl lg:text-6xl">
+            With us, it&apos;s
+          </span>
+          <span className="mt-1 block text-blue-500">$1,188.</span>
         </h1>
+        <p
+          className={`mt-8 max-w-2xl text-balance font-[var(--font-syne)] text-xl font-semibold leading-snug text-foreground/90 sm:mt-10 sm:text-2xl md:text-3xl transition-all duration-700 delay-150 ${
+            hero.visible ? "translate-y-0 opacity-100" : "translate-y-6 opacity-0"
+          }`}
+        >
+          Your team doesn&apos;t shrink.{" "}
+          <span className="text-blue-500">The work it ships does.</span>
+        </p>
       </section>
 
       {/* VALUE PROP */}
       <section className="mx-auto max-w-3xl px-5 pb-16 text-center sm:px-6 sm:pb-24">
         <p
-          className={`font-[var(--font-dm-sans)] text-base font-semibold leading-relaxed text-neutral-800 sm:text-2xl transition-all duration-700 delay-150 ${
+          className={`text-base font-semibold leading-relaxed text-neutral-800 sm:text-xl md:text-2xl transition-all duration-700 ${
             hero.visible ? "translate-y-0 opacity-100" : "translate-y-6 opacity-0"
           }`}
         >
@@ -191,7 +193,7 @@ export default function CostPageClient() {
           For your team
         </span>
         <p
-          className={`mt-3 text-base font-medium leading-relaxed text-blue-500 sm:mt-4 sm:text-2xl transition-all duration-700 delay-300 ${
+          className={`mt-3 text-base font-medium leading-relaxed text-blue-500 sm:mt-4 sm:text-xl md:text-2xl transition-all duration-700 delay-150 ${
             hero.visible ? "translate-y-0 opacity-100" : "translate-y-6 opacity-0"
           }`}
         >
@@ -210,7 +212,7 @@ export default function CostPageClient() {
           <span className="text-[10px] font-semibold uppercase tracking-[0.3em] text-muted-foreground/70 sm:text-[11px] sm:tracking-[0.35em]">
             The math
           </span>
-          <h2 className="mt-3 text-2xl font-bold leading-tight sm:text-4xl lg:text-5xl lg:tracking-tight">
+          <h2 className="mt-3 text-3xl font-bold leading-tight sm:text-4xl md:text-5xl lg:text-6xl lg:tracking-tight">
             NYC. Fully loaded. No spin.
           </h2>
         </div>
@@ -326,7 +328,7 @@ export default function CostPageClient() {
         {[PILLARS_TOP, PILLARS_BOTTOM].map((row, rIdx) => (
           <div
             key={rIdx}
-            className="mb-4 grid grid-cols-2 gap-3 sm:mb-6 sm:gap-6 md:grid-cols-4"
+            className="mb-4 grid grid-cols-2 gap-3 sm:mb-6 sm:gap-6 lg:grid-cols-4"
           >
             {row.map((p, i) => (
               <div
@@ -348,16 +350,43 @@ export default function CostPageClient() {
 
       {/* CTA */}
       <section className="mx-auto max-w-3xl px-5 pb-20 text-center sm:px-6 sm:pb-32">
-        <Link
-          href="/cost.pdf"
-          className="inline-flex items-center gap-2 rounded-full bg-foreground px-6 py-3 text-sm font-semibold text-background shadow-sm transition hover:-translate-y-0.5 hover:bg-foreground/85 hover:shadow-md sm:px-8 sm:py-4 sm:text-base"
-        >
-          Download the one-pager (PDF)
-        </Link>
-        <div className="mt-6">
+        <div className="relative overflow-hidden rounded-2xl border border-border bg-card p-6 shadow-sm sm:rounded-3xl sm:p-10 lg:p-12">
+          <div
+            aria-hidden
+            className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-blue-500/10 blur-3xl"
+          />
+          <div
+            aria-hidden
+            className="pointer-events-none absolute -bottom-16 -left-16 h-56 w-56 rounded-full bg-blue-500/10 blur-3xl"
+          />
+          <div className="relative">
+            <h2 className="text-balance text-2xl font-bold leading-tight sm:text-3xl md:text-4xl">
+              Skip the $543K.{" "}
+              <span className="text-blue-500">Start your company.</span>
+            </h2>
+            <p className="mx-auto mt-3 max-w-xl text-pretty text-sm text-muted-foreground sm:text-base">
+              Drop your email. Joanne sends you a Slack invite and your AI team
+              is waiting inside.
+            </p>
+            <div className="mx-auto mt-6 max-w-md sm:mt-8">
+              <EmailCaptureForm submitLabel="Start your company" />
+            </div>
+            <p className="mt-4 text-xs text-muted-foreground/80 sm:text-sm">
+              $99/mo · no taxes · no turnover
+            </p>
+          </div>
+        </div>
+        <div className="mt-8 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm">
+          <Link
+            href="/cost.pdf"
+            className="font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+          >
+            Download the one-pager (PDF)
+          </Link>
+          <span aria-hidden className="text-muted-foreground/30">·</span>
           <Link
             href="/"
-            className="text-sm font-semibold text-blue-500 underline-offset-4 hover:underline"
+            className="font-medium text-blue-500 underline-offset-4 hover:underline"
           >
             makeacompany.ai →
           </Link>
