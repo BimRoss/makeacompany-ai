@@ -19,6 +19,8 @@ import {
 } from "@/lib/personas";
 import { siteUrl } from "@/lib/site";
 
+const OG_IMAGE_SIZE = { width: 1200, height: 630 } as const;
+
 export const dynamic = "force-dynamic";
 
 type RouteParams = { persona: string };
@@ -37,6 +39,8 @@ export async function generateMetadata({
   if (!persona) return {};
   const meta = PERSONA_META[persona];
   const url = `${siteUrl}/for/${slug}`;
+  const ogImageUrl = `${siteUrl}/for/${slug}/opengraph-image`;
+  const twImageUrl = `${siteUrl}/for/${slug}/twitter-image`;
   return {
     title: meta.title,
     description: meta.description,
@@ -45,11 +49,13 @@ export async function generateMetadata({
       title: meta.title,
       description: meta.description,
       url,
+      images: [{ url: ogImageUrl, alt: meta.ogAlt, ...OG_IMAGE_SIZE }],
     },
     twitter: {
       card: "summary_large_image",
       title: meta.title,
       description: meta.description,
+      images: [{ url: twImageUrl, alt: meta.ogAlt, ...OG_IMAGE_SIZE }],
     },
   };
 }
