@@ -58,10 +58,10 @@ export async function GET() {
   if (guard) return guard;
 
   const token = (process.env.CLOUDFLARE_ANALYTICS_TOKEN ?? "").trim();
-  const zoneTag = (process.env.CLOUDFLARE_ZONE_ID_MAKEACOMPANY ?? "").trim();
+  const zoneTag = (process.env.CLOUDFLARE_ZONE_ID_MAKEACOMPANY_AI ?? "").trim();
   if (!token || !zoneTag) {
     return adminProxyNextJson(
-      { error: "Cloudflare analytics not configured (set CLOUDFLARE_ANALYTICS_TOKEN + CLOUDFLARE_ZONE_ID_MAKEACOMPANY)" },
+      { error: "Cloudflare analytics not configured (set CLOUDFLARE_ANALYTICS_TOKEN + CLOUDFLARE_ZONE_ID_MAKEACOMPANY_AI)" },
       503,
     );
   }
