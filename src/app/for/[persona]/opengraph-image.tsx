@@ -100,7 +100,7 @@ export default async function PersonaOpenGraphImage({
         >
           <span style={{ fontWeight: 600, color: "#0a0a0a" }}>20 of 100</span>
           <span style={{ marginLeft: 6 }}>
-            free for life seats claimed. Then $99/mo to join.
+            free for life seats claimed. After: first week free, then $99/mo.
           </span>
         </div>
 

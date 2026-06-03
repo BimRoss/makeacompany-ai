@@ -39,7 +39,7 @@ function buildFaqItems(seats?: LanderSlackSeats) {
     },
     {
       question: "How do I get access?",
-      answer: `Tap Start Building on the homepage. ${freeClause} (see the live count in the pill at the top of the page). After the free-for-life seats are gone it's $99/mo through Stripe. Either way, Joanne emails you an invite to your workspace once you're in.`,
+      answer: `Tap Start Building on the homepage. ${freeClause} (see the live count in the pill at the top of the page). After the free-for-life seats are gone, new signups get a 7-day free trial — no card required — then it's $99/mo through Stripe. Either way, Joanne emails you an invite to your workspace once you're in.`,
     },
     {
       question: "Does this replace my whole team?",
@@ -53,7 +53,7 @@ function buildFaqItems(seats?: LanderSlackSeats) {
     },
     {
       question: "How much does it cost?",
-      answer: `${freeClause}. Once those are claimed, it's $99/mo, month-to-month through Stripe.`,
+      answer: `${freeClause}. Once those are claimed, new signups get a 7-day free trial (no credit card to start), then it's $99/mo, month-to-month through Stripe.`,
     },
     {
       question: "Can I cancel anytime?",

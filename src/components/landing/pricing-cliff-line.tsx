@@ -55,7 +55,7 @@ export function PricingCliffLine({ claimed, cap }: PricingCliffLineProps = {}) {
       />
       <Sparkles className="relative h-3.5 w-3.5 text-foreground sm:h-4 sm:w-4" />
       <span className="relative">
-        <span className="font-semibold tabular-nums">{displayed} of {shownCap}</span> <span className="font-semibold">free for life</span> seats claimed. Then $99/mo to join.
+        <span className="font-semibold tabular-nums">{displayed} of {shownCap}</span> <span className="font-semibold">free for life</span> seats claimed. After that: first week free, then $99/mo.
       </span>
     </div>
   );
