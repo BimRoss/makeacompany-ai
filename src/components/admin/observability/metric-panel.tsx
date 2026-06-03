@@ -33,6 +33,11 @@ export function MetricPanel({ def, from }: { def: PanelDef; from: string }) {
   const chartSeries = useMemo(() => def.toSeries(series ?? []), [def, series]);
   const headline = useMemo(() => latestOf(chartSeries), [chartSeries]);
   const multi = chartSeries.length > 1;
+  const isEmpty = chartSeries.every((s) => s.points.length === 0);
+
+  if (def.hideWhenEmpty && !loading && !errored && isEmpty) {
+    return null;
+  }
 
   return (
     <article
