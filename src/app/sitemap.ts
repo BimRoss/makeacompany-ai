@@ -35,6 +35,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.8,
     },
     {
+      url: `${siteUrl}/claude-in-slack`,
+      lastModified: BUILD_TIME,
+      changeFrequency: "monthly",
+      priority: 0.8,
+    },
+    {
       url: `${siteUrl}/privacy`,
       lastModified: BUILD_TIME,
       changeFrequency: "yearly",
