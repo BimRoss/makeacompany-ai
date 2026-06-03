@@ -44,7 +44,7 @@ export function HarnessVsAgent() {
           </p>
         </div>
 
-        <ul className="grid gap-4 sm:grid-cols-2">
+        <ul className="grid gap-4 sm:grid-cols-2 sm:[&>li:last-child:nth-child(odd)]:col-span-2 sm:[&>li:last-child:nth-child(odd)]:mx-auto sm:[&>li:last-child:nth-child(odd)]:w-[calc(50%-0.5rem)]">
           {ROWS.map(({ icon: Icon, title, body }) => (
             <li
               key={title}
