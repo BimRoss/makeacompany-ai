@@ -187,26 +187,45 @@ export const JOBS_PANELS: PanelDef[] = [
   },
 ];
 
-const namespaceTonePalette: ChartTone[] = ["accent", "ink", "pos", "neg", "muted"];
-const namespaceTone = (ns: string): ChartTone => {
-  let hash = 0;
-  for (let i = 0; i < ns.length; i += 1) hash = (hash * 31 + ns.charCodeAt(i)) >>> 0;
-  return namespaceTonePalette[hash % namespaceTonePalette.length];
-};
+const TOP_N_NAMESPACE_TONES: ChartTone[] = ["ink", "pos", "neg", "muted", "muted"];
+
+const POD_TOTAL_QUERY = `sum(kube_pod_status_phase{phase="Running"} == 1)`;
+const POD_BY_NAMESPACE_QUERY = `count by (namespace) (kube_pod_status_phase{phase="Running"} == 1)`;
+
+function podsRunningSeries(raw: RangeSeries[]): ChartSeries[] {
+  const total = raw.find((s) => s.query === POD_TOTAL_QUERY);
+  const perNs = raw.filter((s) => s.query === POD_BY_NAMESPACE_QUERY && s.labels.namespace);
+
+  const ranked = [...perNs]
+    .map((s) => {
+      const last = s.points.at(-1)?.[1] ?? 0;
+      const peak = s.points.reduce((m, [, v]) => (v > m ? v : m), 0);
+      return { s, score: last || peak };
+    })
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 5);
+
+  const top: ChartSeries[] = ranked.map(({ s }, i) => ({
+    key: `ns-${s.labels.namespace}`,
+    label: s.labels.namespace,
+    tone: TOP_N_NAMESPACE_TONES[i] ?? "muted",
+    points: s.points,
+  }));
+
+  const totalSeries: ChartSeries | null = total
+    ? { key: "pods-total", label: "total", tone: "accent", points: total.points }
+    : null;
+
+  return totalSeries ? [totalSeries, ...top] : top;
+}
 
 export const CLUSTER_PANELS: PanelDef[] = [
   {
     id: "pods-running",
     title: "Pods running",
-    subtitle: "Running pods by namespace",
-    queries: [
-      `count by (namespace) (kube_pod_status_phase{phase="Running"} == 1)`,
-    ],
-    toSeries: splitByLabel(
-      `count by (namespace) (kube_pod_status_phase{phase="Running"} == 1)`,
-      "namespace",
-      namespaceTone
-    ),
+    subtitle: "Cluster total, top 5 namespaces",
+    queries: [POD_TOTAL_QUERY, POD_BY_NAMESPACE_QUERY],
+    toSeries: podsRunningSeries,
     format: formatCompact,
     forceFrom: "now-24h",
     span: 2,
