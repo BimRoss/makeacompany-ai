@@ -5,7 +5,7 @@ import { AlertTriangle, ArrowUpRight } from "lucide-react";
 
 import { AlertsProvider, useAlerts } from "./alerts-provider";
 import { AlertsStrip } from "./alerts-strip";
-import { CloudflarePanels } from "./cloudflare-panels";
+import { CloudflarePanels, useCloudflareSummary } from "./cloudflare-panels";
 import { ObservabilityDataProvider, useObservabilityData } from "./data-provider";
 import { GoldenPath } from "./golden-path";
 import { KpiScorecard } from "./kpi-scorecard";
@@ -54,6 +54,21 @@ function ObservabilityBody() {
   const { loading, lastUpdatedAt, adminDashboardUrl, cronjobDashboardUrl, clusterDashboardUrl } =
     useObservabilityData();
   const { from } = useTimeRange();
+  const cloudflare = useCloudflareSummary();
+  const cloudflareHasData = (() => {
+    const p = cloudflare.payload?.panels;
+    if (!p) return false;
+    const arrays = [
+      p.requestsPerMin,
+      p.bandwidthBps,
+      p.cacheHitRatio,
+      p.statusClass?.reqs2xx,
+      p.statusClass?.reqs4xx,
+      p.statusClass?.reqs5xx,
+    ];
+    return arrays.some((a) => (a?.length ?? 0) > 0);
+  })();
+  const showCloudflare = !cloudflare.errored && (cloudflare.loading || cloudflareHasData);
 
   const adminDeep = adminDashboardUrl ? appendRange(adminDashboardUrl, from) : null;
   const cronDeep = cronjobDashboardUrl ? appendRange(cronjobDashboardUrl, "now-24h") : null;
@@ -122,13 +137,15 @@ function ObservabilityBody() {
         </div>
       </ObservabilitySection>
 
-      <ObservabilitySection
-        id="edge"
-        title="Edge (Cloudflare)"
-        description="Cloudflare zone analytics for makeacompany.ai. Hourly buckets over the last 24h."
-      >
-        <CloudflarePanels />
-      </ObservabilitySection>
+      {showCloudflare ? (
+        <ObservabilitySection
+          id="edge"
+          title="Edge (Cloudflare)"
+          description="Cloudflare zone analytics for makeacompany.ai. Hourly buckets over the last 24h."
+        >
+          <CloudflarePanels />
+        </ObservabilitySection>
+      ) : null}
 
       <ObservabilitySection
         id="cluster"

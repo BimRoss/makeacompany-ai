@@ -38,7 +38,7 @@ const TONE_VAR: Record<ChartTone, string> = {
   neg: "var(--chart-neg)",
 };
 
-function useCloudflareSummary() {
+export function useCloudflareSummary() {
   const [payload, setPayload] = useState<CloudflarePayload | null>(null);
   const [errored, setErrored] = useState<string | null>(null);
   const cancelledRef = useRef(false);
