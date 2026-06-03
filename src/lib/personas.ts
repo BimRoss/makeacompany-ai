@@ -36,7 +36,7 @@ export const PERSONA_COPY: Record<Persona, PersonaCopy> = {
   },
   engineer: {
     heroLine1: "AI raised the bar.",
-    heroLine2: "This is the harness that takes the load.",
+    heroLine2: "This is the harness that raises you.",
     subhead:
       "AI didn't give you leverage — it gave your manager a new baseline. makeacompany.ai sells the harness, not the agent: persistent workspaces, baked-in skills, GitOps wired up. Built by an engineer shipping it from inside the product, so the work happens whether you're at the IDE or on the couch.",
     ctaH2: "See the harness.",
