@@ -5,6 +5,7 @@ import { AlertTriangle, ArrowUpRight } from "lucide-react";
 
 import { AlertsProvider, useAlerts } from "./alerts-provider";
 import { AlertsStrip } from "./alerts-strip";
+import { CloudflarePanels } from "./cloudflare-panels";
 import { ObservabilityDataProvider, useObservabilityData } from "./data-provider";
 import { GoldenPath } from "./golden-path";
 import { KpiScorecard } from "./kpi-scorecard";
@@ -114,6 +115,14 @@ function ObservabilityBody() {
             <MetricPanel key={def.id} def={def} from={from} />
           ))}
         </div>
+      </ObservabilitySection>
+
+      <ObservabilitySection
+        id="edge"
+        title="Edge (Cloudflare)"
+        description="Cloudflare zone analytics for makeacompany.ai. Hourly buckets over the last 24h."
+      >
+        <CloudflarePanels />
       </ObservabilitySection>
 
       <ObservabilitySection
