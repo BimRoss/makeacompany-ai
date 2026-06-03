@@ -179,6 +179,7 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 	s.mux.HandleFunc("/v1/internal/refresh-slack-users-snapshot", s.handleInternalRefreshSlackUsersSnapshot)
 	s.mux.HandleFunc("GET /v1/internal/deploy-gate", s.handleInternalDeployGateCheck)
 	s.mux.HandleFunc("POST /v1/internal/deploy-gate/consume", s.handleInternalDeployGateConsume)
+	s.mux.HandleFunc("GET /v1/internal/user-status", s.handleInternalUserStatus)
 	s.mux.HandleFunc("/v1/admin/auth/me", s.handleAdminAuthMe)
 	s.mux.HandleFunc("/v1/admin/auth/logout", s.handleAdminAuthLogout)
 	s.mux.HandleFunc("/v1/admin/auth/google/finish", s.handleAdminAuthGoogleFinish)
@@ -301,6 +302,8 @@ func normalizeMetricRoute(path string) string {
 		return "/v1/internal/deploy-gate"
 	case path == "/v1/internal/deploy-gate/consume":
 		return "/v1/internal/deploy-gate/consume"
+	case path == "/v1/internal/user-status":
+		return "/v1/internal/user-status"
 	case path == "/v1/admin/auth/me":
 		return "/v1/admin/auth/me"
 	case path == "/v1/admin/auth/logout":
