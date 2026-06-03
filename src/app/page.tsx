@@ -88,7 +88,7 @@ export default async function HomePage({
         <TestimonialsCarousel testimonials={testimonials} />
         <CtaSection />
       </PersonaProvider>
-      <SeoFaqSection seats={initialSeats} viewAllHref="/faq" />
+      <SeoFaqSection seats={initialSeats} viewAllHref="/faq" askCardsPosition="bottom" />
       <Footer />
     </main>
   );
