@@ -2,6 +2,7 @@ package app
 
 import (
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 )
@@ -42,7 +43,7 @@ func (s *Server) handleInternalTrialExpiryReaper(w http.ResponseWriter, r *http.
 		job := ExpiryDMJob{
 			SlackUserID:       slackID,
 			Email:             row.Email,
-			StripeCheckoutURL: checkoutURL,
+			StripeCheckoutURL: appendClientReferenceID(checkoutURL, slackID),
 		}
 		if err := s.store.EnqueueExpiryDMJob(r.Context(), row.Email, job); err != nil {
 			s.log.Printf("trial-expiry reaper enqueue %s: %v", row.Email, err)
@@ -66,4 +67,22 @@ func (s *Server) trialExpiryCheckoutURL() string {
 		return u
 	}
 	return strings.TrimRight(s.cfg.AppBaseURL, "/") + "/?checkout=base_plan"
+}
+
+// appendClientReferenceID adds ?client_reference_id=<slackID> to the checkout URL so the Stripe
+// webhook (#242) can map the payment back to the Slack profile. Preserves any existing query
+// string. If the URL fails to parse, falls back to the input unchanged — the DM is still useful,
+// the operator just has to reconcile by hand.
+func appendClientReferenceID(rawURL, slackID string) string {
+	if rawURL == "" || slackID == "" {
+		return rawURL
+	}
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return rawURL
+	}
+	q := u.Query()
+	q.Set("client_reference_id", slackID)
+	u.RawQuery = q.Encode()
+	return u.String()
 }
