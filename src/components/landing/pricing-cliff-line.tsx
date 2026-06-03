@@ -47,7 +47,7 @@ export function PricingCliffLine({ claimed, cap }: PricingCliffLineProps = {}) {
   }, [shownClaimed, targetPct]);
 
   return (
-    <div className="relative inline-flex items-center gap-2 overflow-hidden rounded-full border border-foreground bg-background px-3 py-1.5 text-xs text-foreground sm:px-4 sm:py-2 sm:text-sm">
+    <div className="relative inline-flex max-w-full items-center gap-2 overflow-hidden whitespace-nowrap rounded-full border border-foreground bg-background px-3 py-1.5 text-[11px] text-foreground sm:px-4 sm:py-2 sm:text-sm">
       <div
         aria-hidden
         className="pointer-events-none absolute inset-y-0 left-0 bg-foreground/10"
@@ -55,7 +55,7 @@ export function PricingCliffLine({ claimed, cap }: PricingCliffLineProps = {}) {
       />
       <Sparkles className="relative h-3.5 w-3.5 text-foreground sm:h-4 sm:w-4" />
       <span className="relative">
-        <span className="font-semibold tabular-nums">{displayed} of {shownCap}</span> <span className="font-semibold">free for life</span> seats claimed. After that: first week free, then $99/mo.
+        <span className="font-semibold tabular-nums">{displayed} of {shownCap}</span> <span className="font-semibold">free-for-life</span> seats, then a free week, then $99/mo.
       </span>
     </div>
   );
