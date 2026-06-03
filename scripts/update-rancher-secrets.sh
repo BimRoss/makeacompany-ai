@@ -235,6 +235,12 @@ add_optional_runtime_secret ANTHROPIC_API_KEY "${ANTHROPIC_API_KEY:-}"
 # returns 503 and the Edge panels render an "unavailable" card.
 add_optional_runtime_secret CLOUDFLARE_ANALYTICS_TOKEN "${CLOUDFLARE_ANALYTICS_TOKEN:-}"
 
+# Stripe Payment Link substituted into Joanne's trial-expiry DM (mac#244).
+# Per-user ?client_reference_id=<slack_id> is appended at reaper time so the
+# webhook (#242) can resolve the profile on payment. Optional — when missing,
+# the reaper falls back to ${APP_BASE_URL}/?checkout=base_plan.
+add_optional_runtime_secret TRIAL_EXPIRY_CHECKOUT_URL "${TRIAL_EXPIRY_CHECKOUT_URL:-}"
+
 kubectl_app create secret generic "${SECRET_NAME}" \
   "${secret_args[@]}" \
   --dry-run=client -o yaml | kubectl_app apply -f -
