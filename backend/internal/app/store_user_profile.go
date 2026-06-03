@@ -58,21 +58,46 @@ func (s *Store) UpsertUserProfileAfterWaitlist(ctx context.Context, email, strip
 // UpsertUserProfileFreeTrialInvite records a free-trial invite request on the profile hash without
 // touching Stripe-derived fields (so re-submitting from a logged-in browser can't clobber paid data).
 // attributedTo is written only when non-empty for the same reason as the waitlist path.
-func (s *Store) UpsertUserProfileFreeTrialInvite(ctx context.Context, email, attributedTo string) error {
+//
+// When trialExpiresAtUnix > 0, the upsert also marks the user as trialing (stripe_subscription_status="trialing"
+// and trial_expires_at=<unix>), which is the post-100-cliff path. When 0, no lifecycle fields are written and
+// the user remains in their existing state — that's the pre-cliff path where signup grants free_lifetime via
+// the seat-count backfill in scripts/backfill-free-lifetime.sh.
+func (s *Store) UpsertUserProfileFreeTrialInvite(ctx context.Context, email, attributedTo string, trialExpiresAtUnix int64) error {
 	email = normalizeProfileEmail(email)
 	if email == "" {
 		return fmt.Errorf("missing email")
 	}
 	now := time.Now().UTC().Format(time.RFC3339)
 	fields := map[string]any{
-		"email":                       email,
-		"free_trial_invite_sent_at":   now,
-		"profile_updated_at":          now,
+		"email":                     email,
+		"free_trial_invite_sent_at": now,
+		"profile_updated_at":        now,
 	}
 	if ref := strings.TrimSpace(attributedTo); ref != "" {
 		fields["attributed_to"] = ref
 	}
+	if trialExpiresAtUnix > 0 {
+		fields["stripe_subscription_status"] = "trialing"
+		fields["trial_expires_at"] = strconv.FormatInt(trialExpiresAtUnix, 10)
+	}
 	return s.rdb.HSet(ctx, userProfileRedisKey(email), fields).Err()
+}
+
+// MarkProfileFreeLifetime stamps free_lifetime=true on the profile hash. Used by the first-100-users backfill
+// (see scripts/backfill-free-lifetime.sh) and by any future signup path that decides at write time the user
+// falls under the cliff.
+func (s *Store) MarkProfileFreeLifetime(ctx context.Context, email string) error {
+	email = normalizeProfileEmail(email)
+	if email == "" {
+		return fmt.Errorf("missing email")
+	}
+	now := time.Now().UTC().Format(time.RFC3339)
+	return s.rdb.HSet(ctx, userProfileRedisKey(email), map[string]any{
+		"email":              email,
+		"free_lifetime":      "true",
+		"profile_updated_at": now,
+	}).Err()
 }
 
 // UpsertUserProfileStripeSubscription updates subscription-derived fields on the profile hash.
@@ -217,6 +242,11 @@ type UserProfileRow struct {
 	FreeTierConsumed bool   `json:"freeTierConsumed,omitempty"`
 	AttributedTo     string `json:"attributedTo,omitempty"`
 	Linked           bool   `json:"linked"`
+	// FreeLifetime is true for users who landed pre-100-cliff. Backfilled by scripts/backfill-free-lifetime.sh
+	// and respected by EffectiveStatus so they never flip to expired regardless of Stripe state.
+	FreeLifetime bool `json:"freeLifetime,omitempty"`
+	// TrialExpiresAt is the unix-second deadline for the post-cliff 7-day trial. 0 when not trialing.
+	TrialExpiresAt int64 `json:"trialExpiresAt,omitempty"`
 }
 
 func parseUnixSecondsString(v string) int64 {
@@ -241,6 +271,7 @@ func userProfileRowFromHash(email string, vals map[string]string) UserProfileRow
 	slackID := strings.TrimSpace(vals["slack_user_id"])
 	cancelAtEnd := strings.EqualFold(strings.TrimSpace(vals["stripe_subscription_cancel_at_period_end"]), "true")
 	freeTierConsumed := strings.EqualFold(strings.TrimSpace(vals["free_tier_consumed"]), "true")
+	freeLifetime := strings.EqualFold(strings.TrimSpace(vals["free_lifetime"]), "true")
 	return UserProfileRow{
 		Email:                               email,
 		StripeCustomerID:                    stripeCust,
@@ -262,6 +293,8 @@ func userProfileRowFromHash(email string, vals map[string]string) UserProfileRow
 		FreeTierConsumed:                    freeTierConsumed,
 		AttributedTo:                        strings.TrimSpace(vals["attributed_to"]),
 		Linked:                              stripeCust != "" && slackID != "",
+		FreeLifetime:                        freeLifetime,
+		TrialExpiresAt:                      parseUnixSecondsString(vals["trial_expires_at"]),
 	}
 }
 
@@ -393,6 +426,41 @@ func (s *Store) SetFreeTierConsumed(ctx context.Context, email string) error {
 		"free_tier_consumed": "true",
 		"profile_updated_at": now,
 	}).Err()
+}
+
+// LifecycleStatus is the resolved subscription/trial state used by the agent-silence dispatch gate (#243).
+// It collapses Stripe state, the free-lifetime flag, and trial expiry into a single value so callers don't
+// duplicate the precedence rules.
+type LifecycleStatus string
+
+const (
+	LifecycleFreeLifetime LifecycleStatus = "free_lifetime"
+	LifecycleTrialing     LifecycleStatus = "trialing"
+	LifecycleActive       LifecycleStatus = "active"
+	LifecycleExpired      LifecycleStatus = "expired"
+)
+
+// EffectiveStatus collapses StripeSubscriptionStatus, FreeLifetime, and TrialExpiresAt into one lifecycle
+// value. Precedence: Stripe active wins over everything (handles trial→paid). Then free_lifetime (the
+// pre-100 cliff). Then a live trial_expires_at gates trialing vs expired. Default is free_lifetime — the
+// conservative choice so unknown profiles don't get silenced when #243 lands.
+func EffectiveStatus(row UserProfileRow, now time.Time) LifecycleStatus {
+	if strings.EqualFold(strings.TrimSpace(row.StripeSubscriptionStatus), "active") {
+		return LifecycleActive
+	}
+	if row.FreeLifetime {
+		return LifecycleFreeLifetime
+	}
+	if row.TrialExpiresAt > 0 {
+		if now.Unix() < row.TrialExpiresAt {
+			return LifecycleTrialing
+		}
+		return LifecycleExpired
+	}
+	if strings.EqualFold(strings.TrimSpace(row.StripeSubscriptionStatus), "trialing") {
+		return LifecycleTrialing
+	}
+	return LifecycleFreeLifetime
 }
 
 // DeployGateStatus describes whether a user may ship a deployment.
