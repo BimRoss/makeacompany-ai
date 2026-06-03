@@ -30,6 +30,8 @@ type StripePurchasersPayload = {
   profileUpsertError?: string;
 };
 
+type LifecycleStatus = "free_lifetime" | "trialing" | "active" | "expired";
+
 type SlackWorkspaceUserRow = {
   slackUserId: string;
   teamId: string;
@@ -44,7 +46,50 @@ type SlackWorkspaceUserRow = {
   /** From Redis profile (Joanne #humans terms confirm). */
   terms?: string;
   termsMessageTs?: string;
+  /** From Redis profile via EffectiveStatus (#245). */
+  status?: LifecycleStatus | string;
+  /** Unix-seconds trial deadline, only present when status=trialing. */
+  trialExpiresAt?: number;
+  /** Mirrored from profile so active rows can deep-link to the Stripe dashboard. */
+  stripeCustomerId?: string;
 };
+
+type StatusFilter = "all" | LifecycleStatus | "trialing_lt_48h";
+
+const STATUS_FILTER_LABELS: Record<StatusFilter, string> = {
+  all: "All statuses",
+  free_lifetime: "Free lifetime",
+  trialing: "Trialing",
+  active: "Active",
+  expired: "Expired",
+  trialing_lt_48h: "Trialing <48h",
+};
+
+const STATUS_PILL_CLASSES: Record<LifecycleStatus, string> = {
+  free_lifetime: "bg-muted text-muted-foreground ring-1 ring-border",
+  trialing: "bg-blue-500/15 text-blue-700 ring-1 ring-blue-500/30 dark:text-blue-300",
+  active: "bg-emerald-500/15 text-emerald-700 ring-1 ring-emerald-500/30 dark:text-emerald-300",
+  expired: "bg-rose-500/15 text-rose-700 ring-1 ring-rose-500/30 dark:text-rose-300",
+};
+
+function formatRelativeFromNow(unixSeconds: number, nowSeconds: number): string {
+  const deltaSec = unixSeconds - nowSeconds;
+  const abs = Math.abs(deltaSec);
+  const past = deltaSec < 0;
+  const day = 86400;
+  const hour = 3600;
+  const minute = 60;
+  let body: string;
+  if (abs >= day) body = `${Math.round(abs / day)}d`;
+  else if (abs >= hour) body = `${Math.round(abs / hour)}h`;
+  else if (abs >= minute) body = `${Math.round(abs / minute)}m`;
+  else body = `${abs}s`;
+  return past ? `${body} ago` : `in ${body}`;
+}
+
+function stripeCustomerDashboardUrl(customerId: string): string {
+  return `https://dashboard.stripe.com/customers/${encodeURIComponent(customerId)}`;
+}
 
 type SlackUsersPayload = {
   users?: SlackWorkspaceUserRow[];
@@ -275,6 +320,46 @@ export function AdminStripeUsersTable() {
   );
 }
 
+function renderStatusCell(u: SlackWorkspaceUserRow, nowSeconds: number) {
+  const status = (u.status ?? "") as LifecycleStatus | "";
+  if (!status) {
+    return <span className="text-muted-foreground">—</span>;
+  }
+  const pill = STATUS_PILL_CLASSES[status as LifecycleStatus];
+  const pillClass = pill ?? "bg-muted text-muted-foreground ring-1 ring-border";
+  const label = status.replace("_", " ");
+  let subtitle: string | null = null;
+  if (status === "trialing" && typeof u.trialExpiresAt === "number" && u.trialExpiresAt > 0) {
+    subtitle = `ends ${formatRelativeFromNow(u.trialExpiresAt, nowSeconds)}`;
+  }
+  const customerId = (u.stripeCustomerId ?? "").trim();
+  const pillBody = (
+    <span
+      className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${pillClass}`}
+    >
+      {label}
+    </span>
+  );
+  return (
+    <div className="flex flex-col gap-0.5">
+      {status === "active" && customerId ? (
+        <a
+          href={stripeCustomerDashboardUrl(customerId)}
+          target="_blank"
+          rel="noreferrer noopener"
+          className="inline-flex w-fit"
+          title={`Open ${customerId} in Stripe dashboard`}
+        >
+          {pillBody}
+        </a>
+      ) : (
+        pillBody
+      )}
+      {subtitle ? <span className="text-[10px] text-muted-foreground">{subtitle}</span> : null}
+    </div>
+  );
+}
+
 /** Slack workspace members (users.list). Mount reads Redis snapshots; live refresh pulls upstream and updates Redis. */
 export function AdminSlackUsersTable() {
   const flash = useAdminFlashToast();
@@ -284,6 +369,13 @@ export function AdminSlackUsersTable() {
   const [slackWriteWarn, setSlackWriteWarn] = useState<string | null>(null);
   const [showDeleted, setShowDeleted] = useState(false);
   const [deletedHidden, setDeletedHidden] = useState(0);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  // Re-render the relative-time column every minute so "ends in 3d" stays accurate without a refetch.
+  const [nowSeconds, setNowSeconds] = useState(() => Math.floor(Date.now() / 1000));
+  useEffect(() => {
+    const id = setInterval(() => setNowSeconds(Math.floor(Date.now() / 1000)), 60_000);
+    return () => clearInterval(id);
+  }, []);
 
   const fetchSlackUsers = useCallback(
     async (live: boolean, includeDeleted: boolean) => {
@@ -348,11 +440,29 @@ export function AdminSlackUsersTable() {
     void fetchSlackUsers(false, showDeleted);
   }, [fetchSlackUsers, showDeleted]);
 
+  const visibleSlackUsers = slackUsers.filter((u) => {
+    if (statusFilter === "all") return true;
+    if (statusFilter === "trialing_lt_48h") {
+      if (u.status !== "trialing") return false;
+      const exp = typeof u.trialExpiresAt === "number" ? u.trialExpiresAt : 0;
+      if (exp <= 0) return false;
+      return exp - nowSeconds < 48 * 3600;
+    }
+    return u.status === statusFilter;
+  });
+
   return (
       <section className="space-y-3" aria-labelledby="admin-slack-users-heading">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h2 id="admin-slack-users-heading" className="font-display text-xl font-semibold tracking-tight text-foreground">
-            Slack Users <span className="font-normal text-muted-foreground tabular-nums">({slackUsers.length})</span>
+            Slack Users{" "}
+            <span className="font-normal text-muted-foreground tabular-nums">
+              ({visibleSlackUsers.length}
+              {statusFilter !== "all" && visibleSlackUsers.length !== slackUsers.length
+                ? ` of ${slackUsers.length}`
+                : ""}
+              )
+            </span>
             {!showDeleted && deletedHidden > 0 ? (
               <span className="ml-2 text-xs font-normal text-muted-foreground tabular-nums">
                 ({deletedHidden} deleted hidden)
@@ -360,6 +470,22 @@ export function AdminSlackUsersTable() {
             ) : null}
           </h2>
           <div className="flex items-center gap-2">
+            <label className="inline-flex items-center gap-1.5 text-xs text-muted-foreground select-none">
+              <span className="sr-only">Filter by lifecycle status</span>
+              <select
+                value={statusFilter}
+                disabled={slackLoading}
+                onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
+                className="rounded-md border border-border bg-card px-2 py-1 text-xs text-foreground disabled:opacity-50"
+                aria-label="Filter Slack users by status"
+              >
+                {(Object.keys(STATUS_FILTER_LABELS) as StatusFilter[]).map((k) => (
+                  <option key={k} value={k}>
+                    {STATUS_FILTER_LABELS[k]}
+                  </option>
+                ))}
+              </select>
+            </label>
             <label className="inline-flex items-center gap-1.5 text-xs text-muted-foreground select-none">
               <input
                 type="checkbox"
@@ -415,9 +541,9 @@ export function AdminSlackUsersTable() {
             <span className="font-mono">SLACK_BOT_TOKEN</span> still accepted). This page load only reads Redis.
           </p>
         ) : null}
-        {slackUsers.length > 0 ? (
+        {visibleSlackUsers.length > 0 ? (
           <ul className="grid gap-2 sm:hidden" aria-label="Slack users (mobile)">
-            {slackUsers.map((u) => {
+            {visibleSlackUsers.map((u) => {
               const display = (u.realName || u.displayName || u.username || "").trim();
               const avatarSrc = (u.profileImageUrl ?? "").trim();
               const initial = (display || u.username || "?").trim().charAt(0).toUpperCase();
@@ -466,9 +592,9 @@ export function AdminSlackUsersTable() {
             })}
           </ul>
         ) : null}
-        {slackUsers.length > 0 ? (
+        {visibleSlackUsers.length > 0 ? (
           <div className="hidden overflow-x-auto rounded-xl border border-border dark:border-emerald-400/15 sm:block dark:shadow-[0_4px_24px_rgba(52,211,153,0.08)]">
-            <table className="w-full min-w-[920px] border-collapse text-left text-sm">
+            <table className="w-full min-w-[1080px] border-collapse text-left text-sm">
               <thead>
                 <tr className="border-b border-border bg-muted/40 dark:bg-emerald-400/5 text-xs uppercase tracking-wide text-muted-foreground">
                   <th className="w-9 px-2 py-1.5" scope="col">
@@ -476,6 +602,8 @@ export function AdminSlackUsersTable() {
                   </th>
                   <th className="px-3 py-1.5">Email</th>
                   <th className="px-3 py-1.5">Name</th>
+                  <th className="px-3 py-1.5">Status</th>
+                  <th className="px-3 py-1.5">Trial ends</th>
                   <th className="px-3 py-1.5">Username</th>
                   <th className="px-3 py-1.5">Slack ID</th>
                   <th className="px-3 py-1.5">Team</th>
@@ -485,7 +613,7 @@ export function AdminSlackUsersTable() {
                 </tr>
               </thead>
               <tbody>
-                {slackUsers.map((u) => {
+                {visibleSlackUsers.map((u) => {
                   const display = (u.realName || u.displayName || u.username || "").trim();
                   const avatarSrc = (u.profileImageUrl ?? "").trim();
                   return (
@@ -514,6 +642,14 @@ export function AdminSlackUsersTable() {
                     </td>
                     <td className="whitespace-nowrap px-3 py-1.5 align-middle font-mono text-xs">{short(u.email || "—", 48)}</td>
                     <td className="whitespace-nowrap px-3 py-1.5 align-middle text-xs">{short(display || "—", 40)}</td>
+                    <td className="whitespace-nowrap px-3 py-1.5 align-middle text-xs">
+                      {renderStatusCell(u, nowSeconds)}
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-1.5 align-middle text-xs text-muted-foreground">
+                      {u.status === "trialing" && typeof u.trialExpiresAt === "number" && u.trialExpiresAt > 0
+                        ? formatRelativeFromNow(u.trialExpiresAt, nowSeconds)
+                        : "—"}
+                    </td>
                     <td className="whitespace-nowrap px-3 py-1.5 align-middle font-mono text-xs">{short(u.username, 28)}</td>
                     <td className="whitespace-nowrap px-3 py-1.5 align-middle font-mono text-xs">{short(u.slackUserId, 16)}</td>
                     <td className="whitespace-nowrap px-3 py-1.5 align-middle font-mono text-xs">{short(u.teamId, 14)}</td>
