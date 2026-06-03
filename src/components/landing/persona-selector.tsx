@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { usePersona } from "@/components/landing/persona-context";
+import { firstTouchToGtagParams, readFirstTouchClient } from "@/lib/first-touch";
 import { PERSONA_LABELS, PERSONA_SLUGS, PERSONAS, type Persona } from "@/lib/personas";
 import { track } from "@/lib/gtag";
 
@@ -35,7 +36,11 @@ export function PersonaSelector() {
             role="tab"
             aria-selected={active}
             onClick={() => {
-              track("persona_selected", { persona: PERSONA_SLUGS[p], from: persona });
+              track("persona_selected", {
+                persona: PERSONA_SLUGS[p],
+                from: persona,
+                ...firstTouchToGtagParams(readFirstTouchClient()),
+              });
               router.push(`/for/${PERSONA_SLUGS[p]}`);
             }}
             className={`relative z-10 rounded-full px-3 py-2 transition-colors ${
