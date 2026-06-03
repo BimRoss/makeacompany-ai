@@ -1,6 +1,11 @@
+import type { Metadata } from "next";
 import { Footer } from "@/components/landing/footer";
 import { Header } from "@/components/landing/header";
 import { SuccessOnboardingCard } from "@/components/landing/success-onboarding-card";
+
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+};
 
 type Props = {
   searchParams: Promise<{ session_id?: string }>;
