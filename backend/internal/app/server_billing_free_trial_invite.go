@@ -57,7 +57,7 @@ func (s *Server) handleBillingFreeTrialInvite(w http.ResponseWriter, r *http.Req
 	}
 
 	if s.store != nil {
-		if err := s.store.UpsertUserProfileFreeTrialInvite(r.Context(), email, ref); err != nil {
+		if err := s.store.UpsertUserProfileFreeTrialInvite(r.Context(), email, ref, 0); err != nil {
 			s.log.Printf("free-trial invite: persist profile %s: %v", email, err)
 		}
 	}

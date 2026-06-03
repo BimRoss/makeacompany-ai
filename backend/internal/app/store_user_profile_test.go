@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/alicebob/miniredis/v2"
 	"github.com/redis/go-redis/v9"
@@ -202,7 +203,7 @@ func TestUpsertUserProfileFreeTrialInvite(t *testing.T) {
 	ctx := context.Background()
 	st := &Store{rdb: rdb}
 
-	if err := st.UpsertUserProfileFreeTrialInvite(ctx, "Free@Example.com", "john"); err != nil {
+	if err := st.UpsertUserProfileFreeTrialInvite(ctx, "Free@Example.com", "john", 0); err != nil {
 		t.Fatal(err)
 	}
 	key := userProfileRedisKey("free@example.com")
@@ -217,7 +218,7 @@ func TestUpsertUserProfileFreeTrialInvite(t *testing.T) {
 	if err := st.UpsertUserProfileAfterWaitlist(ctx, "paid@example.com", "cus_1", "cs_1", "paid", "prod_waitlist", "grant"); err != nil {
 		t.Fatal(err)
 	}
-	if err := st.UpsertUserProfileFreeTrialInvite(ctx, "paid@example.com", ""); err != nil {
+	if err := st.UpsertUserProfileFreeTrialInvite(ctx, "paid@example.com", "", 0); err != nil {
 		t.Fatal(err)
 	}
 	paidKey := userProfileRedisKey("paid@example.com")
@@ -226,6 +227,76 @@ func TestUpsertUserProfileFreeTrialInvite(t *testing.T) {
 	}
 	if v, _ := rdb.HGet(ctx, paidKey, "attributed_to").Result(); v != "grant" {
 		t.Fatalf("attributed_to clobbered: %q", v)
+	}
+}
+
+func TestUpsertUserProfileFreeTrialInvite_postCliffMarksTrialing(t *testing.T) {
+	srv, err := miniredis.Run()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer srv.Close()
+	rdb := redis.NewClient(&redis.Options{Addr: srv.Addr()})
+	defer rdb.Close()
+	ctx := context.Background()
+	st := &Store{rdb: rdb}
+
+	expiry := int64(2000000000)
+	if err := st.UpsertUserProfileFreeTrialInvite(ctx, "new@example.com", "", expiry); err != nil {
+		t.Fatal(err)
+	}
+	key := userProfileRedisKey("new@example.com")
+	if v, _ := rdb.HGet(ctx, key, "stripe_subscription_status").Result(); v != "trialing" {
+		t.Fatalf("status: %q, want trialing", v)
+	}
+	if v, _ := rdb.HGet(ctx, key, "trial_expires_at").Result(); v != "2000000000" {
+		t.Fatalf("trial_expires_at: %q, want 2000000000", v)
+	}
+}
+
+func TestMarkProfileFreeLifetime(t *testing.T) {
+	srv, err := miniredis.Run()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer srv.Close()
+	rdb := redis.NewClient(&redis.Options{Addr: srv.Addr()})
+	defer rdb.Close()
+	ctx := context.Background()
+	st := &Store{rdb: rdb}
+
+	if err := st.MarkProfileFreeLifetime(ctx, "Cliff@Example.com"); err != nil {
+		t.Fatal(err)
+	}
+	row, err := st.UserProfileRowByEmail(ctx, "cliff@example.com")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !row.FreeLifetime {
+		t.Fatal("expected FreeLifetime=true")
+	}
+}
+
+func TestEffectiveStatus(t *testing.T) {
+	now := time.Unix(1_700_000_000, 0)
+	cases := []struct {
+		name string
+		row  UserProfileRow
+		want LifecycleStatus
+	}{
+		{"stripe active beats everything", UserProfileRow{StripeSubscriptionStatus: "active", FreeLifetime: true, TrialExpiresAt: 1}, LifecycleActive},
+		{"free lifetime when no stripe", UserProfileRow{FreeLifetime: true}, LifecycleFreeLifetime},
+		{"trialing within window", UserProfileRow{TrialExpiresAt: now.Unix() + 3600}, LifecycleTrialing},
+		{"expired past window", UserProfileRow{TrialExpiresAt: now.Unix() - 1}, LifecycleExpired},
+		{"stripe trialing without local expiry", UserProfileRow{StripeSubscriptionStatus: "trialing"}, LifecycleTrialing},
+		{"unknown defaults to free_lifetime (conservative)", UserProfileRow{}, LifecycleFreeLifetime},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := EffectiveStatus(tc.row, now); got != tc.want {
+				t.Fatalf("EffectiveStatus = %q, want %q", got, tc.want)
+			}
+		})
 	}
 }
 
