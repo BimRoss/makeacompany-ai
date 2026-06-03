@@ -47,8 +47,8 @@ function AnomalyBadge({ component }: { component: string }) {
   );
 }
 
-const PANEL_GRID = "grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3";
-const WEB_PANEL_GRID = "grid grid-cols-1 gap-3 sm:grid-cols-2";
+const PANEL_GRID = "grid gap-3 grid-cols-[repeat(auto-fit,minmax(320px,1fr))]";
+const WEB_PANEL_GRID = PANEL_GRID;
 
 function ObservabilityBody() {
   const { loading, lastUpdatedAt, adminDashboardUrl, cronjobDashboardUrl, clusterDashboardUrl } =
