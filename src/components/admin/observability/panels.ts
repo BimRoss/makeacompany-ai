@@ -22,6 +22,8 @@ export type PanelDef = {
   forceFrom?: string;
   /** Visual span on the iPad grid: 1 (third) or 2 (two-thirds). */
   span?: 1 | 2;
+  /** Hide the panel entirely when the query returns no points. */
+  hideWhenEmpty?: boolean;
 };
 
 function pointsFor(raw: RangeSeries[], query: string): Array<[number, number]> {
@@ -79,7 +81,14 @@ export const WEB_PANELS: PanelDef[] = [
     toSeries: single(`sum(rate(${REQ}[5m])) * 60`, "requests/min", "accent"),
     format: formatPerMin,
     area: true,
-    span: 2,
+  },
+  {
+    id: "status-class",
+    title: "Requests by status",
+    subtitle: "Split by response class /min",
+    queries: [`sum by (status_class) (rate(${REQ}[5m])) * 60`],
+    toSeries: splitByLabel(`sum by (status_class) (rate(${REQ}[5m])) * 60`, "status_class", statusTone),
+    format: formatPerMin,
   },
   {
     id: "latency-percentiles",
@@ -98,14 +107,6 @@ export const WEB_PANELS: PanelDef[] = [
     format: formatMs,
   },
   {
-    id: "status-class",
-    title: "Requests by status",
-    subtitle: "Split by response class /min",
-    queries: [`sum by (status_class) (rate(${REQ}[5m])) * 60`],
-    toSeries: splitByLabel(`sum by (status_class) (rate(${REQ}[5m])) * 60`, "status_class", statusTone),
-    format: formatPerMin,
-  },
-  {
     id: "error-rate",
     title: "Error rate",
     subtitle: "5xx share of all requests",
@@ -120,6 +121,7 @@ export const WEB_PANELS: PanelDef[] = [
     format: formatPercent,
     area: true,
     zeroBaseline: true,
+    hideWhenEmpty: true,
   },
   {
     id: "goroutines",

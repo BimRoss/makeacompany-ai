@@ -48,6 +48,7 @@ function AnomalyBadge({ component }: { component: string }) {
 }
 
 const PANEL_GRID = "grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3";
+const WEB_PANEL_GRID = "grid grid-cols-1 gap-3 sm:grid-cols-2";
 
 function ObservabilityBody() {
   const { loading, lastUpdatedAt, adminDashboardUrl, cronjobDashboardUrl, clusterDashboardUrl } =
@@ -85,7 +86,7 @@ function ObservabilityBody() {
           </div>
         }
       >
-        <div className={PANEL_GRID}>
+        <div className={WEB_PANEL_GRID}>
           {WEB_PANELS.map((def) => (
             <MetricPanel key={def.id} def={def} from={from} />
           ))}
