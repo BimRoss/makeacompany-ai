@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Footer } from "@/components/landing/footer";
 import { Header } from "@/components/landing/header";
 import { faqStructuredData, SeoFaqSection } from "@/components/landing/seo-faq";
+import { breadcrumbStructuredData } from "@/lib/breadcrumbs";
 import { fetchLanderSlackSeats } from "@/lib/lander-slack-seats";
 import { siteUrl } from "@/lib/site";
 
@@ -25,9 +26,17 @@ export const metadata: Metadata = {
 export default async function FaqPage() {
   const initialSeats = await fetchLanderSlackSeats();
   const faqJsonLd = faqStructuredData(initialSeats);
+  const breadcrumbJsonLd = breadcrumbStructuredData([
+    { name: "Home", path: "/" },
+    { name: "FAQ", path: "/faq" },
+  ]);
 
   return (
     <main className="min-h-screen bg-background">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+      />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
