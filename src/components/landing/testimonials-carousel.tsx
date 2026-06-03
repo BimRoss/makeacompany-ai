@@ -324,23 +324,17 @@ export function TestimonialsCarousel({ testimonials }: { testimonials: LanderTes
                 type="button"
                 onClick={copyActive}
                 aria-label={copied ? "Testimonial copied" : "Copy testimonial"}
-                className="flex h-8 items-center gap-1.5 rounded-full px-2.5 text-xs font-medium text-foreground/60 hover:bg-foreground/5 hover:text-foreground"
+                className="flex h-8 w-8 items-center justify-center rounded-full text-foreground/60 hover:bg-foreground/5 hover:text-foreground"
               >
                 {copied ? (
-                  <>
-                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden>
-                      <path d="M3 8.5L6.5 12L13 5" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                    Copied
-                  </>
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+                    <path d="M3 8.5L6.5 12L13 5" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
                 ) : (
-                  <>
-                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden>
-                      <rect x="5" y="5" width="8.5" height="8.5" rx="1.5" stroke="currentColor" strokeWidth="1.5" />
-                      <path d="M11 5V3.5A1.5 1.5 0 0 0 9.5 2h-6A1.5 1.5 0 0 0 2 3.5v6A1.5 1.5 0 0 0 3.5 11H5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                    </svg>
-                    Copy
-                  </>
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+                    <rect x="5" y="5" width="8.5" height="8.5" rx="1.5" stroke="currentColor" strokeWidth="1.5" />
+                    <path d="M11 5V3.5A1.5 1.5 0 0 0 9.5 2h-6A1.5 1.5 0 0 0 2 3.5v6A1.5 1.5 0 0 0 3.5 11H5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                  </svg>
                 )}
               </button>
               <button
@@ -355,7 +349,7 @@ export function TestimonialsCarousel({ testimonials }: { testimonials: LanderTes
               </button>
             </div>
             <div className="mb-1 text-3xl font-black leading-none text-foreground/15 select-none">&ldquo;</div>
-            <div className="mb-6 pr-24 text-foreground/90">
+            <div className="mb-6 pr-20 text-foreground/90">
               <TestimonialContent content={activeTestimonial.content} />
             </div>
             <div className="flex items-center gap-3">
