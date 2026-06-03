@@ -168,6 +168,7 @@ export const JOBS_PANELS: PanelDef[] = [
     area: true,
     zeroBaseline: true,
     forceFrom: "now-24h",
+    hideWhenEmpty: true,
   },
   {
     id: "cron-staleness",
@@ -186,37 +187,28 @@ export const JOBS_PANELS: PanelDef[] = [
   },
 ];
 
+const namespaceTonePalette: ChartTone[] = ["accent", "ink", "pos", "neg", "muted"];
+const namespaceTone = (ns: string): ChartTone => {
+  let hash = 0;
+  for (let i = 0; i < ns.length; i += 1) hash = (hash * 31 + ns.charCodeAt(i)) >>> 0;
+  return namespaceTonePalette[hash % namespaceTonePalette.length];
+};
+
 export const CLUSTER_PANELS: PanelDef[] = [
-  {
-    id: "container-restarts",
-    title: "Container restarts",
-    subtitle: "Restarts per hour in namespace",
-    queries: [
-      `sum(increase(kube_pod_container_status_restarts_total{namespace="makeacompany-ai"}[1h]))`,
-    ],
-    toSeries: single(
-      `sum(increase(kube_pod_container_status_restarts_total{namespace="makeacompany-ai"}[1h]))`,
-      "restarts",
-      "neg"
-    ),
-    format: formatCompact,
-    area: true,
-    zeroBaseline: true,
-    forceFrom: "now-24h",
-  },
   {
     id: "pods-running",
     title: "Pods running",
-    subtitle: "Running pods in namespace",
+    subtitle: "Running pods by namespace",
     queries: [
-      `count(kube_pod_status_phase{namespace="makeacompany-ai", phase="Running"} == 1)`,
+      `count by (namespace) (kube_pod_status_phase{phase="Running"} == 1)`,
     ],
-    toSeries: single(
-      `count(kube_pod_status_phase{namespace="makeacompany-ai", phase="Running"} == 1)`,
-      "pods",
-      "ink"
+    toSeries: splitByLabel(
+      `count by (namespace) (kube_pod_status_phase{phase="Running"} == 1)`,
+      "namespace",
+      namespaceTone
     ),
     format: formatCompact,
     forceFrom: "now-24h",
+    span: 2,
   },
 ];
