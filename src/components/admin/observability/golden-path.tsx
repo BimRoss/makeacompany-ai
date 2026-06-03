@@ -58,7 +58,7 @@ export function GoldenPath() {
       <div className="mb-3 flex items-center justify-between gap-3">
         <div>
           <h3 className="font-display text-base font-semibold tracking-tight">Golden path</h3>
-          <p className="text-xs text-muted-foreground">
+          <p className="hidden text-xs text-muted-foreground sm:block">
             End-to-end probe — reads each snapshot back and checks freshness.
           </p>
         </div>
