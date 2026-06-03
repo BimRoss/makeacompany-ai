@@ -10,6 +10,7 @@ import { GoldenPath } from "./golden-path";
 import { KpiScorecard } from "./kpi-scorecard";
 import { MetricPanel } from "./metric-panel";
 import { CLUSTER_PANELS, JOBS_PANELS, WEB_PANELS } from "./panels";
+import { SearchQueriesPanel } from "./search-panel";
 import { ObservabilitySection } from "./section";
 import { TimeRangeProvider, useTimeRange } from "./time-range";
 import { ObservabilityToolbar } from "./toolbar";
@@ -87,6 +88,14 @@ function ObservabilityBody() {
             <MetricPanel key={def.id} def={def} from={from} />
           ))}
         </div>
+      </ObservabilitySection>
+
+      <ObservabilitySection
+        id="search"
+        title="Search"
+        description="Google Search Console — top organic queries. Pipeline lags ~2 days."
+      >
+        <SearchQueriesPanel />
       </ObservabilitySection>
 
       <ObservabilitySection
