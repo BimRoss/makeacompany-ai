@@ -78,6 +78,27 @@ export function TestimonialsCarousel({ testimonials }: { testimonials: LanderTes
   const touchStartXRef = useRef<number | null>(null);
   const touchDeltaXRef = useRef(0);
 
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    if (typeof window === "undefined" || !("IntersectionObserver" in window)) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const cards = el.querySelectorAll<HTMLElement>("[data-testimonial-card]");
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            entry.target.classList.add("testimonial-card--in-view");
+            io.unobserve(entry.target);
+          }
+        }
+      },
+      { root: null, rootMargin: "0px 0px -10% 0px", threshold: 0.2 },
+    );
+    cards.forEach((c) => io.observe(c));
+    return () => io.disconnect();
+  }, [testimonials.length]);
+
   const updateScrollState = useCallback(() => {
     const el = scrollRef.current;
     if (!el) return;
@@ -146,13 +167,14 @@ export function TestimonialsCarousel({ testimonials }: { testimonials: LanderTes
             role="region"
             aria-label="Testimonials"
           >
-            {testimonials.map((testimonial) => {
+            {testimonials.map((testimonial, idx) => {
               const [tintLight, tintDark] = pickMonogramTint(testimonial.name);
               const initials = testimonial.avatar || deriveInitials(testimonial.name);
               return (
                 <article
                   key={testimonial.id}
                   data-testimonial-card
+                  style={{ ["--testimonial-reveal-delay" as string]: `${Math.min(idx, 5) * 60}ms` }}
                   tabIndex={0}
                   role="button"
                   aria-label={`Read full testimonial from ${testimonial.name}`}
