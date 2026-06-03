@@ -9,10 +9,12 @@ import { PersonaProvider } from "@/components/landing/persona-context";
 import { faqStructuredData, SeoFaqSection } from "@/components/landing/seo-faq";
 import { TestimonialsCarousel } from "@/components/landing/testimonials-carousel";
 import { ValueStack } from "@/components/landing/value-stack";
+import { breadcrumbStructuredData } from "@/lib/breadcrumbs";
 import { fetchLanderSlackSeats } from "@/lib/lander-slack-seats";
 import { fetchLanderTestimonials } from "@/lib/lander-testimonials";
 import {
   PERSONA_BY_SLUG,
+  PERSONA_LABELS,
   PERSONA_META,
   PERSONA_SLUGS,
   type Persona,
@@ -70,6 +72,10 @@ export default async function PersonaLandingPage({
   if (!persona) notFound();
 
   const faqJsonLd = faqStructuredData();
+  const breadcrumbJsonLd = breadcrumbStructuredData([
+    { name: "Home", path: "/" },
+    { name: `For ${PERSONA_LABELS[persona]}`, path: `/for/${slug}` },
+  ]);
   const [initialSeats, testimonials] = await Promise.all([
     fetchLanderSlackSeats(),
     fetchLanderTestimonials(),
@@ -77,6 +83,10 @@ export default async function PersonaLandingPage({
 
   return (
     <main className="min-h-screen bg-background">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+      />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
