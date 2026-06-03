@@ -300,6 +300,69 @@ func TestEffectiveStatus(t *testing.T) {
 	}
 }
 
+func TestUpsertUserProfileStripeSubscription_clearsTrialOnActive(t *testing.T) {
+	srv, err := miniredis.Run()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer srv.Close()
+	rdb := redis.NewClient(&redis.Options{Addr: srv.Addr()})
+	defer rdb.Close()
+	ctx := context.Background()
+	st := &Store{rdb: rdb}
+
+	expiry := int64(2000000000)
+	if err := st.UpsertUserProfileFreeTrialInvite(ctx, "convert@example.com", "", expiry); err != nil {
+		t.Fatal(err)
+	}
+	key := userProfileRedisKey("convert@example.com")
+	if v, _ := rdb.HGet(ctx, key, "trial_expires_at").Result(); v != "2000000000" {
+		t.Fatalf("precondition: trial_expires_at: %q", v)
+	}
+
+	// User pays mid-trial: subscription.updated arrives with status=active.
+	if err := st.UpsertUserProfileStripeSubscription(ctx, "convert@example.com", "cus_1", "sub_99", "active", "subscriber", "price_monthly", "prod_monthly", false, 1735689600); err != nil {
+		t.Fatal(err)
+	}
+	if v, err := rdb.HGet(ctx, key, "trial_expires_at").Result(); err != redis.Nil {
+		t.Fatalf("trial_expires_at not cleared: %q (err=%v)", v, err)
+	}
+
+	row, err := st.UserProfileRowByEmail(ctx, "convert@example.com")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := EffectiveStatus(row, time.Unix(1_900_000_000, 0)); got != LifecycleActive {
+		t.Fatalf("EffectiveStatus = %q, want active", got)
+	}
+}
+
+func TestUpsertUserProfileStripeSubscription_preservesTrialOnNonActive(t *testing.T) {
+	srv, err := miniredis.Run()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer srv.Close()
+	rdb := redis.NewClient(&redis.Options{Addr: srv.Addr()})
+	defer rdb.Close()
+	ctx := context.Background()
+	st := &Store{rdb: rdb}
+
+	expiry := int64(2000000000)
+	if err := st.UpsertUserProfileFreeTrialInvite(ctx, "lapsed@example.com", "", expiry); err != nil {
+		t.Fatal(err)
+	}
+	// Failed-payment / past_due shouldn't drop trial state — the user can still pay before the
+	// deadline; only an explicit `active` arrival means the trial deadline is moot.
+	if err := st.UpsertUserProfileStripeSubscription(ctx, "lapsed@example.com", "cus_2", "sub_2", "past_due", "none", "price_monthly", "prod_monthly", false, 0); err != nil {
+		t.Fatal(err)
+	}
+	key := userProfileRedisKey("lapsed@example.com")
+	if v, _ := rdb.HGet(ctx, key, "trial_expires_at").Result(); v != "2000000000" {
+		t.Fatalf("trial_expires_at clobbered on past_due: %q", v)
+	}
+}
+
 func TestUpsertUserProfileStripeSubscription_setsStripeProductID(t *testing.T) {
 	srv, err := miniredis.Run()
 	if err != nil {

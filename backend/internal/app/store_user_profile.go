@@ -125,7 +125,18 @@ func (s *Store) UpsertUserProfileStripeSubscription(ctx context.Context, email, 
 	if pid := strings.TrimSpace(stripeProductID); pid != "" {
 		fields["stripe_product_id"] = pid
 	}
-	return s.rdb.HSet(ctx, userProfileRedisKey(email), fields).Err()
+	key := userProfileRedisKey(email)
+	pipe := s.rdb.TxPipeline()
+	pipe.HSet(ctx, key, fields)
+	// When a sub flips to active, the lander-side trial deadline is no longer load-bearing — clear it so
+	// admin (#245) doesn't display "trial ends in 3d" next to a paying customer and so EffectiveStatus
+	// readers see clean data. We keep free_lifetime intact: a paid user who later cancels falls back to
+	// their pre-cliff free_lifetime state, not to expired.
+	if strings.EqualFold(strings.TrimSpace(subscriptionStatus), "active") {
+		pipe.HDel(ctx, key, "trial_expires_at")
+	}
+	_, err := pipe.Exec(ctx)
+	return err
 }
 
 // UpsertUserProfileSlackID sets Slack user id for a profile and maintains slack->email index.
