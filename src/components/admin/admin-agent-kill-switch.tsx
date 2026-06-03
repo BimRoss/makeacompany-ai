@@ -138,7 +138,7 @@ export function AdminAgentKillSwitch() {
         >
           Agent kill switches
         </h2>
-        <p className="text-xs text-muted-foreground">
+        <p className="hidden text-xs text-muted-foreground sm:block">
           Scales the prod Deployment between 0 and 1 — reversible in ~10s.
         </p>
       </div>

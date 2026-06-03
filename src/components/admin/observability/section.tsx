@@ -44,7 +44,7 @@ export function ObservabilitySection({
           <div className="space-y-0.5">
             <h2 className="font-display text-lg font-semibold tracking-tight">{title}</h2>
             {description ? (
-              <p className="text-xs text-muted-foreground">{description}</p>
+              <p className="hidden text-xs text-muted-foreground sm:block">{description}</p>
             ) : null}
           </div>
         </button>
