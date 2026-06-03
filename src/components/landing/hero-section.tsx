@@ -37,6 +37,7 @@ export function HeroSection({ initialSeats }: HeroSectionProps = {}) {
   const cancelRef = useRef<(() => void) | null>(null);
   const forcedAgentRef = useRef<"joanne" | "ross" | null>(null);
   const hoverAgentRef = useRef<"joanne" | "ross" | null>(null);
+  const firstLoadRef = useRef(true);
 
   const setL1 = useCallback((v: string) => {
     l1Ref.current = v;
@@ -134,8 +135,15 @@ export function HeroSection({ initialSeats }: HeroSectionProps = {}) {
   // joanne/ross override is active — those win over the persona default).
   useEffect(() => {
     if (hoverAgentRef.current || forcedAgentRef.current) return;
+    if (firstLoadRef.current) {
+      firstLoadRef.current = false;
+      // SSR rendered the full lines; clear back to blank so the first
+      // paint animates in from empty rather than no-opping.
+      setL1("");
+      setL2("");
+    }
     animateTo({ line1: heroLine1, line2: heroLine2 });
-  }, [animateTo, heroLine1, heroLine2]);
+  }, [animateTo, heroLine1, heroLine2, setL1, setL2]);
 
   useEffect(() => () => cancelRef.current?.(), []);
 
