@@ -95,7 +95,7 @@ func TestTrialExpiryReaper_picksOnlyTrialingExpiredUnenqueued(t *testing.T) {
 	if err := json.Unmarshal([]byte(items[0]), &job); err != nil {
 		t.Fatalf("unmarshal job: %v (raw=%s)", err, items[0])
 	}
-	if job.SlackUserID != "UEXP" || job.Email != "expired@example.com" || job.StripeCheckoutURL != "https://buy.stripe.com/test_base_plan" {
+	if job.SlackUserID != "UEXP" || job.Email != "expired@example.com" || job.StripeCheckoutURL != "https://buy.stripe.com/test_base_plan?client_reference_id=UEXP" {
 		t.Fatalf("job: %+v", job)
 	}
 
@@ -145,6 +145,25 @@ func TestTrialExpiryReaper_methodGuard(t *testing.T) {
 	s.handleInternalTrialExpiryReaper(rr, req)
 	if rr.Code != http.StatusMethodNotAllowed {
 		t.Fatalf("status: %d, want 405", rr.Code)
+	}
+}
+
+func TestAppendClientReferenceID(t *testing.T) {
+	cases := []struct {
+		name, in, slack, want string
+	}{
+		{"no query", "https://buy.stripe.com/abc", "U123", "https://buy.stripe.com/abc?client_reference_id=U123"},
+		{"existing query preserved", "https://buy.stripe.com/abc?utm=joanne", "U123", "https://buy.stripe.com/abc?client_reference_id=U123&utm=joanne"},
+		{"existing client_reference_id overwritten", "https://buy.stripe.com/abc?client_reference_id=OLD", "U123", "https://buy.stripe.com/abc?client_reference_id=U123"},
+		{"empty url unchanged", "", "U123", ""},
+		{"empty slack unchanged", "https://buy.stripe.com/abc", "", "https://buy.stripe.com/abc"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := appendClientReferenceID(tc.in, tc.slack); got != tc.want {
+				t.Fatalf("got %q want %q", got, tc.want)
+			}
+		})
 	}
 }
 
