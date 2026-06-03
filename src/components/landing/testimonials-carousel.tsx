@@ -65,7 +65,18 @@ export function TestimonialsCarousel({ testimonials }: { testimonials: LanderTes
   const [activeId, setActiveId] = useState<string | null>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
-  const activeTestimonial = activeId ? testimonials.find((t) => t.id === activeId) ?? null : null;
+  const activeIndex = activeId ? testimonials.findIndex((t) => t.id === activeId) : -1;
+  const activeTestimonial = activeIndex >= 0 ? testimonials[activeIndex] : null;
+  const goToOffset = useCallback(
+    (offset: number) => {
+      if (activeIndex < 0) return;
+      const next = (activeIndex + offset + testimonials.length) % testimonials.length;
+      setActiveId(testimonials[next].id);
+    },
+    [activeIndex, testimonials],
+  );
+  const touchStartXRef = useRef<number | null>(null);
+  const touchDeltaXRef = useRef(0);
 
   const updateScrollState = useCallback(() => {
     const el = scrollRef.current;
@@ -91,6 +102,8 @@ export function TestimonialsCarousel({ testimonials }: { testimonials: LanderTes
     if (!activeId) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setActiveId(null);
+      else if (e.key === "ArrowRight") goToOffset(1);
+      else if (e.key === "ArrowLeft") goToOffset(-1);
     };
     window.addEventListener("keydown", onKey);
     const prevOverflow = document.body.style.overflow;
@@ -99,7 +112,7 @@ export function TestimonialsCarousel({ testimonials }: { testimonials: LanderTes
       window.removeEventListener("keydown", onKey);
       document.body.style.overflow = prevOverflow;
     };
-  }, [activeId]);
+  }, [activeId, goToOffset]);
 
   const scrollByDirection = (dir: 1 | -1) => {
     const el = scrollRef.current;
@@ -125,10 +138,10 @@ export function TestimonialsCarousel({ testimonials }: { testimonials: LanderTes
           </p>
         </div>
 
-        <div className="relative mx-4">
+        <div className="relative mx-2 sm:mx-4">
           <div
             ref={scrollRef}
-            className="-mx-2 flex gap-4 overflow-x-auto overscroll-x-contain px-2 py-6 snap-x snap-mandatory scroll-smooth"
+            className="-mx-4 flex gap-4 overflow-x-auto overscroll-x-contain px-4 py-6 sm:-mx-2 sm:px-2 snap-x snap-mandatory scroll-smooth"
             style={{ touchAction: "pan-x" }}
             role="region"
             aria-label="Testimonials"
@@ -233,8 +246,49 @@ export function TestimonialsCarousel({ testimonials }: { testimonials: LanderTes
           onClick={() => setActiveId(null)}
           className="testimonial-modal-backdrop fixed inset-0 z-50 flex items-center justify-center bg-background/80 px-6 py-10 backdrop-blur-sm"
         >
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              goToOffset(-1);
+            }}
+            aria-label="Previous testimonial"
+            className="testimonial-nav-btn z-[60] hidden md:flex absolute left-4 top-1/2 -translate-y-1/2 h-12 w-12 items-center justify-center rounded-full border-2 border-foreground/30 bg-background text-foreground shadow-xl ring-1 ring-black/5 transition hover:scale-105 hover:border-foreground hover:bg-foreground hover:text-background"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
+              <path d="M15 6l-6 6 6 6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              goToOffset(1);
+            }}
+            aria-label="Next testimonial"
+            className="testimonial-nav-btn z-[60] hidden md:flex absolute right-4 top-1/2 -translate-y-1/2 h-12 w-12 items-center justify-center rounded-full border-2 border-foreground/30 bg-background text-foreground shadow-xl ring-1 ring-black/5 transition hover:scale-105 hover:border-foreground hover:bg-foreground hover:text-background"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
+              <path d="M9 6l6 6-6 6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
           <article
             onClick={(e) => e.stopPropagation()}
+            onTouchStart={(e) => {
+              touchStartXRef.current = e.touches[0].clientX;
+              touchDeltaXRef.current = 0;
+            }}
+            onTouchMove={(e) => {
+              if (touchStartXRef.current === null) return;
+              touchDeltaXRef.current = e.touches[0].clientX - touchStartXRef.current;
+            }}
+            onTouchEnd={() => {
+              const dx = touchDeltaXRef.current;
+              touchStartXRef.current = null;
+              touchDeltaXRef.current = 0;
+              if (Math.abs(dx) < 40) return;
+              goToOffset(dx < 0 ? 1 : -1);
+            }}
             className="testimonial-modal-card relative max-h-full w-full max-w-md overflow-y-auto rounded-2xl border border-border bg-card p-6 shadow-[0_24px_60px_-16px_rgba(0,0,0,0.35)]"
           >
             <button
