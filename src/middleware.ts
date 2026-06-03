@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
+import {
+  encodeFirstTouch,
+  FIRST_TOUCH_COOKIE,
+  FIRST_TOUCH_MAX_AGE_SECONDS,
+  type FirstTouchPayload,
+} from "@/lib/first-touch";
 import { portalChannelCookieName, portalSessionCookieName } from "@/lib/portal-session-cookies";
 import { matchCompanyPortalPath } from "@/lib/slack-channel-id";
 
@@ -18,6 +24,47 @@ function stripLegacyPortalStripeSearchParams(url: URL): boolean {
     }
   }
   return removed;
+}
+
+/**
+ * Set the first-touch attribution cookie on the response if this is the
+ * visitor's first arrival (no existing cookie) and the request is a real GET
+ * page navigation. Idempotent — once the cookie exists it's never overwritten.
+ * See `src/lib/first-touch.ts` for the payload shape.
+ */
+function maybeSetFirstTouch(request: NextRequest, response: NextResponse): void {
+  if (request.method !== "GET") return;
+  if (request.cookies.get(FIRST_TOUCH_COOKIE)) return;
+
+  const url = request.nextUrl;
+  const params = url.searchParams;
+  const payload: FirstTouchPayload = {
+    p: url.pathname || "/",
+    ts: Date.now(),
+  };
+  const utmSource = params.get("utm_source");
+  if (utmSource) payload.s = utmSource;
+  const utmMedium = params.get("utm_medium");
+  if (utmMedium) payload.m = utmMedium;
+  const utmCampaign = params.get("utm_campaign");
+  if (utmCampaign) payload.c = utmCampaign;
+  const utmContent = params.get("utm_content");
+  if (utmContent) payload.co = utmContent;
+  const utmTerm = params.get("utm_term");
+  if (utmTerm) payload.t = utmTerm;
+  const referer = request.headers.get("referer");
+  if (referer) payload.r = referer;
+
+  response.cookies.set({
+    name: FIRST_TOUCH_COOKIE,
+    value: encodeFirstTouch(payload),
+    maxAge: FIRST_TOUCH_MAX_AGE_SECONDS,
+    path: "/",
+    sameSite: "lax",
+    // Non-HttpOnly so gtag can read it when firing conversion events.
+    httpOnly: false,
+    secure: process.env.NODE_ENV === "production",
+  });
 }
 
 export function middleware(request: NextRequest) {
@@ -74,10 +121,14 @@ export function middleware(request: NextRequest) {
       stripLegacyPortalStripeSearchParams(login);
       return NextResponse.redirect(login);
     }
-    return NextResponse.next();
+    const portalResponse = NextResponse.next();
+    maybeSetFirstTouch(request, portalResponse);
+    return portalResponse;
   }
 
-  return NextResponse.next();
+  const response = NextResponse.next();
+  maybeSetFirstTouch(request, response);
+  return response;
 }
 
 export const config = {
