@@ -82,19 +82,31 @@ export function SeoFaqSection({
   seats,
   viewAllHref,
   hideHeading,
-}: { seats?: LanderSlackSeats; viewAllHref?: string; hideHeading?: boolean } = {}) {
+  askCardsPosition = "top",
+}: {
+  seats?: LanderSlackSeats;
+  viewAllHref?: string;
+  hideHeading?: boolean;
+  askCardsPosition?: "top" | "bottom";
+} = {}) {
   const faqItems = buildFaqItems(seats);
+  const askCards = (
+    <>
+      <AskTeammateCard persona={JOANNE_PERSONA} />
+      <AskTeammateCard persona={ROSS_PERSONA} />
+    </>
+  );
   return (
     <section className="mx-auto w-full max-w-4xl px-6 py-20">
       {hideHeading ? null : (
         <h2 className="text-center text-3xl font-semibold tracking-tight sm:text-4xl">Frequently asked questions</h2>
       )}
       <div className={hideHeading ? "space-y-4" : "mt-10 space-y-4"}>
-        <AskTeammateCard persona={JOANNE_PERSONA} />
-        <AskTeammateCard persona={ROSS_PERSONA} />
+        {askCardsPosition === "top" ? askCards : null}
         {faqItems.map((item) => (
           <FaqAccordionItem key={item.question} question={item.question} answer={item.answer} />
         ))}
+        {askCardsPosition === "bottom" ? askCards : null}
       </div>
       {viewAllHref ? (
         <div className="mt-10 text-center">
