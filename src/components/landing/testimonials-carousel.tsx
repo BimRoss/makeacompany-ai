@@ -283,6 +283,7 @@ export function TestimonialsCarousel({ testimonials }: { testimonials: LanderTes
             </svg>
           </button>
           <article
+            key={activeTestimonial.id}
             onClick={(e) => e.stopPropagation()}
             onTouchStart={(e) => {
               touchStartXRef.current = e.touches[0].clientX;
