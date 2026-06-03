@@ -226,13 +226,13 @@ export function TestimonialsCarousel({ testimonials }: { testimonials: LanderTes
 
           <div
             aria-hidden
-            className={`pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-background to-transparent transition-opacity ${
+            className={`pointer-events-none absolute inset-y-0 right-0 hidden w-10 bg-gradient-to-l from-background to-transparent transition-opacity md:block ${
               canScrollRight ? "opacity-100" : "opacity-0"
             }`}
           />
           <div
             aria-hidden
-            className={`pointer-events-none absolute inset-y-0 left-0 w-10 bg-gradient-to-r from-background to-transparent transition-opacity ${
+            className={`pointer-events-none absolute inset-y-0 left-0 hidden w-10 bg-gradient-to-r from-background to-transparent transition-opacity md:block ${
               canScrollLeft ? "opacity-100" : "opacity-0"
             }`}
           />
