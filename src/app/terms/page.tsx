@@ -5,16 +5,16 @@ import { Header } from "@/components/landing/header";
 import { siteUrl } from "@/lib/site";
 
 export const metadata: Metadata = {
-  title: "Early Access Terms of Use",
+  title: "Terms of Service — makeacompany.ai",
   description:
-    "Early Access Terms of Use for BimRoss LLC operating MakeACompany.ai and the Platform.",
+    "The agreement covering your makeacompany.ai account, the actions Ross and Joanne take on your behalf, and any third-party services you connect. Plain-English early access terms from BimRoss LLC.",
   alternates: {
     canonical: "/terms",
   },
   openGraph: {
-    title: "Early Access Terms of Use",
+    title: "Terms of Service — makeacompany.ai",
     description:
-      "Early Access Terms of Use for BimRoss LLC operating MakeACompany.ai and the Platform.",
+      "The agreement covering your makeacompany.ai account, the actions Ross and Joanne take on your behalf, and any third-party services you connect.",
     url: `${siteUrl}/terms`,
   },
 };
