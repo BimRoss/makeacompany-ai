@@ -35,13 +35,13 @@ export const PERSONA_COPY: Record<Persona, PersonaCopy> = {
     ctaButtonLabel: "Start your company",
   },
   engineer: {
-    heroLine1: "The harness your team",
-    heroLine2: "wishes you'd bought.",
+    heroLine1: "AI raised the bar.",
+    heroLine2: "This is the harness that takes the load.",
     subhead:
-      "We sell the harness, not the agent. Persistent workspaces per channel, baked-in skills, GitOps wired up. Built by an engineer who clears your hiring bar — shipping from the same product you'd be buying.",
+      "AI didn't give you leverage — it gave your manager a new baseline. makeacompany.ai sells the harness, not the agent: persistent workspaces, baked-in skills, GitOps wired up. Built by an engineer shipping it from inside the product, so the work happens whether you're at the IDE or on the couch.",
     ctaH2: "See the harness.",
     ctaParagraph:
-      "Drop your email. You'll be in Slack with the agents and the full kit in minutes — the same setup we use to ship this product.",
+      "Drop your email. You'll be in Slack with the agents and the full kit in minutes — the same setup shipping this product while we sleep.",
     ctaButtonLabel: "See the harness",
   },
   team: {
