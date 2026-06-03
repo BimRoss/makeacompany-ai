@@ -99,7 +99,7 @@ export default async function PersonaLandingPage({
         <TestimonialsCarousel testimonials={testimonials} />
         <CtaSection />
       </PersonaProvider>
-      <SeoFaqSection />
+      <SeoFaqSection askCardsPosition="bottom" viewAllHref="/faq" />
       <Footer />
     </main>
   );
