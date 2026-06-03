@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { usePersona } from "@/components/landing/persona-context";
 import { PERSONA_LABELS, PERSONA_SLUGS, PERSONAS, type Persona } from "@/lib/personas";
+import { track } from "@/lib/gtag";
 
 export function PersonaSelector() {
   const { persona, selected } = usePersona();
@@ -33,7 +34,10 @@ export function PersonaSelector() {
             type="button"
             role="tab"
             aria-selected={active}
-            onClick={() => router.push(`/for/${PERSONA_SLUGS[p]}`)}
+            onClick={() => {
+              track("persona_selected", { persona: PERSONA_SLUGS[p], from: persona });
+              router.push(`/for/${PERSONA_SLUGS[p]}`);
+            }}
             className={`relative z-10 rounded-full px-3 py-2 transition-colors ${
               active ? "text-background" : "text-muted-foreground hover:text-foreground"
             }`}
