@@ -8,10 +8,10 @@ export const PERSONAS: ReadonlyArray<Persona> = [
 ];
 
 export const PERSONA_LABELS: Record<Persona, string> = {
-  founder: "Founder",
-  engineer: "Engineer",
-  team: "Team",
-  contractor: "Contractor",
+  founder: "Founders",
+  engineer: "Engineers",
+  team: "Teams",
+  contractor: "Contractors",
 };
 
 export interface PersonaCopy {
