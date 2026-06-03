@@ -10,7 +10,7 @@ export default function AdminPage() {
     <AdminShell>
       <AdminSlackWorkspaceLiveSyncOnce />
       <AdminPostAuthWelcomeBoundary />
-      <div className="space-y-12">
+      <div className="space-y-6">
         <AdminAgentKillSwitch />
         <AdminObservabilityShell />
         <AdminSlackUsersTable />
