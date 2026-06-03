@@ -50,6 +50,11 @@ type Config struct {
 	// When unset, /v1/admin/ga4-summary returns 503. Reads via Google Application Default Credentials
 	// (GOOGLE_APPLICATION_CREDENTIALS pointing to a service-account key with Viewer on the property).
 	GA4PropertyID string
+	// GSCSiteURL is the Search Console property url (e.g. "sc-domain:makeacompany.ai") for the admin
+	// Search panel. Defaults to sc-domain:makeacompany.ai so the panel works without a configmap
+	// update; override via GSC_SITE_URL. Reuses the GA4 service-account ADC — the same ga4-reader
+	// SA is granted siteOwner on the GSC property.
+	GSCSiteURL string
 	// FreeTierGateEnabled activates the deploy gate: free users are blocked from shipping until they subscribe.
 	// Env: STRIPE_FREE_TIER_GATE_ENABLED=true. Defaults off so the code can ship to prod before the gate is turned on.
 	FreeTierGateEnabled bool
@@ -108,6 +113,7 @@ func LoadConfig() Config {
 		ResendMagicLinkTemplateFirstNameVar: strings.TrimSpace(os.Getenv("RESEND_MAGIC_LINK_TEMPLATE_FIRST_NAME_VAR")),
 		ResendCheckoutWelcomeTemplateID:     strings.TrimSpace(os.Getenv("RESEND_CHECKOUT_WELCOME_TEMPLATE_ID")),
 		GA4PropertyID:                       strings.TrimSpace(os.Getenv("GA4_PROPERTY_ID")),
+		GSCSiteURL:                          envString("GSC_SITE_URL", "sc-domain:makeacompany.ai"),
 		FreeTierGateEnabled:                 envBool("STRIPE_FREE_TIER_GATE_ENABLED", false),
 		WorkspaceTenantConfig:               strings.TrimSpace(os.Getenv("WORKSPACE_TENANT_CONFIG")),
 		PersonalAgentsEnabled:               envBool("PERSONAL_AGENTS_ENABLED", false),

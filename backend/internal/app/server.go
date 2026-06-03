@@ -172,6 +172,7 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 	s.mux.HandleFunc("/v1/admin/channel-members", s.handleAdminChannelMembers)
 	s.mux.HandleFunc("/v1/admin/user-profiles", s.handleAdminUserProfiles)
 	s.mux.HandleFunc("/v1/admin/ga4-summary", s.handleAdminGA4Summary)
+	s.mux.HandleFunc("/v1/admin/gsc-summary", s.handleAdminGSCSummary)
 	s.mux.HandleFunc("GET /v1/admin/agents/status", s.handleAdminAgentsStatus)
 	s.mux.HandleFunc("POST /v1/admin/agents/{name}/toggle", s.handleAdminAgentToggle)
 	s.mux.HandleFunc("/v1/internal/refresh-stripe-waitlist-snapshot", s.handleInternalRefreshStripeWaitlistSnapshot)
@@ -286,6 +287,8 @@ func normalizeMetricRoute(path string) string {
 		return "/v1/admin/user-profiles"
 	case path == "/v1/admin/ga4-summary":
 		return "/v1/admin/ga4-summary"
+	case path == "/v1/admin/gsc-summary":
+		return "/v1/admin/gsc-summary"
 	case path == "/v1/admin/agents/status":
 		return "/v1/admin/agents/status"
 	case strings.HasPrefix(path, "/v1/admin/agents/") && strings.HasSuffix(path, "/toggle"):
