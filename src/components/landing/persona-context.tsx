@@ -31,11 +31,6 @@ interface PersonaContextValue {
 
 const PersonaContext = createContext<PersonaContextValue | null>(null);
 
-declare global {
-  interface Window {
-    gtag?: (...args: unknown[]) => void;
-  }
-}
 
 function fireSwitchEvent(from: Persona, to: Persona, source: PersonaSource) {
   if (typeof window === "undefined" || typeof window.gtag !== "function") return;
