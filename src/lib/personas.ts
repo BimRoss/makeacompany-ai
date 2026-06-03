@@ -25,8 +25,8 @@ export interface PersonaCopy {
 
 export const PERSONA_COPY: Record<Persona, PersonaCopy> = {
   founder: {
-    heroLine1: "Two hires: $300K/yr.",
-    heroLine2: "These two: $99/mo.",
+    heroLine1: "Two hires cost $300K/yr.",
+    heroLine2: "These two cost $99/mo.",
     subhead:
       "Joanne runs ops. Ross ships code. You make the calls only a founder can — for what one Claude seat costs.",
     ctaH2: "Start your company.",
@@ -55,8 +55,8 @@ export const PERSONA_COPY: Record<Persona, PersonaCopy> = {
     ctaButtonLabel: "Add to your Slack",
   },
   contractor: {
-    heroLine1: "Hire a team: $300K/yr.",
-    heroLine2: "Just you: $99/mo.",
+    heroLine1: "Hire a team for $300K/yr.",
+    heroLine2: "Just you for $99/mo.",
     subhead:
       "Ross pairs with you in Slack — pushes branches, opens PRs, watches deploys. Joanne handles client comms and invoicing. Senior-team output, no headcount to manage.",
     ctaH2: "Get the unfair advantage.",
