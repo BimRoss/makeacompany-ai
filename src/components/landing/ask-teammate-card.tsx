@@ -253,7 +253,7 @@ export function AskTeammateCard({ persona }: { persona: TeammatePersona }) {
           id={panelId}
           role="region"
           aria-labelledby={triggerId}
-          className="flex h-[560px] flex-col overflow-hidden rounded-xl"
+          className="flex max-h-[560px] flex-col overflow-hidden rounded-xl"
         >
           <header className="flex items-center justify-between gap-3 border-b border-border bg-background/40 px-4 py-2.5">
             <div className="flex items-center gap-2 text-sm">
@@ -289,7 +289,7 @@ export function AskTeammateCard({ persona }: { persona: TeammatePersona }) {
 
           <div
             ref={scrollRef}
-            className="ask-teammate-scroll flex-1 overflow-y-auto bg-card px-3 py-4 sm:px-5"
+            className="ask-teammate-scroll min-h-0 flex-1 overflow-y-auto bg-card px-3 py-4 sm:px-5"
           >
             {messages.length === 0 && <IntroBlock persona={persona} />}
             <ol className="space-y-4" aria-live="polite">
@@ -340,7 +340,7 @@ export function AskTeammateCard({ persona }: { persona: TeammatePersona }) {
             onSubmit={handleSubmit}
             className="border-t border-border bg-background/40 px-3 py-3 sm:px-5"
           >
-            <div className="flex items-end gap-2 rounded-lg border border-border bg-card px-3 py-2 focus-within:border-foreground/40">
+            <div className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 focus-within:border-foreground/40">
               <textarea
                 ref={inputRef}
                 value={input}
@@ -355,7 +355,11 @@ export function AskTeammateCard({ persona }: { persona: TeammatePersona }) {
                 type="submit"
                 disabled={streaming || !input.trim()}
                 aria-label="Send message"
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-foreground text-background transition-opacity hover:opacity-90 disabled:opacity-30"
+                className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-white transition-colors hover:opacity-90 disabled:opacity-30 ${
+                  input.trim() && !streaming
+                    ? "bg-emerald-500 hover:bg-emerald-600"
+                    : "bg-foreground text-background"
+                }`}
               >
                 <Send className="h-4 w-4" aria-hidden />
               </button>
