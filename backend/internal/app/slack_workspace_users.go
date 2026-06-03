@@ -29,6 +29,13 @@ type SlackWorkspaceUser struct {
 	Terms string `json:"terms,omitempty"`
 	// TermsMessageTs is the Slack message_ts of the terms prompt when accepted.
 	TermsMessageTs string `json:"termsMessageTs,omitempty"`
+	// Status is the resolved LifecycleStatus (free_lifetime|trialing|active|expired) from the profile hash.
+	// Merged by EnrichSlackWorkspaceUsersWithProfileTerms; empty when no profile is linked.
+	Status string `json:"status,omitempty"`
+	// TrialExpiresAt is the unix-second deadline of the post-cliff trial. Omitted when not trialing.
+	TrialExpiresAt int64 `json:"trialExpiresAt,omitempty"`
+	// StripeCustomerID is mirrored from the profile so admin can deep-link active rows to Stripe.
+	StripeCustomerID string `json:"stripeCustomerId,omitempty"`
 }
 
 type slackUsersListResponse struct {

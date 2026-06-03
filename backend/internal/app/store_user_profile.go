@@ -502,41 +502,100 @@ func CheckDeployGate(row UserProfileRow, gateEnabled bool) DeployGateStatus {
 	return DeployGateStatus{Allowed: false, Reason: "free_tier_consumed"}
 }
 
-// EnrichSlackWorkspaceUsersWithProfileTerms merges humans terms fields from makeacompany:user_profile into each row
-// (via makeacompany:user_by_slack). Safe when the slack→email index or profile hash is missing.
+// EnrichSlackWorkspaceUsersWithProfileTerms merges profile fields from makeacompany:user_profile into each row
+// (via makeacompany:user_by_slack): humans terms, resolved lifecycle status, trial expiry, and Stripe customer id.
+// Uses two pipelined batches (slack→email lookup, then profile HMGET) so it stays O(2) round-trips regardless of
+// member count — see admin trial-gating (#245).
 func (s *Store) EnrichSlackWorkspaceUsersWithProfileTerms(ctx context.Context, users []SlackWorkspaceUser) {
 	if s == nil || len(users) == 0 {
 		return
 	}
+	idxs := make([]int, 0, len(users))
 	for i := range users {
 		if users[i].IsBot || users[i].IsDeleted {
 			continue
 		}
-		sid := strings.TrimSpace(users[i].SlackUserID)
-		if sid == "" {
+		if strings.TrimSpace(users[i].SlackUserID) == "" {
 			continue
 		}
-		email, err := s.rdb.Get(ctx, userBySlackRedisKey(sid)).Result()
+		idxs = append(idxs, i)
+	}
+	if len(idxs) == 0 {
+		return
+	}
+
+	// Batch 1: slack_user_id -> normalized email.
+	emailCmds := make([]*redis.StringCmd, len(idxs))
+	pipe := s.rdb.Pipeline()
+	for k, i := range idxs {
+		emailCmds[k] = pipe.Get(ctx, userBySlackRedisKey(strings.TrimSpace(users[i].SlackUserID)))
+	}
+	_, _ = pipe.Exec(ctx) // per-cmd errors checked below; redis.Nil is expected for unlinked users
+
+	type pending struct {
+		userIdx int
+		hmGet   *redis.SliceCmd
+	}
+	pendings := make([]pending, 0, len(idxs))
+	pipe2 := s.rdb.Pipeline()
+	profileFields := []string{
+		"humans_terms_accepted_at",
+		"humans_terms_accepted_slack_message_ts",
+		"stripe_subscription_status",
+		"stripe_subscription_current_period_end",
+		"trial_expires_at",
+		"stripe_customer_id",
+		"free_lifetime",
+	}
+	for k, i := range idxs {
+		raw, err := emailCmds[k].Result()
 		if err != nil {
 			continue
 		}
-		em := normalizeProfileEmail(email)
+		em := normalizeProfileEmail(raw)
 		if em == "" {
 			continue
 		}
-		vals, err := s.rdb.HMGet(ctx, userProfileRedisKey(em), "humans_terms_accepted_at", "humans_terms_accepted_slack_message_ts").Result()
-		if err != nil || len(vals) < 2 {
+		pendings = append(pendings, pending{
+			userIdx: i,
+			hmGet:   pipe2.HMGet(ctx, userProfileRedisKey(em), profileFields...),
+		})
+	}
+	if len(pendings) == 0 {
+		return
+	}
+	_, _ = pipe2.Exec(ctx)
+
+	now := time.Now()
+	for _, p := range pendings {
+		vals, err := p.hmGet.Result()
+		if err != nil || len(vals) < len(profileFields) {
 			continue
 		}
-		if vals[0] != nil {
-			if v, ok := vals[0].(string); ok {
-				users[i].Terms = strings.TrimSpace(v)
+		strAt := func(idx int) string {
+			if vals[idx] == nil {
+				return ""
 			}
+			v, ok := vals[idx].(string)
+			if !ok {
+				return ""
+			}
+			return strings.TrimSpace(v)
 		}
-		if vals[1] != nil {
-			if v, ok := vals[1].(string); ok {
-				users[i].TermsMessageTs = strings.TrimSpace(v)
-			}
+		users[p.userIdx].Terms = strAt(0)
+		users[p.userIdx].TermsMessageTs = strAt(1)
+		row := UserProfileRow{
+			StripeSubscriptionStatus:           strAt(2),
+			StripeSubscriptionCurrentPeriodEnd: parseUnixSecondsString(strAt(3)),
+			TrialExpiresAt:                     parseUnixSecondsString(strAt(4)),
+			StripeCustomerID:                   strAt(5),
+			FreeLifetime:                       strings.EqualFold(strAt(6), "true"),
+		}
+		status := EffectiveStatus(row, now)
+		users[p.userIdx].Status = string(status)
+		users[p.userIdx].StripeCustomerID = row.StripeCustomerID
+		if status == LifecycleTrialing && row.TrialExpiresAt > 0 {
+			users[p.userIdx].TrialExpiresAt = row.TrialExpiresAt
 		}
 	}
 }
