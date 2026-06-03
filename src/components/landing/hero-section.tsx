@@ -154,14 +154,14 @@ export function HeroSection({ initialSeats }: HeroSectionProps = {}) {
           <PersonaSelector />
         </div>
 
-        <h1 className="mx-auto mb-6 flex min-h-[4.5rem] max-w-none flex-col items-center justify-center text-balance text-3xl font-bold leading-[1.1] tracking-tight text-foreground sm:mb-10 sm:min-h-[7rem] sm:whitespace-nowrap sm:text-5xl sm:leading-[1.06] md:min-h-[8rem] md:text-6xl lg:min-h-[10rem] lg:text-7xl">
-          <span className="block sm:whitespace-nowrap">
+        <h1 className="mx-auto mb-6 flex min-h-[4.5rem] max-w-none flex-col items-center justify-center text-balance text-3xl font-bold leading-[1.1] tracking-tight text-foreground sm:mb-10 sm:min-h-[7rem] xl:whitespace-nowrap sm:text-5xl sm:leading-[1.06] md:min-h-[8rem] md:text-6xl lg:min-h-[10rem] lg:text-7xl">
+          <span className="block xl:whitespace-nowrap">
             {displayLine1 || " "}
             {typing && l2Ref.current === "" ? (
               <span className="ml-0.5 inline-block animate-pulse font-normal text-muted-foreground" aria-hidden>|</span>
             ) : null}
           </span>
-          <span className="block sm:whitespace-nowrap">
+          <span className="block xl:whitespace-nowrap">
             {displayLine2 || " "}
             {typing && l2Ref.current !== "" ? (
               <span className="ml-0.5 inline-block animate-pulse font-normal text-muted-foreground" aria-hidden>|</span>
