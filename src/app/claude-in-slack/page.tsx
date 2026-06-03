@@ -39,7 +39,7 @@ export default function ClaudeInSlackPage() {
           Workspace, Kubernetes, and your other tools.
         </p>
 
-        <h2>What "Claude in Slack" actually means with MaC</h2>
+        <h2>What &ldquo;Claude in Slack&rdquo; actually means with MaC</h2>
 
         <p>
           A MaC agent isn&apos;t a Slackbot wrapper around the chat API. Each
