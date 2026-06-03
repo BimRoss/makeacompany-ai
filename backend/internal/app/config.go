@@ -71,6 +71,11 @@ type Config struct {
 	// shutdown of personal-agent pods (not a no-op of the guard), per #183 audit
 	// point 11; runtime template enforces that in PR4 of #186.
 	PersonalAgentsEnabled bool
+	// TrialExpiryCheckoutURL is the Stripe checkout link injected into the Joanne expiry DM (#244 / #248).
+	// Typically a Stripe Payment Link for the $99/mo Base Plan so the user-facing flow is one click.
+	// When unset, falls back to AppBaseURL+"/?checkout=base_plan" (the lander pricing CTA).
+	// Env: TRIAL_EXPIRY_CHECKOUT_URL.
+	TrialExpiryCheckoutURL string
 }
 
 // stripePriceIDBasePlan returns STRIPE_PRICE_ID_BASE_PLAN, else legacy STRIPE_PRICE_ID_WAITLIST.
@@ -117,6 +122,7 @@ func LoadConfig() Config {
 		FreeTierGateEnabled:                 envBool("STRIPE_FREE_TIER_GATE_ENABLED", false),
 		WorkspaceTenantConfig:               strings.TrimSpace(os.Getenv("WORKSPACE_TENANT_CONFIG")),
 		PersonalAgentsEnabled:               envBool("PERSONAL_AGENTS_ENABLED", false),
+		TrialExpiryCheckoutURL:              strings.TrimSpace(os.Getenv("TRIAL_EXPIRY_CHECKOUT_URL")),
 	}
 }
 

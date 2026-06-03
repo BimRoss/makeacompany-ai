@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"sort"
 	"strconv"
@@ -258,6 +259,10 @@ type UserProfileRow struct {
 	FreeLifetime bool `json:"freeLifetime,omitempty"`
 	// TrialExpiresAt is the unix-second deadline for the post-cliff 7-day trial. 0 when not trialing.
 	TrialExpiresAt int64 `json:"trialExpiresAt,omitempty"`
+	// ExpiryDMEnqueuedAt is the RFC3339 timestamp the trial-expiry reaper pushed the Joanne-side DM job
+	// for this user. Non-empty means the reaper has already queued; #244 uses this as the idempotency
+	// guard so a slow Joanne drain (or a flapping cron) doesn't fan out duplicate DMs.
+	ExpiryDMEnqueuedAt string `json:"expiryDmEnqueuedAt,omitempty"`
 }
 
 func parseUnixSecondsString(v string) int64 {
@@ -306,6 +311,7 @@ func userProfileRowFromHash(email string, vals map[string]string) UserProfileRow
 		Linked:                              stripeCust != "" && slackID != "",
 		FreeLifetime:                        freeLifetime,
 		TrialExpiresAt:                      parseUnixSecondsString(vals["trial_expires_at"]),
+		ExpiryDMEnqueuedAt:                  strings.TrimSpace(vals["expiry_dm_enqueued_at"]),
 	}
 }
 
@@ -533,4 +539,94 @@ func (s *Store) EnrichSlackWorkspaceUsersWithProfileTerms(ctx context.Context, u
 			}
 		}
 	}
+}
+
+// JoanneExpiryDMQueueKey is the Redis LIST drained by claude-code-joanne. Each entry is a JSON object
+// produced by EnqueueExpiryDMJob.
+const JoanneExpiryDMQueueKey = keyPrefix + ":joanne:expiry-dm-queue"
+
+// ExpiryDMJob is the JSON shape pushed onto JoanneExpiryDMQueueKey for each trial-expired user.
+// Joanne's drain loop unmarshals these, opens an IM with SlackUserID, and posts the v1 copy
+// (#248) substituting StripeCheckoutURL for the <stripe-link> placeholder.
+type ExpiryDMJob struct {
+	SlackUserID       string `json:"slack_user_id"`
+	Email             string `json:"email"`
+	StripeCheckoutURL string `json:"stripe_checkout_url"`
+}
+
+// ScanTrialExpiredUnenqueued returns profiles whose trial deadline has passed and which have not yet
+// been pushed onto the Joanne queue. Caller filters by EffectiveStatus precedence; this returns rows so
+// the reaper can stamp expiry_dm_enqueued_at on the same hash it just read.
+func (s *Store) ScanTrialExpiredUnenqueued(ctx context.Context, now time.Time) ([]UserProfileRow, error) {
+	if s == nil {
+		return nil, fmt.Errorf("nil store")
+	}
+	var rows []UserProfileRow
+	var cursor uint64
+	for {
+		keys, next, err := s.rdb.Scan(ctx, cursor, userProfileKeyGlob, 64).Result()
+		if err != nil {
+			return nil, err
+		}
+		for _, redisKey := range keys {
+			vals, err := s.rdb.HGetAll(ctx, redisKey).Result()
+			if err != nil {
+				return nil, err
+			}
+			if len(vals) == 0 {
+				continue
+			}
+			email := normalizeProfileEmail(vals["email"])
+			if email == "" {
+				if i := strings.LastIndex(redisKey, ":user_profile:"); i >= 0 {
+					email = normalizeProfileEmail(redisKey[i+len(":user_profile:"):])
+				}
+			}
+			row := userProfileRowFromHash(email, vals)
+			if row.ExpiryDMEnqueuedAt != "" {
+				continue
+			}
+			if !strings.EqualFold(row.StripeSubscriptionStatus, "trialing") {
+				continue
+			}
+			if row.TrialExpiresAt <= 0 || row.TrialExpiresAt >= now.Unix() {
+				continue
+			}
+			if row.FreeLifetime {
+				continue
+			}
+			rows = append(rows, row)
+		}
+		cursor = next
+		if cursor == 0 {
+			break
+		}
+	}
+	sort.Slice(rows, func(i, j int) bool { return rows[i].TrialExpiresAt < rows[j].TrialExpiresAt })
+	return rows, nil
+}
+
+// EnqueueExpiryDMJob pushes one job onto JoanneExpiryDMQueueKey and stamps expiry_dm_enqueued_at on the
+// profile hash in one pipelined transaction. Joanne's drain side owns the actual DM.
+func (s *Store) EnqueueExpiryDMJob(ctx context.Context, email string, job ExpiryDMJob) error {
+	if s == nil {
+		return fmt.Errorf("nil store")
+	}
+	email = normalizeProfileEmail(email)
+	if email == "" {
+		return fmt.Errorf("missing email")
+	}
+	payload, err := json.Marshal(job)
+	if err != nil {
+		return fmt.Errorf("marshal expiry job: %w", err)
+	}
+	now := time.Now().UTC().Format(time.RFC3339)
+	pipe := s.rdb.TxPipeline()
+	pipe.RPush(ctx, JoanneExpiryDMQueueKey, payload)
+	pipe.HSet(ctx, userProfileRedisKey(email), map[string]any{
+		"expiry_dm_enqueued_at": now,
+		"profile_updated_at":    now,
+	})
+	_, err = pipe.Exec(ctx)
+	return err
 }
