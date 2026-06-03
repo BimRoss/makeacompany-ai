@@ -22,14 +22,24 @@ import (
 )
 
 const (
-	gscSummaryFetchTimeout = 10 * time.Second
-	gscSummaryTopQueryRows = 5
-	gscSummaryLagDays      = 2
-	gscSummaryWindowDays   = 7
+	gscSummaryFetchTimeout    = 10 * time.Second
+	gscSummaryTopQueryRows    = 5
+	gscSummaryLagDays         = 2
+	gscSummaryWindowDays      = 7
+	gscTimeseriesWindowDays   = 28
+	gscTimeseriesMaxRows      = 32
 )
 
 type gscTopQuery struct {
 	Query       string  `json:"query"`
+	Impressions int64   `json:"impressions"`
+	Clicks      int64   `json:"clicks"`
+	CTR         float64 `json:"ctr"`
+	Position    float64 `json:"position"`
+}
+
+type gscDailyPoint struct {
+	Date        string  `json:"date"`
 	Impressions int64   `json:"impressions"`
 	Clicks      int64   `json:"clicks"`
 	CTR         float64 `json:"ctr"`
@@ -107,17 +117,38 @@ func (s *Server) handleAdminGSCSummary(w http.ResponseWriter, r *http.Request) {
 	impressions, clicks, ctr, position := gscSummaryTotals(totals)
 	topQueries := gscSummaryTopQueries(queriesResp)
 
+	// 28-day daily breakdown for the /admin Search time-series panels
+	// (BimRoss/makeacompany-ai#260). Best-effort: a failure here returns the
+	// rest of the payload with an empty timeseries rather than a 502.
+	tsEnd := endDate
+	tsStart := time.Now().UTC().AddDate(0, 0, -(gscSummaryLagDays + gscTimeseriesWindowDays - 1)).Format("2006-01-02")
+	dailyResp, err := svc.Searchanalytics.Query(siteURL, &webmasters.SearchAnalyticsQueryRequest{
+		StartDate:  tsStart,
+		EndDate:    tsEnd,
+		Dimensions: []string{"date"},
+		RowLimit:   gscTimeseriesMaxRows,
+	}).Context(ctx).Do()
+	var daily []gscDailyPoint
+	if err != nil {
+		s.log.Printf("admin gsc-summary: daily timeseries query: %v", err)
+	} else {
+		daily = gscSummaryDaily(dailyResp)
+	}
+
 	writeJSONNoStore(w, http.StatusOK, map[string]any{
-		"status":      "ok",
-		"siteUrl":     siteURL,
-		"startDate":   startDate,
-		"endDate":     endDate,
-		"impressions": impressions,
-		"clicks":      clicks,
-		"ctr":         ctr,
-		"position":    position,
-		"topQueries":  topQueries,
-		"fetchedAt":   time.Now().UTC().Format(time.RFC3339),
+		"status":          "ok",
+		"siteUrl":         siteURL,
+		"startDate":       startDate,
+		"endDate":         endDate,
+		"impressions":     impressions,
+		"clicks":          clicks,
+		"ctr":             ctr,
+		"position":        position,
+		"topQueries":      topQueries,
+		"daily":           daily,
+		"dailyStartDate":  tsStart,
+		"dailyEndDate":    tsEnd,
+		"fetchedAt":       time.Now().UTC().Format(time.RFC3339),
 	})
 }
 
@@ -127,6 +158,27 @@ func gscSummaryTotals(resp *webmasters.SearchAnalyticsQueryResponse) (impression
 	}
 	row := resp.Rows[0]
 	return int64(row.Impressions), int64(row.Clicks), row.Ctr, row.Position
+}
+
+func gscSummaryDaily(resp *webmasters.SearchAnalyticsQueryResponse) []gscDailyPoint {
+	if resp == nil {
+		return []gscDailyPoint{}
+	}
+	out := make([]gscDailyPoint, 0, len(resp.Rows))
+	for _, row := range resp.Rows {
+		date := ""
+		if len(row.Keys) > 0 {
+			date = row.Keys[0]
+		}
+		out = append(out, gscDailyPoint{
+			Date:        date,
+			Impressions: int64(row.Impressions),
+			Clicks:      int64(row.Clicks),
+			CTR:         row.Ctr,
+			Position:    row.Position,
+		})
+	}
+	return out
 }
 
 func gscSummaryTopQueries(resp *webmasters.SearchAnalyticsQueryResponse) []gscTopQuery {
