@@ -229,6 +229,12 @@ add_optional_runtime_secret RESEND_CHECKOUT_WELCOME_TEMPLATE_ID "${RESEND_CHECKO
 # frontend Deployment picks it up automatically on rollout.
 add_optional_runtime_secret ANTHROPIC_API_KEY "${ANTHROPIC_API_KEY:-}"
 
+# Cloudflare zone analytics for /admin Edge section (BimRoss/makeacompany-ai#259).
+# Scoped API token: Account:Read + Zone:Read + Zone Analytics:Read on the
+# makeacompany.ai zone. Optional — when missing, /api/admin/cloudflare/summary
+# returns 503 and the Edge panels render an "unavailable" card.
+add_optional_runtime_secret CLOUDFLARE_ANALYTICS_TOKEN "${CLOUDFLARE_ANALYTICS_TOKEN:-}"
+
 kubectl_app create secret generic "${SECRET_NAME}" \
   "${secret_args[@]}" \
   --dry-run=client -o yaml | kubectl_app apply -f -
