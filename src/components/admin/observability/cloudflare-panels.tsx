@@ -28,7 +28,8 @@ type CloudflarePayload = {
 };
 
 const POLL_MS = 60_000;
-const PANEL_GRID = "grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3";
+const PANEL_GRID =
+  "grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 min-[1800px]:grid-cols-5 min-[2400px]:grid-cols-6";
 
 const TONE_VAR: Record<ChartTone, string> = {
   ink: "var(--chart-ink)",

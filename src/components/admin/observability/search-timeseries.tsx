@@ -151,7 +151,7 @@ export function SearchTimeseriesPanels() {
   }
 
   return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 min-[1800px]:grid-cols-5 min-[2400px]:grid-cols-6">
       <Panel
         title="Clicks + impressions"
         subtitle="Daily, last 28d"

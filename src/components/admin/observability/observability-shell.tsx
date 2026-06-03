@@ -47,8 +47,10 @@ function AnomalyBadge({ component }: { component: string }) {
   );
 }
 
-const PANEL_GRID = "grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3";
-const WEB_PANEL_GRID = "grid grid-cols-1 gap-3 sm:grid-cols-2";
+const PANEL_GRID =
+  "grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 min-[1800px]:grid-cols-5 min-[2400px]:grid-cols-6";
+const WEB_PANEL_GRID =
+  "grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 min-[1800px]:grid-cols-5 min-[2400px]:grid-cols-6";
 
 function ObservabilityBody() {
   const { loading, lastUpdatedAt, adminDashboardUrl, cronjobDashboardUrl, clusterDashboardUrl } =
