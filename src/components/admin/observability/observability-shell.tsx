@@ -12,6 +12,7 @@ import { KpiScorecard } from "./kpi-scorecard";
 import { MetricPanel } from "./metric-panel";
 import { CLUSTER_PANELS, JOBS_PANELS, WEB_PANELS } from "./panels";
 import { SearchQueriesPanel } from "./search-panel";
+import { SearchTimeseriesPanels } from "./search-timeseries";
 import { ObservabilitySection } from "./section";
 import { TimeRangeProvider, useTimeRange } from "./time-range";
 import { ObservabilityToolbar } from "./toolbar";
@@ -94,9 +95,12 @@ function ObservabilityBody() {
       <ObservabilitySection
         id="search"
         title="Search"
-        description="Google Search Console — top organic queries. Pipeline lags ~2 days."
+        description="Google Search Console — clicks, impressions, CTR, and top organic queries. Pipeline lags ~2 days."
       >
-        <SearchQueriesPanel />
+        <div className="space-y-3">
+          <SearchTimeseriesPanels />
+          <SearchQueriesPanel />
+        </div>
       </ObservabilitySection>
 
       <ObservabilitySection
