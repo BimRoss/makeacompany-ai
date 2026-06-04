@@ -11,7 +11,7 @@ import { GoldenPath } from "./golden-path";
 import { KpiScorecard } from "./kpi-scorecard";
 import { MetricPanel } from "./metric-panel";
 import { CLUSTER_PANELS, JOBS_PANELS, WEB_PANELS } from "./panels";
-import { SearchQueriesPanel } from "./search-panel";
+import { SearchDeviceStrip, SearchHostsPanel, SearchPagesPanel, SearchQueriesPanel } from "./search-panel";
 import { SearchTimeseriesPanels } from "./search-timeseries";
 import { ObservabilitySection } from "./section";
 import { TimeRangeProvider, useTimeRange } from "./time-range";
@@ -115,7 +115,12 @@ function ObservabilityBody() {
       >
         <div className="space-y-3">
           <SearchTimeseriesPanels />
-          <SearchQueriesPanel />
+          <SearchDeviceStrip />
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+            <SearchQueriesPanel />
+            <SearchPagesPanel />
+          </div>
+          <SearchHostsPanel />
         </div>
       </ObservabilitySection>
 
