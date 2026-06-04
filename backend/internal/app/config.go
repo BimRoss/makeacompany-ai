@@ -76,6 +76,14 @@ type Config struct {
 	// When unset, falls back to AppBaseURL+"/?checkout=base_plan" (the lander pricing CTA).
 	// Env: TRIAL_EXPIRY_CHECKOUT_URL.
 	TrialExpiryCheckoutURL string
+	// RossAdminURL points at the cluster-internal Service in front of the
+	// claude-code-ross pod's admin HTTP surface (default port 8092). When
+	// paired with RossAdminToken it powers the /admin bulk-reseed flow
+	// (BimRoss/makeacompany-ai#287). Empty disables the surface.
+	RossAdminURL string
+	// RossAdminToken is the shared bearer token required by the ross pod's
+	// /admin/* endpoints. Must match ROSS_ADMIN_TOKEN on the ross side.
+	RossAdminToken string
 }
 
 // stripePriceIDBasePlan returns STRIPE_PRICE_ID_BASE_PLAN, else legacy STRIPE_PRICE_ID_WAITLIST.
@@ -123,6 +131,8 @@ func LoadConfig() Config {
 		WorkspaceTenantConfig:               strings.TrimSpace(os.Getenv("WORKSPACE_TENANT_CONFIG")),
 		PersonalAgentsEnabled:               envBool("PERSONAL_AGENTS_ENABLED", false),
 		TrialExpiryCheckoutURL:              strings.TrimSpace(os.Getenv("TRIAL_EXPIRY_CHECKOUT_URL")),
+		RossAdminURL:                        strings.TrimSpace(os.Getenv("ROSS_ADMIN_URL")),
+		RossAdminToken:                      strings.TrimSpace(os.Getenv("ROSS_ADMIN_TOKEN")),
 	}
 }
 
