@@ -41,18 +41,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.8,
     },
     {
-      url: `${siteUrl}/privacy`,
-      lastModified: BUILD_TIME,
-      changeFrequency: "yearly",
-      priority: 0.4,
-    },
-    {
-      url: `${siteUrl}/terms`,
-      lastModified: BUILD_TIME,
-      changeFrequency: "yearly",
-      priority: 0.4,
-    },
-    {
       url: `${siteUrl}/llms.txt`,
       lastModified: BUILD_TIME,
       changeFrequency: "monthly",

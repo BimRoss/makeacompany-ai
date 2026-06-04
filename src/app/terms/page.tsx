@@ -11,6 +11,7 @@ export const metadata: Metadata = {
   alternates: {
     canonical: "/terms",
   },
+  robots: { index: false, follow: true },
   openGraph: {
     title: "Terms of Service — makeacompany.ai",
     description:
