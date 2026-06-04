@@ -40,17 +40,11 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "monthly",
       priority: 0.8,
     },
-    {
-      url: `${siteUrl}/llms.txt`,
-      lastModified: BUILD_TIME,
-      changeFrequency: "monthly",
-      priority: 0.2,
-    },
-    {
-      url: `${siteUrl}/llms-full.txt`,
-      lastModified: BUILD_TIME,
-      changeFrequency: "monthly",
-      priority: 0.2,
-    },
   ];
 }
+// llms.txt and llms-full.txt are intentionally NOT in the sitemap. They exist
+// for LLM crawlers, not Google SERPs — plaintext has no title/meta/structure
+// to rank, so Google bucketed them "Crawled – not indexed" and "URL unknown
+// to Google" respectively, polluting the GSC indexation report for URLs we
+// actually want ranked. They're still served from the public root and
+// referenced from .well-known for LLM agents.
