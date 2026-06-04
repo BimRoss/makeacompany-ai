@@ -226,7 +226,7 @@ func (s *Server) Handler() http.Handler {
 		recorder := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
 		s.withCORS(recorder, r, s.mux)
 		duration := time.Since(start).Seconds()
-		route := normalizeMetricRoute(r.URL.Path)
+		route := s.labelRoute(r)
 		method := strings.ToUpper(strings.TrimSpace(r.Method))
 		statusClass := fmt.Sprintf("%dxx", recorder.status/100)
 		httpRequestsTotal.WithLabelValues(method, route, statusClass).Inc()
@@ -251,109 +251,29 @@ func (sr *statusRecorder) WriteHeader(statusCode int) {
 	sr.ResponseWriter.WriteHeader(statusCode)
 }
 
-func normalizeMetricRoute(path string) string {
-	switch {
-	case path == "/livez":
-		return "/livez"
-	case path == "/readyz":
-		return "/readyz"
-	case path == "/health":
-		return "/health"
-	case path == "/metrics":
-		return "/metrics"
-	case path == "/api/internal/cookie-health":
-		return "/api/internal/cookie-health"
-	case path == "/api/internal/indexer-recent-requests":
-		return "/api/internal/indexer-recent-requests"
-	case path == "/v1/billing/checkout":
-		return "/v1/billing/checkout"
-	case path == "/v1/billing/checkout-status":
-		return "/v1/billing/checkout-status"
-	case path == "/v1/billing/free-trial-invite":
-		return "/v1/billing/free-trial-invite"
-	case path == "/v1/billing/webhook":
-		return "/v1/billing/webhook"
-	case path == "/v1/billing/waitlist-stats":
-		return "/v1/billing/waitlist-stats"
-	case path == "/v1/lander/slack-seats":
-		return "/v1/lander/slack-seats"
-	case path == "/v1/lander/testimonials":
-		return "/v1/lander/testimonials"
-	case path == "/v1/admin/testimonials":
-		return "/v1/admin/testimonials"
-	case strings.HasPrefix(path, "/v1/admin/testimonials/"):
-		return "/v1/admin/testimonials/:id"
-	case path == "/v1/admin/waitlist":
-		return "/v1/admin/waitlist"
-	case path == "/v1/admin/stripe-waitlist-purchasers":
-		return "/v1/admin/stripe-waitlist-purchasers"
-	case path == "/v1/admin/slack-workspace-users":
-		return "/v1/admin/slack-workspace-users"
-	case path == "/v1/admin/slack-bot-author-profiles":
-		return "/v1/admin/slack-bot-author-profiles"
-	case path == "/v1/admin/channels":
-		return "/v1/admin/channels"
-	case path == "/v1/admin/channel-members":
-		return "/v1/admin/channel-members"
-	case path == "/v1/admin/user-profiles":
-		return "/v1/admin/user-profiles"
-	case path == "/v1/admin/ga4-summary":
-		return "/v1/admin/ga4-summary"
-	case path == "/v1/admin/gsc-summary":
-		return "/v1/admin/gsc-summary"
-	case path == "/v1/admin/agents/status":
-		return "/v1/admin/agents/status"
-	case strings.HasPrefix(path, "/v1/admin/agents/") && strings.HasSuffix(path, "/toggle"):
-		return "/v1/admin/agents/:name/toggle"
-	case path == "/v1/internal/refresh-stripe-waitlist-snapshot":
-		return "/v1/internal/refresh-stripe-waitlist-snapshot"
-	case path == "/v1/internal/refresh-slack-users-snapshot":
-		return "/v1/internal/refresh-slack-users-snapshot"
-	case path == "/v1/internal/deploy-gate":
-		return "/v1/internal/deploy-gate"
-	case path == "/v1/internal/deploy-gate/consume":
-		return "/v1/internal/deploy-gate/consume"
-	case path == "/v1/internal/user-status":
-		return "/v1/internal/user-status"
-	case path == "/v1/internal/trial-expiry-reaper":
-		return "/v1/internal/trial-expiry-reaper"
-	case path == "/v1/admin/auth/me":
-		return "/v1/admin/auth/me"
-	case path == "/v1/admin/auth/logout":
-		return "/v1/admin/auth/logout"
-	case path == "/v1/admin/auth/google/finish":
-		return "/v1/admin/auth/google/finish"
-	case path == "/v1/admin/auth/magic/start":
-		return "/v1/admin/auth/magic/start"
-	case path == "/v1/admin/auth/magic/finish":
-		return "/v1/admin/auth/magic/finish"
-	case path == "/v1/portal/auth/me":
-		return "/v1/portal/auth/me"
-	case path == "/v1/portal/billing/cancel-subscription":
-		return "/v1/portal/billing/cancel-subscription"
-	case path == "/v1/portal/deploy-gate":
-		return "/v1/portal/deploy-gate"
-	case path == "/v1/portal/deploy-gate/consume":
-		return "/v1/portal/deploy-gate/consume"
-	case path == "/v1/portal/auth/logout":
-		return "/v1/portal/auth/logout"
-	case path == "/v1/portal/auth/google/finish":
-		return "/v1/portal/auth/google/finish"
-	case path == "/v1/portal/auth/magic/start":
-		return "/v1/portal/auth/magic/start"
-	case path == "/v1/portal/auth/magic/finish":
-		return "/v1/portal/auth/magic/finish"
-	case path == "/v1/portal/workspace/connect/finish":
-		return "/v1/portal/workspace/connect/finish"
-	case path == "/v1/portal/workspace/disconnect/finish":
-		return "/v1/portal/workspace/disconnect/finish"
-	case path == "/v1/portal/workspace/status":
-		return "/v1/portal/workspace/status"
-	case strings.HasPrefix(path, "/v1/"):
-		return "/v1/other"
-	default:
+// labelRoute returns the Prometheus `route` label for a request by asking
+// the ServeMux which pattern it matched. Bounded cardinality (one label per
+// registered pattern) and no hand-maintained switch to drift out of sync with
+// the route table (#38 B1: top-routes panel was collapsing real endpoints into
+// /other because the switch hadn't been updated when new routes were added).
+//
+// Unmatched paths fall back to /other or /v1/other so request floods to
+// random paths can't blow up cardinality, and the existing "unrouted 5xx"
+// log line in Handler() keeps surfacing them.
+func (s *Server) labelRoute(r *http.Request) string {
+	_, pattern := s.mux.Handler(r)
+	if pattern == "" {
+		if strings.HasPrefix(r.URL.Path, "/v1/") {
+			return "/v1/other"
+		}
 		return "/other"
 	}
+	// Go 1.22+ patterns may be method-prefixed ("POST /v1/admin/agents/{name}/toggle").
+	// Drop the method since `method` is already a separate label.
+	if i := strings.Index(pattern, " "); i >= 0 {
+		pattern = pattern[i+1:]
+	}
+	return pattern
 }
 
 func (s *Server) withCORS(w http.ResponseWriter, r *http.Request, next http.Handler) {
