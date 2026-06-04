@@ -24,6 +24,22 @@ query Zone($zoneTag: String!, $start: Time!, $end: Time!) {
           responseStatusMap { edgeResponseStatus requests }
         }
       }
+      countryGroups: httpRequestsAdaptiveGroups(
+        limit: 8
+        filter: { datetime_geq: $start, datetime_leq: $end }
+        orderBy: [sum_requests_DESC]
+      ) {
+        dimensions { clientCountryName }
+        sum { requests }
+      }
+      firewallByAction: firewallEventsAdaptiveGroups(
+        limit: 8
+        filter: { datetime_geq: $start, datetime_leq: $end }
+        orderBy: [count_DESC]
+      ) {
+        dimensions { action }
+        count
+      }
     }
   }
 }`;
@@ -99,7 +115,21 @@ export async function GET() {
 
   const payload = (await response.json()) as {
     errors?: Array<{ message?: string }>;
-    data?: { viewer?: { zones?: Array<{ httpRequests1hGroups?: Bucket[] }> } };
+    data?: {
+      viewer?: {
+        zones?: Array<{
+          httpRequests1hGroups?: Bucket[];
+          countryGroups?: Array<{
+            dimensions: { clientCountryName: string };
+            sum: { requests: number };
+          }>;
+          firewallByAction?: Array<{
+            dimensions: { action: string };
+            count: number;
+          }>;
+        }>;
+      };
+    };
   };
 
   if (payload.errors?.length) {
@@ -109,7 +139,17 @@ export async function GET() {
     );
   }
 
-  const buckets = payload.data?.viewer?.zones?.[0]?.httpRequests1hGroups ?? [];
+  const zone = payload.data?.viewer?.zones?.[0];
+  const buckets = zone?.httpRequests1hGroups ?? [];
+  const topCountries = (zone?.countryGroups ?? []).map((g) => ({
+    country: g.dimensions.clientCountryName || "Unknown",
+    requests: g.sum.requests,
+  }));
+  const firewallEvents = (zone?.firewallByAction ?? []).map((g) => ({
+    action: g.dimensions.action || "unknown",
+    count: g.count,
+  }));
+  const firewallTotal = firewallEvents.reduce((acc, e) => acc + e.count, 0);
 
   const requestsPerMin: Point[] = [];
   const bandwidthBps: Point[] = [];
@@ -117,8 +157,12 @@ export async function GET() {
   const reqs2xx: Point[] = [];
   const reqs4xx: Point[] = [];
   const reqs5xx: Point[] = [];
+  let totalRequests = 0;
+  let totalCachedRequests = 0;
 
   for (const b of buckets) {
+    totalRequests += b.sum.requests;
+    totalCachedRequests += b.sum.cachedRequests;
     const ts = bucketSeconds(b);
     requestsPerMin.push([ts, b.sum.requests / 60]);
     bandwidthBps.push([ts, b.sum.bytes / 3600]);
@@ -137,12 +181,19 @@ export async function GET() {
       windowStart: start.toISOString(),
       windowEnd: end.toISOString(),
       zoneTag,
+      summary: {
+        totalRequests,
+        cacheHitRatio24h: totalRequests > 0 ? totalCachedRequests / totalRequests : 0,
+        firewallEventsTotal: firewallTotal,
+      },
       panels: {
         requestsPerMin,
         bandwidthBps,
         cacheHitRatio,
         statusClass: { reqs2xx, reqs4xx, reqs5xx },
       },
+      topCountries,
+      firewallEvents,
     },
     {
       headers: {
