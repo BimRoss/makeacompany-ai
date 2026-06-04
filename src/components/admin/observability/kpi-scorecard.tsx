@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { kickToLoginForUnauthorizedApi } from "@/lib/client-auth-unauthorized-redirect";
+import { useCloudflareSummary } from "./cloudflare-panels";
 
 type KpiTile = {
   id: string;
@@ -201,6 +202,9 @@ export function useGscSummary(): GscSummary | null {
 export function KpiScorecard() {
   const ga4 = useGa4Summary();
   const gsc = useGscSummary();
+  const { payload: cloudflarePayload } = useCloudflareSummary();
+  const cacheHit = cloudflarePayload?.summary?.cacheHitRatio24h;
+  const fwTotal = cloudflarePayload?.summary?.firewallEventsTotal;
   const [results, setResults] = useState<PromResult[] | null>(null);
   const [errored, setErrored] = useState(false);
   const cancelledRef = useRef(false);
@@ -303,6 +307,12 @@ export function KpiScorecard() {
           <InfoTile label="Active users · 7d" value={formatCount(ga4?.activeUsers)} />
           <InfoTile label="Sessions · 7d" value={formatCount(ga4?.sessions)} />
         </>
+      ) : null}
+      {typeof cacheHit === "number" ? (
+        <InfoTile label="Cache hit · 24h" value={formatPercent(cacheHit)} />
+      ) : null}
+      {typeof fwTotal === "number" ? (
+        <InfoTile label="Firewall events · 24h" value={formatCount(fwTotal)} />
       ) : null}
       {showGsc ? (
         <>

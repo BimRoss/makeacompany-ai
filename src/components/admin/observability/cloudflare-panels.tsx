@@ -14,6 +14,11 @@ type CloudflarePayload = {
   windowStart?: string;
   windowEnd?: string;
   zoneTag?: string;
+  summary?: {
+    totalRequests?: number;
+    cacheHitRatio24h?: number;
+    firewallEventsTotal?: number;
+  };
   panels?: {
     requestsPerMin?: Point[];
     bandwidthBps?: Point[];
@@ -24,6 +29,8 @@ type CloudflarePayload = {
       reqs5xx?: Point[];
     };
   };
+  topCountries?: { country: string; requests: number }[];
+  firewallEvents?: { action: string; count: number }[];
   error?: string;
 };
 
@@ -168,6 +175,48 @@ function toneRank(tone: ChartTone): number {
   return { neg: 4, accent: 3, ink: 2, pos: 1, muted: 0 }[tone];
 }
 
+function formatCount(n: number): string {
+  return new Intl.NumberFormat("en-US").format(n);
+}
+
+function TablePanel({
+  title,
+  subtitle,
+  rows,
+  empty,
+}: {
+  title: string;
+  subtitle: string;
+  rows: { left: string; right: string; share?: number }[];
+  empty: string;
+}) {
+  return (
+    <article className="flex flex-col rounded-2xl border border-border bg-card p-4">
+      <header className="mb-2">
+        <h3 className="font-display text-sm font-semibold tracking-tight text-foreground">{title}</h3>
+        <p className="text-[11px] text-muted-foreground">{subtitle}</p>
+      </header>
+      {rows.length === 0 ? (
+        <div className="py-4 text-xs text-muted-foreground">{empty}</div>
+      ) : (
+        <ul className="space-y-1.5">
+          {rows.map((row, idx) => (
+            <li key={`${row.left}-${idx}`} className="flex items-center justify-between gap-3 text-sm">
+              <span className="truncate text-foreground">{row.left}</span>
+              <span className="shrink-0 tabular-nums text-muted-foreground">
+                {row.right}
+                {typeof row.share === "number" ? (
+                  <span className="ml-2 text-[10px]">{(row.share * 100).toFixed(1)}%</span>
+                ) : null}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </article>
+  );
+}
+
 export function CloudflarePanels() {
   const { payload, loading, errored } = useCloudflareSummary();
 
@@ -267,6 +316,36 @@ export function CloudflarePanels() {
         loading={loading}
         emptyLabel={empty}
       />
+      {(() => {
+        const totalCountryReq = (payload?.topCountries ?? []).reduce((acc, r) => acc + r.requests, 0);
+        const countryRows = (payload?.topCountries ?? []).map((row) => ({
+          left: row.country,
+          right: formatCount(row.requests),
+          share: totalCountryReq > 0 ? row.requests / totalCountryReq : undefined,
+        }));
+        return (
+          <TablePanel
+            title="Top countries · 24h"
+            subtitle="Edge request share by client country"
+            rows={countryRows}
+            empty="No country data in range"
+          />
+        );
+      })()}
+      {(() => {
+        const fwRows = (payload?.firewallEvents ?? []).map((row) => ({
+          left: row.action,
+          right: formatCount(row.count),
+        }));
+        return (
+          <TablePanel
+            title="Firewall events · 24h"
+            subtitle="Actions taken by Cloudflare firewall rules"
+            rows={fwRows}
+            empty="No firewall events in range"
+          />
+        );
+      })()}
     </div>
   );
 }
