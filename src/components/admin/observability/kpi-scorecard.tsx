@@ -130,6 +130,9 @@ export type GscSummary = {
   ctr?: number;
   position?: number;
   topQueries?: { query: string; impressions: number; clicks: number; ctr: number; position: number }[];
+  topPages?: { page: string; impressions: number; clicks: number; ctr: number; position: number }[];
+  deviceSplit?: { device: string; impressions: number; clicks: number; ctr: number; position: number }[];
+  topHosts?: { host: string; impressions: number; clicks: number }[];
 };
 
 function formatCount(n: number | undefined): string {
