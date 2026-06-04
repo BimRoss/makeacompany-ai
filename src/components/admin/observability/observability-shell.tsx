@@ -6,6 +6,7 @@ import { AlertTriangle, ArrowUpRight } from "lucide-react";
 import { AlertsProvider, useAlerts } from "./alerts-provider";
 import { AlertsStrip } from "./alerts-strip";
 import { CloudflarePanels, useCloudflareSummary } from "./cloudflare-panels";
+import { Ga4CountriesPanel, Ga4SourcesPanel, Ga4TopPagesPanel } from "./ga4-panels";
 import { ObservabilityDataProvider, useObservabilityData } from "./data-provider";
 import { GoldenPath } from "./golden-path";
 import { KpiScorecard } from "./kpi-scorecard";
@@ -105,6 +106,18 @@ function ObservabilityBody() {
           {WEB_PANELS.map((def) => (
             <MetricPanel key={def.id} def={def} from={from} />
           ))}
+        </div>
+      </ObservabilitySection>
+
+      <ObservabilitySection
+        id="audience"
+        title="Audience (GA4)"
+        description="Google Analytics 4 — what's happening on the site right now and over the last 7 days."
+      >
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 xl:grid-cols-3">
+          <Ga4TopPagesPanel />
+          <Ga4SourcesPanel />
+          <Ga4CountriesPanel />
         </div>
       </ObservabilitySection>
 

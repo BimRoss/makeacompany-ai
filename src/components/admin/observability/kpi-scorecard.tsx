@@ -114,10 +114,14 @@ function InfoTile({ label, value }: { label: string; value: string }) {
   );
 }
 
-type Ga4Summary = {
+export type Ga4Summary = {
   status?: "ok" | "disabled" | "degraded";
   activeUsers?: number;
   sessions?: number;
+  realtimeUsers?: number;
+  topPages?: { path: string; views: number; users: number }[];
+  sources?: { channel: string; sessions: number; users: number }[];
+  countries?: { country: string; users: number }[];
 };
 
 export type GscSummary = {
@@ -147,7 +151,7 @@ function formatPosition(n: number | undefined): string {
   return n.toFixed(1);
 }
 
-function useGa4Summary(): Ga4Summary | null {
+export function useGa4Summary(): Ga4Summary | null {
   const [payload, setPayload] = useState<Ga4Summary | null>(null);
   useEffect(() => {
     let cancelled = false;
@@ -290,6 +294,9 @@ export function KpiScorecard() {
     >
       {showGa4 ? (
         <>
+          {typeof ga4?.realtimeUsers === "number" && ga4.realtimeUsers >= 0 ? (
+            <InfoTile label="Active now · 30m" value={formatCount(ga4.realtimeUsers)} />
+          ) : null}
           <InfoTile label="Active users · 7d" value={formatCount(ga4?.activeUsers)} />
           <InfoTile label="Sessions · 7d" value={formatCount(ga4?.sessions)} />
         </>
