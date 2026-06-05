@@ -25,8 +25,8 @@ export interface PersonaCopy {
 
 export const PERSONA_COPY: Record<Persona, PersonaCopy> = {
   founder: {
-    heroLine1: "Two hires cost $300K/yr.",
-    heroLine2: "These two cost $99/mo.",
+    heroLine1: "Two hires cost $300k/yr.",
+    heroLine2: "These two are $99/mo.",
     subhead:
       "Joanne runs ops. Ross ships code. You make the calls only a founder can — for what one Claude seat costs.",
     ctaH2: "Start your company.",
@@ -35,8 +35,8 @@ export const PERSONA_COPY: Record<Persona, PersonaCopy> = {
     ctaButtonLabel: "Start your company",
   },
   engineer: {
-    heroLine1: "Claude Code, hosted.",
-    heroLine2: "In your Slack, not your laptop.",
+    heroLine1: "AI raised the bar.",
+    heroLine2: "Here's your harness.",
     subhead:
       "Push PRs from your phone. Watch deploys finish while you're at lunch. The same Claude Code you run locally, except it lives in a pod with GitHub, Slack, and your repos already wired up. $99/month, one Claude seat.",
     ctaH2: "Get a hosted Claude.",
@@ -45,8 +45,8 @@ export const PERSONA_COPY: Record<Persona, PersonaCopy> = {
     ctaButtonLabel: "Get hosted Claude",
   },
   team: {
-    heroLine1: "Add an AI ops hire",
-    heroLine2: "to your Slack today.",
+    heroLine1: "AI Teammates,",
+    heroLine2: "Where you already work.",
     subhead:
       "Joanne triages your #support channel, runs standups, drafts customer replies, syncs Google Workspace. Ross merges PRs, watches deploys, files tickets from threads. Both live in the Slack channels you already use — no new dashboard, no SSO setup. $99/month for the pair, live in five minutes.",
     ctaH2: "Add them to your Slack.",
@@ -55,8 +55,8 @@ export const PERSONA_COPY: Record<Persona, PersonaCopy> = {
     ctaButtonLabel: "Add to your Slack",
   },
   contractor: {
-    heroLine1: "Hire a team for $300K/yr.",
-    heroLine2: "Just you for $99/mo.",
+    heroLine1: "A team used to cost $300k/yr.",
+    heroLine2: "Now it's $99/mo.",
     subhead:
       "Ross pairs with you in Slack — pushes branches, opens PRs, watches deploys. Joanne handles client comms and invoicing. Senior-team output, no headcount to manage.",
     ctaH2: "Get the unfair advantage.",
