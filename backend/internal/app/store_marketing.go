@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"regexp"
 	"strings"
 	"time"
@@ -105,44 +106,24 @@ func ValidateMarketingCampaign(c *MarketingCampaign) error {
 	return nil
 }
 
-// BuildMarketingTaggedURL appends the UTM params to the target URL. utm_content
-// is omitted when empty per the ticket.
+// BuildMarketingTaggedURL merges the UTM params into the target URL's query
+// string, preserving any existing query and fragment. Returns the input
+// unchanged if parsing fails — validateMarketing checks for http(s):// prefix
+// upstream, so this is mostly defensive.
 func BuildMarketingTaggedURL(c MarketingCampaign) string {
-	sep := "?"
-	if strings.Contains(c.TargetURL, "?") {
-		sep = "&"
+	u, err := url.Parse(c.TargetURL)
+	if err != nil {
+		return c.TargetURL
 	}
-	parts := []string{
-		"utm_source=" + urlQueryEscape(c.Source),
-		"utm_medium=" + urlQueryEscape(c.Medium),
-		"utm_campaign=" + urlQueryEscape(c.Campaign),
-	}
+	q := u.Query()
+	q.Set("utm_source", c.Source)
+	q.Set("utm_medium", c.Medium)
+	q.Set("utm_campaign", c.Campaign)
 	if c.Content != "" {
-		parts = append(parts, "utm_content="+urlQueryEscape(c.Content))
+		q.Set("utm_content", c.Content)
 	}
-	return c.TargetURL + sep + strings.Join(parts, "&")
-}
-
-// Minimal escaper — kebab + digits round-trip identically, so this only matters
-// if a future source/medium adds non-alnum characters. Pulled out so it lives
-// next to the URL builder rather than hidden behind net/url overhead.
-func urlQueryEscape(s string) string {
-	const hex = "0123456789ABCDEF"
-	var b strings.Builder
-	b.Grow(len(s))
-	for i := 0; i < len(s); i++ {
-		c := s[i]
-		switch {
-		case c >= 'a' && c <= 'z', c >= 'A' && c <= 'Z', c >= '0' && c <= '9',
-			c == '-', c == '_', c == '.', c == '~':
-			b.WriteByte(c)
-		default:
-			b.WriteByte('%')
-			b.WriteByte(hex[c>>4])
-			b.WriteByte(hex[c&0x0f])
-		}
-	}
-	return b.String()
+	u.RawQuery = q.Encode()
+	return u.String()
 }
 
 // SaveMarketingCampaign persists a new campaign and indexes it by creation time.
