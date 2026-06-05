@@ -40,6 +40,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "monthly",
       priority: 0.8,
     },
+    {
+      url: `${siteUrl}/architecture`,
+      lastModified: BUILD_TIME,
+      changeFrequency: "monthly",
+      priority: 0.7,
+    },
   ];
 }
 // llms.txt and llms-full.txt are intentionally NOT in the sitemap. They exist
