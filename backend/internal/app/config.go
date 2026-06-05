@@ -19,6 +19,11 @@ type Config struct {
 	// AdminSignInAllowlist contains normalized emails that may complete /admin sign-in flows.
 	AdminSignInAllowlist []string
 	AdminSessionTTLSec   int
+	// MarketingAllowlist gates the /marketing UTM registry surface (issue #303).
+	// Must be a strict subset of AdminSignInAllowlist (since /marketing reuses the
+	// /admin Google sign-in cookie). When unset, defaults at LoadConfig time to
+	// the two emails called out in the ticket: grant@bimross.com + johnosberg@gmail.com.
+	MarketingAllowlist []string
 	StripeSecretKey      string
 	StripeWebhookSecret  string
 	// StripePriceBasePlan is the Stripe Dashboard "Base Plan" price_* used for homepage checkout (test or live).
@@ -113,6 +118,7 @@ func LoadConfig() Config {
 		BackendInternalServiceToken:         strings.TrimSpace(os.Getenv("BACKEND_INTERNAL_SERVICE_TOKEN")),
 		AdminSignInAllowlist:                envCSV("ADMIN_SIGN_IN_ALLOWLIST"),
 		AdminSessionTTLSec:                  envInt("ADMIN_SESSION_TTL_SEC", 259200),
+		MarketingAllowlist:                  envCSVDefault("MARKETING_ALLOWLIST", []string{"grant@bimross.com", "johnosberg@gmail.com"}),
 		StripeSecretKey:                     strings.TrimSpace(os.Getenv("STRIPE_SECRET_KEY")),
 		StripeWebhookSecret:                 strings.TrimSpace(os.Getenv("STRIPE_WEBHOOK_SECRET")),
 		StripePriceBasePlan:                 stripePriceIDBasePlan(),
@@ -199,6 +205,32 @@ func envBool(key string, fallback bool) bool {
 	default:
 		return fallback
 	}
+}
+
+// envCSVDefault returns envCSV(key) when set, else the fallback list normalized
+// the same way (lowercased, trimmed, de-duped). Used by allowlists that must
+// have a sane default even when the env var is unset.
+func envCSVDefault(key string, fallback []string) []string {
+	if v := envCSV(key); v != nil {
+		return v
+	}
+	seen := map[string]struct{}{}
+	out := make([]string, 0, len(fallback))
+	for _, p := range fallback {
+		v := strings.ToLower(strings.TrimSpace(p))
+		if v == "" {
+			continue
+		}
+		if _, ok := seen[v]; ok {
+			continue
+		}
+		seen[v] = struct{}{}
+		out = append(out, v)
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 func envCSV(key string) []string {

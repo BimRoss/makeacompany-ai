@@ -104,6 +104,16 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // /marketing reuses the admin session cookie (issue #303). Cookie-presence
+  // gate only at this layer; the page itself re-verifies the session against
+  // the backend and enforces the marketing-specific email allowlist.
+  if (pathname === "/marketing" || pathname.startsWith("/marketing/")) {
+    if (!hasSession) {
+      return NextResponse.redirect(new URL("/admin/login", request.url));
+    }
+    return NextResponse.next();
+  }
+
   const portalPath = matchCompanyPortalPath(pathname);
   if (portalPath) {
     const sessionMatchesURL = hasPortalSession && portalCID === portalPath.channelId;
@@ -135,8 +145,10 @@ export const config = {
   matcher: [
     "/admin",
     "/admin/:path*",
+    "/marketing",
+    "/marketing/:path*",
     "/twitter",
     "/twitter/:path*",
-    "/((?!api|_next|favicon.ico|admin|twitter|privacy|terms|opengraph-image|twitter-image|robots.txt|sitemap.xml|manifest).*)",
+    "/((?!api|_next|favicon.ico|admin|marketing|twitter|privacy|terms|opengraph-image|twitter-image|robots.txt|sitemap.xml|manifest).*)",
   ],
 };

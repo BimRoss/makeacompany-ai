@@ -172,6 +172,9 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 	s.mux.HandleFunc("/v1/lander/testimonials", s.handleLanderTestimonials)
 	s.mux.HandleFunc("/v1/admin/testimonials", s.handleAdminTestimonials)
 	s.mux.HandleFunc("/v1/admin/testimonials/", s.handleAdminTestimonials)
+	// Marketing UTM registry (issue #303). Gated by the admin session cookie
+	// plus a separate, narrower allowlist (MarketingAllowlist).
+	s.mux.HandleFunc("/v1/admin/marketing/campaigns", s.handleAdminMarketingCampaigns)
 	s.mux.HandleFunc("/v1/admin/waitlist", s.handleAdminWaitlist)
 	s.mux.HandleFunc("/v1/admin/stripe-waitlist-purchasers", s.handleAdminStripeWaitlistPurchasers)
 	s.mux.HandleFunc("/v1/admin/slack-workspace-users", s.handleAdminSlackWorkspaceUsers)
