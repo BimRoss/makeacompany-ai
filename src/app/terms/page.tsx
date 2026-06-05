@@ -11,6 +11,10 @@ export const metadata: Metadata = {
   alternates: {
     canonical: "/terms",
   },
+  robots: {
+    index: false,
+    follow: true,
+  },
   openGraph: {
     title: "Early Access Terms of Use",
     description:

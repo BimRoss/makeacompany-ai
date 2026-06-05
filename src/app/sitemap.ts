@@ -39,12 +39,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.4,
     },
     {
-      url: `${siteUrl}/terms`,
-      lastModified: now,
-      changeFrequency: "yearly",
-      priority: 0.4,
-    },
-    {
       url: `${siteUrl}/llms.txt`,
       lastModified: now,
       changeFrequency: "monthly",
