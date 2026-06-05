@@ -35,8 +35,8 @@ export const PERSONA_COPY: Record<Persona, PersonaCopy> = {
     ctaButtonLabel: "Start your company",
   },
   engineer: {
-    heroLine1: "Claude Code, hosted.",
-    heroLine2: "In your Slack, not your laptop.",
+    heroLine1: "AI raised the bar.",
+    heroLine2: "Here's your harness.",
     subhead:
       "Push PRs from your phone. Watch deploys finish while you're at lunch. The same Claude Code you run locally, except it lives in a pod with GitHub, Slack, and your repos already wired up. $99/month, one Claude seat.",
     ctaH2: "Get a hosted Claude.",
