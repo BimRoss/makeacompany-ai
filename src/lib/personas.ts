@@ -35,23 +35,23 @@ export const PERSONA_COPY: Record<Persona, PersonaCopy> = {
     ctaButtonLabel: "Start your company",
   },
   engineer: {
-    heroLine1: "AI raised the bar.",
-    heroLine2: "Here's your harness.",
+    heroLine1: "Claude Code, hosted.",
+    heroLine2: "In your Slack, not your laptop.",
     subhead:
-      "AI didn't give you leverage — it gave your manager a new baseline. makeacompany.ai sells the harness, not the agent: persistent workspaces, baked-in skills, GitOps wired up. Built by an engineer shipping it from inside the product, so the work happens whether you're at the IDE or on the couch.",
-    ctaH2: "See the harness.",
+      "Push PRs from your phone. Watch deploys finish while you're at lunch. The same Claude Code you run locally, except it lives in a pod with GitHub, Slack, and your repos already wired up. $99/month, one Claude seat.",
+    ctaH2: "Get a hosted Claude.",
     ctaParagraph:
-      "Drop your email. You'll be in Slack with the agents and the full kit in minutes — the same setup shipping this product while we sleep.",
-    ctaButtonLabel: "See the harness",
+      "Drop your email. We'll spin up a Slack workspace with your own Claude Code agent ready to clone repos and open PRs.",
+    ctaButtonLabel: "Get hosted Claude",
   },
   team: {
-    heroLine1: "AI teammates",
-    heroLine2: "where you already work.",
+    heroLine1: "Add an AI ops hire",
+    heroLine2: "to your Slack today.",
     subhead:
-      "Your next ops hire costs $80K/yr. Joanne and Ross cost $99/mo, start today, and live in the Slack you're already in. No new tool to roll out.",
-    ctaH2: "Add it to your Slack.",
+      "Joanne triages your #support channel, runs standups, drafts customer replies, syncs Google Workspace. Ross merges PRs, watches deploys, files tickets from threads. Both live in the Slack channels you already use — no new dashboard, no SSO setup. $99/month for the pair, live in five minutes.",
+    ctaH2: "Add them to your Slack.",
     ctaParagraph:
-      "Drop your work email. We'll get your team into a Slack workspace with Joanne and Ross ready to go.",
+      "Drop your work email. We'll provision a Slack workspace with Joanne and Ross already in your channels and ready to pick up tasks.",
     ctaButtonLabel: "Add to your Slack",
   },
   contractor: {
@@ -104,16 +104,18 @@ export const PERSONA_META: Record<Persona, PersonaMeta> = {
     ogAlt: "makeacompany.ai for founders — AI company in Slack for $99/month",
   },
   engineer: {
-    title: "Claude in Slack for engineers",
+    title: "Hosted Claude Code in Slack for engineers",
     description:
-      "$99/month for Claude that ships code in Slack. Persistent workspaces per channel, baked-in skills, GitOps wired up. The harness, not just the agent.",
-    ogAlt: "makeacompany.ai for engineers — Claude that ships code in Slack",
+      "Run Claude Code from Slack instead of your laptop. Persistent pods with GitHub + your repos pre-wired. Ship PRs from anywhere. $99/month for one seat.",
+    ogAlt:
+      "makeacompany.ai for engineers — hosted Claude Code that ships PRs from your Slack",
   },
   team: {
-    title: "AI teammates in Slack for teams",
+    title: "AI ops + engineering teammates for Slack teams",
     description:
-      "Slack-native AI teammates that live in your channels. Persistent workspaces, recurring loops, GitOps baked in. No new tool to roll out — they show up where you already work.",
-    ogAlt: "makeacompany.ai for teams — Slack-native AI teammates",
+      "Joanne handles ops, Ross handles code, both live in your existing Slack channels. No new tool to roll out. $99/month for the pair — your team is shipping by lunch.",
+    ogAlt:
+      "makeacompany.ai for teams — Joanne and Ross live in your Slack channels",
   },
   contractor: {
     title: "AI teammates for contractors",
