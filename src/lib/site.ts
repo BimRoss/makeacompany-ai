@@ -4,8 +4,8 @@ export const siteDomainLabel = "makeacompany.ai";
 export const siteName = siteDomainLabel;
 
 /** Primary headline lines — hero H1 */
-export const siteTaglineLine1 = "Two hires cost $300K/yr.";
-export const siteTaglineLine2 = "These two cost $99/mo.";
+export const siteTaglineLine1 = "Two hires cost $300k/yr.";
+export const siteTaglineLine2 = "These are $99/mo.";
 
 /** Single-line headline for `<title>`, OG alt, and other one-string contexts */
 export const siteTagline = `${siteTaglineLine1} ${siteTaglineLine2}`;
