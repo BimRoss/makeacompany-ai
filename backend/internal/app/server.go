@@ -115,6 +115,9 @@ type Server struct {
 	// (port 8092) for bulk-reseed fan-out (#287). nil = endpoint unwired
 	// in this environment; handlers respond 503.
 	rossAdmin *RossAdminClient
+	// clusterHealth returns a sanitized, read-only summary of the cluster
+	// for the sales-pod health bar (#290). nil-safe Disabled() for local dev.
+	clusterHealth *ClusterHealthClient
 }
 
 func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
@@ -141,6 +144,13 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 	if agentToggle.Disabled() {
 		logger.Printf("agent toggle disabled (no in-cluster config)")
 	}
+	clusterHealth, cherr := NewClusterHealthClient()
+	if cherr != nil {
+		return nil, fmt.Errorf("cluster-health init: %w", cherr)
+	}
+	if clusterHealth.Disabled() {
+		logger.Printf("cluster-health disabled (no in-cluster config)")
+	}
 	s := &Server{
 		cfg:    cfg,
 		log:    logger,
@@ -153,6 +163,7 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 		personalAgentSecrets:   personalAgentSecrets,
 		agentToggle:            agentToggle,
 		rossAdmin:              NewRossAdminClient(cfg.RossAdminURL, cfg.RossAdminToken),
+		clusterHealth:          clusterHealth,
 	}
 	if s.rossAdmin.Disabled() {
 		logger.Printf("ross admin client disabled (ROSS_ADMIN_URL / ROSS_ADMIN_TOKEN unset)")
@@ -194,6 +205,7 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 	s.mux.HandleFunc("POST /v1/internal/deploy-gate/consume", s.handleInternalDeployGateConsume)
 	s.mux.HandleFunc("GET /v1/internal/user-status", s.handleInternalUserStatus)
 	s.mux.HandleFunc("POST /v1/internal/trial-expiry-reaper", s.handleInternalTrialExpiryReaper)
+	s.mux.HandleFunc("GET /v1/internal/cluster-health", s.handleInternalClusterHealth)
 	s.mux.HandleFunc("/v1/admin/auth/me", s.handleAdminAuthMe)
 	s.mux.HandleFunc("/v1/admin/auth/logout", s.handleAdminAuthLogout)
 	s.mux.HandleFunc("/v1/admin/auth/google/finish", s.handleAdminAuthGoogleFinish)
