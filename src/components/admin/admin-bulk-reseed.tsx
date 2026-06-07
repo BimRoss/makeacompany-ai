@@ -90,14 +90,17 @@ export function AdminBulkReseed() {
   }, []);
 
   return (
-    <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-      <header className="mb-3 flex items-start justify-between gap-4">
+    <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+      <header className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
         <div>
           <h2 className="text-base font-semibold text-slate-900">Channel reseed</h2>
-          <p className="mt-1 text-sm text-slate-600">
+          <p className="mt-1 hidden text-sm text-slate-600 sm:block">
             Refresh every channel workspace to the latest scaffold defaults. Operator content
             (Company context, Notes, custom sections) is preserved; only the auto-managed
             scaffold and placeholder bodies are touched.
+          </p>
+          <p className="mt-1 text-sm text-slate-600 sm:hidden">
+            Refresh every channel to the latest scaffold. Operator content is preserved.
           </p>
         </div>
         <div className="flex shrink-0 gap-2">
@@ -105,7 +108,7 @@ export function AdminBulkReseed() {
             type="button"
             onClick={() => setConfirmTarget("dry")}
             disabled={busy}
-            className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-50"
+            className="flex-1 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-50 sm:flex-none"
           >
             Dry-run
           </button>
@@ -113,7 +116,7 @@ export function AdminBulkReseed() {
             type="button"
             onClick={() => setConfirmTarget("apply")}
             disabled={busy}
-            className="rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-slate-800 disabled:opacity-50"
+            className="flex-1 rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-slate-800 disabled:opacity-50 sm:flex-none"
           >
             Reseed all
           </button>
