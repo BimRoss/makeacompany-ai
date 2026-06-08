@@ -43,7 +43,7 @@ export function PersonaSelector() {
               });
               router.push(`/for/${PERSONA_SLUGS[p]}`);
             }}
-            className={`relative z-10 rounded-full px-3 py-2 transition-colors ${
+            className={`relative z-10 rounded-full px-1.5 py-2 transition-colors sm:px-3 ${
               active ? "text-background" : "text-muted-foreground hover:text-foreground"
             }`}
           >
