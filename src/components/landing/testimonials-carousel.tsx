@@ -65,6 +65,8 @@ export function TestimonialsCarousel({ testimonials }: { testimonials: LanderTes
   const [activeId, setActiveId] = useState<string | null>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
+  const [hasScrolledRight, setHasScrolledRight] = useState(false);
+  const initialScrollLeftRef = useRef<number | null>(null);
   const activeIndex = activeId ? testimonials.findIndex((t) => t.id === activeId) : -1;
   const activeTestimonial = activeIndex >= 0 ? testimonials[activeIndex] : null;
   const goToOffset = useCallback(
@@ -103,8 +105,14 @@ export function TestimonialsCarousel({ testimonials }: { testimonials: LanderTes
     const el = scrollRef.current;
     if (!el) return;
     const maxScroll = el.scrollWidth - el.clientWidth;
+    if (initialScrollLeftRef.current === null) {
+      initialScrollLeftRef.current = el.scrollLeft;
+    }
     setCanScrollLeft(el.scrollLeft > 1);
     setCanScrollRight(el.scrollLeft < maxScroll - 1);
+    if (el.scrollLeft > (initialScrollLeftRef.current ?? 0) + 8) {
+      setHasScrolledRight(true);
+    }
   }, []);
 
   useEffect(() => {
@@ -138,6 +146,7 @@ export function TestimonialsCarousel({ testimonials }: { testimonials: LanderTes
   const scrollByDirection = (dir: 1 | -1) => {
     const el = scrollRef.current;
     if (!el) return;
+    if (dir === 1) setHasScrolledRight(true);
     // Step by the visible width of one card (incl. gap) so a click reveals the next card cleanly.
     const card = el.querySelector<HTMLElement>("[data-testimonial-card]");
     const gap = 16; // matches gap-4
@@ -227,7 +236,7 @@ export function TestimonialsCarousel({ testimonials }: { testimonials: LanderTes
             type="button"
             aria-label="Scroll testimonials left"
             onClick={() => scrollByDirection(-1)}
-            disabled={!canScrollLeft}
+            disabled={!canScrollLeft || !hasScrolledRight}
             className="testimonial-nav-btn z-20 hidden md:flex absolute left-0 top-1/2 -translate-x-1/2 -translate-y-1/2 h-12 w-12 items-center justify-center rounded-full border-2 border-foreground/30 bg-background text-foreground shadow-xl ring-1 ring-black/5 transition hover:scale-105 hover:border-foreground hover:bg-foreground hover:text-background disabled:pointer-events-none disabled:opacity-0"
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
