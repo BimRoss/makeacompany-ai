@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { BuiltFromInside } from "@/components/landing/built-from-inside";
 import { CheckoutReturnToast } from "@/components/landing/checkout-return-toast";
 import { CtaSection } from "@/components/landing/cta-section";
 import { Footer } from "@/components/landing/footer";
+import { HarnessVsAgent } from "@/components/landing/harness-vs-agent";
 import { Header } from "@/components/landing/header";
 import { HeroSection } from "@/components/landing/hero-section";
 import { PersonaProvider } from "@/components/landing/persona-context";
@@ -96,6 +98,8 @@ export default async function PersonaLandingPage({
       <PersonaProvider initialPersona={persona} initialFromUrl>
         <HeroSection initialSeats={initialSeats} />
         <ValueStack />
+        <HarnessVsAgent />
+        <BuiltFromInside />
         <TestimonialsCarousel testimonials={testimonials} />
         <CtaSection />
       </PersonaProvider>
