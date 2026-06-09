@@ -132,7 +132,7 @@ export default async function PersonaOpenGraphImage({
             zIndex: 1,
           }}
         >
-          <span style={{ fontWeight: 600 }}>20 of 100 free for life seats claimed. Then $99/mo to join.</span>
+          <span style={{ fontWeight: 600 }}>100 free-for-life seats, then a free week, then $99/mo.</span>
         </div>
 
         {/* hero headline */}

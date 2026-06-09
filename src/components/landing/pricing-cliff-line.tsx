@@ -3,21 +3,22 @@
 import { Sparkles } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
-const FALLBACK_CLAIMED = 20;
 const FALLBACK_CAP = 100;
 const ANIMATION_MS = 1400;
 
 export type PricingCliffLineProps = {
-  /** Live seats claimed from the backend; null/undefined falls back to the static constant. */
+  /** Live seats claimed from the backend; null/undefined renders without a count. */
   claimed?: number | null;
   /** Seat cap; defaults to 100. */
   cap?: number | null;
 };
 
 export function PricingCliffLine({ claimed, cap }: PricingCliffLineProps = {}) {
-  const shownClaimed = typeof claimed === "number" && claimed > 0 ? claimed : FALLBACK_CLAIMED;
   const shownCap = typeof cap === "number" && cap > 0 ? cap : FALLBACK_CAP;
-  const targetPct = Math.min(100, (shownClaimed / shownCap) * 100);
+  const hasClaimed = typeof claimed === "number" && claimed >= 0;
+  const claimedValue = hasClaimed ? (claimed as number) : 0;
+  const atCap = hasClaimed && claimedValue >= shownCap;
+  const targetPct = atCap ? 100 : Math.min(100, (claimedValue / shownCap) * 100);
 
   const [displayed, setDisplayed] = useState(0);
   const [pct, setPct] = useState(0);
@@ -27,8 +28,13 @@ export function PricingCliffLine({ claimed, cap }: PricingCliffLineProps = {}) {
     if (startedRef.current) return;
     startedRef.current = true;
 
+    if (!hasClaimed) {
+      setDisplayed(0);
+      setPct(0);
+      return;
+    }
     if (typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
-      setDisplayed(shownClaimed);
+      setDisplayed(claimedValue);
       setPct(targetPct);
       return;
     }
@@ -38,13 +44,13 @@ export function PricingCliffLine({ claimed, cap }: PricingCliffLineProps = {}) {
     const tick = (now: number) => {
       const t = Math.min(1, (now - start) / ANIMATION_MS);
       const eased = 1 - Math.pow(1 - t, 3);
-      setDisplayed(Math.round(shownClaimed * eased));
+      setDisplayed(Math.round(claimedValue * eased));
       setPct(targetPct * eased);
       if (t < 1) raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [shownClaimed, targetPct]);
+  }, [hasClaimed, claimedValue, targetPct]);
 
   return (
     <div className="relative inline-flex items-center gap-2 overflow-hidden rounded-full border border-foreground bg-background px-3 py-1.5 text-xs text-foreground sm:px-4 sm:py-2 sm:text-sm">
@@ -55,7 +61,22 @@ export function PricingCliffLine({ claimed, cap }: PricingCliffLineProps = {}) {
       />
       <Sparkles className="relative h-3.5 w-3.5 text-foreground sm:h-4 sm:w-4" />
       <span className="relative">
-        <span className="font-semibold tabular-nums">{displayed} of {shownCap}</span> <span className="font-semibold">free for life</span> seats claimed. Then $99/mo to join.
+        {atCap ? (
+          <>
+            <span className="font-semibold tabular-nums">All {shownCap}</span>{" "}
+            <span className="font-semibold">free-for-life</span> seats claimed. New signups get a free week, then $99/mo.
+          </>
+        ) : hasClaimed ? (
+          <>
+            <span className="font-semibold tabular-nums">{displayed} of {shownCap}</span>{" "}
+            <span className="font-semibold">free-for-life</span> seats, then a free week, then $99/mo.
+          </>
+        ) : (
+          <>
+            <span className="font-semibold tabular-nums">{shownCap}</span>{" "}
+            <span className="font-semibold">free-for-life</span> seats, then a free week, then $99/mo.
+          </>
+        )}
       </span>
     </div>
   );

@@ -19,9 +19,9 @@ function freeSeatsClause(seats?: LanderSlackSeats): string {
   }
   const remaining = Math.max(cap - claimed, 0);
   if (remaining <= 0) {
-    return `The first ${cap} free-for-life seats have all been claimed`;
+    return `The first ${cap} free-for-life seats are all claimed, so new signups get a free week`;
   }
-  return `The first ${cap} seats are free for life — ${remaining} still available`;
+  return `The first ${cap} seats are free for life with ${remaining} still available, after which new signups get a free week`;
 }
 
 function buildFaqItems(seats?: LanderSlackSeats) {
@@ -39,7 +39,7 @@ function buildFaqItems(seats?: LanderSlackSeats) {
     },
     {
       question: "How do I get access?",
-      answer: `Tap Start Building on the homepage. ${freeClause} (see the live count in the pill at the top of the page). After the free-for-life seats are gone it's $99/mo through Stripe. Either way, Joanne emails you an invite to your workspace once you're in.`,
+      answer: `Tap Start Building on the homepage. ${freeClause} (see the live count in the pill at the top of the page). When your week is up, Joanne sends you a Stripe link to keep going at $99/mo. Either way, Joanne emails you the invite to your workspace once you're in.`,
     },
     {
       question: "Does this replace my whole team?",
@@ -53,7 +53,7 @@ function buildFaqItems(seats?: LanderSlackSeats) {
     },
     {
       question: "How much does it cost?",
-      answer: `${freeClause}. Once those are claimed, it's $99/mo, month-to-month through Stripe.`,
+      answer: `${freeClause}. Past the free week it's $99/mo, month-to-month through Stripe. Joanne sends the payment link in DM the day your trial ends, so nothing surprise-charges.`,
     },
     {
       question: "Can I cancel anytime?",
