@@ -17,16 +17,16 @@ function severityClasses(severity: string): string {
 function AlertChip({ alert }: { alert: AdminAlert }) {
   return (
     <li
-      className={`inline-flex items-start gap-2 rounded-lg border px-3 py-2 text-xs shadow-sm ${severityClasses(
+      className={`flex w-full max-w-md items-start gap-2 rounded-lg border px-3 py-2 text-xs shadow-sm sm:w-auto sm:min-w-[18rem] ${severityClasses(
         alert.severity
       )}`}
       title={alert.description}
     >
       <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-      <div className="min-w-0 space-y-0.5">
-        <div className="flex items-center gap-1.5 font-semibold">
-          <span className="truncate">{alert.summary}</span>
-          <span className="rounded bg-background/40 px-1 py-px text-[10px] uppercase tracking-wide">
+      <div className="min-w-0 flex-1 space-y-0.5">
+        <div className="flex flex-wrap items-center gap-1.5 font-semibold">
+          <span className="min-w-0 flex-1 truncate">{alert.summary}</span>
+          <span className="shrink-0 rounded bg-background/40 px-1 py-px text-[10px] uppercase tracking-wide">
             {alert.severity}
           </span>
         </div>
