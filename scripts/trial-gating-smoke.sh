@@ -305,6 +305,33 @@ else
   fail "Grant ($GRANT_ID) resolved to ($CODE, $STATUS) — expected non-expired"
 fi
 
+# ── step 8: cancel flow (#341) — canceled status silences + winback enqueue ─
+step "Step 8: cancel flow — Stripe-canceled silences and enqueues winback DM"
+# Simulate the post-webhook profile state: stripe_subscription_status=canceled, no
+# free_lifetime (post-cliff). EffectiveStatus should now return 'expired'.
+redis HSET "$PROFILE_KEY" \
+  stripe_subscription_status "canceled" \
+  free_lifetime "" >/dev/null
+redis HDEL "$PROFILE_KEY" trial_expires_at expiry_dm_enqueued_at winback_dm_enqueued_at >/dev/null
+INFO=$(status_for_slack "$TEST_SLACK_ID")
+CODE="${INFO%%|*}" STATUS="${INFO##*|}"
+if [ "$CODE" = "200" ] && [ "$STATUS" = "expired" ] ; then
+  pass "user-status returned $STATUS for canceled post-cliff user (was free_lifetime before #341)"
+else
+  fail "expected (200, expired) for canceled+!free_lifetime, got ($CODE, $STATUS) — #341 fix not deployed?"
+fi
+# Pre-cliff preservation: a canceled user who was free_lifetime stays free_lifetime.
+redis HSET "$PROFILE_KEY" free_lifetime "true" >/dev/null
+INFO=$(status_for_slack "$TEST_SLACK_ID")
+CODE="${INFO%%|*}" STATUS="${INFO##*|}"
+if [ "$CODE" = "200" ] && [ "$STATUS" = "free_lifetime" ] ; then
+  pass "free_lifetime preserved on cancel (pre-cliff path still works)"
+else
+  fail "free_lifetime path broke: ($CODE, $STATUS)"
+fi
+info "Stripe webhook → winback DM enqueue path is exercised by a real \`subscription.deleted\` event."
+info "Not simulated here because the webhook requires a Stripe-signed payload; unit-tested instead."
+
 # ── verdict ─────────────────────────────────────────────────────────────────
 echo
 if [ "$FAILED" -eq 0 ] ; then

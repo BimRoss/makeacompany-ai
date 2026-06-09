@@ -118,5 +118,39 @@ func (s *Server) syncUserProfileFromStripeSubscription(ctx context.Context, sub 
 	tier := profileTierFromSubscription(sub)
 	priceID := primarySubscriptionPriceID(sub)
 	productID := primarySubscriptionProductID(sub)
-	return s.store.UpsertUserProfileStripeSubscription(ctx, email, custID, sub.ID, string(sub.Status), tier, priceID, productID, sub.CancelAtPeriodEnd, subscriptionCurrentPeriodEndUnix(sub))
+	if err := s.store.UpsertUserProfileStripeSubscription(ctx, email, custID, sub.ID, string(sub.Status), tier, priceID, productID, sub.CancelAtPeriodEnd, subscriptionCurrentPeriodEndUnix(sub)); err != nil {
+		return err
+	}
+
+	// Cancel webhook → winback DM (#341). One polite Joanne message at the moment the
+	// subscription actually terminates (period-end). Idempotent via winback_dm_enqueued_at so a
+	// retried webhook or a `subscription.updated → deleted` progression doesn't double-DM.
+	if strings.EqualFold(strings.TrimSpace(string(sub.Status)), "canceled") {
+		row, rerr := s.store.UserProfileRowByEmail(ctx, email)
+		if rerr != nil {
+			s.log.Printf("winback dm: load profile %s: %v", email, rerr)
+			return nil
+		}
+		if row.FreeLifetime {
+			return nil // pre-cliff user — already preserved by EffectiveStatus, no winback needed
+		}
+		if strings.TrimSpace(row.WinbackDMEnqueuedAt) != "" {
+			return nil // already DM'd them about this cancel
+		}
+		slackID := strings.TrimSpace(row.SlackUserID)
+		if slackID == "" {
+			return nil // can't DM without a Slack id (waitlist-only, lander-only, etc.)
+		}
+		checkoutURL := s.trialExpiryCheckoutURL()
+		job := ExpiryDMJob{
+			SlackUserID:       slackID,
+			Email:             email,
+			StripeCheckoutURL: appendClientReferenceID(checkoutURL, slackID),
+			Reason:            "subscription_canceled",
+		}
+		if qerr := s.store.EnqueueWinbackDMJob(ctx, email, job); qerr != nil {
+			s.log.Printf("winback dm: enqueue %s: %v", email, qerr)
+		}
+	}
+	return nil
 }
