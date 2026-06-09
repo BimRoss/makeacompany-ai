@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Loader2, Sparkles } from "lucide-react";
 import { apiBase } from "@/lib/site";
 
-const INVITE_URL = "https://join.slack.com/t/bimrossllc/shared_invite/zt-3w432kf90-5B7IwfX2DNGfxLB1VGp6zA";
+const INVITE_URL = "https://join.slack.com/t/makeacompany/shared_invite/zt-3w432kf90-5B7IwfX2DNGfxLB1VGp6zA";
 
 type CheckoutStatusResponse = {
   registered?: boolean;
