@@ -66,6 +66,9 @@ const REQ = "makeacompany_http_requests_total";
 const DUR = "makeacompany_http_request_duration_seconds_bucket";
 const REFRESH = "makeacompany_slack_refresh_runs_total";
 const UPSTREAM = "makeacompany_slack_refresh_upstream_http_status_total";
+const REAPER_SCANNED = "makeacompany_trial_expiry_reaper_scanned_total";
+const REAPER_ENQUEUED = "makeacompany_trial_expiry_reaper_enqueued_total";
+const CRONJOB = "makeacompany_cronjob_duration_seconds_count";
 
 const statusTone = (cls: string): ChartTone =>
   cls.startsWith("2") ? "pos" : cls.startsWith("5") ? "neg" : cls.startsWith("4") ? "accent" : "muted";
@@ -184,6 +187,35 @@ export const JOBS_PANELS: PanelDef[] = [
     ),
     format: formatDuration,
     forceFrom: "now-24h",
+  },
+  {
+    id: "trial-expiry-reaper-runs",
+    title: "Trial-expiry reaper runs",
+    subtitle: "Success vs error /hour (cron fires every 10m)",
+    queries: [`sum by (result) (increase(${CRONJOB}{job="trial-expiry-reaper"}[1h]))`],
+    toSeries: splitByLabel(
+      `sum by (result) (increase(${CRONJOB}{job="trial-expiry-reaper"}[1h]))`,
+      "result",
+      resultTone
+    ),
+    format: formatCompact,
+    forceFrom: "now-24h",
+  },
+  {
+    id: "trial-expiry-reaper-flow",
+    title: "Trial-expiry reaper flow",
+    subtitle: "Profiles scanned vs DMs enqueued /hour",
+    queries: [
+      `increase(${REAPER_SCANNED}[1h])`,
+      `increase(${REAPER_ENQUEUED}[1h])`,
+    ],
+    toSeries: perQuery([
+      { query: `increase(${REAPER_SCANNED}[1h])`, label: "scanned", tone: "muted" },
+      { query: `increase(${REAPER_ENQUEUED}[1h])`, label: "enqueued", tone: "accent" },
+    ]),
+    format: formatCompact,
+    forceFrom: "now-24h",
+    hideWhenEmpty: true,
   },
 ];
 

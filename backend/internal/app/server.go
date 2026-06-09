@@ -74,6 +74,18 @@ var (
 		},
 		[]string{"job", "result"},
 	)
+	trialExpiryReaperScannedTotal = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: "makeacompany_trial_expiry_reaper_scanned_total",
+			Help: "Profiles inspected by the trial-expiry reaper (cumulative; sum across runs).",
+		},
+	)
+	trialExpiryReaperEnqueuedTotal = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: "makeacompany_trial_expiry_reaper_enqueued_total",
+			Help: "Expiry-DM jobs enqueued onto the joanne expiry-dm queue by the reaper.",
+		},
+	)
 )
 
 func init() {
@@ -84,6 +96,8 @@ func init() {
 		slackRefreshUpstreamHTTPStatusTotal,
 		slackUpstreamHTTPStatusTotal,
 		cronjobDurationSeconds,
+		trialExpiryReaperScannedTotal,
+		trialExpiryReaperEnqueuedTotal,
 	)
 }
 
