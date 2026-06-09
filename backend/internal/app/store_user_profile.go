@@ -445,6 +445,40 @@ func (s *Store) SetFreeTierConsumed(ctx context.Context, email string) error {
 	}).Err()
 }
 
+// CountFreeLifetimeProfiles returns the number of user_profile hashes with free_lifetime=true.
+// O(N) over the profile keyspace, capped by SCAN at maxUserProfileList. Used by the post-100
+// trial-start trigger (#325) to decide whether a fresh profile becomes free_lifetime or trialing.
+func (s *Store) CountFreeLifetimeProfiles(ctx context.Context) (int, error) {
+	if s == nil {
+		return 0, fmt.Errorf("nil store")
+	}
+	var n int
+	var cursor uint64
+	for {
+		keys, next, err := s.rdb.Scan(ctx, cursor, userProfileKeyGlob, 64).Result()
+		if err != nil {
+			return 0, err
+		}
+		for _, k := range keys {
+			v, err := s.rdb.HGet(ctx, k, "free_lifetime").Result()
+			if err == redis.Nil {
+				continue
+			}
+			if err != nil {
+				return 0, err
+			}
+			if strings.EqualFold(strings.TrimSpace(v), "true") {
+				n++
+			}
+		}
+		cursor = next
+		if cursor == 0 {
+			break
+		}
+	}
+	return n, nil
+}
+
 // LifecycleStatus is the resolved subscription/trial state used by the agent-silence dispatch gate (#243).
 // It collapses Stripe state, the free-lifetime flag, and trial expiry into a single value so callers don't
 // duplicate the precedence rules.
