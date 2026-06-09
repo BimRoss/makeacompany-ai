@@ -64,7 +64,7 @@ export function GoldenPath() {
         </div>
         {flows.length > 0 ? (
           <span
-            className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${
+            className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-1 text-xs font-medium ${
               allOk
                 ? "border-[var(--chart-pos)]/40 text-[var(--chart-pos)]"
                 : "border-[var(--chart-neg)]/40 text-[var(--chart-neg)]"
