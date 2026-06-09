@@ -21,6 +21,11 @@ func (s *Server) handleInternalTrialExpiryReaper(w http.ResponseWriter, r *http.
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
+	outcome := "error"
+	start := time.Now()
+	defer func() {
+		cronjobDurationSeconds.WithLabelValues("trial-expiry-reaper", outcome).Observe(time.Since(start).Seconds())
+	}()
 	if !s.internalServiceBearerAuthorized(r) {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
@@ -51,6 +56,9 @@ func (s *Server) handleInternalTrialExpiryReaper(w http.ResponseWriter, r *http.
 		}
 		enqueued++
 	}
+	trialExpiryReaperScannedTotal.Add(float64(len(candidates)))
+	trialExpiryReaperEnqueuedTotal.Add(float64(enqueued))
+	outcome = "success"
 	writeJSON(w, http.StatusOK, map[string]any{
 		"ok":          true,
 		"scanned":     len(candidates),
