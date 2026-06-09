@@ -45,7 +45,7 @@ const STATUS_LABEL: Record<ReseedRow["status"], string> = {
 
 const STATUS_DOT: Record<ReseedRow["status"], string> = {
   applied: "bg-emerald-500",
-  noop: "bg-slate-400",
+  noop: "bg-muted-foreground/60",
   dry_run: "bg-sky-500",
   missing: "bg-amber-400",
   error: "bg-rose-500",
@@ -90,16 +90,16 @@ export function AdminBulkReseed() {
   }, []);
 
   return (
-    <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+    <section className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-5">
       <header className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
         <div>
-          <h2 className="text-base font-semibold text-slate-900">Channel reseed</h2>
-          <p className="mt-1 hidden text-sm text-slate-600 sm:block">
+          <h2 className="text-base font-semibold text-foreground">Channel reseed</h2>
+          <p className="mt-1 hidden text-sm text-muted-foreground sm:block">
             Refresh every channel workspace to the latest scaffold defaults. Operator content
             (Company context, Notes, custom sections) is preserved; only the auto-managed
             scaffold and placeholder bodies are touched.
           </p>
-          <p className="mt-1 text-sm text-slate-600 sm:hidden">
+          <p className="mt-1 text-sm text-muted-foreground sm:hidden">
             Refresh every channel to the latest scaffold. Operator content is preserved.
           </p>
         </div>
@@ -108,7 +108,7 @@ export function AdminBulkReseed() {
             type="button"
             onClick={() => setConfirmTarget("dry")}
             disabled={busy}
-            className="flex-1 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-50 sm:flex-none"
+            className="flex-1 rounded-md border border-border bg-background px-3 py-1.5 text-sm font-medium text-foreground shadow-sm hover:bg-muted disabled:opacity-50 sm:flex-none"
           >
             Dry-run
           </button>
@@ -116,7 +116,7 @@ export function AdminBulkReseed() {
             type="button"
             onClick={() => setConfirmTarget("apply")}
             disabled={busy}
-            className="flex-1 rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-slate-800 disabled:opacity-50 sm:flex-none"
+            className="flex-1 rounded-md bg-foreground px-3 py-1.5 text-sm font-medium text-background shadow-sm hover:bg-foreground/90 disabled:opacity-50 sm:flex-none"
           >
             Reseed all
           </button>
@@ -124,8 +124,8 @@ export function AdminBulkReseed() {
       </header>
 
       {confirmTarget && (
-        <div className="mb-3 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm">
-          <p className="font-medium text-amber-900">
+        <div className="mb-3 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
+          <p className="font-medium text-amber-900 dark:text-amber-200">
             {confirmTarget === "apply"
               ? "Reseed every channel workspace? This writes to every channel's CLAUDE.md (with snapshot)."
               : "Run a dry-run across every channel? No files will be written."}
@@ -141,7 +141,7 @@ export function AdminBulkReseed() {
             <button
               type="button"
               onClick={() => setConfirmTarget(null)}
-              className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
+              className="rounded-md border border-border bg-background px-3 py-1.5 text-sm text-foreground hover:bg-muted"
             >
               Cancel
             </button>
@@ -149,16 +149,16 @@ export function AdminBulkReseed() {
         </div>
       )}
 
-      {busy && <p className="text-sm text-slate-500">Running…</p>}
+      {busy && <p className="text-sm text-muted-foreground">Running…</p>}
 
       {error && (
-        <p className="rounded-md border border-rose-300 bg-rose-50 p-3 text-sm text-rose-800">
+        <p className="rounded-md border border-rose-500/40 bg-rose-500/10 p-3 text-sm text-rose-800 dark:text-rose-300">
           {error}
         </p>
       )}
 
       {summary && (
-        <div className="mb-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-600">
+        <div className="mb-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
           <span>
             {lastRunMode === "dry" ? "Dry-run" : "Applied"}
             {lastRunAt ? ` at ${new Date(lastRunAt).toLocaleTimeString()}` : null}
@@ -173,9 +173,9 @@ export function AdminBulkReseed() {
       )}
 
       {results && results.length > 0 && (
-        <div className="max-h-96 overflow-auto rounded-md border border-slate-200">
+        <div className="max-h-96 overflow-auto rounded-md border border-border">
           <table className="min-w-full text-sm">
-            <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+            <thead className="bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
               <tr>
                 <th className="px-3 py-2">Status</th>
                 <th className="px-3 py-2">Channel</th>
@@ -185,15 +185,15 @@ export function AdminBulkReseed() {
             </thead>
             <tbody>
               {results.map((row) => (
-                <tr key={row.channelId} className="border-t border-slate-100">
-                  <td className="px-3 py-1.5">
+                <tr key={row.channelId} className="border-t border-border/60">
+                  <td className="px-3 py-1.5 text-foreground">
                     <span className={`inline-block h-2 w-2 rounded-full ${STATUS_DOT[row.status]}`} />
                     <span className="ml-2">{STATUS_LABEL[row.status]}</span>
                   </td>
-                  <td className="px-3 py-1.5 font-mono text-xs text-slate-700">
+                  <td className="px-3 py-1.5 font-mono text-xs text-foreground">
                     {row.name ? `#${row.name}` : row.channelId}
                   </td>
-                  <td className="px-3 py-1.5 text-xs text-slate-600">
+                  <td className="px-3 py-1.5 text-xs text-muted-foreground">
                     {row.error
                       ? row.error
                       : row.changes && row.changes.length > 0
@@ -202,7 +202,7 @@ export function AdminBulkReseed() {
                           ? "already current"
                           : ""}
                   </td>
-                  <td className="px-3 py-1.5 text-right font-mono text-xs text-slate-500">
+                  <td className="px-3 py-1.5 text-right font-mono text-xs text-muted-foreground">
                     {row.durationMs}
                   </td>
                 </tr>
