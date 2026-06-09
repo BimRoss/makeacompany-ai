@@ -47,15 +47,18 @@ func (s *Server) handleInternalRefreshSlackUsersSnapshot(w http.ResponseWriter, 
 	if syncErr != nil {
 		s.log.Printf("sync slack user index from workspace users: %v", syncErr)
 	}
+	freeLifetimeAssigned, trialingAssigned := s.assignLifecycleTiersForWorkspaceUsers(r.Context(), users)
 	s.recordSlackRefreshSuccess("workspace_users")
 	outcome = "success"
 	fetchedAt := time.Now().UTC().Format(time.RFC3339)
 	writeJSON(w, http.StatusOK, map[string]any{
-		"ok":                  true,
-		"rowCount":            len(users),
-		"slackEmailIndexSync": synced,
-		"syncError":           errStringOrNil(syncErr),
-		"fetchedAt":           fetchedAt,
+		"ok":                       true,
+		"rowCount":                 len(users),
+		"slackEmailIndexSync":      synced,
+		"syncError":                errStringOrNil(syncErr),
+		"lifecycleFreeLifetimeNew": freeLifetimeAssigned,
+		"lifecycleTrialingNew":     trialingAssigned,
+		"fetchedAt":                fetchedAt,
 	})
 }
 
@@ -80,6 +83,7 @@ func (s *Server) tryWarmSlackUsersSnapshotWhenMissing(ctx context.Context) map[s
 		return nil
 	}
 	synced, syncErr := s.store.SyncSlackUserIndexFromWorkspaceUsers(ctx, users)
+	s.assignLifecycleTiersForWorkspaceUsers(ctx, users)
 	s.store.EnrichSlackWorkspaceUsersWithProfileTerms(ctx, users)
 	if syncErr != nil {
 		s.log.Printf("admin slack users snapshot warm (missing): sync index: %v", syncErr)
@@ -159,6 +163,7 @@ func (s *Server) handleAdminSlackWorkspaceUsers(w http.ResponseWriter, r *http.R
 			if syncErr != nil {
 				s.log.Printf("admin slack users live sync index: %v", syncErr)
 			}
+			s.assignLifecycleTiersForWorkspaceUsers(r.Context(), users)
 			s.store.EnrichSlackWorkspaceUsersWithProfileTerms(r.Context(), users)
 		}
 		visible, hidden := filterSlackUsersForDisplay(users, includeDeleted)

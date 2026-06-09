@@ -60,6 +60,9 @@ func (s *Server) handleBillingFreeTrialInvite(w http.ResponseWriter, r *http.Req
 		if err := s.store.UpsertUserProfileFreeTrialInvite(r.Context(), email, ref, 0); err != nil {
 			s.log.Printf("free-trial invite: persist profile %s: %v", email, err)
 		}
+		if _, err := s.AssignInitialLifecycleTier(r.Context(), email); err != nil {
+			s.log.Printf("free-trial invite: assign lifecycle tier %s: %v", email, err)
+		}
 	}
 
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
