@@ -263,6 +263,11 @@ type UserProfileRow struct {
 	// for this user. Non-empty means the reaper has already queued; #244 uses this as the idempotency
 	// guard so a slow Joanne drain (or a flapping cron) doesn't fan out duplicate DMs.
 	ExpiryDMEnqueuedAt string `json:"expiryDmEnqueuedAt,omitempty"`
+	// WinbackDMEnqueuedAt is the RFC3339 timestamp the cancel-webhook path pushed a winback DM
+	// onto the Joanne queue. Non-empty means we've already DM'd them about the cancel; subsequent
+	// subscription.updated/deleted webhooks are no-ops for the DM side. #341 uses this as the
+	// idempotency guard.
+	WinbackDMEnqueuedAt string `json:"winbackDmEnqueuedAt,omitempty"`
 }
 
 func parseUnixSecondsString(v string) int64 {
@@ -312,6 +317,7 @@ func userProfileRowFromHash(email string, vals map[string]string) UserProfileRow
 		FreeLifetime:                        freeLifetime,
 		TrialExpiresAt:                      parseUnixSecondsString(vals["trial_expires_at"]),
 		ExpiryDMEnqueuedAt:                  strings.TrimSpace(vals["expiry_dm_enqueued_at"]),
+		WinbackDMEnqueuedAt:                 strings.TrimSpace(vals["winback_dm_enqueued_at"]),
 	}
 }
 
@@ -493,14 +499,24 @@ const (
 
 // EffectiveStatus collapses StripeSubscriptionStatus, FreeLifetime, and TrialExpiresAt into one lifecycle
 // value. Precedence: Stripe active wins over everything (handles trial→paid). Then free_lifetime (the
-// pre-100 cliff). Then a live trial_expires_at gates trialing vs expired. Default is free_lifetime — the
-// conservative choice so unknown profiles don't get silenced when #243 lands.
+// pre-100 cliff — preserved on cancel, see store_user_profile.go:133-135). Then any terminal Stripe
+// status (canceled / incomplete_expired / unpaid) silences the user. Then a live trial_expires_at
+// gates trialing vs expired. Default is free_lifetime — the conservative choice so unknown profiles
+// don't get silenced when #243 lands.
 func EffectiveStatus(row UserProfileRow, now time.Time) LifecycleStatus {
-	if strings.EqualFold(strings.TrimSpace(row.StripeSubscriptionStatus), "active") {
+	st := strings.ToLower(strings.TrimSpace(row.StripeSubscriptionStatus))
+	if st == "active" {
 		return LifecycleActive
 	}
 	if row.FreeLifetime {
 		return LifecycleFreeLifetime
+	}
+	// Post-cliff users who paid and then canceled (or whose subscription terminated for any
+	// non-recoverable reason) must NOT fall through to free_lifetime. Without this branch they'd
+	// get free service forever simply by virtue of canceling. See #341 for the audit.
+	switch st {
+	case "canceled", "incomplete_expired", "unpaid":
+		return LifecycleExpired
 	}
 	if row.TrialExpiresAt > 0 {
 		if now.Unix() < row.TrialExpiresAt {
@@ -508,7 +524,7 @@ func EffectiveStatus(row UserProfileRow, now time.Time) LifecycleStatus {
 		}
 		return LifecycleExpired
 	}
-	if strings.EqualFold(strings.TrimSpace(row.StripeSubscriptionStatus), "trialing") {
+	if st == "trialing" {
 		return LifecycleTrialing
 	}
 	return LifecycleFreeLifetime
@@ -638,13 +654,19 @@ func (s *Store) EnrichSlackWorkspaceUsersWithProfileTerms(ctx context.Context, u
 // produced by EnqueueExpiryDMJob.
 const JoanneExpiryDMQueueKey = keyPrefix + ":joanne:expiry-dm-queue"
 
-// ExpiryDMJob is the JSON shape pushed onto JoanneExpiryDMQueueKey for each trial-expired user.
-// Joanne's drain loop unmarshals these, opens an IM with SlackUserID, and posts the v1 copy
-// (#248) substituting StripeCheckoutURL for the <stripe-link> placeholder.
+// ExpiryDMJob is the JSON shape pushed onto JoanneExpiryDMQueueKey. Joanne's drain loop unmarshals
+// these, opens an IM with SlackUserID, and posts copy keyed by Reason. The trial-expiry reaper
+// produces jobs with Reason="" (or absent), which Joanne renders with the v2 expiry copy
+// (claude-code-joanne#171 / makeacompany-ai#328). The cancel-webhook path produces jobs with
+// Reason="subscription_canceled" (#341), which Joanne renders with the winback copy.
 type ExpiryDMJob struct {
 	SlackUserID       string `json:"slack_user_id"`
 	Email             string `json:"email"`
 	StripeCheckoutURL string `json:"stripe_checkout_url"`
+	// Reason discriminates job kind for the Joanne drain. Empty = trial-expired (the original
+	// reaper path). "subscription_canceled" = winback after cancel webhook. Unknown values render
+	// the same as empty so a forward-compat field add never breaks the drain.
+	Reason string `json:"reason,omitempty"`
 }
 
 // ScanTrialExpiredUnenqueued returns profiles whose trial deadline has passed and which have not yet
@@ -719,6 +741,36 @@ func (s *Store) EnqueueExpiryDMJob(ctx context.Context, email string, job Expiry
 	pipe.HSet(ctx, userProfileRedisKey(email), map[string]any{
 		"expiry_dm_enqueued_at": now,
 		"profile_updated_at":    now,
+	})
+	_, err = pipe.Exec(ctx)
+	return err
+}
+
+// EnqueueWinbackDMJob pushes one cancel-winback job onto JoanneExpiryDMQueueKey (same queue,
+// same drain) and stamps winback_dm_enqueued_at on the profile hash. Idempotency is the
+// caller's job — check WinbackDMEnqueuedAt before calling. The Joanne drain branches on
+// job.Reason to render different copy. See #341.
+func (s *Store) EnqueueWinbackDMJob(ctx context.Context, email string, job ExpiryDMJob) error {
+	if s == nil {
+		return fmt.Errorf("nil store")
+	}
+	email = normalizeProfileEmail(email)
+	if email == "" {
+		return fmt.Errorf("missing email")
+	}
+	if strings.TrimSpace(job.Reason) == "" {
+		job.Reason = "subscription_canceled"
+	}
+	payload, err := json.Marshal(job)
+	if err != nil {
+		return fmt.Errorf("marshal winback job: %w", err)
+	}
+	now := time.Now().UTC().Format(time.RFC3339)
+	pipe := s.rdb.TxPipeline()
+	pipe.RPush(ctx, JoanneExpiryDMQueueKey, payload)
+	pipe.HSet(ctx, userProfileRedisKey(email), map[string]any{
+		"winback_dm_enqueued_at": now,
+		"profile_updated_at":     now,
 	})
 	_, err = pipe.Exec(ctx)
 	return err

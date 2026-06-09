@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -290,6 +291,12 @@ func TestEffectiveStatus(t *testing.T) {
 		{"expired past window", UserProfileRow{TrialExpiresAt: now.Unix() - 1}, LifecycleExpired},
 		{"stripe trialing without local expiry", UserProfileRow{StripeSubscriptionStatus: "trialing"}, LifecycleTrialing},
 		{"unknown defaults to free_lifetime (conservative)", UserProfileRow{}, LifecycleFreeLifetime},
+		// #341 — post-cliff cancel must silence, not fall through to free_lifetime.
+		{"stripe canceled post-cliff silences", UserProfileRow{StripeSubscriptionStatus: "canceled"}, LifecycleExpired},
+		{"stripe canceled but free_lifetime preserved (pre-cliff path)", UserProfileRow{StripeSubscriptionStatus: "canceled", FreeLifetime: true}, LifecycleFreeLifetime},
+		{"stripe incomplete_expired silences", UserProfileRow{StripeSubscriptionStatus: "incomplete_expired"}, LifecycleExpired},
+		{"stripe unpaid silences", UserProfileRow{StripeSubscriptionStatus: "unpaid"}, LifecycleExpired},
+		{"stripe canceled with uppercase variant still silences", UserProfileRow{StripeSubscriptionStatus: "CANCELED"}, LifecycleExpired},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -360,6 +367,52 @@ func TestUpsertUserProfileStripeSubscription_preservesTrialOnNonActive(t *testin
 	key := userProfileRedisKey("lapsed@example.com")
 	if v, _ := rdb.HGet(ctx, key, "trial_expires_at").Result(); v != "2000000000" {
 		t.Fatalf("trial_expires_at clobbered on past_due: %q", v)
+	}
+}
+
+func TestEnqueueWinbackDMJob(t *testing.T) {
+	srv, err := miniredis.Run()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer srv.Close()
+	rdb := redis.NewClient(&redis.Options{Addr: srv.Addr()})
+	defer rdb.Close()
+	ctx := context.Background()
+	st := &Store{rdb: rdb}
+
+	email := "cancel@example.com"
+	job := ExpiryDMJob{
+		SlackUserID:       "U_CANCEL_USER",
+		Email:             email,
+		StripeCheckoutURL: "https://buy.stripe.com/test?client_reference_id=U_CANCEL_USER",
+	}
+	if err := st.EnqueueWinbackDMJob(ctx, email, job); err != nil {
+		t.Fatalf("enqueue: %v", err)
+	}
+
+	// Reason defaults to subscription_canceled when caller didn't set it.
+	got, err := rdb.LRange(ctx, JoanneExpiryDMQueueKey, 0, -1).Result()
+	if err != nil || len(got) != 1 {
+		t.Fatalf("queue len = %d (want 1), err=%v", len(got), err)
+	}
+	if !strings.Contains(got[0], `"reason":"subscription_canceled"`) {
+		t.Fatalf("reason not set on payload: %q", got[0])
+	}
+
+	// winback_dm_enqueued_at stamped — idempotency guard.
+	stamp, _ := rdb.HGet(ctx, userProfileRedisKey(email), "winback_dm_enqueued_at").Result()
+	if strings.TrimSpace(stamp) == "" {
+		t.Fatalf("winback_dm_enqueued_at not stamped")
+	}
+
+	// Round-trip the row and confirm WinbackDMEnqueuedAt is exposed.
+	row, err := st.UserProfileRowByEmail(ctx, email)
+	if err != nil {
+		t.Fatalf("load row: %v", err)
+	}
+	if row.WinbackDMEnqueuedAt == "" {
+		t.Fatalf("WinbackDMEnqueuedAt not populated on UserProfileRow")
 	}
 }
 
