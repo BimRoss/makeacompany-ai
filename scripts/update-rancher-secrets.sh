@@ -224,6 +224,10 @@ add_optional_runtime_secret RESEND_MAGIC_LINK_TEMPLATE_LINK_VAR "${RESEND_MAGIC_
 add_optional_runtime_secret RESEND_MAGIC_LINK_TEMPLATE_FIRST_NAME_VAR "${RESEND_MAGIC_LINK_TEMPLATE_FIRST_NAME_VAR:-}"
 add_optional_runtime_secret RESEND_CHECKOUT_WELCOME_TEMPLATE_ID "${RESEND_CHECKOUT_WELCOME_TEMPLATE_ID:-}"
 
+# Stripe Payment Link surfaced in Joanne's day-7 trial-expiry DM (#244 / #326).
+# Optional — when absent, the reaper falls back to the lander pricing CTA.
+add_optional_runtime_secret TRIAL_EXPIRY_CHECKOUT_URL "${TRIAL_EXPIRY_CHECKOUT_URL:-}"
+
 # Server-side key for the Next /api/rewrite route (hero "Tell me more" pill).
 # Read by Node at request time, not baked into the image. envFrom on the
 # frontend Deployment picks it up automatically on rollout.
