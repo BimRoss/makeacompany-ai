@@ -67,7 +67,7 @@ export function EmailCaptureForm({ submitLabel = "Start Building" }: { submitLab
           type="email"
           value={email}
           onChange={(event) => setEmail(event.target.value)}
-          placeholder="Enter your email..."
+          placeholder="Put your email here"
           autoComplete="email"
           className="h-11 w-full rounded-full border border-border bg-muted px-4 text-center text-sm font-semibold tracking-tight text-foreground outline-none ring-0 placeholder:text-muted-foreground placeholder:transition-colors focus:border-foreground/30 focus:placeholder:text-transparent sm:h-12 sm:px-5 sm:text-base"
         />
