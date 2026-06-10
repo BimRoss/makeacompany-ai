@@ -45,7 +45,7 @@ export const PERSONA_COPY: Record<Persona, PersonaCopy> = {
     ctaButtonLabel: "Get hosted Claude",
   },
   team: {
-    heroLine1: "AI Teammates,",
+    heroLine1: "AI teammates,",
     heroLine2: "Where you already work.",
     subhead:
       "Joanne triages your #support channel, runs standups, drafts customer replies, syncs Google Workspace. Ross merges PRs, watches deploys, files tickets from threads. Both live in the Slack channels you already use — no new dashboard, no SSO setup. $99/month for the pair, live in five minutes.",
