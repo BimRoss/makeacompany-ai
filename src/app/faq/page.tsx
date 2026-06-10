@@ -20,6 +20,14 @@ export const metadata: Metadata = {
     description:
       "Frequently asked questions about makeacompany.ai — pricing, access, what's included, and how the AI employees work in your Slack.",
     url: `${siteUrl}/faq`,
+    images: ["/opengraph-image"],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "FAQ — makeacompany",
+    description:
+      "Frequently asked questions about makeacompany.ai — pricing, access, what's included, and how the AI employees work in your Slack.",
+    images: ["/twitter-image"],
   },
 };
 
