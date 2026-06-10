@@ -13,12 +13,14 @@ export const metadata: Metadata = {
     description:
       "Persistent Claude agents that live in your Slack channels. Real tool access, channel memory, no browser tab.",
     url: "/claude-in-slack",
+    images: ["/opengraph-image"],
   },
   twitter: {
     card: "summary_large_image",
     title: "Claude in Slack — make Claude a teammate, not a tab",
     description:
       "Persistent Claude agents that live in your Slack channels. Real tool access, channel memory, no browser tab.",
+    images: ["/twitter-image"],
   },
 };
 
