@@ -30,18 +30,6 @@ func (s *Server) writePortalMintResponse(w http.ResponseWriter, r *http.Request,
 	s.writePortalSession(w, r, email, chID, PortalTenantTypeCompany)
 }
 
-// writePortalPersonalMintResponse persists a personal-scope portal session
-// (no channel). Issued by /v1/portal/auth/personal/* finish endpoints —
-// the entry point for /me/login from the frontend.
-func (s *Server) writePortalPersonalMintResponse(w http.ResponseWriter, r *http.Request, email string) {
-	email = normalizeProfileEmail(email)
-	if email == "" {
-		http.Error(w, "bad request", http.StatusBadRequest)
-		return
-	}
-	s.writePortalSession(w, r, email, "", PortalTenantTypePersonal)
-}
-
 func (s *Server) writePortalSession(w http.ResponseWriter, r *http.Request, email, chID, tenantType string) {
 	sessionToken, err := randomTokenHex(32)
 	if err != nil {

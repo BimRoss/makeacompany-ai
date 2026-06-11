@@ -15,21 +15,14 @@ func portalSessionKey(token string) string {
 	return portalSessionKeyPrefix + strings.TrimSpace(token)
 }
 
-// PortalSession is a browser session in the portal. Two tenancy shapes:
+// PortalSession is a browser session in the portal, keyed by (email,
+// channelId). Granted by /<channelId>/login flows. ChannelID required.
 //
-//   - tenant_type="company" (default, legacy): keyed by (email, channelId).
-//     Granted by /<channelId>/login flows. ChannelID required.
-//   - tenant_type="personal": keyed by email alone. Granted by /me/login.
-//     ChannelID is empty.
-//
-// The discriminator lives on the session row (Redis hash field tenant_type)
-// so handlers can branch authorization without re-reading the auth flow.
-// Existing sessions written before this field shipped read as "company" via
-// the default in GetPortalSession — no migration needed.
-const (
-	PortalTenantTypeCompany  = "company"
-	PortalTenantTypePersonal = "personal"
-)
+// tenant_type used to be a discriminator with a "personal" sibling for
+// the now-removed personal-agents track; only "company" remains.
+// Existing rows written before tenant_type shipped read as "company" via
+// the default in GetPortalSession.
+const PortalTenantTypeCompany = "company"
 
 type PortalSession struct {
 	Token      string `json:"token"`
@@ -51,19 +44,11 @@ func (s *Store) CreatePortalSession(ctx context.Context, token, email, channelID
 	if token == "" || email == "" {
 		return fmt.Errorf("missing portal session token/email")
 	}
-	switch tenantType {
-	case PortalTenantTypeCompany:
-		if channelID == "" {
-			return fmt.Errorf("company portal session missing channel")
-		}
-	case PortalTenantTypePersonal:
-		// ChannelID must be empty for personal sessions — guards against a
-		// caller accidentally mixing the two scopes.
-		if channelID != "" {
-			return fmt.Errorf("personal portal session must not carry channel")
-		}
-	default:
+	if tenantType != PortalTenantTypeCompany {
 		return fmt.Errorf("unknown portal tenant_type %q", tenantType)
+	}
+	if channelID == "" {
+		return fmt.Errorf("company portal session missing channel")
 	}
 	if expiresAt.IsZero() {
 		return fmt.Errorf("missing portal session expiration")
