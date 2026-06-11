@@ -81,6 +81,17 @@ type Config struct {
 	// RossAdminToken is the shared bearer token required by the ross pod's
 	// /admin/* endpoints. Must match ROSS_ADMIN_TOKEN on the ross side.
 	RossAdminToken string
+	// ShopifyPartnerClientID / ShopifyPartnerClientSecret are the OAuth
+	// credentials for the MakeaCompany Shopify Partner app, used to drive
+	// per-user `Connect Shopify` (makeacompany-ai#352 Layer 1). The same
+	// client_secret signs Shopify webhook HMACs; no separate webhook
+	// secret. Empty disables the Shopify endpoints with 503/404.
+	ShopifyPartnerClientID     string
+	ShopifyPartnerClientSecret string
+	// ShopifyConnectionNamespace is the K8s namespace the per-user
+	// Shopify connection Secrets land in. Defaults to "makeacompany-ai"
+	// when unset.
+	ShopifyConnectionNamespace string
 }
 
 // stripePriceIDBasePlan returns STRIPE_PRICE_ID_BASE_PLAN, else legacy STRIPE_PRICE_ID_WAITLIST.
@@ -130,6 +141,9 @@ func LoadConfig() Config {
 		TrialExpiryCheckoutURL:              strings.TrimSpace(os.Getenv("TRIAL_EXPIRY_CHECKOUT_URL")),
 		RossAdminURL:                        strings.TrimSpace(os.Getenv("ROSS_ADMIN_URL")),
 		RossAdminToken:                      strings.TrimSpace(os.Getenv("ROSS_ADMIN_TOKEN")),
+		ShopifyPartnerClientID:              strings.TrimSpace(os.Getenv("SHOPIFY_PARTNER_CLIENT_ID")),
+		ShopifyPartnerClientSecret:          strings.TrimSpace(os.Getenv("SHOPIFY_PARTNER_CLIENT_SECRET")),
+		ShopifyConnectionNamespace:          strings.TrimSpace(os.Getenv("SHOPIFY_CONNECTION_NAMESPACE")),
 	}
 }
 

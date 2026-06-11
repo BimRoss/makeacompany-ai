@@ -117,6 +117,13 @@ type Server struct {
 	health                *healthChecker
 	freeTrialInviteLimiter *ipRateLimiter
 	workspace             *WorkspaceWriter
+	// shopify owns per-user Shopify OAuth connections as K8s Secrets in
+	// the makeacompany-ai namespace (makeacompany-ai#352 Layer 1). nil-safe
+	// Disabled() for local dev / when the Partner app creds aren't wired.
+	shopify *ShopifyWriter
+	// shopifyTestClient lets shopify_oauth_test.go inject a mock HTTP
+	// round-tripper for the token-exchange + revoke flows. nil in prod.
+	shopifyTestClient *http.Client
 	// agentToggle scales the ross/joanne prod Deployments between 0 and 1
 	// for the /admin kill switch (#215). nil-safe Disabled() for local dev.
 	agentToggle *AgentToggleClient
@@ -138,6 +145,13 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 	}
 	if workspaceWriter.Disabled() {
 		logger.Printf("workspace writer disabled (no in-cluster config or WORKSPACE_TENANT_CONFIG unset)")
+	}
+	shopifyWriter, serr := NewShopifyWriter(cfg.ShopifyConnectionNamespace)
+	if serr != nil {
+		return nil, fmt.Errorf("shopify writer init: %w", serr)
+	}
+	if shopifyWriter.Disabled() {
+		logger.Printf("shopify writer disabled (no in-cluster config)")
 	}
 	agentToggle, aerr := NewAgentToggleClient()
 	if aerr != nil {
@@ -162,6 +176,7 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 		health:                 newHealthChecker(store.rdb, os.Getenv("COOKIE_HEALTH_TOKEN")),
 		freeTrialInviteLimiter: newIPRateLimiter(5, 30),
 		workspace:              workspaceWriter,
+		shopify:                shopifyWriter,
 		agentToggle:            agentToggle,
 		rossAdmin:              NewRossAdminClient(cfg.RossAdminURL, cfg.RossAdminToken),
 		clusterHealth:          clusterHealth,
@@ -223,6 +238,14 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 	s.mux.HandleFunc("POST /v1/portal/workspace/connect/finish", s.handlePortalWorkspaceConnectFinish)
 	s.mux.HandleFunc("POST /v1/portal/workspace/disconnect/finish", s.handlePortalWorkspaceDisconnectFinish)
 	s.mux.HandleFunc("GET /v1/portal/workspace/status", s.handlePortalWorkspaceStatus)
+	// Shopify Layer 1 (makeacompany-ai#352): portal-driven OAuth + per-user
+	// K8s Secret store + harness-facing internal token endpoint + webhook
+	// receiver. All gated on ShopifyPartnerClientID/Secret being set.
+	s.mux.HandleFunc("POST /v1/integrations/shopify/connect/start", s.handleShopifyConnectStart)
+	s.mux.HandleFunc("GET /v1/integrations/shopify/callback", s.handleShopifyCallback)
+	s.mux.HandleFunc("POST /v1/integrations/shopify/disconnect", s.handleShopifyDisconnect)
+	s.mux.HandleFunc("POST /v1/integrations/shopify/webhook", s.handleShopifyWebhook)
+	s.mux.HandleFunc("GET /v1/internal/shopify-token", s.handleInternalShopifyToken)
 	s.mux.HandleFunc("/v1/portal/auth/magic/start", s.handlePortalAuthMagicStart)
 	s.mux.HandleFunc("/v1/portal/auth/magic/finish", s.handlePortalAuthMagicFinish)
 	return s, nil
