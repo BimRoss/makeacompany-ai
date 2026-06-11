@@ -22,7 +22,7 @@ import (
 //
 // POST /v1/integrations/shopify/disconnect
 // Body: { channelId }
-const shopifyRevokeURLFmt = "https://%s/admin/api/2025-01/api_permissions/current.json"
+const shopifyRevokePath = "/admin/api/2025-01/api_permissions/current.json"
 
 type shopifyDisconnectRequest struct {
 	ChannelID string `json:"channelId"`
@@ -93,14 +93,15 @@ func (s *Server) handleShopifyDisconnect(w http.ResponseWriter, r *http.Request)
 }
 
 func (s *Server) revokeShopifyAccess(ctx context.Context, shop, accessToken string) error {
-	// Defense-in-depth: the shop value here comes from the K8s Secret
-	// annotation which was validated on write, but a future code path
-	// that calls this helper without that history must NOT be able to
-	// steer the DELETE at an arbitrary host.
-	if !ValidShopifyShopDomain(shop) {
-		return fmt.Errorf("revokeShopifyAccess: invalid shop domain %q", shop)
+	// Defense-in-depth via shopifyAdminURL (which re-validates `shop`).
+	// The shop value here comes from the K8s Secret annotation written
+	// from validated input, but a future code path that calls this
+	// helper without that history must NOT steer the DELETE at an
+	// arbitrary host.
+	endpoint, err := shopifyAdminURL(shop, shopifyRevokePath)
+	if err != nil {
+		return err
 	}
-	endpoint := fmt.Sprintf(shopifyRevokeURLFmt, shop)
 	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, endpoint, nil)
 	if err != nil {
 		return fmt.Errorf("build request: %w", err)

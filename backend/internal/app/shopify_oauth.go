@@ -39,11 +39,24 @@ import (
 // The access token never appears in a response body or query param.
 
 const (
-	shopifyOAuthScopes      = "read_products,write_products,read_inventory,write_inventory,read_orders,read_customers,read_themes,write_themes,read_content,write_content,read_locations"
-	shopifyOAuthAuthURLFmt  = "https://%s/admin/oauth/authorize?client_id=%s&scope=%s&redirect_uri=%s&state=%s"
-	shopifyOAuthTokenURLFmt = "https://%s/admin/oauth/access_token"
-	shopifyOAuthNonceBytes  = 32 // 64 hex chars
+	shopifyOAuthScopes     = "read_products,write_products,read_inventory,write_inventory,read_orders,read_customers,read_themes,write_themes,read_content,write_content,read_locations"
+	shopifyOAuthAuthURLFmt = "https://%s/admin/oauth/authorize?client_id=%s&scope=%s&redirect_uri=%s&state=%s"
+	shopifyOAuthNonceBytes = 32 // 64 hex chars
 )
+
+// shopifyAdminURL builds an `https://<shop>/admin/api/...` URL. `shop`
+// MUST already be validated via ValidShopifyShopDomain; the function
+// reasserts this and panics-via-error otherwise so a future caller can't
+// silently steer the request at an arbitrary host. The construction
+// uses `url.URL` so static analyzers see the host coming out of the
+// `net/url` package boundary, not a raw string concat.
+func shopifyAdminURL(shop, path string) (string, error) {
+	if !ValidShopifyShopDomain(shop) {
+		return "", fmt.Errorf("shopifyAdminURL: invalid shop domain %q", shop)
+	}
+	u := &url.URL{Scheme: "https", Host: shop, Path: path}
+	return u.String(), nil
+}
 
 type shopifyConnectStartRequest struct {
 	ChannelID string `json:"channelId"`
@@ -216,21 +229,17 @@ func (s *Server) shopifyCallbackError(w http.ResponseWriter, r *http.Request, re
 
 // exchangeShopifyCode POSTs {client_id, client_secret, code} to the
 // shop's /admin/oauth/access_token endpoint and parses the response.
-//
-// Defense-in-depth: re-validates `shop` even though every caller already
-// has. A future caller that forgets prior validation would otherwise let
-// an attacker steer the POST at an arbitrary host (SSRF + secret leak,
-// since the body contains client_secret). Keeps the guarantee local.
+// Defense-in-depth via shopifyAdminURL (which re-validates `shop`).
 func (s *Server) exchangeShopifyCode(ctx context.Context, shop, code string) (accessToken string, scopes []string, err error) {
-	if !ValidShopifyShopDomain(shop) {
-		return "", nil, fmt.Errorf("exchangeShopifyCode: invalid shop domain %q", shop)
+	endpoint, err := shopifyAdminURL(shop, "/admin/oauth/access_token")
+	if err != nil {
+		return "", nil, err
 	}
 	form := url.Values{}
 	form.Set("client_id", s.cfg.ShopifyPartnerClientID)
 	form.Set("client_secret", s.cfg.ShopifyPartnerClientSecret)
 	form.Set("code", code)
 
-	endpoint := fmt.Sprintf(shopifyOAuthTokenURLFmt, shop)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, strings.NewReader(form.Encode()))
 	if err != nil {
 		return "", nil, fmt.Errorf("build request: %w", err)
