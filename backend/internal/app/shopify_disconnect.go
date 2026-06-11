@@ -93,6 +93,13 @@ func (s *Server) handleShopifyDisconnect(w http.ResponseWriter, r *http.Request)
 }
 
 func (s *Server) revokeShopifyAccess(ctx context.Context, shop, accessToken string) error {
+	// Defense-in-depth: the shop value here comes from the K8s Secret
+	// annotation which was validated on write, but a future code path
+	// that calls this helper without that history must NOT be able to
+	// steer the DELETE at an arbitrary host.
+	if !ValidShopifyShopDomain(shop) {
+		return fmt.Errorf("revokeShopifyAccess: invalid shop domain %q", shop)
+	}
 	endpoint := fmt.Sprintf(shopifyRevokeURLFmt, shop)
 	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, endpoint, nil)
 	if err != nil {

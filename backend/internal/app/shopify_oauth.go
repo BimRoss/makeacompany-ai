@@ -216,7 +216,15 @@ func (s *Server) shopifyCallbackError(w http.ResponseWriter, r *http.Request, re
 
 // exchangeShopifyCode POSTs {client_id, client_secret, code} to the
 // shop's /admin/oauth/access_token endpoint and parses the response.
+//
+// Defense-in-depth: re-validates `shop` even though every caller already
+// has. A future caller that forgets prior validation would otherwise let
+// an attacker steer the POST at an arbitrary host (SSRF + secret leak,
+// since the body contains client_secret). Keeps the guarantee local.
 func (s *Server) exchangeShopifyCode(ctx context.Context, shop, code string) (accessToken string, scopes []string, err error) {
+	if !ValidShopifyShopDomain(shop) {
+		return "", nil, fmt.Errorf("exchangeShopifyCode: invalid shop domain %q", shop)
+	}
 	form := url.Values{}
 	form.Set("client_id", s.cfg.ShopifyPartnerClientID)
 	form.Set("client_secret", s.cfg.ShopifyPartnerClientSecret)
