@@ -117,11 +117,6 @@ type Server struct {
 	health                *healthChecker
 	freeTrialInviteLimiter *ipRateLimiter
 	workspace             *WorkspaceWriter
-	// personalAgentSecrets writes per-agent k8s Secrets in the
-	// `personal-agents` namespace (issue #183 / #186 PR3). nil-safe
-	// Disabled() check so handlers can branch without crashing on
-	// out-of-cluster local dev.
-	personalAgentSecrets *PersonalAgentSecretWriter
 	// agentToggle scales the ross/joanne prod Deployments between 0 and 1
 	// for the /admin kill switch (#215). nil-safe Disabled() for local dev.
 	agentToggle *AgentToggleClient
@@ -143,13 +138,6 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 	}
 	if workspaceWriter.Disabled() {
 		logger.Printf("workspace writer disabled (no in-cluster config or WORKSPACE_TENANT_CONFIG unset)")
-	}
-	personalAgentSecrets, perr := NewPersonalAgentSecretWriter()
-	if perr != nil {
-		return nil, fmt.Errorf("personal-agent secret writer init: %w", perr)
-	}
-	if personalAgentSecrets.Disabled() {
-		logger.Printf("personal-agent secret writer disabled (no in-cluster config)")
 	}
 	agentToggle, aerr := NewAgentToggleClient()
 	if aerr != nil {
@@ -174,7 +162,6 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 		health:                 newHealthChecker(store.rdb, os.Getenv("COOKIE_HEALTH_TOKEN")),
 		freeTrialInviteLimiter: newIPRateLimiter(5, 30),
 		workspace:              workspaceWriter,
-		personalAgentSecrets:   personalAgentSecrets,
 		agentToggle:            agentToggle,
 		rossAdmin:              NewRossAdminClient(cfg.RossAdminURL, cfg.RossAdminToken),
 		clusterHealth:          clusterHealth,
@@ -233,21 +220,11 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 	s.mux.HandleFunc("POST /v1/portal/deploy-gate/consume", s.handlePortalDeployGateConsume)
 	s.mux.HandleFunc("/v1/portal/auth/logout", s.handlePortalAuthLogout)
 	s.mux.HandleFunc("/v1/portal/auth/google/finish", s.handlePortalAuthGoogleFinish)
-	// Personal-scope (cid-less) sign-in — entry point for /me/login.
-	// Magic-link variant deferred to a follow-up; Google-only is enough
-	// to unblock #199 / Garth provisioning.
-	s.mux.HandleFunc("/v1/portal/auth/personal/google/finish", s.handlePortalAuthGooglePersonalFinish)
 	s.mux.HandleFunc("POST /v1/portal/workspace/connect/finish", s.handlePortalWorkspaceConnectFinish)
 	s.mux.HandleFunc("POST /v1/portal/workspace/disconnect/finish", s.handlePortalWorkspaceDisconnectFinish)
 	s.mux.HandleFunc("GET /v1/portal/workspace/status", s.handlePortalWorkspaceStatus)
 	s.mux.HandleFunc("/v1/portal/auth/magic/start", s.handlePortalAuthMagicStart)
 	s.mux.HandleFunc("/v1/portal/auth/magic/finish", s.handlePortalAuthMagicFinish)
-	// Personal agents (issue #183, gated on PERSONAL_AGENTS_ENABLED).
-	// Trailing-slash route covers the per-slug subtree; bare path is
-	// list+create. Method dispatch happens inside the handler.
-	s.mux.HandleFunc("/v1/portal/agents", s.handlePortalAgents)
-	s.mux.HandleFunc("/v1/portal/agents/", s.handlePortalAgents)
-	s.mux.HandleFunc("/v1/admin/personal-agents", s.handleAdminPersonalAgents)
 	return s, nil
 }
 

@@ -68,14 +68,6 @@ type Config struct {
 	// endpoint with 503. v1 is static (hand-roll claude-code-ross-customer-grant per rancher-admin#465);
 	// dynamic per-tenant config arrives with rancher-admin#354's template extraction.
 	WorkspaceTenantConfig string
-	// PersonalAgentsEnabled gates the personal-agent tenancy surface (issue #183):
-	// /me/agents portal pages, POST /v1/portal/agents, /admin/personal-agents admin
-	// view, the per-agent OAuth fork, and the dispatcher's owner-only guard at the
-	// pod-boot level. Default false — backend ships dormant; flag-flip in rancher-
-	// admin's makeacompany-ai configmap activates the surface. Off must be a hard
-	// shutdown of personal-agent pods (not a no-op of the guard), per #183 audit
-	// point 11; runtime template enforces that in PR4 of #186.
-	PersonalAgentsEnabled bool
 	// TrialExpiryCheckoutURL is the Stripe checkout link injected into the Joanne expiry DM (#244 / #248).
 	// Typically a Stripe Payment Link for the $99/mo Base Plan so the user-facing flow is one click.
 	// When unset, falls back to AppBaseURL+"/?checkout=base_plan" (the lander pricing CTA).
@@ -135,7 +127,6 @@ func LoadConfig() Config {
 		GSCSiteURL:                          envString("GSC_SITE_URL", "sc-domain:makeacompany.ai"),
 		FreeTierGateEnabled:                 envBool("STRIPE_FREE_TIER_GATE_ENABLED", false),
 		WorkspaceTenantConfig:               strings.TrimSpace(os.Getenv("WORKSPACE_TENANT_CONFIG")),
-		PersonalAgentsEnabled:               envBool("PERSONAL_AGENTS_ENABLED", false),
 		TrialExpiryCheckoutURL:              strings.TrimSpace(os.Getenv("TRIAL_EXPIRY_CHECKOUT_URL")),
 		RossAdminURL:                        strings.TrimSpace(os.Getenv("ROSS_ADMIN_URL")),
 		RossAdminToken:                      strings.TrimSpace(os.Getenv("ROSS_ADMIN_TOKEN")),
