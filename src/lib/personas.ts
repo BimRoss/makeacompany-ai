@@ -1,8 +1,8 @@
 export type Persona = "founder" | "engineer" | "team" | "contractor";
 
 export const PERSONAS: ReadonlyArray<Persona> = [
-  "founder",
   "engineer",
+  "founder",
   "team",
   "contractor",
 ];
