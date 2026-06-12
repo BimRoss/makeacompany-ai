@@ -78,7 +78,7 @@ function buildFaqItems(seats?: LanderSlackSeats) {
     {
       question: "How do you handle platform and data security?",
       answer:
-        "makeacompany.ai runs inside your own Slack workspace, so your team's conversations stay where they already are and inherit Slack's encryption in transit and at rest. Each customer workspace gets isolated state (channel and thread context, agent memory) on its own encrypted volume, with nothing shared across customers. The AI agents use Anthropic's API, which contractually does not train on data sent through it. Sign-in is Slack OAuth, billing email goes only to Stripe, and you can revoke the Slack app or request workspace deletion at any time.",
+        "It runs inside your own Slack workspace, so conversations stay there and inherit Slack's encryption. Each customer's state is isolated, the AI agents use Anthropic's API (which doesn't train on your data), and you can revoke access or request deletion any time.",
     },
     {
       question: "How involved do I need to be?",
