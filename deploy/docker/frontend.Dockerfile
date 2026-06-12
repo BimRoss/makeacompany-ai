@@ -21,7 +21,10 @@ FROM node:22-alpine AS builder
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm ci
+# BuildKit cache mount on /root/.npm: subsequent CI runs (and cold first-runs on
+# new PR branches) skip the network and read the npm package cache from disk.
+RUN --mount=type=cache,target=/root/.npm,id=next-npm \
+    npm ci --prefer-offline --no-audit --no-fund
 
 COPY tsconfig.json next.config.ts postcss.config.mjs eslint.config.mjs ./
 COPY src ./src
@@ -42,7 +45,10 @@ ENV NEXT_PUBLIC_BING_SITE_VERIFICATION=$NEXT_PUBLIC_BING_SITE_VERIFICATION
 ENV NEXT_TELEMETRY_DISABLED=1
 
 # Install devDependencies for the compile; `next build` runs as production.
-RUN NODE_ENV=production npm run build
+# Cache mount on .next/cache lets the SWC compiler + bundler reuse intermediates
+# across builds; without it, every source change recompiles from scratch.
+RUN --mount=type=cache,target=/app/.next/cache,id=next-build-cache \
+    NODE_ENV=production npm run build
 
 # Production: only standalone server + static assets (smaller layers, fewer Docker Hub upload failures).
 FROM node:22-alpine AS production
