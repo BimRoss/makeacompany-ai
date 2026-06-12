@@ -75,6 +75,11 @@ function buildFaqItems(seats?: LanderSlackSeats) {
       answer:
         "ChatGPT is a single chatbot; Zapier wires APIs together. makeacompany.ai gives you a team of persistent, role-specialized agents that live where your team already works and execute multi-step work end-to-end.",
     },
+    {
+      question: "How do you handle platform and data security?",
+      answer:
+        "makeacompany.ai runs inside your own Slack workspace, so your team's conversations stay where they already are and inherit Slack's encryption in transit and at rest. Each customer workspace gets isolated state (channel and thread context, agent memory) on its own encrypted volume, with nothing shared across customers. The AI agents use Anthropic's API, which contractually does not train on data sent through it. Sign-in is Slack OAuth, billing email goes only to Stripe, and you can revoke the Slack app or request workspace deletion at any time.",
+    },
   ];
 }
 
