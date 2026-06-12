@@ -18,14 +18,14 @@ export function Footer({ extraNav }: FooterProps) {
               &copy; {year} makeacompany.ai. All rights reserved.
             </p>
             <p className="text-xs text-muted-foreground">
-              Built by{" "}
+              Built solo by a{" "}
               <a
-                href="https://grantfoster.dev/resume"
+                href="https://grantfoster.dev"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="motion-colors underline-offset-2 hover:text-foreground hover:underline"
               >
-                one engineer
+                principal product engineer (applied AI)
               </a>
               , using the product itself.
             </p>
