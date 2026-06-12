@@ -83,22 +83,22 @@ function buildFaqItems(seats?: LanderSlackSeats) {
     {
       question: "How involved do I need to be?",
       answer:
-        "As much or as little as you want. Some operators drive every step in Slack and use the AI teammates as fast collaborators on each task. Others set up daily loops and let the agents work in the background, surfacing results when they're ready. The same workspace supports both, and you can shift between them as your workload changes.",
+        "As much or as little as you want. Drive every step yourself, or set up daily loops and let the agents work in the background and surface results when they're ready.",
     },
     {
       question: "How long does setup take?",
       answer:
-        "Minutes. Enter your email on the homepage, Joanne sends you a Slack workspace invite, and the AI teammates are ready to talk to as soon as you join. No software to install and no configuration to wire up.",
+        "Minutes. Enter your email, Joanne sends a Slack workspace invite, and the AI teammates are ready to talk to as soon as you join.",
     },
     {
       question: "Can I bring my team into my workspace?",
       answer:
-        "Yes. Invite anyone you want into your Slack workspace and they can talk to the same AI teammates in any channel. The agents hold context per channel, so two people working in the same channel get the same continuity.",
+        "Yes. Invite anyone into your Slack workspace and they can talk to the same AI teammates in any channel.",
     },
     {
       question: "What kind of support do I get?",
       answer:
-        "You can ping Joanne directly in your workspace for setup and onboarding questions, and she's an AI teammate so she's available any time. There's also a shared #makeacompany community Slack for comparing notes with other operators. Billing questions for paid plans go through your Stripe portal.",
+        "Ping Joanne directly in your workspace any time, or use the shared #makeacompany community Slack to compare notes with other operators.",
     },
   ];
 }
