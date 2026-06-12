@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import { DM_Sans, Syne } from "next/font/google";
 import Script from "next/script";
@@ -69,6 +69,15 @@ export const metadata: Metadata = {
     description: siteSocialDescription,
     images: ["/twitter-image"],
   },
+};
+
+// Tints mobile browser chrome on first paint. Colors mirror the --background
+// CSS vars in globals.css so the chrome blends with the page edge in both modes.
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: dark)", color: "#000000" },
+  ],
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
