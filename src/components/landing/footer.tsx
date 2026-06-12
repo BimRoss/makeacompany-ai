@@ -18,7 +18,16 @@ export function Footer({ extraNav }: FooterProps) {
               &copy; {year} makeacompany.ai. All rights reserved.
             </p>
             <p className="text-xs text-muted-foreground">
-              Built by one engineer, using the product itself.
+              Built by{" "}
+              <a
+                href="https://grantfoster.dev/resume"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="motion-colors underline-offset-2 hover:text-foreground hover:underline"
+              >
+                one engineer
+              </a>
+              , using the product itself.
             </p>
           </div>
           <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-muted-foreground">
