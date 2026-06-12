@@ -18,7 +18,7 @@ export function Footer({ extraNav }: FooterProps) {
               &copy; {year} makeacompany.ai. All rights reserved.
             </p>
             <p className="text-xs text-muted-foreground">
-              Built by software and AI engineers.
+              Built by a software and AI engineer.
             </p>
           </div>
           <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-muted-foreground">
