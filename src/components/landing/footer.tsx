@@ -25,7 +25,7 @@ export function Footer({ extraNav }: FooterProps) {
                 rel="noopener noreferrer"
                 className="motion-colors underline-offset-2 hover:text-foreground hover:underline"
               >
-                principal product engineer (applied AI)
+                principal product engineer
               </a>
               , using the product itself.
             </p>
