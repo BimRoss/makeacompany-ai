@@ -661,10 +661,14 @@ export function AdminSlackUsersTable() {
         ) : null}
         {visibleSlackUsers.length > 0 ? (
           <ul className="grid gap-2 sm:hidden" aria-label="Slack users (mobile)">
-            {visibleSlackUsers.map((u) => {
+            {sortedSlackUsers.map((u) => {
               const display = (u.realName || u.displayName || u.username || "").trim();
               const avatarSrc = (u.profileImageUrl ?? "").trim();
               const initial = (display || u.username || "?").trim().charAt(0).toUpperCase();
+              const trialCountdown =
+                u.status === "trialing" && typeof u.trialExpiresAt === "number" && u.trialExpiresAt > 0
+                  ? formatRelativeFromNow(u.trialExpiresAt, nowSeconds)
+                  : null;
               return (
                 <li
                   key={u.slackUserId}
@@ -704,6 +708,16 @@ export function AdminSlackUsersTable() {
                       ) : null}
                     </div>
                     <div className="truncate font-mono text-xs text-muted-foreground">{u.email || "—"}</div>
+                    {u.status ? (
+                      <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                        {renderStatusCell(u)}
+                        {trialCountdown ? (
+                          <span className="text-[11px] tabular-nums text-muted-foreground">
+                            ends {trialCountdown}
+                          </span>
+                        ) : null}
+                      </div>
+                    ) : null}
                   </div>
                 </li>
               );
@@ -715,7 +729,7 @@ export function AdminSlackUsersTable() {
             <table className="w-full min-w-[1080px] border-collapse text-left text-sm">
               <thead>
                 <tr className="border-b border-border bg-muted/40 dark:bg-emerald-400/5 text-xs uppercase tracking-wide text-muted-foreground">
-                  <th className="w-9 px-2 py-1.5" scope="col">
+                  <th className="w-12 px-2 py-1.5" scope="col">
                     <span className="sr-only">Photo</span>
                   </th>
                   {(
@@ -754,20 +768,20 @@ export function AdminSlackUsersTable() {
                         <Image
                           src={avatarSrc}
                           alt={display ? `${display} Slack profile` : "Slack profile"}
-                          width={20}
-                          height={20}
+                          width={32}
+                          height={32}
                           loading="lazy"
                           decoding="async"
                           referrerPolicy="no-referrer"
-                          className="h-5 w-5 rounded-full object-cover ring-1 ring-border"
+                          className="h-8 w-8 rounded-full object-cover ring-1 ring-border"
                         />
                       ) : (
                         <span
-                          className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-muted text-[9px] text-muted-foreground ring-1 ring-border"
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-muted text-[11px] font-medium text-muted-foreground ring-1 ring-border"
                           title="No image from Slack"
                           aria-hidden
                         >
-                          —
+                          {(display || u.username || "?").trim().charAt(0).toUpperCase()}
                         </span>
                       )}
                     </td>
