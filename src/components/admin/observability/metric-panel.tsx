@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 import { TimeSeriesChart, type ChartSeries } from "./charts/time-series-chart";
 import { useRangeQuery } from "./charts/use-range-query";
@@ -28,6 +28,36 @@ const TONE_VAR: Record<string, string> = {
   neg: "var(--chart-neg)",
 };
 
+/**
+ * Hover-revealed chip that copies the panel's PromQL to the clipboard.
+ * Hidden by default to keep the panel header uncluttered; appears via
+ * the parent's `group-hover:opacity-100`. Briefly flashes "Copied" so
+ * you know it worked without needing a toast system.
+ */
+function CopyQueriesChip({ queries }: { queries: string[] }) {
+  const [copied, setCopied] = useState(false);
+  const onClick = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(queries.join("\n\n"));
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1200);
+    } catch {
+      // Clipboard write can fail in insecure contexts; the user can fall
+      // back to inspecting the network tab or Grafana link.
+    }
+  }, [queries]);
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title="Copy PromQL to clipboard"
+      className="shrink-0 inline-flex items-center rounded-md border border-border bg-card px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground opacity-0 transition group-hover:opacity-100 hover:border-foreground/30 hover:text-foreground focus:opacity-100"
+    >
+      {copied ? "Copied" : "PromQL"}
+    </button>
+  );
+}
+
 export function MetricPanel({ def, from }: { def: PanelDef; from: string }) {
   const { series, loading, errored } = useRangeQuery(def.queries, def.forceFrom ?? from);
   const chartSeries = useMemo(() => def.toSeries(series ?? []), [def, series]);
@@ -54,14 +84,17 @@ export function MetricPanel({ def, from }: { def: PanelDef; from: string }) {
             <p className="truncate text-[11px] text-muted-foreground">{def.subtitle}</p>
           ) : null}
         </div>
-        {headline && !loading ? (
-          <div
-            className="shrink-0 font-display text-lg font-semibold tabular-nums leading-none"
-            style={{ color: TONE_VAR[headline.tone] }}
-          >
-            {def.format(headline.value)}
-          </div>
-        ) : null}
+        <div className="flex shrink-0 items-start gap-2">
+          <CopyQueriesChip queries={def.queries} />
+          {headline && !loading ? (
+            <div
+              className="font-display text-lg font-semibold tabular-nums leading-none"
+              style={{ color: TONE_VAR[headline.tone] }}
+            >
+              {def.format(headline.value)}
+            </div>
+          ) : null}
+        </div>
       </header>
 
       {multi ? (
