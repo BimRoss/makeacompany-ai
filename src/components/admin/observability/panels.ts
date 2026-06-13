@@ -1,7 +1,9 @@
 import type { ChartSeries, ChartTone } from "./charts/time-series-chart";
 import type { RangeSeries } from "./charts/use-range-query";
 import {
+  formatBytes,
   formatCompact,
+  formatCores,
   formatDuration,
   formatMs,
   formatPercent,
@@ -317,6 +319,29 @@ function podsRunningSeries(raw: RangeSeries[]): ChartSeries[] {
   return totalSeries ? [totalSeries, ...top] : top;
 }
 
+const CPU_TOP_PODS_QUERY = `topk(5, sum by (pod) (rate(container_cpu_usage_seconds_total{namespace="makeacompany-ai",container!="",container!="POD"}[5m])))`;
+const MEM_TOP_PODS_QUERY = `topk(5, sum by (pod) (container_memory_working_set_bytes{namespace="makeacompany-ai",container!="",container!="POD"}))`;
+
+function topPodsSeries(query: string) {
+  return (raw: RangeSeries[]): ChartSeries[] => {
+    return raw
+      .filter((s) => s.query === query && s.labels.pod)
+      .map((s) => {
+        const last = s.points.at(-1)?.[1] ?? 0;
+        const peak = s.points.reduce((m, [, v]) => (v > m ? v : m), 0);
+        return { s, score: last || peak };
+      })
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 5)
+      .map(({ s }, i) => ({
+        key: `pod-${s.labels.pod}`,
+        label: s.labels.pod,
+        tone: TOP_N_NAMESPACE_TONES[i] ?? "muted",
+        points: s.points,
+      }));
+  };
+}
+
 export const CLUSTER_PANELS: PanelDef[] = [
   {
     id: "pods-running",
@@ -327,5 +352,25 @@ export const CLUSTER_PANELS: PanelDef[] = [
     format: formatCompact,
     forceFrom: "now-24h",
     span: 2,
+  },
+  {
+    id: "cpu-top-pods",
+    title: "CPU by pod",
+    subtitle: "Top 5 in makeacompany-ai (cores)",
+    queries: [CPU_TOP_PODS_QUERY],
+    toSeries: topPodsSeries(CPU_TOP_PODS_QUERY),
+    format: formatCores,
+    forceFrom: "now-24h",
+    hideWhenEmpty: true,
+  },
+  {
+    id: "memory-top-pods",
+    title: "Memory by pod",
+    subtitle: "Top 5 in makeacompany-ai (working set)",
+    queries: [MEM_TOP_PODS_QUERY],
+    toSeries: topPodsSeries(MEM_TOP_PODS_QUERY),
+    format: formatBytes,
+    forceFrom: "now-24h",
+    hideWhenEmpty: true,
   },
 ];

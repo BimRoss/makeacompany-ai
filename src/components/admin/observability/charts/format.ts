@@ -30,3 +30,18 @@ export function formatDuration(seconds: number): string {
   if (seconds < 3600) return `${(seconds / 60).toFixed(0)}m`;
   return `${(seconds / 3600).toFixed(1)}h`;
 }
+
+export function formatBytes(n: number): string {
+  if (!Number.isFinite(n)) return "—";
+  const abs = Math.abs(n);
+  if (abs >= 1024 ** 3) return `${(n / 1024 ** 3).toFixed(1)}GiB`;
+  if (abs >= 1024 ** 2) return `${(n / 1024 ** 2).toFixed(0)}MiB`;
+  if (abs >= 1024) return `${(n / 1024).toFixed(0)}KiB`;
+  return `${n.toFixed(0)}B`;
+}
+
+export function formatCores(n: number): string {
+  if (!Number.isFinite(n)) return "—";
+  if (Math.abs(n) >= 1) return `${n.toFixed(2)} cores`;
+  return `${(n * 1000).toFixed(0)}m`;
+}
