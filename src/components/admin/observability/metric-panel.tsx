@@ -59,7 +59,7 @@ function CopyQueriesChip({ queries }: { queries: string[] }) {
 }
 
 export function MetricPanel({ def, from }: { def: PanelDef; from: string }) {
-  const { series, loading, errored } = useRangeQuery(def.queries, def.forceFrom ?? from);
+  const { series, loading, errored } = useRangeQuery(def.queries, from);
   const chartSeries = useMemo(() => def.toSeries(series ?? []), [def, series]);
   const headline = useMemo(() => latestOf(chartSeries), [chartSeries]);
   const multi = chartSeries.length > 1;
