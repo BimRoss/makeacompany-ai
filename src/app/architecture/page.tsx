@@ -299,7 +299,7 @@ export default function ArchitecturePage() {
 
         {/* Footer */}
         <div className="py-16 px-6 border-t border-gray-900 text-center text-gray-600 text-sm">
-          <p>© 2026 BimRoss · Deployments, not frameworks</p>
+          <p>© 2026 MakeaCompany · Deployments, not frameworks</p>
         </div>
       </div>
 
