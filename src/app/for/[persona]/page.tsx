@@ -96,7 +96,7 @@ export default async function PersonaLandingPage({
       <CheckoutReturnToast />
       <Header />
       <PersonaProvider initialPersona={persona} initialFromUrl>
-        <HeroSection initialSeats={initialSeats} />
+        <HeroSection />
         <ValueStack />
         <HarnessVsAgent />
         <BuiltFromInside />

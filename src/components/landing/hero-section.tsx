@@ -17,12 +17,7 @@ const AGENT_LINES = {
 const ERASE_MS = 22;
 const TYPE_MS = 42;
 
-export type HeroSectionProps = {
-  /** Live "N of CAP free seats claimed" pill counts; SSR-fetched in app/page.tsx. */
-  initialSeats?: { claimed: number | null; cap: number };
-};
-
-export function HeroSection({ initialSeats }: HeroSectionProps = {}) {
+export function HeroSection() {
   const { copy, selected } = usePersona();
   const heroLine1 = selected ? copy.heroLine1 : "The future of work.";
   const heroLine2 = selected ? copy.heroLine2 : "Where it already happens.";
@@ -155,7 +150,7 @@ export function HeroSection({ initialSeats }: HeroSectionProps = {}) {
 
       <div className="relative mx-auto w-full max-w-6xl text-center">
         <div className="mb-4 flex justify-center sm:mb-6">
-          <PricingCliffLine claimed={initialSeats?.claimed ?? null} cap={initialSeats?.cap ?? null} />
+          <PricingCliffLine />
         </div>
 
         <div className="mb-6 flex justify-center sm:mb-8">

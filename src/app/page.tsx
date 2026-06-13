@@ -81,7 +81,7 @@ export default async function HomePage({
         initialFromUrl={urlPersona !== null}
         initialSelected={urlPersona !== null}
       >
-        <HeroSection initialSeats={initialSeats} />
+        <HeroSection />
         <ValueStack />
         <HarnessVsAgent />
         <BuiltFromInside />
