@@ -30,7 +30,7 @@ export function ValueStack() {
       <div className="mx-auto w-full max-w-5xl px-6">
         <div className="mb-12 text-center">
           <h2 className="text-balance text-3xl font-bold tracking-tight sm:text-4xl">
-            Why this, instead of a $99/mo Claude sub.
+            Why this, instead of a $100/mo Claude sub.
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-pretty text-lg text-muted-foreground">
             Three legs the raw CLI doesn&apos;t give you.
