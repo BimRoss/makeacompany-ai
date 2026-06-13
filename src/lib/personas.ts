@@ -62,7 +62,7 @@ export const PERSONA_COPY: Record<Persona, PersonaCopy> = {
     ctaH2: "Get the unfair advantage.",
     ctaParagraph:
       "Drop your email. We'll get you into a Slack workspace with Ross and Joanne ready to ship.",
-    ctaButtonLabel: "Get started",
+    ctaButtonLabel: "Start your free week",
   },
 };
 
