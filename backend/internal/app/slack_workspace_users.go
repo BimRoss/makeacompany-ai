@@ -11,6 +11,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"makeacompany-ai/backend/internal/upstream"
 )
 
 // SlackWorkspaceUser is one workspace member from Slack users.list (admin snapshot / live query).
@@ -82,7 +84,7 @@ func FetchSlackWorkspaceUsers(ctx context.Context, botToken string) ([]SlackWork
 	if botToken == "" {
 		return nil, errors.New("missing slack bot token")
 	}
-	client := &http.Client{Timeout: slackUsersListHTTPClient}
+	client := upstream.WrapClient("slack", &http.Client{Timeout: slackUsersListHTTPClient})
 	var out []SlackWorkspaceUser
 	cursor := ""
 	for page := 0; page < slackUsersListMaxPages; page++ {
@@ -94,7 +96,7 @@ func FetchSlackWorkspaceUsers(ctx context.Context, botToken string) ([]SlackWork
 		if cursor != "" {
 			form.Set("cursor", cursor)
 		}
-		req, err := http.NewRequestWithContext(ctx, http.MethodPost, slackUsersListURL, strings.NewReader(form.Encode()))
+		req, err := http.NewRequestWithContext(upstream.WithOperation(ctx, "users.list"), http.MethodPost, slackUsersListURL, strings.NewReader(form.Encode()))
 		if err != nil {
 			return nil, err
 		}

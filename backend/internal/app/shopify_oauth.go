@@ -15,6 +15,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"makeacompany-ai/backend/internal/upstream"
 )
 
 // Shopify Partner OAuth — Layer 1 of makeacompany-ai#352.
@@ -240,7 +242,7 @@ func (s *Server) exchangeShopifyCode(ctx context.Context, shop, code string) (ac
 	form.Set("client_secret", s.cfg.ShopifyPartnerClientSecret)
 	form.Set("code", code)
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, strings.NewReader(form.Encode()))
+	req, err := http.NewRequestWithContext(upstream.WithOperation(ctx, "oauth.token"), http.MethodPost, endpoint, strings.NewReader(form.Encode()))
 	if err != nil {
 		return "", nil, fmt.Errorf("build request: %w", err)
 	}
@@ -280,7 +282,7 @@ func (s *Server) shopifyHTTPClient() *http.Client {
 	if s.shopifyTestClient != nil {
 		return s.shopifyTestClient
 	}
-	return &http.Client{Timeout: 15 * time.Second}
+	return upstream.WrapClient("shopify", &http.Client{Timeout: 15 * time.Second})
 }
 
 func (s *Server) shopifyCallbackURL() string {

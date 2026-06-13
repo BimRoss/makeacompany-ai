@@ -11,6 +11,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"makeacompany-ai/backend/internal/upstream"
 )
 
 // SlackChannel is one Slack conversation the workspace bot is a member of.
@@ -47,12 +49,12 @@ type slackConversationsMembersResponse struct {
 }
 
 const (
-	slackUsersConversationsURL    = "https://slack.com/api/users.conversations"
-	slackConversationsMembersURL  = "https://slack.com/api/conversations.members"
-	slackChannelsPageLimit        = 200
-	slackChannelsMaxPages         = 20
-	slackChannelsPagePause        = 300 * time.Millisecond
-	slackChannelsHTTPClientTime   = 30 * time.Second
+	slackUsersConversationsURL   = "https://slack.com/api/users.conversations"
+	slackConversationsMembersURL = "https://slack.com/api/conversations.members"
+	slackChannelsPageLimit       = 200
+	slackChannelsMaxPages        = 20
+	slackChannelsPagePause       = 300 * time.Millisecond
+	slackChannelsHTTPClientTime  = 30 * time.Second
 )
 
 // FetchSlackBotChannels returns the channels the bot token's user is a member of via users.conversations.
@@ -62,7 +64,7 @@ func FetchSlackBotChannels(ctx context.Context, botToken string) ([]SlackChannel
 	if botToken == "" {
 		return nil, errors.New("missing slack bot token")
 	}
-	client := &http.Client{Timeout: slackChannelsHTTPClientTime}
+	client := upstream.WrapClient("slack", &http.Client{Timeout: slackChannelsHTTPClientTime})
 	var out []SlackChannel
 	cursor := ""
 	for page := 0; page < slackChannelsMaxPages; page++ {
@@ -76,7 +78,7 @@ func FetchSlackBotChannels(ctx context.Context, botToken string) ([]SlackChannel
 		if cursor != "" {
 			form.Set("cursor", cursor)
 		}
-		req, err := http.NewRequestWithContext(ctx, http.MethodPost, slackUsersConversationsURL, strings.NewReader(form.Encode()))
+		req, err := http.NewRequestWithContext(upstream.WithOperation(ctx, "users.conversations"), http.MethodPost, slackUsersConversationsURL, strings.NewReader(form.Encode()))
 		if err != nil {
 			return nil, err
 		}
@@ -143,7 +145,7 @@ func FetchSlackChannelMemberIDs(ctx context.Context, botToken, channelID string)
 	if channelID == "" {
 		return nil, errors.New("missing channel id")
 	}
-	client := &http.Client{Timeout: slackChannelsHTTPClientTime}
+	client := upstream.WrapClient("slack", &http.Client{Timeout: slackChannelsHTTPClientTime})
 	var out []string
 	cursor := ""
 	for page := 0; page < slackChannelsMaxPages; page++ {
@@ -156,7 +158,7 @@ func FetchSlackChannelMemberIDs(ctx context.Context, botToken, channelID string)
 		if cursor != "" {
 			form.Set("cursor", cursor)
 		}
-		req, err := http.NewRequestWithContext(ctx, http.MethodPost, slackConversationsMembersURL, strings.NewReader(form.Encode()))
+		req, err := http.NewRequestWithContext(upstream.WithOperation(ctx, "conversations.members"), http.MethodPost, slackConversationsMembersURL, strings.NewReader(form.Encode()))
 		if err != nil {
 			return nil, err
 		}
