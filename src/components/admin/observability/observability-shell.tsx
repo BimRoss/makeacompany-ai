@@ -1,8 +1,9 @@
 "use client";
 
-import { Suspense } from "react";
+import { Suspense, useEffect } from "react";
 import { AlertTriangle, ArrowUpRight } from "lucide-react";
 
+import { AdminAgentKillSwitchCompact } from "../admin-agent-kill-switch";
 import { AlertsProvider, useAlerts } from "./alerts-provider";
 import { AlertsStrip } from "./alerts-strip";
 import { CloudflarePanels, useCloudflareSummary } from "./cloudflare-panels";
@@ -33,6 +34,23 @@ function DashboardLink({ href, label }: { href: string | null; label: string }) 
   );
 }
 
+/**
+ * Prefix the browser tab title with `(N)` when alerts are firing, so
+ * the page draws attention from background tabs. Strips its own prefix
+ * on cleanup so the title doesn't carry stale counts.
+ */
+function useAlertCountInTitle() {
+  const { firing } = useAlerts();
+  const count = firing.length;
+  useEffect(() => {
+    const base = document.title.replace(/^\(\d+\)\s*/, "");
+    document.title = count > 0 ? `(${count}) ${base}` : base;
+    return () => {
+      document.title = document.title.replace(/^\(\d+\)\s*/, "");
+    };
+  }, [count]);
+}
+
 function AnomalyBadge({ component }: { component: string }) {
   const { firingByComponent } = useAlerts();
   const count = firingByComponent[component]?.length ?? 0;
@@ -52,6 +70,7 @@ const PANEL_GRID = "grid gap-3 grid-cols-[repeat(auto-fit,minmax(320px,1fr))]";
 const WEB_PANEL_GRID = PANEL_GRID;
 
 function ObservabilityBody() {
+  useAlertCountInTitle();
   const { loading, lastUpdatedAt, adminDashboardUrl, cronjobDashboardUrl, clusterDashboardUrl } =
     useObservabilityData();
   const { from } = useTimeRange();
@@ -77,7 +96,8 @@ function ObservabilityBody() {
 
   return (
     <div className="space-y-4">
-      <div className="sticky top-0 z-20 -mx-4 space-y-3 border-b border-border bg-background/95 px-4 py-2.5 backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
+      <div className="sticky top-0 z-20 -mx-4 space-y-2 border-b border-border bg-background/95 px-4 py-2.5 backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
+        <AdminAgentKillSwitchCompact />
         <ObservabilityToolbar lastUpdatedAt={lastUpdatedAt} loading={loading} />
       </div>
 

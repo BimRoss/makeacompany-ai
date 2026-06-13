@@ -32,6 +32,14 @@ const STATE_DOT: Record<AgentState, string> = {
   unhealthy: "bg-rose-500 shadow-[0_0_0_4px_rgba(244,63,94,0.18)]",
 };
 
+// Flat dot (no shadow halo) for the compact sticky strip.
+const STATE_DOT_FLAT: Record<AgentState, string> = {
+  live: "bg-emerald-500",
+  down: "bg-rose-500",
+  starting: "bg-amber-400",
+  unhealthy: "bg-rose-500",
+};
+
 const STATE_LABEL: Record<AgentState, string> = {
   live: "Live",
   down: "Down",
@@ -43,7 +51,7 @@ function displayName(name: string): string {
   return name.length === 0 ? name : name[0].toUpperCase() + name.slice(1);
 }
 
-export function AdminAgentKillSwitch() {
+function useKillSwitchState() {
   const [agents, setAgents] = useState<AgentStatus[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<Record<string, boolean>>({});
@@ -129,6 +137,58 @@ export function AdminAgentKillSwitch() {
 
   const confirmingAgent = confirmTarget ? (agents ?? []).find((a) => a.name === confirmTarget) : null;
 
+  return { agents, error, busy, confirmingAgent, setConfirmTarget, handleClick, doToggle };
+}
+
+function ConfirmDialog({
+  agent,
+  onCancel,
+  onConfirm,
+}: {
+  agent: AgentStatus;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="admin-killswitch-confirm-title"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+    >
+      <div className="w-full max-w-sm rounded-xl border border-border bg-background p-5 shadow-xl">
+        <h3 id="admin-killswitch-confirm-title" className="font-display text-lg font-semibold text-foreground">
+          Kill {displayName(agent.name)}?
+        </h3>
+        <p className="mt-2 text-sm text-muted-foreground">
+          {displayName(agent.name)} will stop responding in Slack within ~10 seconds.
+          Toggle back on anytime — no state is lost.
+        </p>
+        <div className="mt-4 flex justify-end gap-2">
+          <button
+            type="button"
+            className="inline-flex h-9 items-center rounded-md border border-border bg-background px-3 text-sm text-foreground hover:bg-muted"
+            onClick={onCancel}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="inline-flex h-9 items-center rounded-md bg-rose-600 px-3 text-sm font-medium text-white hover:bg-rose-700"
+            onClick={onConfirm}
+          >
+            Kill
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function AdminAgentKillSwitch() {
+  const { agents, error, busy, confirmingAgent, setConfirmTarget, handleClick, doToggle } =
+    useKillSwitchState();
+
   return (
     <section className="space-y-3" aria-labelledby="admin-agent-killswitch-heading">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -197,43 +257,80 @@ export function AdminAgentKillSwitch() {
       </div>
 
       {confirmingAgent ? (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="admin-killswitch-confirm-title"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-        >
-          <div className="w-full max-w-sm rounded-xl border border-border bg-background p-5 shadow-xl">
-            <h3 id="admin-killswitch-confirm-title" className="font-display text-lg font-semibold text-foreground">
-              Kill {displayName(confirmingAgent.name)}?
-            </h3>
-            <p className="mt-2 text-sm text-muted-foreground">
-              {displayName(confirmingAgent.name)} will stop responding in Slack within ~10 seconds.
-              Toggle back on anytime — no state is lost.
-            </p>
-            <div className="mt-4 flex justify-end gap-2">
-              <button
-                type="button"
-                className="inline-flex h-9 items-center rounded-md border border-border bg-background px-3 text-sm text-foreground hover:bg-muted"
-                onClick={() => setConfirmTarget(null)}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="inline-flex h-9 items-center rounded-md bg-rose-600 px-3 text-sm font-medium text-white hover:bg-rose-700"
-                onClick={() => {
-                  const name = confirmingAgent.name;
-                  setConfirmTarget(null);
-                  void doToggle(name);
-                }}
-              >
-                Kill
-              </button>
-            </div>
-          </div>
-        </div>
+        <ConfirmDialog
+          agent={confirmingAgent}
+          onCancel={() => setConfirmTarget(null)}
+          onConfirm={() => {
+            const name = confirmingAgent.name;
+            setConfirmTarget(null);
+            void doToggle(name);
+          }}
+        />
       ) : null}
     </section>
+  );
+}
+
+/**
+ * Compact strip for the sticky observability header — keeps the toggles
+ * one click away while scrolling. Polls independently of the full section
+ * (cheap K8s read); both share the same confirm-on-off-flip behavior.
+ */
+export function AdminAgentKillSwitchCompact() {
+  const { agents, error, busy, confirmingAgent, setConfirmTarget, handleClick, doToggle } =
+    useKillSwitchState();
+
+  const list = agents ?? [
+    { name: "joanne", state: "starting" as AgentState, replicas: 0, ready: 0, updatedAt: "" },
+    { name: "ross", state: "starting" as AgentState, replicas: 0, ready: 0, updatedAt: "" },
+  ];
+
+  return (
+    <div className="flex flex-wrap items-center gap-2" aria-label="Agent kill switches (compact)">
+      {list.map((a) => {
+        const live = a.state === "live";
+        const isBusy = !!busy[a.name];
+        return (
+          <button
+            key={a.name}
+            type="button"
+            role="switch"
+            aria-checked={live}
+            disabled={isBusy || !agents}
+            onClick={() => handleClick(a)}
+            className={[
+              "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition disabled:opacity-60",
+              live
+                ? "border-emerald-500/40 bg-emerald-500/10 text-foreground hover:bg-emerald-500/15"
+                : "border-rose-500/40 bg-rose-500/10 text-foreground hover:bg-rose-500/15",
+            ].join(" ")}
+            title={
+              error
+                ? `error: ${error}`
+                : `${displayName(a.name)} · ${STATE_LABEL[a.state]} · ${a.replicas}/${a.ready} ready`
+            }
+          >
+            <span
+              aria-hidden
+              className={`inline-block h-1.5 w-1.5 rounded-full ${STATE_DOT_FLAT[a.state]} ${live ? "animate-pulse" : ""}`}
+            />
+            <span>{displayName(a.name)}</span>
+            <span className="text-muted-foreground">{STATE_LABEL[a.state]}</span>
+          </button>
+        );
+      })}
+
+      {confirmingAgent ? (
+        <ConfirmDialog
+          agent={confirmingAgent}
+          onCancel={() => setConfirmTarget(null)}
+          onConfirm={() => {
+            const name = confirmingAgent.name;
+            setConfirmTarget(null);
+            void doToggle(name);
+          }}
+        />
+      ) : null}
+    </div>
   );
 }

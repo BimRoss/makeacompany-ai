@@ -1,7 +1,9 @@
 import type { ChartSeries, ChartTone } from "./charts/time-series-chart";
 import type { RangeSeries } from "./charts/use-range-query";
 import {
+  formatBytes,
   formatCompact,
+  formatCores,
   formatDuration,
   formatMs,
   formatPercent,
@@ -66,6 +68,7 @@ const REQ = "makeacompany_http_requests_total";
 const DUR = "makeacompany_http_request_duration_seconds_bucket";
 const REFRESH = "makeacompany_slack_refresh_runs_total";
 const UPSTREAM = "makeacompany_slack_refresh_upstream_http_status_total";
+const UPSTREAM_ALL = "makeacompany_slack_upstream_http_status_total";
 const REAPER_SCANNED = "makeacompany_trial_expiry_reaper_scanned_total";
 const REAPER_ENQUEUED = "makeacompany_trial_expiry_reaper_enqueued_total";
 const CRONJOB = "makeacompany_cronjob_duration_seconds_count";
@@ -73,25 +76,43 @@ const CRONJOB = "makeacompany_cronjob_duration_seconds_count";
 const statusTone = (cls: string): ChartTone =>
   cls.startsWith("2") ? "pos" : cls.startsWith("5") ? "neg" : cls.startsWith("4") ? "accent" : "muted";
 
+// 429 surfaces separately from generic 4xx since rate-limits are the actionable signal.
+const statusCodeTone = (code: string): ChartTone => {
+  if (code === "429") return "neg";
+  if (code.startsWith("5")) return "ink";
+  if (code.startsWith("4")) return "accent";
+  if (code.startsWith("2")) return "pos";
+  return "muted";
+};
+
+const SOURCE_PALETTE: ChartTone[] = ["neg", "accent", "ink", "muted", "pos"];
+
 const resultTone = (r: string): ChartTone => (r === "success" ? "pos" : "neg");
 
 export const WEB_PANELS: PanelDef[] = [
   {
-    id: "request-rate",
-    title: "Request throughput",
-    subtitle: "Backend requests per minute",
-    queries: [`sum(rate(${REQ}[5m])) * 60`],
-    toSeries: single(`sum(rate(${REQ}[5m])) * 60`, "requests/min", "accent"),
+    id: "request-traffic",
+    title: "Request traffic",
+    subtitle: "Total /min, split by status class",
+    queries: [
+      `sum(rate(${REQ}[5m])) * 60`,
+      `sum by (status_class) (rate(${REQ}[5m])) * 60`,
+    ],
+    toSeries: (raw) => {
+      const totalQ = `sum(rate(${REQ}[5m])) * 60`;
+      const splitQ = `sum by (status_class) (rate(${REQ}[5m])) * 60`;
+      const total: ChartSeries = {
+        key: "total",
+        label: "total",
+        tone: "ink",
+        points: pointsFor(raw, totalQ),
+      };
+      const split = splitByLabel(splitQ, "status_class", statusTone)(raw);
+      return [total, ...split];
+    },
     format: formatPerMin,
     area: true,
-  },
-  {
-    id: "status-class",
-    title: "Requests by status",
-    subtitle: "Split by response class /min",
-    queries: [`sum by (status_class) (rate(${REQ}[5m])) * 60`],
-    toSeries: splitByLabel(`sum by (status_class) (rate(${REQ}[5m])) * 60`, "status_class", statusTone),
-    format: formatPerMin,
+    span: 2,
   },
   {
     id: "latency-percentiles",
@@ -134,6 +155,9 @@ export const WEB_PANELS: PanelDef[] = [
     toSeries: single(`go_goroutines{job="makeacompany-backend"}`, "goroutines", "ink"),
     format: formatCompact,
   },
+];
+
+export const JOBS_PANELS: PanelDef[] = [
   {
     id: "snapshot-refresh",
     title: "Snapshot refreshes",
@@ -142,9 +166,6 @@ export const WEB_PANELS: PanelDef[] = [
     toSeries: splitByLabel(`sum by (result) (rate(${REFRESH}[5m])) * 60`, "result", resultTone),
     format: formatPerMin,
   },
-];
-
-export const JOBS_PANELS: PanelDef[] = [
   {
     id: "snapshot-success-rate",
     title: "Snapshot success rate",
@@ -164,11 +185,58 @@ export const JOBS_PANELS: PanelDef[] = [
   {
     id: "upstream-429",
     title: "Slack upstream 429s",
-    subtitle: "Rate-limit responses per minute",
+    subtitle: "Rate-limit responses per minute (refresh path)",
     queries: [`sum(rate(${UPSTREAM}{status_code="429"}[5m])) * 60`],
     toSeries: single(`sum(rate(${UPSTREAM}{status_code="429"}[5m])) * 60`, "429/min", "neg"),
     format: formatPerMin,
     area: true,
+    zeroBaseline: true,
+    forceFrom: "now-24h",
+    hideWhenEmpty: true,
+  },
+  {
+    id: "slack-upstream-status",
+    title: "Slack API status mix",
+    subtitle: "All upstream Slack calls /min, split by status",
+    queries: [`sum by (status_code) (rate(${UPSTREAM_ALL}[5m])) * 60`],
+    toSeries: splitByLabel(
+      `sum by (status_code) (rate(${UPSTREAM_ALL}[5m])) * 60`,
+      "status_code",
+      statusCodeTone
+    ),
+    format: formatPerMin,
+    area: true,
+    zeroBaseline: true,
+    forceFrom: "now-24h",
+    hideWhenEmpty: true,
+    span: 2,
+  },
+  {
+    id: "slack-upstream-429-by-source",
+    title: "Slack 429s by call-site",
+    subtitle: "Which upstream operation is getting throttled",
+    queries: [
+      `sum by (source) (rate(${UPSTREAM_ALL}{status_code="429"}[5m])) * 60`,
+    ],
+    toSeries: (raw) =>
+      raw
+        .filter(
+          (s) =>
+            s.query === `sum by (source) (rate(${UPSTREAM_ALL}{status_code="429"}[5m])) * 60` &&
+            s.labels.source
+        )
+        .sort((a, b) => {
+          const lastA = a.points.at(-1)?.[1] ?? 0;
+          const lastB = b.points.at(-1)?.[1] ?? 0;
+          return lastB - lastA;
+        })
+        .map((s, i) => ({
+          key: `source-${s.labels.source}`,
+          label: s.labels.source,
+          tone: SOURCE_PALETTE[i % SOURCE_PALETTE.length],
+          points: s.points,
+        })),
+    format: formatPerMin,
     zeroBaseline: true,
     forceFrom: "now-24h",
     hideWhenEmpty: true,
@@ -251,6 +319,29 @@ function podsRunningSeries(raw: RangeSeries[]): ChartSeries[] {
   return totalSeries ? [totalSeries, ...top] : top;
 }
 
+const CPU_TOP_PODS_QUERY = `topk(5, sum by (pod) (rate(container_cpu_usage_seconds_total{namespace="makeacompany-ai",container!="",container!="POD"}[5m])))`;
+const MEM_TOP_PODS_QUERY = `topk(5, sum by (pod) (container_memory_working_set_bytes{namespace="makeacompany-ai",container!="",container!="POD"}))`;
+
+function topPodsSeries(query: string) {
+  return (raw: RangeSeries[]): ChartSeries[] => {
+    return raw
+      .filter((s) => s.query === query && s.labels.pod)
+      .map((s) => {
+        const last = s.points.at(-1)?.[1] ?? 0;
+        const peak = s.points.reduce((m, [, v]) => (v > m ? v : m), 0);
+        return { s, score: last || peak };
+      })
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 5)
+      .map(({ s }, i) => ({
+        key: `pod-${s.labels.pod}`,
+        label: s.labels.pod,
+        tone: TOP_N_NAMESPACE_TONES[i] ?? "muted",
+        points: s.points,
+      }));
+  };
+}
+
 export const CLUSTER_PANELS: PanelDef[] = [
   {
     id: "pods-running",
@@ -261,5 +352,25 @@ export const CLUSTER_PANELS: PanelDef[] = [
     format: formatCompact,
     forceFrom: "now-24h",
     span: 2,
+  },
+  {
+    id: "cpu-top-pods",
+    title: "CPU by pod",
+    subtitle: "Top 5 in makeacompany-ai (cores)",
+    queries: [CPU_TOP_PODS_QUERY],
+    toSeries: topPodsSeries(CPU_TOP_PODS_QUERY),
+    format: formatCores,
+    forceFrom: "now-24h",
+    hideWhenEmpty: true,
+  },
+  {
+    id: "memory-top-pods",
+    title: "Memory by pod",
+    subtitle: "Top 5 in makeacompany-ai (working set)",
+    queries: [MEM_TOP_PODS_QUERY],
+    toSeries: topPodsSeries(MEM_TOP_PODS_QUERY),
+    format: formatBytes,
+    forceFrom: "now-24h",
+    hideWhenEmpty: true,
   },
 ];

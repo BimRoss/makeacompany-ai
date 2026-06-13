@@ -107,12 +107,14 @@ function FlowCard({ flow }: { flow: FlowStatus }) {
       : flow.state === "down"
         ? "var(--chart-neg)"
         : "var(--chart-muted)";
+  // Only spell out the state when it needs attention — the colored dot says
+  // "operational" already, and the "All systems go" pill above says it too.
   const word =
-    flow.state === "operational" ? "Operational" : flow.state === "down" ? "Down" : "Unknown";
+    flow.state === "operational" ? null : flow.state === "down" ? "Down" : "Unknown";
 
   return (
-    <div className="rounded-xl border border-border bg-background/40 p-3.5">
-      <div className="flex items-start justify-between gap-2">
+    <div className="rounded-xl border border-border bg-background/40 p-3">
+      <div className="flex items-center justify-between gap-2">
         <div className="text-sm font-medium text-foreground">{flow.label}</div>
         <span
           className="inline-flex items-center gap-1.5 text-sm font-semibold"
@@ -123,7 +125,7 @@ function FlowCard({ flow }: { flow: FlowStatus }) {
         </span>
       </div>
       <UptimeBars history={flow.history} />
-      <div className="mt-2 flex items-center justify-between text-[11px] text-muted-foreground">
+      <div className="mt-1.5 flex items-center justify-between text-[11px] text-muted-foreground">
         <span>{flow.history.length} recent checks</span>
         <span className="tabular-nums">
           {flow.durationSeconds !== null ? `probe ${formatMs(flow.durationSeconds)}` : "—"}
@@ -137,7 +139,7 @@ function UptimeBars({ history }: { history: Array<[number, number]> }) {
   // status-page style: one slim bar per recent sample, green ok / red fail.
   const bars = history.length > 0 ? history : [];
   return (
-    <div className="mt-2.5 flex h-7 items-stretch gap-[3px]">
+    <div className="mt-2 flex h-6 items-stretch gap-[3px]">
       {bars.length === 0
         ? Array.from({ length: 24 }).map((_, i) => (
             <span key={i} className="flex-1 rounded-sm bg-muted" />

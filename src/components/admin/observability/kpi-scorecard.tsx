@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { kickToLoginForUnauthorizedApi } from "@/lib/client-auth-unauthorized-redirect";
 import { useCloudflareSummary } from "./cloudflare-panels";
+import { useRangeQuery } from "./charts/use-range-query";
 
 type KpiTile = {
   id: string;
@@ -53,6 +54,60 @@ const dotColor: Record<"green" | "amber" | "red", string> = {
   red: "var(--chart-neg)",
 };
 
+/**
+ * Inline 1h sparkline for KPI tiles. Pure SVG so it inherits the card's
+ * background; no axes, no ticks — just shape + trailing dot.
+ */
+function Sparkline({
+  points,
+  color,
+}: {
+  points: Array<[number, number]>;
+  color: string;
+}) {
+  if (points.length < 2) return null;
+  let yMin = Infinity;
+  let yMax = -Infinity;
+  for (const [, v] of points) {
+    if (v < yMin) yMin = v;
+    if (v > yMax) yMax = v;
+  }
+  const xMin = points[0][0];
+  const xMax = points[points.length - 1][0];
+  const xRange = xMax - xMin || 1;
+  // Pad y so a flat series renders as a centered line (not stuck on edges).
+  const yPad = yMax === yMin ? Math.abs(yMax) * 0.05 + 0.001 : 0;
+  const yLo = yMin - yPad;
+  const yHi = yMax + yPad;
+  const yRange = yHi - yLo || 1;
+  const W = 100;
+  const H = 20;
+  const projectY = (v: number) => H - 2 - ((v - yLo) / yRange) * (H - 4);
+  const path = points
+    .map(([t, v], i) => {
+      const x = ((t - xMin) / xRange) * W;
+      return `${i === 0 ? "M" : "L"}${x.toFixed(2)},${projectY(v).toFixed(2)}`;
+    })
+    .join(" ");
+  const lastY = projectY(points[points.length - 1][1]);
+  return (
+    <svg
+      viewBox={`0 0 ${W} ${H}`}
+      preserveAspectRatio="none"
+      className="mt-2 h-5 w-full"
+      aria-hidden="true"
+    >
+      <path d={path} fill="none" stroke={color} strokeWidth={1.25} opacity={0.65} />
+      <circle cx={W} cy={lastY} r={1.5} fill={color} />
+    </svg>
+  );
+}
+
+/** Empty placeholder occupying the same vertical space as a Sparkline. */
+function SparklineSpacer() {
+  return <div className="mt-2 h-5" aria-hidden="true" />;
+}
+
 function ScorecardTile({
   label,
   value,
@@ -60,6 +115,7 @@ function ScorecardTile({
   thresholds,
   higherIsBetter,
   hasError,
+  spark,
 }: {
   label: string;
   value: number | null;
@@ -67,6 +123,7 @@ function ScorecardTile({
   thresholds: Threshold[];
   higherIsBetter: boolean;
   hasError: boolean;
+  spark?: Array<[number, number]>;
 }) {
   const color = value === null ? null : colorFor(thresholds, value, higherIsBetter);
   return (
@@ -90,6 +147,11 @@ function ScorecardTile({
       >
         {value === null ? (hasError ? "—" : "…") : formatted}
       </div>
+      {spark && spark.length >= 2 ? (
+        <Sparkline points={spark} color={color ? dotColor[color] : "var(--chart-muted)"} />
+      ) : (
+        <SparklineSpacer />
+      )}
     </div>
   );
 }
@@ -111,6 +173,8 @@ function InfoTile({ label, value }: { label: string; value: string }) {
       <div className="mt-1 font-display text-2xl font-semibold tracking-tight tabular-nums text-foreground">
         {value}
       </div>
+      {/* Reserves the same vertical space as ScorecardTile's sparkline so the grid stays even. */}
+      <SparklineSpacer />
     </div>
   );
 }
@@ -235,6 +299,17 @@ export function KpiScorecard() {
         ],
       },
       {
+        id: "errors",
+        label: "Errors /min (5m)",
+        query: POOL.errorsPerMin,
+        format: (v) => (v < 10 ? v.toFixed(1) : v.toFixed(0)),
+        thresholds: [
+          { value: 0, color: "green" },
+          { value: 1, color: "amber" },
+          { value: 5, color: "red" },
+        ],
+      },
+      {
         id: "cron",
         label: "Oldest cron schedule",
         query: POOL.cronStaleness,
@@ -291,6 +366,20 @@ export function KpiScorecard() {
     return map;
   }, [results]);
 
+  // Range-history fetch in parallel with instant values, for the inline
+  // sparklines on health tiles. Tight 1h window keeps the cardinality low
+  // and the trend recent enough to matter for incident triage.
+  const sparkQueries = useMemo(() => Object.values(POOL), []);
+  const { series: sparkSeries } = useRangeQuery(sparkQueries, "now-1h");
+  const sparkByQuery = useMemo(() => {
+    const map = new Map<string, Array<[number, number]>>();
+    for (const s of sparkSeries ?? []) {
+      // POOL queries are aggregations with no labels, so first series wins.
+      if (!map.has(s.query)) map.set(s.query, s.points);
+    }
+    return map;
+  }, [sparkSeries]);
+
   const showGa4 = ga4 !== null && ga4.status !== "disabled";
   const showGsc = gsc !== null && gsc.status !== "disabled";
 
@@ -299,6 +388,28 @@ export function KpiScorecard() {
       aria-label="KPI scorecard"
       className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 min-[1800px]:grid-cols-9"
     >
+      {/* Health tiles first — threshold-colored signals you scan during an incident. */}
+      {tiles.map((tile) => {
+        const value =
+          tile.query === null
+            ? tile.staticValue ?? null
+            : resultByQuery.get(tile.query)?.value ?? null;
+        const formatted = value === null ? "" : tile.format(value);
+        const spark = tile.query ? sparkByQuery.get(tile.query) : undefined;
+        return (
+          <ScorecardTile
+            key={tile.id}
+            label={tile.label}
+            value={value}
+            formatted={formatted}
+            thresholds={tile.thresholds}
+            higherIsBetter={tile.higherIsBetter ?? false}
+            hasError={errored}
+            spark={spark}
+          />
+        );
+      })}
+      {/* Growth tiles follow — informational, no threshold semantics. */}
       {showGa4 ? (
         <>
           {typeof ga4?.realtimeUsers === "number" && ga4.realtimeUsers >= 0 ? (
@@ -322,24 +433,6 @@ export function KpiScorecard() {
           <InfoTile label="Avg position · 7d" value={formatPosition(gsc?.position)} />
         </>
       ) : null}
-      {tiles.map((tile) => {
-        const value =
-          tile.query === null
-            ? tile.staticValue ?? null
-            : resultByQuery.get(tile.query)?.value ?? null;
-        const formatted = value === null ? "" : tile.format(value);
-        return (
-          <ScorecardTile
-            key={tile.id}
-            label={tile.label}
-            value={value}
-            formatted={formatted}
-            thresholds={tile.thresholds}
-            higherIsBetter={tile.higherIsBetter ?? false}
-            hasError={errored}
-          />
-        );
-      })}
     </section>
   );
 }
