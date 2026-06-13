@@ -1,6 +1,6 @@
 "use client";
 
-import { Copy, Loader2, RefreshCw } from "lucide-react";
+import { ChevronDown, ChevronsUpDown, ChevronUp, Copy, Loader2, RefreshCw } from "lucide-react";
 import Image from "next/image";
 import { useCallback, useEffect, useState } from "react";
 
@@ -320,7 +320,117 @@ export function AdminStripeUsersTable() {
   );
 }
 
-function renderStatusCell(u: SlackWorkspaceUserRow, nowSeconds: number) {
+type SlackSortKey =
+  | "email"
+  | "name"
+  | "status"
+  | "trialEnds"
+  | "username"
+  | "slackId"
+  | "team"
+  | "terms"
+  | "bot"
+  | "deleted";
+
+type SlackSortDir = "asc" | "desc";
+
+// Status priority for sort: trialing-with-deadline-soonest first, then
+// active, free_lifetime, expired. Other strings fall through to the end.
+const STATUS_SORT_RANK: Record<string, number> = {
+  trialing: 0,
+  active: 1,
+  free_lifetime: 2,
+  expired: 3,
+};
+
+function getSlackSortValue(u: SlackWorkspaceUserRow, key: SlackSortKey): string | number | null {
+  switch (key) {
+    case "email":
+      return (u.email ?? "").toLowerCase();
+    case "name":
+      return (u.realName || u.displayName || u.username || "").toLowerCase();
+    case "status": {
+      const s = (u.status ?? "").toString();
+      const rank = STATUS_SORT_RANK[s];
+      return typeof rank === "number" ? rank : 99;
+    }
+    case "trialEnds":
+      return typeof u.trialExpiresAt === "number" && u.trialExpiresAt > 0 ? u.trialExpiresAt : null;
+    case "username":
+      return (u.username ?? "").toLowerCase();
+    case "slackId":
+      return u.slackUserId ?? "";
+    case "team":
+      return u.teamId ?? "";
+    case "terms":
+      return (u.terms ?? "").toLowerCase();
+    case "bot":
+      return u.isBot ? 1 : 0;
+    case "deleted":
+      return u.isDeleted ? 1 : 0;
+  }
+}
+
+function compareSlackUsers(
+  a: SlackWorkspaceUserRow,
+  b: SlackWorkspaceUserRow,
+  key: SlackSortKey,
+  dir: SlackSortDir,
+): number {
+  const av = getSlackSortValue(a, key);
+  const bv = getSlackSortValue(b, key);
+  // Nulls (e.g. trialEnds when not trialing) always sort to the end,
+  // regardless of direction — they're "no value", not "small value".
+  if (av === null && bv === null) return 0;
+  if (av === null) return 1;
+  if (bv === null) return -1;
+  let cmp: number;
+  if (typeof av === "number" && typeof bv === "number") {
+    cmp = av - bv;
+  } else {
+    cmp = String(av).localeCompare(String(bv));
+  }
+  return dir === "asc" ? cmp : -cmp;
+}
+
+function SortableTh({
+  label,
+  sortKey,
+  active,
+  dir,
+  onClick,
+  className,
+}: {
+  label: string;
+  sortKey: SlackSortKey;
+  active: boolean;
+  dir: SlackSortDir;
+  onClick: (key: SlackSortKey) => void;
+  className?: string;
+}) {
+  const ariaSort = active ? (dir === "asc" ? "ascending" : "descending") : "none";
+  const Icon = active ? (dir === "asc" ? ChevronUp : ChevronDown) : ChevronsUpDown;
+  return (
+    <th
+      scope="col"
+      aria-sort={ariaSort}
+      className={`px-3 py-1.5 ${className ?? ""}`}
+    >
+      <button
+        type="button"
+        onClick={() => onClick(sortKey)}
+        className={`inline-flex items-center gap-1 rounded text-left uppercase tracking-wide transition-colors ${
+          active ? "text-foreground" : "text-muted-foreground hover:text-foreground"
+        }`}
+      >
+        <span>{label}</span>
+        <Icon className={`h-3 w-3 ${active ? "opacity-100" : "opacity-50"}`} aria-hidden="true" />
+      </button>
+    </th>
+  );
+}
+
+function renderStatusCell(u: SlackWorkspaceUserRow) {
   const status = (u.status ?? "") as LifecycleStatus | "";
   if (!status) {
     return <span className="text-muted-foreground">—</span>;
@@ -328,10 +438,6 @@ function renderStatusCell(u: SlackWorkspaceUserRow, nowSeconds: number) {
   const pill = STATUS_PILL_CLASSES[status as LifecycleStatus];
   const pillClass = pill ?? "bg-muted text-muted-foreground ring-1 ring-border";
   const label = status.replace("_", " ");
-  let subtitle: string | null = null;
-  if (status === "trialing" && typeof u.trialExpiresAt === "number" && u.trialExpiresAt > 0) {
-    subtitle = `ends ${formatRelativeFromNow(u.trialExpiresAt, nowSeconds)}`;
-  }
   const customerId = (u.stripeCustomerId ?? "").trim();
   const pillBody = (
     <span
@@ -340,24 +446,20 @@ function renderStatusCell(u: SlackWorkspaceUserRow, nowSeconds: number) {
       {label}
     </span>
   );
-  return (
-    <div className="flex flex-col gap-0.5">
-      {status === "active" && customerId ? (
-        <a
-          href={stripeCustomerDashboardUrl(customerId)}
-          target="_blank"
-          rel="noreferrer noopener"
-          className="inline-flex w-fit"
-          title={`Open ${customerId} in Stripe dashboard`}
-        >
-          {pillBody}
-        </a>
-      ) : (
-        pillBody
-      )}
-      {subtitle ? <span className="text-[10px] text-muted-foreground">{subtitle}</span> : null}
-    </div>
-  );
+  if (status === "active" && customerId) {
+    return (
+      <a
+        href={stripeCustomerDashboardUrl(customerId)}
+        target="_blank"
+        rel="noreferrer noopener"
+        className="inline-flex w-fit"
+        title={`Open ${customerId} in Stripe dashboard`}
+      >
+        {pillBody}
+      </a>
+    );
+  }
+  return pillBody;
 }
 
 /** Slack workspace members (users.list). Mount reads Redis snapshots; live refresh pulls upstream and updates Redis. */
@@ -370,6 +472,18 @@ export function AdminSlackUsersTable() {
   const [showDeleted, setShowDeleted] = useState(false);
   const [deletedHidden, setDeletedHidden] = useState(0);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [sortKey, setSortKey] = useState<SlackSortKey | null>(null);
+  const [sortDir, setSortDir] = useState<SlackSortDir>("asc");
+  const handleSortClick = useCallback((key: SlackSortKey) => {
+    setSortKey((prev) => {
+      if (prev === key) {
+        setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+        return prev;
+      }
+      setSortDir("asc");
+      return key;
+    });
+  }, []);
   // Re-render the relative-time column every minute so "ends in 3d" stays accurate without a refetch.
   const [nowSeconds, setNowSeconds] = useState(() => Math.floor(Date.now() / 1000));
   useEffect(() => {
@@ -450,6 +564,10 @@ export function AdminSlackUsersTable() {
     }
     return u.status === statusFilter;
   });
+
+  const sortedSlackUsers = sortKey
+    ? [...visibleSlackUsers].sort((a, b) => compareSlackUsers(a, b, sortKey, sortDir))
+    : visibleSlackUsers;
 
   return (
       <section className="space-y-3" aria-labelledby="admin-slack-users-heading">
@@ -600,20 +718,33 @@ export function AdminSlackUsersTable() {
                   <th className="w-9 px-2 py-1.5" scope="col">
                     <span className="sr-only">Photo</span>
                   </th>
-                  <th className="px-3 py-1.5">Email</th>
-                  <th className="px-3 py-1.5">Name</th>
-                  <th className="px-3 py-1.5">Status</th>
-                  <th className="px-3 py-1.5">Trial ends</th>
-                  <th className="px-3 py-1.5">Username</th>
-                  <th className="px-3 py-1.5">Slack ID</th>
-                  <th className="px-3 py-1.5">Team</th>
-                  <th className="px-3 py-1.5">Terms</th>
-                  <th className="px-3 py-1.5">Bot</th>
-                  <th className="px-3 py-1.5">Deleted</th>
+                  {(
+                    [
+                      ["email", "Email"],
+                      ["name", "Name"],
+                      ["status", "Status"],
+                      ["trialEnds", "Trial ends"],
+                      ["username", "Username"],
+                      ["slackId", "Slack ID"],
+                      ["team", "Team"],
+                      ["terms", "Terms"],
+                      ["bot", "Bot"],
+                      ["deleted", "Deleted"],
+                    ] as Array<[SlackSortKey, string]>
+                  ).map(([key, label]) => (
+                    <SortableTh
+                      key={key}
+                      label={label}
+                      sortKey={key}
+                      active={sortKey === key}
+                      dir={sortDir}
+                      onClick={handleSortClick}
+                    />
+                  ))}
                 </tr>
               </thead>
               <tbody>
-                {visibleSlackUsers.map((u) => {
+                {sortedSlackUsers.map((u) => {
                   const display = (u.realName || u.displayName || u.username || "").trim();
                   const avatarSrc = (u.profileImageUrl ?? "").trim();
                   return (
@@ -643,7 +774,7 @@ export function AdminSlackUsersTable() {
                     <td className="whitespace-nowrap px-3 py-1.5 align-middle font-mono text-xs">{short(u.email || "—", 48)}</td>
                     <td className="whitespace-nowrap px-3 py-1.5 align-middle text-xs">{short(display || "—", 40)}</td>
                     <td className="whitespace-nowrap px-3 py-1.5 align-middle text-xs">
-                      {renderStatusCell(u, nowSeconds)}
+                      {renderStatusCell(u)}
                     </td>
                     <td className="whitespace-nowrap px-3 py-1.5 align-middle text-xs text-muted-foreground">
                       {u.status === "trialing" && typeof u.trialExpiresAt === "number" && u.trialExpiresAt > 0

@@ -73,14 +73,6 @@ type Config struct {
 	// When unset, falls back to AppBaseURL+"/?checkout=base_plan" (the lander pricing CTA).
 	// Env: TRIAL_EXPIRY_CHECKOUT_URL.
 	TrialExpiryCheckoutURL string
-	// RossAdminURL points at the cluster-internal Service in front of the
-	// claude-code-ross pod's admin HTTP surface (default port 8092). When
-	// paired with RossAdminToken it powers the /admin bulk-reseed flow
-	// (BimRoss/makeacompany-ai#287). Empty disables the surface.
-	RossAdminURL string
-	// RossAdminToken is the shared bearer token required by the ross pod's
-	// /admin/* endpoints. Must match ROSS_ADMIN_TOKEN on the ross side.
-	RossAdminToken string
 	// ShopifyPartnerClientID / ShopifyPartnerClientSecret are the OAuth
 	// credentials for the MakeaCompany Shopify Partner app, used to drive
 	// per-user `Connect Shopify` (makeacompany-ai#352 Layer 1). The same
@@ -139,8 +131,6 @@ func LoadConfig() Config {
 		FreeTierGateEnabled:                 envBool("STRIPE_FREE_TIER_GATE_ENABLED", false),
 		WorkspaceTenantConfig:               strings.TrimSpace(os.Getenv("WORKSPACE_TENANT_CONFIG")),
 		TrialExpiryCheckoutURL:              strings.TrimSpace(os.Getenv("TRIAL_EXPIRY_CHECKOUT_URL")),
-		RossAdminURL:                        strings.TrimSpace(os.Getenv("ROSS_ADMIN_URL")),
-		RossAdminToken:                      strings.TrimSpace(os.Getenv("ROSS_ADMIN_TOKEN")),
 		ShopifyPartnerClientID:              strings.TrimSpace(os.Getenv("SHOPIFY_PARTNER_CLIENT_ID")),
 		ShopifyPartnerClientSecret:          strings.TrimSpace(os.Getenv("SHOPIFY_PARTNER_CLIENT_SECRET")),
 		ShopifyConnectionNamespace:          strings.TrimSpace(os.Getenv("SHOPIFY_CONNECTION_NAMESPACE")),
