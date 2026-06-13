@@ -66,12 +66,24 @@ const REQ = "makeacompany_http_requests_total";
 const DUR = "makeacompany_http_request_duration_seconds_bucket";
 const REFRESH = "makeacompany_slack_refresh_runs_total";
 const UPSTREAM = "makeacompany_slack_refresh_upstream_http_status_total";
+const UPSTREAM_ALL = "makeacompany_slack_upstream_http_status_total";
 const REAPER_SCANNED = "makeacompany_trial_expiry_reaper_scanned_total";
 const REAPER_ENQUEUED = "makeacompany_trial_expiry_reaper_enqueued_total";
 const CRONJOB = "makeacompany_cronjob_duration_seconds_count";
 
 const statusTone = (cls: string): ChartTone =>
   cls.startsWith("2") ? "pos" : cls.startsWith("5") ? "neg" : cls.startsWith("4") ? "accent" : "muted";
+
+// 429 surfaces separately from generic 4xx since rate-limits are the actionable signal.
+const statusCodeTone = (code: string): ChartTone => {
+  if (code === "429") return "neg";
+  if (code.startsWith("5")) return "ink";
+  if (code.startsWith("4")) return "accent";
+  if (code.startsWith("2")) return "pos";
+  return "muted";
+};
+
+const SOURCE_PALETTE: ChartTone[] = ["neg", "accent", "ink", "muted", "pos"];
 
 const resultTone = (r: string): ChartTone => (r === "success" ? "pos" : "neg");
 
@@ -164,11 +176,58 @@ export const JOBS_PANELS: PanelDef[] = [
   {
     id: "upstream-429",
     title: "Slack upstream 429s",
-    subtitle: "Rate-limit responses per minute",
+    subtitle: "Rate-limit responses per minute (refresh path)",
     queries: [`sum(rate(${UPSTREAM}{status_code="429"}[5m])) * 60`],
     toSeries: single(`sum(rate(${UPSTREAM}{status_code="429"}[5m])) * 60`, "429/min", "neg"),
     format: formatPerMin,
     area: true,
+    zeroBaseline: true,
+    forceFrom: "now-24h",
+    hideWhenEmpty: true,
+  },
+  {
+    id: "slack-upstream-status",
+    title: "Slack API status mix",
+    subtitle: "All upstream Slack calls /min, split by status",
+    queries: [`sum by (status_code) (rate(${UPSTREAM_ALL}[5m])) * 60`],
+    toSeries: splitByLabel(
+      `sum by (status_code) (rate(${UPSTREAM_ALL}[5m])) * 60`,
+      "status_code",
+      statusCodeTone
+    ),
+    format: formatPerMin,
+    area: true,
+    zeroBaseline: true,
+    forceFrom: "now-24h",
+    hideWhenEmpty: true,
+    span: 2,
+  },
+  {
+    id: "slack-upstream-429-by-source",
+    title: "Slack 429s by call-site",
+    subtitle: "Which upstream operation is getting throttled",
+    queries: [
+      `sum by (source) (rate(${UPSTREAM_ALL}{status_code="429"}[5m])) * 60`,
+    ],
+    toSeries: (raw) =>
+      raw
+        .filter(
+          (s) =>
+            s.query === `sum by (source) (rate(${UPSTREAM_ALL}{status_code="429"}[5m])) * 60` &&
+            s.labels.source
+        )
+        .sort((a, b) => {
+          const lastA = a.points.at(-1)?.[1] ?? 0;
+          const lastB = b.points.at(-1)?.[1] ?? 0;
+          return lastB - lastA;
+        })
+        .map((s, i) => ({
+          key: `source-${s.labels.source}`,
+          label: s.labels.source,
+          tone: SOURCE_PALETTE[i % SOURCE_PALETTE.length],
+          points: s.points,
+        })),
+    format: formatPerMin,
     zeroBaseline: true,
     forceFrom: "now-24h",
     hideWhenEmpty: true,
