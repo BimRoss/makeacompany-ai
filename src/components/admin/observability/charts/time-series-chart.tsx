@@ -82,7 +82,7 @@ export function TimeSeriesChart({
   const withData = series.filter((s) => s.points.length > 0);
   const hasData = withData.length > 0;
 
-  const { x, y, allTimes } = useMemo(() => {
+  const { x, y, allTimes, spanSeconds } = useMemo(() => {
     const times: number[] = [];
     let lo = Infinity;
     let hi = -Infinity;
@@ -113,7 +113,7 @@ export function TimeSeriesChart({
       .nice(4)
       .range([innerH, 0]);
     const uniqTimes = Array.from(new Set(times)).sort((a, b) => a - b);
-    return { x: xs, y: ys, allTimes: uniqTimes };
+    return { x: xs, y: ys, allTimes: uniqTimes, spanSeconds: Math.max(0, hi - lo) };
   }, [withData, innerW, innerH, zeroBaseline]);
 
   const lineGen = useMemo(
@@ -137,6 +137,9 @@ export function TimeSeriesChart({
 
   const yTicks = y.ticks(4);
   const xTicks = x.ticks(Math.max(2, Math.min(6, Math.floor(innerW / 90))));
+
+  const formatAxisTick = useMemo(() => makeAxisTickFormatter(spanSeconds), [spanSeconds]);
+  const formatHoverTime = useMemo(() => makeHoverTimeFormatter(spanSeconds), [spanSeconds]);
 
   const hoverTime =
     hoverX !== null && allTimes.length > 0
@@ -193,7 +196,7 @@ export function TimeSeriesChart({
                 className="fill-[var(--chart-muted)] tabular-nums"
                 style={{ fontSize: 10 }}
               >
-                {t.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                {formatAxisTick(t)}
               </text>
             ))}
 
@@ -262,6 +265,7 @@ export function TimeSeriesChart({
           time={hoverTime}
           series={withData}
           format={format}
+          formatTime={formatHoverTime}
           xPx={margin.left + x(new Date(hoverTime * 1000))}
           width={width}
         />
@@ -283,12 +287,14 @@ function HoverCard({
   time,
   series,
   format,
+  formatTime,
   xPx,
   width,
 }: {
   time: number;
   series: ChartSeries[];
   format: (n: number) => string;
+  formatTime: (d: Date) => string;
   xPx: number;
   width: number;
 }) {
@@ -299,7 +305,7 @@ function HoverCard({
       style={flip ? { right: Math.max(4, width - xPx + 8) } : { left: Math.min(width - 120, xPx + 8) }}
     >
       <div className="mb-1 font-medium tabular-nums text-muted-foreground">
-        {new Date(time * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+        {formatTime(new Date(time * 1000))}
       </div>
       <div className="space-y-0.5">
         {series.map((s) => {
@@ -322,6 +328,39 @@ function HoverCard({
       </div>
     </div>
   );
+}
+
+const HOUR = 3600;
+const DAY = 24 * HOUR;
+
+/**
+ * Pick a tick label format based on the visible time span.
+ * Past ~36h, d3's tick generator lands on daily midnights, so showing only
+ * HH:mm makes every label read "12:00 AM"; switch to "MMM d" instead.
+ */
+function makeAxisTickFormatter(spanSeconds: number): (d: Date) => string {
+  if (spanSeconds > 36 * HOUR) {
+    const fmt = new Intl.DateTimeFormat([], { month: "short", day: "numeric" });
+    return (d) => fmt.format(d);
+  }
+  return (d) => d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
+/**
+ * For ranges wider than 24h, the hover tooltip needs the date too — otherwise
+ * "12:00 AM" across multiple days is ambiguous.
+ */
+function makeHoverTimeFormatter(spanSeconds: number): (d: Date) => string {
+  if (spanSeconds > DAY) {
+    const fmt = new Intl.DateTimeFormat([], {
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    return (d) => fmt.format(d);
+  }
+  return (d) => d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
 export { max as d3Max, min as d3Min };

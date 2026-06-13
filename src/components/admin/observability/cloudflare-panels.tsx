@@ -6,6 +6,7 @@ import { kickToLoginForUnauthorizedApi } from "@/lib/client-auth-unauthorized-re
 
 import { TimeSeriesChart, type ChartSeries, type ChartTone } from "./charts/time-series-chart";
 import { formatPercent, formatPerMin } from "./charts/format";
+import { TIME_RANGE_OPTIONS, useTimeRange } from "./time-range";
 
 type Point = [number, number];
 
@@ -45,16 +46,25 @@ const TONE_VAR: Record<ChartTone, string> = {
   neg: "var(--chart-neg)",
 };
 
-export function useCloudflareSummary() {
+/**
+ * Fetches the Cloudflare summary for `from` (default "now-24h"). The KPI scorecard
+ * and the section gate keep the 24h default because their labels say "24h"; the
+ * CloudflarePanels component below passes the live toggled range.
+ */
+export function useCloudflareSummary(from: string = "now-24h") {
   const [payload, setPayload] = useState<CloudflarePayload | null>(null);
   const [errored, setErrored] = useState<string | null>(null);
   const cancelledRef = useRef(false);
 
   useEffect(() => {
     cancelledRef.current = false;
+    setPayload(null);
+    setErrored(null);
     const load = async () => {
       try {
-        const response = await fetch("/api/admin/cloudflare/summary", { cache: "no-store" });
+        const url = new URL("/api/admin/cloudflare/summary", window.location.origin);
+        url.searchParams.set("from", from);
+        const response = await fetch(url.toString(), { cache: "no-store" });
         if (kickToLoginForUnauthorizedApi(response.status, "admin")) return;
         if (cancelledRef.current) return;
         const body = (await response.json()) as CloudflarePayload;
@@ -76,7 +86,7 @@ export function useCloudflareSummary() {
       cancelledRef.current = true;
       window.clearInterval(id);
     };
-  }, []);
+  }, [from]);
 
   return { payload, loading: payload === null && errored === null, errored };
 }
@@ -218,7 +228,10 @@ function TablePanel({
 }
 
 export function CloudflarePanels() {
-  const { payload, loading, errored } = useCloudflareSummary();
+  const { from, range } = useTimeRange();
+  const { payload, loading, errored } = useCloudflareSummary(from);
+  const rangeLabel = TIME_RANGE_OPTIONS.find((o) => o.key === range)?.label ?? range;
+  const bucketLabel = from === "now-1h" || from === "now-6h" ? "1m buckets" : "1h buckets";
 
   if (errored && !loading) {
     return (
@@ -265,7 +278,7 @@ export function CloudflarePanels() {
     <div className={PANEL_GRID}>
       <PanelShell
         title="Edge requests"
-        subtitle="Cloudflare requests per minute (1h buckets)"
+        subtitle={`Cloudflare requests per minute (${bucketLabel})`}
         span={2}
         series={requestsSeries}
         format={formatPerMin}
@@ -325,7 +338,7 @@ export function CloudflarePanels() {
         }));
         return (
           <TablePanel
-            title="Top countries · 24h"
+            title={`Top countries · ${rangeLabel}`}
             subtitle="Edge request share by client country"
             rows={countryRows}
             empty="No country data in range"
@@ -339,7 +352,7 @@ export function CloudflarePanels() {
         }));
         return (
           <TablePanel
-            title="Firewall events · 24h"
+            title={`Firewall events · ${rangeLabel}`}
             subtitle="Actions taken by Cloudflare firewall rules"
             rows={fwRows}
             empty="No firewall events in range"

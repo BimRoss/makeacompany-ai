@@ -20,8 +20,6 @@ export type PanelDef = {
   format: (n: number) => string;
   area?: boolean;
   zeroBaseline?: boolean;
-  /** Override the page time range for this panel (e.g. cron cadence wants 24h). */
-  forceFrom?: string;
   /** Visual span on the iPad grid: 1 (third) or 2 (two-thirds). */
   span?: 1 | 2;
   /** Hide the panel entirely when the query returns no points. */
@@ -180,7 +178,6 @@ export const JOBS_PANELS: PanelDef[] = [
     ),
     format: formatPercent,
     zeroBaseline: true,
-    forceFrom: "now-24h",
   },
   {
     id: "upstream-429",
@@ -191,7 +188,6 @@ export const JOBS_PANELS: PanelDef[] = [
     format: formatPerMin,
     area: true,
     zeroBaseline: true,
-    forceFrom: "now-24h",
     hideWhenEmpty: true,
   },
   {
@@ -207,7 +203,6 @@ export const JOBS_PANELS: PanelDef[] = [
     format: formatPerMin,
     area: true,
     zeroBaseline: true,
-    forceFrom: "now-24h",
     hideWhenEmpty: true,
     span: 2,
   },
@@ -238,7 +233,6 @@ export const JOBS_PANELS: PanelDef[] = [
         })),
     format: formatPerMin,
     zeroBaseline: true,
-    forceFrom: "now-24h",
     hideWhenEmpty: true,
   },
   {
@@ -254,7 +248,6 @@ export const JOBS_PANELS: PanelDef[] = [
       "accent"
     ),
     format: formatDuration,
-    forceFrom: "now-24h",
   },
   {
     id: "trial-expiry-reaper-runs",
@@ -267,7 +260,6 @@ export const JOBS_PANELS: PanelDef[] = [
       resultTone
     ),
     format: formatCompact,
-    forceFrom: "now-24h",
   },
   {
     id: "trial-expiry-reaper-flow",
@@ -282,7 +274,6 @@ export const JOBS_PANELS: PanelDef[] = [
       { query: `increase(${REAPER_ENQUEUED}[1h])`, label: "enqueued", tone: "accent" },
     ]),
     format: formatCompact,
-    forceFrom: "now-24h",
     hideWhenEmpty: true,
   },
 ];
@@ -350,7 +341,6 @@ export const CLUSTER_PANELS: PanelDef[] = [
     queries: [POD_TOTAL_QUERY, POD_BY_NAMESPACE_QUERY],
     toSeries: podsRunningSeries,
     format: formatCompact,
-    forceFrom: "now-24h",
     span: 2,
   },
   {
@@ -360,7 +350,6 @@ export const CLUSTER_PANELS: PanelDef[] = [
     queries: [CPU_TOP_PODS_QUERY],
     toSeries: topPodsSeries(CPU_TOP_PODS_QUERY),
     format: formatCores,
-    forceFrom: "now-24h",
     hideWhenEmpty: true,
   },
   {
@@ -370,7 +359,6 @@ export const CLUSTER_PANELS: PanelDef[] = [
     queries: [MEM_TOP_PODS_QUERY],
     toSeries: topPodsSeries(MEM_TOP_PODS_QUERY),
     format: formatBytes,
-    forceFrom: "now-24h",
     hideWhenEmpty: true,
   },
 ];

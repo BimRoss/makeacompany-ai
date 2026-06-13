@@ -91,8 +91,8 @@ function ObservabilityBody() {
   const showCloudflare = !cloudflare.errored && (cloudflare.loading || cloudflareHasData);
 
   const adminDeep = adminDashboardUrl ? appendRange(adminDashboardUrl, from) : null;
-  const cronDeep = cronjobDashboardUrl ? appendRange(cronjobDashboardUrl, "now-24h") : null;
-  const clusterDeep = clusterDashboardUrl ? appendRange(clusterDashboardUrl, "now-24h") : null;
+  const cronDeep = cronjobDashboardUrl ? appendRange(cronjobDashboardUrl, from) : null;
+  const clusterDeep = clusterDashboardUrl ? appendRange(clusterDashboardUrl, from) : null;
 
   return (
     <div className="space-y-4">
@@ -160,7 +160,7 @@ function ObservabilityBody() {
       <ObservabilitySection
         id="background-jobs"
         title="Background jobs"
-        description="Snapshot scrapers and K8s CronJob cadence. Fixed to 24h to capture full schedules."
+        description="Snapshot scrapers and K8s CronJob cadence."
         endSlot={
           <div className="flex items-center gap-2">
             <AnomalyBadge component="jobs" />
@@ -179,7 +179,7 @@ function ObservabilityBody() {
         <ObservabilitySection
           id="edge"
           title="Edge (Cloudflare)"
-          description="Cloudflare zone analytics for makeacompany.ai. Hourly buckets over the last 24h."
+          description="Cloudflare zone analytics for makeacompany.ai."
         >
           <CloudflarePanels />
         </ObservabilitySection>
