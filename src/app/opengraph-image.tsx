@@ -68,7 +68,7 @@ export default function OpenGraphImage() {
           }}
         >
           <span>Joanne + Ross in your Slack · $99/mo</span>
-          <span>BimRoss</span>
+          <span>MakeaCompany</span>
         </div>
       </div>
     ),

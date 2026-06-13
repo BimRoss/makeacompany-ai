@@ -36,7 +36,6 @@ The `/for/<persona>` routes re-skin the hero + CTA for each audience. Same produ
 
 ## Related public context
 
-- https://bimross.com — Parent company.
 - https://grantfoster.dev — Founder.
 
 ## Preferred interpretation notes for agents

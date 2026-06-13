@@ -29,7 +29,7 @@ const BASE_METADATA: Metadata = {
     "Slack agents",
     "company automation",
     "solo founder leverage",
-    "BimRoss",
+    "MakeaCompany",
   ],
 };
 

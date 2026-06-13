@@ -47,7 +47,7 @@ export function MobileHeroCardStack({
         >
           <Image
             src="/hero-mobile-chat.png"
-            alt="BimRoss AI employees in Slack #general"
+            alt="MakeaCompany AI employees in Slack #general"
             fill
             sizes={imageSizes}
             className={styles.cardImage}
@@ -92,7 +92,7 @@ export function MobileHeroCardStack({
         >
           <Image
             src="/hero-mobile-home.png"
-            alt="BimRoss Slack home screen"
+            alt="MakeaCompany Slack home screen"
             fill
             sizes={imageSizes}
             className={styles.cardImage}

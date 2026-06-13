@@ -37,14 +37,7 @@ export function CtaSection() {
             </div>
             <EmailCaptureForm submitLabel={copy.ctaButtonLabel} />
             <p className="mt-6 text-pretty text-sm text-muted-foreground">
-              This site, the Slack bot, the onboarding — all built inside the product. Built by{" "}
-              <a
-                href="https://bimross.com"
-                className="font-medium text-foreground underline-offset-4 hover:underline"
-              >
-                BimRoss
-              </a>
-              .
+              This site, the Slack bot, the onboarding, all built inside the product.
             </p>
           </div>
         </div>

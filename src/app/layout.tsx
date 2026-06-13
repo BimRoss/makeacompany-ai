@@ -90,12 +90,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     "@graph": [
       {
         "@type": "Organization",
-        name: "BimRoss",
-        url: "https://bimross.com",
-      },
-      {
-        "@type": "Organization",
-        name: "makeacompany.ai",
+        name: "MakeaCompany",
         url: siteUrl,
         logo: `${siteUrl}/logo.png`,
       },
@@ -106,8 +101,8 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         description: siteDescription,
         publisher: {
           "@type": "Organization",
-          name: "BimRoss",
-          url: "https://bimross.com",
+          name: "MakeaCompany",
+          url: siteUrl,
         },
       },
       {
@@ -131,8 +126,8 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         },
         publisher: {
           "@type": "Organization",
-          name: "BimRoss",
-          url: "https://bimross.com",
+          name: "MakeaCompany",
+          url: siteUrl,
         },
       },
     ],

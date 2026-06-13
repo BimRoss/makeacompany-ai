@@ -15,7 +15,6 @@ Use this file as the primary entry point for agent-friendly discovery. The homep
 
 ## Organization context
 
-- [BimRoss](https://bimross.com): Parent company.
 - [Founder](https://grantfoster.dev): Founder profile and related public context.
 
 ## Machine-discovery surfaces
