@@ -89,21 +89,28 @@ const resultTone = (r: string): ChartTone => (r === "success" ? "pos" : "neg");
 
 export const WEB_PANELS: PanelDef[] = [
   {
-    id: "request-rate",
-    title: "Request throughput",
-    subtitle: "Backend requests per minute",
-    queries: [`sum(rate(${REQ}[5m])) * 60`],
-    toSeries: single(`sum(rate(${REQ}[5m])) * 60`, "requests/min", "accent"),
+    id: "request-traffic",
+    title: "Request traffic",
+    subtitle: "Total /min, split by status class",
+    queries: [
+      `sum(rate(${REQ}[5m])) * 60`,
+      `sum by (status_class) (rate(${REQ}[5m])) * 60`,
+    ],
+    toSeries: (raw) => {
+      const totalQ = `sum(rate(${REQ}[5m])) * 60`;
+      const splitQ = `sum by (status_class) (rate(${REQ}[5m])) * 60`;
+      const total: ChartSeries = {
+        key: "total",
+        label: "total",
+        tone: "ink",
+        points: pointsFor(raw, totalQ),
+      };
+      const split = splitByLabel(splitQ, "status_class", statusTone)(raw);
+      return [total, ...split];
+    },
     format: formatPerMin,
     area: true,
-  },
-  {
-    id: "status-class",
-    title: "Requests by status",
-    subtitle: "Split by response class /min",
-    queries: [`sum by (status_class) (rate(${REQ}[5m])) * 60`],
-    toSeries: splitByLabel(`sum by (status_class) (rate(${REQ}[5m])) * 60`, "status_class", statusTone),
-    format: formatPerMin,
+    span: 2,
   },
   {
     id: "latency-percentiles",
@@ -146,6 +153,9 @@ export const WEB_PANELS: PanelDef[] = [
     toSeries: single(`go_goroutines{job="makeacompany-backend"}`, "goroutines", "ink"),
     format: formatCompact,
   },
+];
+
+export const JOBS_PANELS: PanelDef[] = [
   {
     id: "snapshot-refresh",
     title: "Snapshot refreshes",
@@ -154,9 +164,6 @@ export const WEB_PANELS: PanelDef[] = [
     toSeries: splitByLabel(`sum by (result) (rate(${REFRESH}[5m])) * 60`, "result", resultTone),
     format: formatPerMin,
   },
-];
-
-export const JOBS_PANELS: PanelDef[] = [
   {
     id: "snapshot-success-rate",
     title: "Snapshot success rate",
