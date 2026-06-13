@@ -40,9 +40,17 @@ type Payload = {
   checked_at: string;
 };
 
+// Go marshals zero-valued time.Time as "0001-01-01T00:00:00Z". omitempty
+// doesn't catch it (time.Time isn't a recognized "empty" by encoding/json),
+// so the backend leaks it. Guard here until we change the wire type to a
+// pointer in oauth_pool_stats.go.
+function isZeroTime(iso?: string): boolean {
+  return !iso || iso.startsWith("0001-01-01");
+}
+
 function relativeTime(iso?: string): string {
-  if (!iso) return "—";
-  const then = new Date(iso).getTime();
+  if (isZeroTime(iso)) return "—";
+  const then = new Date(iso as string).getTime();
   if (Number.isNaN(then)) return "—";
   const diffSec = Math.round((Date.now() - then) / 1000);
   if (diffSec < 0) return "just now";
@@ -53,8 +61,8 @@ function relativeTime(iso?: string): string {
 }
 
 function isRecent(iso: string | undefined, withinSec: number): boolean {
-  if (!iso) return false;
-  const then = new Date(iso).getTime();
+  if (isZeroTime(iso)) return false;
+  const then = new Date(iso as string).getTime();
   if (Number.isNaN(then)) return false;
   return (Date.now() - then) / 1000 < withinSec;
 }
@@ -194,7 +202,7 @@ function AgentCard({ agent }: { agent: AgentResult }) {
                       {slot.rate_limit_errs_total}
                     </td>
                     <td className="px-3 py-1.5 text-muted-foreground">
-                      {slot.last_rate_limit_err_at ? (
+                      {!isZeroTime(slot.last_rate_limit_err_at) ? (
                         <span title={slot.last_rate_limit_err_excerpt ?? ""}>
                           {relativeTime(slot.last_rate_limit_err_at)}
                         </span>
