@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense } from "react";
+import { Suspense, useEffect } from "react";
 import { AlertTriangle, ArrowUpRight } from "lucide-react";
 
 import { AdminAgentKillSwitchCompact } from "../admin-agent-kill-switch";
@@ -34,6 +34,23 @@ function DashboardLink({ href, label }: { href: string | null; label: string }) 
   );
 }
 
+/**
+ * Prefix the browser tab title with `(N)` when alerts are firing, so
+ * the page draws attention from background tabs. Strips its own prefix
+ * on cleanup so the title doesn't carry stale counts.
+ */
+function useAlertCountInTitle() {
+  const { firing } = useAlerts();
+  const count = firing.length;
+  useEffect(() => {
+    const base = document.title.replace(/^\(\d+\)\s*/, "");
+    document.title = count > 0 ? `(${count}) ${base}` : base;
+    return () => {
+      document.title = document.title.replace(/^\(\d+\)\s*/, "");
+    };
+  }, [count]);
+}
+
 function AnomalyBadge({ component }: { component: string }) {
   const { firingByComponent } = useAlerts();
   const count = firingByComponent[component]?.length ?? 0;
@@ -53,6 +70,7 @@ const PANEL_GRID = "grid gap-3 grid-cols-[repeat(auto-fit,minmax(320px,1fr))]";
 const WEB_PANEL_GRID = PANEL_GRID;
 
 function ObservabilityBody() {
+  useAlertCountInTitle();
   const { loading, lastUpdatedAt, adminDashboardUrl, cronjobDashboardUrl, clusterDashboardUrl } =
     useObservabilityData();
   const { from } = useTimeRange();

@@ -235,6 +235,17 @@ export function KpiScorecard() {
         ],
       },
       {
+        id: "errors",
+        label: "Errors /min (5m)",
+        query: POOL.errorsPerMin,
+        format: (v) => (v < 10 ? v.toFixed(1) : v.toFixed(0)),
+        thresholds: [
+          { value: 0, color: "green" },
+          { value: 1, color: "amber" },
+          { value: 5, color: "red" },
+        ],
+      },
+      {
         id: "cron",
         label: "Oldest cron schedule",
         query: POOL.cronStaleness,
