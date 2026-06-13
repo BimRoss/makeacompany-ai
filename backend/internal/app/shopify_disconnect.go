@@ -7,18 +7,20 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"makeacompany-ai/backend/internal/upstream"
 )
 
 // handleShopifyDisconnect — the portal user revokes their Shopify
 // connection. Symmetric to handlePortalWorkspaceDisconnectFinish:
-//   1. validate portal session for the channel,
-//   2. resolve email → slack_user_id,
-//   3. delete the K8s Secret (returns the prior shop + access_token),
-//   4. best-effort DELETE /admin/api/<v>/api_permissions/current.json
-//      against the shop using that access_token,
-//   5. always 200 even if Shopify-side revocation fails — the user wants
-//      it gone on our side regardless; a stale Shopify-side token
-//      cleans up the moment Shopify rotates it.
+//  1. validate portal session for the channel,
+//  2. resolve email → slack_user_id,
+//  3. delete the K8s Secret (returns the prior shop + access_token),
+//  4. best-effort DELETE /admin/api/<v>/api_permissions/current.json
+//     against the shop using that access_token,
+//  5. always 200 even if Shopify-side revocation fails — the user wants
+//     it gone on our side regardless; a stale Shopify-side token
+//     cleans up the moment Shopify rotates it.
 //
 // POST /v1/integrations/shopify/disconnect
 // Body: { channelId }
@@ -102,7 +104,7 @@ func (s *Server) revokeShopifyAccess(ctx context.Context, shop, accessToken stri
 	if err != nil {
 		return err
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, endpoint, nil)
+	req, err := http.NewRequestWithContext(upstream.WithOperation(ctx, "oauth.revoke"), http.MethodDelete, endpoint, nil)
 	if err != nil {
 		return fmt.Errorf("build request: %w", err)
 	}

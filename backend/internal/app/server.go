@@ -18,6 +18,8 @@ import (
 	"github.com/stripe/stripe-go/v82"
 	checkoutsession "github.com/stripe/stripe-go/v82/checkout/session"
 	stripewebhook "github.com/stripe/stripe-go/v82/webhook"
+
+	"makeacompany-ai/backend/internal/upstream"
 )
 
 var (
@@ -109,14 +111,14 @@ func errStringOrNil(err error) any {
 }
 
 type Server struct {
-	cfg                   Config
-	log                   *log.Logger
-	store                 *Store
-	mux                   *http.ServeMux
-	cors                  string
-	health                *healthChecker
+	cfg                    Config
+	log                    *log.Logger
+	store                  *Store
+	mux                    *http.ServeMux
+	cors                   string
+	health                 *healthChecker
 	freeTrialInviteLimiter *ipRateLimiter
-	workspace             *WorkspaceWriter
+	workspace              *WorkspaceWriter
 	// shopify owns per-user Shopify OAuth connections as K8s Secrets in
 	// the makeacompany-ai namespace (makeacompany-ai#352 Layer 1). nil-safe
 	// Disabled() for local dev / when the Partner app creds aren't wired.
@@ -134,6 +136,16 @@ type Server struct {
 
 func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 	stripe.Key = cfg.StripeSecretKey
+	// Route Stripe SDK calls through the upstream RoundTripper so 429s, latency,
+	// and error mix appear in makeacompany_upstream_http_status_total /
+	// _duration_seconds alongside Slack and Shopify.
+	stripeHTTPClient := upstream.WrapClient("stripe", &http.Client{Timeout: 30 * time.Second})
+	stripe.SetBackend(stripe.APIBackend, stripe.GetBackendWithConfig(stripe.APIBackend, &stripe.BackendConfig{
+		HTTPClient: stripeHTTPClient,
+	}))
+	stripe.SetBackend(stripe.UploadsBackend, stripe.GetBackendWithConfig(stripe.UploadsBackend, &stripe.BackendConfig{
+		HTTPClient: stripeHTTPClient,
+	}))
 	workspaceWriter, werr := NewWorkspaceWriter(cfg.WorkspaceTenantConfig)
 	if werr != nil {
 		// Bad tenant config JSON is a config error — fail loud, don't 503 silently in prod.
@@ -164,10 +176,10 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 		logger.Printf("cluster-health disabled (no in-cluster config)")
 	}
 	s := &Server{
-		cfg:    cfg,
-		log:    logger,
-		store:  store,
-		mux:    http.NewServeMux(),
+		cfg:                    cfg,
+		log:                    logger,
+		store:                  store,
+		mux:                    http.NewServeMux(),
 		cors:                   cfg.AppBaseURL,
 		health:                 newHealthChecker(store.rdb, os.Getenv("COOKIE_HEALTH_TOKEN")),
 		freeTrialInviteLimiter: newIPRateLimiter(5, 30),
@@ -454,6 +466,7 @@ func (s *Server) handleCheckout(w http.ResponseWriter, r *http.Request) {
 		metadata["ref"] = ref
 	}
 	params := &stripe.CheckoutSessionParams{
+		Params:     stripe.Params{Context: upstream.WithOperation(r.Context(), "checkout.session.create")},
 		Mode:       stripe.String(string(stripe.CheckoutSessionModeSubscription)),
 		SuccessURL: stripe.String(successURL),
 		CancelURL:  stripe.String(cancelURL),
@@ -578,7 +591,6 @@ func (s *Server) handleAdminUserProfiles(w http.ResponseWriter, r *http.Request)
 		"limit":         maxUserProfileList,
 	})
 }
-
 
 func (s *Server) handleCheckoutStatus(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {

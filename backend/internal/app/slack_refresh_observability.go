@@ -7,9 +7,13 @@ import (
 	"strings"
 )
 
-// observeSlackUpstreamStatus records a Slack upstream HTTP status against the shared
-// slack_upstream_http_status_total counter. Call this at every Slack API call site so
-// 429s (and other non-2xx) are visible regardless of which handler initiated the call.
+// observeSlackUpstreamStatus records a Slack upstream HTTP status against the
+// legacy slack_upstream_http_status_total counter.
+//
+// The shared upstream RoundTripper now records the same statuses against
+// makeacompany_upstream_http_status_total{provider="slack", ...}. We dual-emit
+// for ~2 weeks for dashboard continuity, then drop this and the legacy gauge
+// in a follow-up.
 func observeSlackUpstreamStatus(source string, statusCode int) {
 	slackUpstreamHTTPStatusTotal.WithLabelValues(strings.TrimSpace(source), strconv.Itoa(statusCode)).Inc()
 }

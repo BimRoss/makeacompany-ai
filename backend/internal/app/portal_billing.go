@@ -6,6 +6,8 @@ import (
 
 	"github.com/stripe/stripe-go/v82"
 	"github.com/stripe/stripe-go/v82/subscription"
+
+	"makeacompany-ai/backend/internal/upstream"
 )
 
 func portalBillingManageableStatus(status string) bool {
@@ -93,6 +95,7 @@ func (s *Server) handlePortalBillingCancelSubscription(w http.ResponseWriter, r 
 		return
 	}
 	updated, err := subscription.Update(subID, &stripe.SubscriptionParams{
+		Params:            stripe.Params{Context: upstream.WithOperation(r.Context(), "subscription.update")},
 		CancelAtPeriodEnd: stripe.Bool(true),
 	})
 	if err != nil {

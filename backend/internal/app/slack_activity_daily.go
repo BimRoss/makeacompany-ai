@@ -12,6 +12,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"makeacompany-ai/backend/internal/upstream"
 )
 
 // SlackChannelDayCounts captures per-user message counts in one channel for one UTC day.
@@ -53,14 +55,14 @@ type slackConversationsListResponse struct {
 	OK       bool   `json:"ok"`
 	Error    string `json:"error"`
 	Channels []struct {
-		ID        string `json:"id"`
-		Name      string `json:"name"`
-		IsPrivate bool   `json:"is_private"`
-		IsIM      bool   `json:"is_im"`
-		IsMPIM    bool   `json:"is_mpim"`
-		IsMember  bool   `json:"is_member"`
-		IsArchived bool  `json:"is_archived"`
-		User      string `json:"user"` // counterparty for IMs
+		ID         string `json:"id"`
+		Name       string `json:"name"`
+		IsPrivate  bool   `json:"is_private"`
+		IsIM       bool   `json:"is_im"`
+		IsMPIM     bool   `json:"is_mpim"`
+		IsMember   bool   `json:"is_member"`
+		IsArchived bool   `json:"is_archived"`
+		User       string `json:"user"` // counterparty for IMs
 	} `json:"channels"`
 	ResponseMetadata struct {
 		NextCursor string `json:"next_cursor"`
@@ -104,7 +106,7 @@ func FetchSlackActivityDay(ctx context.Context, botToken, day string) (SlackActi
 	oldest := dayStart.Unix()
 	latest := dayStart.Add(24 * time.Hour).Unix()
 
-	client := &http.Client{Timeout: slackActivityHTTPTimeout}
+	client := upstream.WrapClient("slack", &http.Client{Timeout: slackActivityHTTPTimeout})
 	channels, err := fetchSlackBotConversations(ctx, client, botToken)
 	if err != nil {
 		return SlackActivityDay{}, err
@@ -171,7 +173,7 @@ func fetchSlackBotConversations(ctx context.Context, client *http.Client, botTok
 		if cursor != "" {
 			form.Set("cursor", cursor)
 		}
-		req, err := http.NewRequestWithContext(ctx, http.MethodPost, slackConversationsListURL, strings.NewReader(form.Encode()))
+		req, err := http.NewRequestWithContext(upstream.WithOperation(ctx, "users.conversations"), http.MethodPost, slackConversationsListURL, strings.NewReader(form.Encode()))
 		if err != nil {
 			return nil, err
 		}
@@ -249,7 +251,7 @@ func fetchSlackChannelDayCounts(ctx context.Context, client *http.Client, botTok
 		if cursor != "" {
 			form.Set("cursor", cursor)
 		}
-		req, err := http.NewRequestWithContext(ctx, http.MethodPost, slackConversationsHistoryURL, strings.NewReader(form.Encode()))
+		req, err := http.NewRequestWithContext(upstream.WithOperation(ctx, "conversations.history"), http.MethodPost, slackConversationsHistoryURL, strings.NewReader(form.Encode()))
 		if err != nil {
 			return res, err
 		}
