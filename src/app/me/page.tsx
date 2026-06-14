@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
+import { MeCancelSubscriptionButton } from "@/components/me/me-cancel-subscription-button";
 import { resolveBackendBaseURL } from "@/lib/backend-proxy-auth";
 import { meSessionCookieName } from "@/lib/me-session-cookies";
 
@@ -19,6 +20,8 @@ type MePayload = {
   freeLifetime?: boolean;
   expiresAt?: string;
   billing?: Billing;
+  subscribeUrl?: string;
+  canCancel?: boolean;
 };
 
 export const dynamic = "force-dynamic";
@@ -148,7 +151,43 @@ function AccountCard({ me }: { me: MePayload }) {
           <Row label={cancelAtEnd ? "Ends" : "Renews"} value={formatRenewDate(periodEndUnix)} />
         ) : null}
       </dl>
+      <BillingActions me={me} />
     </section>
+  );
+}
+
+function BillingActions({ me }: { me: MePayload }) {
+  const billing = me.billing ?? {};
+  const hasManageableSubscription = Boolean(billing.hasManageableSubscription);
+  const cancelAtEnd = Boolean(billing.cancelAtPeriodEnd);
+  const canCancel = Boolean(me.canCancel);
+  const subscribeUrl = me.subscribeUrl?.trim() ?? "";
+
+  if (canCancel) {
+    return (
+      <div className="mt-5 flex justify-end">
+        <MeCancelSubscriptionButton />
+      </div>
+    );
+  }
+  if (hasManageableSubscription || cancelAtEnd) {
+    // Active sub that we can't cancel from here (e.g. already scheduled, or
+    // status outside the manageable allow-list). No action button — the pill
+    // row already tells the story.
+    return null;
+  }
+  if (!subscribeUrl) {
+    return null;
+  }
+  return (
+    <div className="mt-5 flex justify-end">
+      <a
+        href={subscribeUrl}
+        className="inline-flex h-10 items-center justify-center rounded-xl border-2 border-foreground/15 bg-background px-5 text-sm font-semibold text-foreground shadow-sm transition hover:border-foreground/25 hover:bg-muted/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground/30 dark:border-white/20 dark:bg-zinc-950 dark:hover:bg-zinc-900"
+      >
+        Subscribe — $99/mo
+      </a>
+    </div>
   );
 }
 
