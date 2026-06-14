@@ -78,6 +78,14 @@ const (
 	slackUsersListHTTPClient = 90 * time.Second
 )
 
+// slackWorkspaceUserDenylist is Slack user IDs that show up in users.list but aren't real
+// workspace members we want surfaced in admin (Slack-installed integrations + Slackbot itself).
+// Joanne/Ross/MCP bots are intentionally NOT denylisted — they're ours and we want them visible.
+var slackWorkspaceUserDenylist = map[string]struct{}{
+	"USLACKBOT":   {}, // Slack's built-in bot, reported with is_bot=false
+	"U0B5V2KCQKC": {}, // GitHub Slack app
+}
+
 // FetchSlackWorkspaceUsers calls Slack users.list with cursoring; paces requests for tier-2 limits.
 func FetchSlackWorkspaceUsers(ctx context.Context, botToken string) ([]SlackWorkspaceUser, error) {
 	botToken = strings.TrimSpace(botToken)
@@ -132,6 +140,9 @@ func FetchSlackWorkspaceUsers(ctx context.Context, botToken string) ([]SlackWork
 			return nil, errors.New("slack users.list: not ok")
 		}
 		for _, m := range parsed.Members {
+			if _, skip := slackWorkspaceUserDenylist[strings.TrimSpace(m.ID)]; skip {
+				continue
+			}
 			email := strings.TrimSpace(m.Profile.Email)
 			real := strings.TrimSpace(m.Profile.RealName)
 			disp := strings.TrimSpace(m.Profile.DisplayName)

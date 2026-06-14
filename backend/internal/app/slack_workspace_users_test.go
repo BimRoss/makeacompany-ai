@@ -23,6 +23,14 @@ func TestFirstGivenNameFromSlackWorkspaceUser(t *testing.T) {
 	}
 }
 
+func TestSlackWorkspaceUserDenylistCovers(t *testing.T) {
+	for _, id := range []string{"USLACKBOT", "U0B5V2KCQKC"} {
+		if _, ok := slackWorkspaceUserDenylist[id]; !ok {
+			t.Fatalf("denylist missing %s", id)
+		}
+	}
+}
+
 func TestParseSlackUsersSnapshotEnvelope(t *testing.T) {
 	raw := []byte(`{"fetchedAt":"2026-04-22T12:00:00Z","snapshotNote":"test","users":[{"slackUserId":"U1","teamId":"T1","username":"ada","realName":"Ada Lovelace","displayName":"","email":"ada@example.com","isBot":false,"isDeleted":false}]}`)
 	env, err := ParseSlackUsersSnapshotEnvelope(raw)
