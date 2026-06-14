@@ -6,6 +6,12 @@ import { MeGoogleSignIn } from "@/components/me/me-google-sign-in";
 import { MeLoginMessages } from "@/components/me/me-login-messages";
 import { MeLoginRedirectWhenSessionValid } from "@/components/me/me-login-redirect-when-session-valid";
 
+// Force dynamic rendering so process.env.* env-gate checks read the running
+// pod's secrets rather than the (empty) build container's env. Without this,
+// Next prerenders /me/login as static HTML at build time and the page bakes in
+// the "unconfigured" state regardless of what's set in prod.
+export const dynamic = "force-dynamic";
+
 export default function MeLoginPage() {
   const googleOAuthReady = Boolean(
     process.env.GOOGLE_OAUTH_CLIENT_ID?.trim() && process.env.GOOGLE_OAUTH_CLIENT_SECRET?.trim(),
