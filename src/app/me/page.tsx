@@ -51,49 +51,92 @@ export default async function MePage() {
   }
 
   return (
-    <div className="mx-auto flex w-full flex-col gap-6 py-10 sm:py-14">
-      <header className="space-y-2">
-        <h1 className="text-pretty text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
-          Your account
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Signed in as <span className="text-foreground">{me.email}</span>
-        </p>
-      </header>
+    <div className="mx-auto flex w-full flex-col gap-4 py-8 sm:py-10">
+      <h1 className="text-pretty text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
+        Your account
+      </h1>
 
-      <IdentityCard me={me} />
+      <AccountCard me={me} />
       <PersonalAgentsCard />
     </div>
   );
 }
 
-function IdentityCard({ me }: { me: MePayload }) {
+const PILL_TONES = {
+  neutral:
+    "border-border bg-muted/40 text-muted-foreground",
+  positive:
+    "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+  warning:
+    "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300",
+  danger:
+    "border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-300",
+} as const;
+
+type PillTone = keyof typeof PILL_TONES;
+
+function Pill({ children, tone = "neutral" }: { children: React.ReactNode; tone?: PillTone }) {
+  return (
+    <span
+      className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${PILL_TONES[tone]}`}
+    >
+      {children}
+    </span>
+  );
+}
+
+function statusTone(status: string): PillTone {
+  switch (status) {
+    case "active":
+    case "trialing":
+      return "positive";
+    case "past_due":
+    case "unpaid":
+      return "warning";
+    case "canceled":
+    case "incomplete":
+    case "incomplete_expired":
+      return "danger";
+    default:
+      return "neutral";
+  }
+}
+
+function formatRenewDate(unixSec: number): string {
+  return new Date(unixSec * 1000).toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function AccountCard({ me }: { me: MePayload }) {
   const billing = me.billing ?? {};
   const status = (billing.subscriptionStatus ?? "").trim();
   const cancelAtEnd = Boolean(billing.cancelAtPeriodEnd);
-  const periodEnd =
+  const periodEndUnix =
     typeof billing.currentPeriodEnd === "number" && billing.currentPeriodEnd > 0
-      ? new Date(billing.currentPeriodEnd * 1000)
+      ? billing.currentPeriodEnd
       : null;
+  const tier = me.tier?.trim();
 
   return (
-    <section className="rounded-2xl border border-border bg-card p-6 shadow-sm ring-1 ring-black/[0.03] dark:ring-white/[0.06] sm:p-8">
-      <h2 className="text-base font-semibold tracking-tight text-foreground">Identity</h2>
-      <dl className="mt-4 grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
+    <section className="rounded-2xl border border-border bg-card p-5 shadow-sm ring-1 ring-black/[0.03] dark:ring-white/[0.06]">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+        <h2 className="text-base font-semibold tracking-tight text-foreground">Account</h2>
+        <div className="flex flex-wrap items-center gap-1.5">
+          {status ? <Pill tone={statusTone(status)}>{status}</Pill> : null}
+          {tier ? <Pill>{tier}</Pill> : null}
+          {me.freeLifetime ? <Pill tone="positive">free lifetime</Pill> : null}
+          {cancelAtEnd ? <Pill tone="warning">cancels at period end</Pill> : null}
+        </div>
+      </div>
+      <dl className="mt-4 divide-y divide-border/60 text-sm">
         <Row label="Email" value={me.email ?? "—"} mono />
         <Row label="Slack user ID" value={me.slackUserId?.trim() || "—"} mono />
-        <Row label="Tier" value={me.tier?.trim() || "—"} />
-        <Row label="Free lifetime" value={me.freeLifetime ? "yes" : "no"} />
-      </dl>
-
-      <h2 className="mt-8 text-base font-semibold tracking-tight text-foreground">Subscription</h2>
-      <dl className="mt-4 grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
-        <Row label="Status" value={status || "—"} />
-        <Row label="Cancel at period end" value={cancelAtEnd ? "yes" : "no"} />
-        <Row
-          label="Current period end"
-          value={periodEnd ? periodEnd.toUTCString() : "—"}
-        />
+        {periodEndUnix ? (
+          <Row label={cancelAtEnd ? "Ends" : "Renews"} value={formatRenewDate(periodEndUnix)} />
+        ) : null}
       </dl>
     </section>
   );
@@ -101,23 +144,28 @@ function IdentityCard({ me }: { me: MePayload }) {
 
 function Row({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
-    <div className="flex flex-col gap-1">
-      <dt className="text-xs uppercase tracking-wide text-muted-foreground">{label}</dt>
-      <dd className={mono ? "break-all font-mono text-foreground" : "text-foreground"}>{value}</dd>
+    <div className="flex items-center justify-between gap-4 py-2.5 first:pt-0 last:pb-0">
+      <dt className="shrink-0 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        {label}
+      </dt>
+      <dd
+        className={`min-w-0 truncate text-right text-foreground ${mono ? "font-mono" : ""}`}
+        title={value}
+      >
+        {value}
+      </dd>
     </div>
   );
 }
 
 function PersonalAgentsCard() {
   return (
-    <section className="rounded-2xl border border-border bg-card p-6 shadow-sm ring-1 ring-black/[0.03] dark:ring-white/[0.06] sm:p-8">
+    <section className="rounded-2xl border border-border bg-card p-5 shadow-sm ring-1 ring-black/[0.03] dark:ring-white/[0.06]">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-base font-semibold tracking-tight text-foreground">Personal agents</h2>
-        <span className="rounded-full border border-border bg-muted/40 px-3 py-1 text-xs font-medium text-muted-foreground">
-          Coming soon
-        </span>
+        <Pill>Coming soon</Pill>
       </div>
-      <p className="mt-3 text-sm text-muted-foreground">
+      <p className="mt-2 text-sm text-muted-foreground">
         Your own agents, attached to this account. We&apos;ll surface them here as we open the gate.
       </p>
     </section>
