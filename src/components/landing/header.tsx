@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { Moon, Sun } from "lucide-react";
+import { LogIn, Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useEffect, useState, type ReactNode } from "react";
 
@@ -67,6 +67,15 @@ export function Header({ endSlot }: HeaderProps = {}) {
             <div className="hidden min-h-11 min-w-0 max-w-[min(100vw-12rem,14rem)] items-center justify-end gap-1 sm:max-w-[18rem] md:flex">
               {workspaceNavbarEndLead}
             </div>
+          ) : null}
+          {!endSlot ? (
+            <Link
+              href="/me"
+              aria-label="Sign in to your account"
+              className="relative inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-full text-foreground/70 motion-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/25 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent active:scale-[0.97]"
+            >
+              <LogIn className="h-[1.125rem] w-[1.125rem] shrink-0" aria-hidden />
+            </Link>
           ) : null}
           <button
             type="button"
