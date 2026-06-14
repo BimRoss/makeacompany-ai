@@ -8,10 +8,7 @@ function stateSecret(): string | null {
   return s.length >= 16 ? s : null;
 }
 
-export type ParsedGoogleOAuthState =
-  | { kind: "portal"; channelId: string }
-  | { kind: "admin" }
-  | { kind: "me" };
+export type ParsedGoogleOAuthState = { kind: "admin" } | { kind: "me" };
 
 function signPayload(payload: string): string | null {
   const secret = stateSecret();
@@ -22,18 +19,6 @@ function signPayload(payload: string): string | null {
   const pB = Buffer.from(payload, "utf8").toString("base64url");
   const sB = sig.toString("base64url");
   return `v1.${pB}.${sB}`;
-}
-
-/** Build signed OAuth state carrying Slack channel id (15 min TTL). */
-export function createPortalGoogleOAuthState(channelId: string): string | null {
-  const cid = channelId.trim();
-  if (!cid) {
-    return null;
-  }
-  const exp = Date.now() + 15 * 60 * 1000;
-  const n = randomBytes(16).toString("hex");
-  const payload = JSON.stringify({ kind: "portal", cid, exp, n });
-  return signPayload(payload);
 }
 
 /** Build signed OAuth state for admin dashboard sign-in (15 min TTL). */
@@ -74,9 +59,9 @@ export function parseGoogleOAuthState(state: string): ParsedGoogleOAuthState | n
   if (gotSig.length !== wantSig.length || !timingSafeEqual(gotSig, wantSig)) {
     return null;
   }
-  let parsed: { kind?: string; cid?: string; exp?: number; n?: string };
+  let parsed: { kind?: string; exp?: number; n?: string };
   try {
-    parsed = JSON.parse(payload) as { kind?: string; cid?: string; exp?: number; n?: string };
+    parsed = JSON.parse(payload) as { kind?: string; exp?: number; n?: string };
   } catch {
     return null;
   }
@@ -89,19 +74,6 @@ export function parseGoogleOAuthState(state: string): ParsedGoogleOAuthState | n
   }
   if (parsed.kind === "me") {
     return { kind: "me" };
-  }
-  const cid = typeof parsed.cid === "string" ? parsed.cid.trim() : "";
-  if (cid && (parsed.kind === "portal" || parsed.kind === undefined)) {
-    return { kind: "portal", channelId: cid };
-  }
-  return null;
-}
-
-/** @deprecated use parseGoogleOAuthState — kept for call sites that only need portal channel id */
-export function parsePortalGoogleOAuthState(state: string): { channelId: string } | null {
-  const p = parseGoogleOAuthState(state);
-  if (p?.kind === "portal") {
-    return { channelId: p.channelId };
   }
   return null;
 }

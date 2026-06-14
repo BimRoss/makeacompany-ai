@@ -1,12 +1,9 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
-import { portalSessionCookieName } from "@/lib/portal-session-cookies";
 import { resolveBackendBaseURL as resolveBackendBaseURLImpl } from "@/lib/resolve-backend-base-url";
 
 const adminSessionCookieName = "mac_admin_session";
-
-export { portalChannelCookieName, portalSessionCookieName } from "@/lib/portal-session-cookies";
 
 export const resolveBackendBaseURL = resolveBackendBaseURLImpl;
 
@@ -22,14 +19,6 @@ export async function resolveAdminSessionBearerToken(): Promise<string | null> {
 /** Authorization header for Next.js → Go `/v1/admin/*` proxies (admin session cookie only). */
 export async function backendProxyAuthHeaders(): Promise<HeadersInit> {
   const token = await resolveAdminSessionBearerToken();
-  if (!token) return {};
-  return { Authorization: `Bearer ${token}` };
-}
-
-/** Bearer from portal session cookie only (for `/api/portal/*` → company channel + knowledge). */
-export async function portalProxyAuthHeaders(): Promise<HeadersInit> {
-  const cookieStore = await cookies();
-  const token = cookieStore.get(portalSessionCookieName)?.value?.trim();
   if (!token) return {};
   return { Authorization: `Bearer ${token}` };
 }
@@ -58,11 +47,6 @@ const proxyJsonNoStoreHeaders = {
 
 /** JSON from admin API proxies — never cache (avoids stale empty snapshot after a live refresh). */
 export function adminProxyNextJson(body: unknown, status: number) {
-  return NextResponse.json(body, { status, headers: proxyJsonNoStoreHeaders });
-}
-
-/** Same cache semantics as admin proxies; use for portal API JSON. */
-export function portalProxyNextJson(body: unknown, status: number) {
   return NextResponse.json(body, { status, headers: proxyJsonNoStoreHeaders });
 }
 
@@ -140,26 +124,3 @@ export async function requireAdminApiSession(): Promise<NextResponse | null> {
   }
 }
 
-/** Rejects requests without a valid portal session (cookie + backend `/v1/portal/auth/me`). */
-export async function requirePortalApiSession(): Promise<NextResponse | null> {
-  const cookieStore = await cookies();
-  const token = cookieStore.get(portalSessionCookieName)?.value?.trim();
-  if (!token) {
-    return portalProxyNextJson({ error: "unauthorized" }, 401);
-  }
-
-  const backendURL = `${resolveBackendBaseURL().replace(/\/$/, "")}/v1/portal/auth/me`;
-  try {
-    const response = await fetch(backendURL, {
-      headers: { Authorization: `Bearer ${token}` },
-      cache: "no-store",
-    });
-    if (response.ok) {
-      return null;
-    }
-    return portalProxyNextJson({ error: "unauthorized" }, 401);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    return portalProxyNextJson({ error: `session verification failed: ${message}` }, 502);
-  }
-}

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 
 const TOAST_MS = 6000;
 
-export type PortalPostAuthWelcomeToastProps = {
+export type AdminPostAuthWelcomePillProps = {
   /** Set after workspace loads Slack profiles + session email; cleared after timeout or dismiss. */
   welcome: null | {
     greeting: string;
@@ -17,7 +17,7 @@ export type PortalPostAuthWelcomeToastProps = {
  * Pill toast after OAuth or magic-link sign-in — copy matches landing checkout return styling.
  * Greeting is built upstream (session email + Slack profiles / workspace user + email local-part fallback).
  */
-export function PortalPostAuthWelcomeToast({ welcome, onDismiss }: PortalPostAuthWelcomeToastProps) {
+export function AdminPostAuthWelcomePill({ welcome, onDismiss }: AdminPostAuthWelcomePillProps) {
   const [visible, setVisible] = useState(false);
   const onDismissRef = useRef(onDismiss);
   onDismissRef.current = onDismiss;
