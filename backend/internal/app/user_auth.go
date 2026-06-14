@@ -62,6 +62,7 @@ func (s *Server) handleUserAuthMe(w http.ResponseWriter, r *http.Request) {
 	slackUserID := ""
 	freeLifetime := false
 	tier := ""
+	canCancel := false
 	row, err := s.store.UserProfileRowByEmail(r.Context(), session.Email)
 	if err != nil {
 		s.log.Printf("user auth me billing profile: %v", err)
@@ -70,7 +71,9 @@ func (s *Server) handleUserAuthMe(w http.ResponseWriter, r *http.Request) {
 		slackUserID = strings.TrimSpace(row.SlackUserID)
 		freeLifetime = row.FreeLifetime
 		tier = strings.TrimSpace(row.Tier)
+		canCancel = portalBillingCanCancel(row)
 	}
+	subscribeURL := appendClientReferenceID(s.trialExpiryCheckoutURL(), slackUserID)
 	writeJSON(w, http.StatusOK, map[string]any{
 		"authenticated": true,
 		"email":         session.Email,
@@ -80,6 +83,8 @@ func (s *Server) handleUserAuthMe(w http.ResponseWriter, r *http.Request) {
 		"tier":          tier,
 		"freeLifetime":  freeLifetime,
 		"billing":       billing,
+		"subscribeUrl":  subscribeURL,
+		"canCancel":     canCancel,
 	})
 }
 

@@ -237,6 +237,10 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 	s.mux.HandleFunc("/v1/me/auth/magic/start", s.handleUserAuthMagicStart)
 	s.mux.HandleFunc("/v1/me/auth/magic/finish", s.handleUserAuthMagicFinish)
 	s.mux.HandleFunc("/v1/me/auth/google/finish", s.handleUserAuthGoogleFinish)
+	// Cancel handler is tenant-agnostic — same code already powers the
+	// channel-portal cancel button. Mounting at /v1/me/ keeps the surface
+	// boundary clean for the /me browser session cookie.
+	s.mux.HandleFunc("POST /v1/me/billing/cancel-subscription", s.handlePortalBillingCancelSubscription)
 	s.mux.HandleFunc("POST /v1/portal/billing/cancel-subscription", s.handlePortalBillingCancelSubscription)
 	s.mux.HandleFunc("GET /v1/portal/deploy-gate", s.handlePortalDeployGateCheck)
 	s.mux.HandleFunc("POST /v1/portal/deploy-gate/consume", s.handlePortalDeployGateConsume)
