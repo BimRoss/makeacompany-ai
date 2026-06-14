@@ -157,7 +157,15 @@ function ScorecardTile({
 }
 
 /** Informational tile (no threshold coloring) for traffic metrics like GA4. */
-function InfoTile({ label, value }: { label: string; value: string }) {
+function InfoTile({
+  label,
+  value,
+  spark,
+}: {
+  label: string;
+  value: string;
+  spark?: Array<[number, number]>;
+}) {
   return (
     <div className="group relative overflow-hidden rounded-xl border border-border bg-card p-3 transition-colors duration-200 hover:border-foreground/25">
       <div className="flex items-center justify-between gap-2">
@@ -173,8 +181,11 @@ function InfoTile({ label, value }: { label: string; value: string }) {
       <div className="mt-1 font-display text-2xl font-semibold tracking-tight tabular-nums text-foreground">
         {value}
       </div>
-      {/* Reserves the same vertical space as ScorecardTile's sparkline so the grid stays even. */}
-      <SparklineSpacer />
+      {spark && spark.length >= 2 ? (
+        <Sparkline points={spark} color="var(--chart-accent)" />
+      ) : (
+        <SparklineSpacer />
+      )}
     </div>
   );
 }
@@ -184,10 +195,14 @@ export type Ga4Summary = {
   activeUsers?: number;
   sessions?: number;
   realtimeUsers?: number;
+  activeUsersDaily?: { date: string; value: number }[];
+  sessionsDaily?: { date: string; value: number }[];
   topPages?: { path: string; views: number; users: number }[];
   sources?: { channel: string; sessions: number; users: number }[];
   countries?: { country: string; users: number }[];
 };
+
+type GscDailyPoint = { date: string; impressions: number; clicks: number; ctr: number; position: number };
 
 export type GscSummary = {
   status?: "ok" | "disabled" | "degraded";
@@ -198,11 +213,18 @@ export type GscSummary = {
   clicks?: number;
   ctr?: number;
   position?: number;
+  daily?: GscDailyPoint[];
   topQueries?: { query: string; impressions: number; clicks: number; ctr: number; position: number }[];
   topPages?: { page: string; impressions: number; clicks: number; ctr: number; position: number }[];
   deviceSplit?: { device: string; impressions: number; clicks: number; ctr: number; position: number }[];
   topHosts?: { host: string; impressions: number; clicks: number }[];
 };
+
+/** Project a named-value series into the [t, v] pairs Sparkline expects. Index as x keeps the rendering format-agnostic. */
+function dailyToSpark<T>(rows: T[] | undefined, pick: (row: T) => number): Array<[number, number]> | undefined {
+  if (!rows || rows.length < 2) return undefined;
+  return rows.map((row, i) => [i, pick(row)]);
+}
 
 function formatCount(n: number | undefined): string {
   if (typeof n !== "number" || !Number.isFinite(n)) return "—";
@@ -415,8 +437,16 @@ export function KpiScorecard() {
           {typeof ga4?.realtimeUsers === "number" && ga4.realtimeUsers >= 0 ? (
             <InfoTile label="Active now · 30m" value={formatCount(ga4.realtimeUsers)} />
           ) : null}
-          <InfoTile label="Active users · 7d" value={formatCount(ga4?.activeUsers)} />
-          <InfoTile label="Sessions · 7d" value={formatCount(ga4?.sessions)} />
+          <InfoTile
+            label="Active users · 7d"
+            value={formatCount(ga4?.activeUsers)}
+            spark={dailyToSpark(ga4?.activeUsersDaily, (r) => r.value)}
+          />
+          <InfoTile
+            label="Sessions · 7d"
+            value={formatCount(ga4?.sessions)}
+            spark={dailyToSpark(ga4?.sessionsDaily, (r) => r.value)}
+          />
         </>
       ) : null}
       {typeof cacheHit === "number" ? (
@@ -427,10 +457,26 @@ export function KpiScorecard() {
       ) : null}
       {showGsc ? (
         <>
-          <InfoTile label="Impressions · 7d" value={formatCount(gsc?.impressions)} />
-          <InfoTile label="Clicks · 7d" value={formatCount(gsc?.clicks)} />
-          <InfoTile label="CTR · 7d" value={formatPercent(gsc?.ctr)} />
-          <InfoTile label="Avg position · 7d" value={formatPosition(gsc?.position)} />
+          <InfoTile
+            label="Impressions · 7d"
+            value={formatCount(gsc?.impressions)}
+            spark={dailyToSpark(gsc?.daily?.slice(-7), (r) => r.impressions)}
+          />
+          <InfoTile
+            label="Clicks · 7d"
+            value={formatCount(gsc?.clicks)}
+            spark={dailyToSpark(gsc?.daily?.slice(-7), (r) => r.clicks)}
+          />
+          <InfoTile
+            label="CTR · 7d"
+            value={formatPercent(gsc?.ctr)}
+            spark={dailyToSpark(gsc?.daily?.slice(-7), (r) => r.ctr)}
+          />
+          <InfoTile
+            label="Avg position · 7d"
+            value={formatPosition(gsc?.position)}
+            spark={dailyToSpark(gsc?.daily?.slice(-7), (r) => r.position)}
+          />
         </>
       ) : null}
     </section>

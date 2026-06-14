@@ -54,6 +54,11 @@ type ga4CountryRow struct {
 	Users   int64  `json:"users"`
 }
 
+type ga4DailyPoint struct {
+	Date  string `json:"date"`
+	Value int64  `json:"value"`
+}
+
 // handleAdminGA4Summary returns the last-7d activeUsers + sessions for the
 // configured GA4 property. Live call every time — no Redis snapshot yet (panel
 // is read-mostly and the GA Data API is fast; revisit if we add more metrics).
@@ -119,19 +124,22 @@ func (s *Server) handleAdminGA4Summary(w http.ResponseWriter, r *http.Request) {
 	sources := ga4FetchSources(ctx, s, svc, propertyID)
 	countries := ga4FetchCountries(ctx, s, svc, propertyID)
 	realtime := ga4FetchRealtime(ctx, s, svc, propertyID)
+	activeUsersDaily, sessionsDaily := ga4FetchDaily(ctx, s, svc, propertyID)
 
 	writeJSONNoStore(w, http.StatusOK, map[string]any{
-		"status":        "ok",
-		"propertyId":    propertyID,
-		"startDate":     "7daysAgo",
-		"endDate":       "yesterday",
-		"activeUsers":   activeUsers,
-		"sessions":      sessions,
-		"topPages":      topPages,
-		"sources":       sources,
-		"countries":     countries,
-		"realtimeUsers": realtime,
-		"fetchedAt":     time.Now().UTC().Format(time.RFC3339),
+		"status":           "ok",
+		"propertyId":       propertyID,
+		"startDate":        "7daysAgo",
+		"endDate":          "yesterday",
+		"activeUsers":      activeUsers,
+		"sessions":         sessions,
+		"activeUsersDaily": activeUsersDaily,
+		"sessionsDaily":    sessionsDaily,
+		"topPages":         topPages,
+		"sources":          sources,
+		"countries":        countries,
+		"realtimeUsers":    realtime,
+		"fetchedAt":        time.Now().UTC().Format(time.RFC3339),
 	})
 }
 
@@ -238,6 +246,46 @@ func ga4FetchCountries(ctx context.Context, s *Server, svc *analyticsdata.Servic
 		out = append(out, ga4CountryRow{Country: country, Users: users})
 	}
 	return out
+}
+
+// ga4FetchDaily returns the activeUsers and sessions series over the 7d window,
+// one point per day, ordered ascending by date (YYYYMMDD). Best-effort: a
+// failure returns empty slices so the growth tiles still render their totals.
+func ga4FetchDaily(ctx context.Context, s *Server, svc *analyticsdata.Service, propertyID string) (activeUsers, sessions []ga4DailyPoint) {
+	req := &analyticsdata.RunReportRequest{
+		DateRanges: []*analyticsdata.DateRange{{StartDate: "7daysAgo", EndDate: "yesterday"}},
+		Dimensions: []*analyticsdata.Dimension{{Name: "date"}},
+		Metrics: []*analyticsdata.Metric{
+			{Name: "activeUsers"},
+			{Name: "sessions"},
+		},
+		OrderBys: []*analyticsdata.OrderBy{{
+			Dimension: &analyticsdata.DimensionOrderBy{DimensionName: "date"},
+		}},
+	}
+	resp, err := svc.Properties.RunReport("properties/"+propertyID, req).Context(ctx).Do()
+	if err != nil {
+		s.log.Printf("admin ga4-summary: daily: %v", err)
+		return []ga4DailyPoint{}, []ga4DailyPoint{}
+	}
+	activeUsers = make([]ga4DailyPoint, 0, len(resp.Rows))
+	sessions = make([]ga4DailyPoint, 0, len(resp.Rows))
+	for _, row := range resp.Rows {
+		date := ""
+		if len(row.DimensionValues) > 0 {
+			date = row.DimensionValues[0].Value
+		}
+		var au, se int64
+		if len(row.MetricValues) >= 1 {
+			au = parseGA4Int(row.MetricValues[0].Value)
+		}
+		if len(row.MetricValues) >= 2 {
+			se = parseGA4Int(row.MetricValues[1].Value)
+		}
+		activeUsers = append(activeUsers, ga4DailyPoint{Date: date, Value: au})
+		sessions = append(sessions, ga4DailyPoint{Date: date, Value: se})
+	}
+	return activeUsers, sessions
 }
 
 // ga4FetchRealtime returns active users in the last 30 minutes via the Realtime
