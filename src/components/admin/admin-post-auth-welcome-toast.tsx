@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-import { PortalPostAuthWelcomeToast } from "@/components/portal/portal-post-auth-welcome-toast";
+import { AdminPostAuthWelcomePill } from "@/components/admin/admin-post-auth-welcome-pill";
 import {
   buildSessionViewerIdentity,
   type SlackProfileRowForIdentity,
@@ -84,5 +84,5 @@ export function AdminPostAuthWelcomeBoundary() {
     };
   }, []);
 
-  return <PortalPostAuthWelcomeToast welcome={welcome} onDismiss={dismiss} />;
+  return <AdminPostAuthWelcomePill welcome={welcome} onDismiss={dismiss} />;
 }
