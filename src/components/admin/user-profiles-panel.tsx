@@ -328,9 +328,7 @@ type SlackSortKey =
   | "username"
   | "slackId"
   | "team"
-  | "terms"
-  | "bot"
-  | "deleted";
+  | "bot";
 
 type SlackSortDir = "asc" | "desc";
 
@@ -362,12 +360,8 @@ function getSlackSortValue(u: SlackWorkspaceUserRow, key: SlackSortKey): string 
       return u.slackUserId ?? "";
     case "team":
       return u.teamId ?? "";
-    case "terms":
-      return (u.terms ?? "").toLowerCase();
     case "bot":
       return u.isBot ? 1 : 0;
-    case "deleted":
-      return u.isDeleted ? 1 : 0;
   }
 }
 
@@ -741,9 +735,7 @@ export function AdminSlackUsersTable() {
                       ["username", "Username"],
                       ["slackId", "Slack ID"],
                       ["team", "Team"],
-                      ["terms", "Terms"],
                       ["bot", "Bot"],
-                      ["deleted", "Deleted"],
                     ] as Array<[SlackSortKey, string]>
                   ).map(([key, label]) => (
                     <SortableTh
@@ -798,14 +790,7 @@ export function AdminSlackUsersTable() {
                     <td className="whitespace-nowrap px-3 py-1.5 align-middle font-mono text-xs">{short(u.username, 28)}</td>
                     <td className="whitespace-nowrap px-3 py-1.5 align-middle font-mono text-xs">{short(u.slackUserId, 16)}</td>
                     <td className="whitespace-nowrap px-3 py-1.5 align-middle font-mono text-xs">{short(u.teamId, 14)}</td>
-                    <td
-                      className="whitespace-nowrap px-3 py-1.5 align-middle text-xs text-muted-foreground"
-                      title={(u.termsMessageTs ?? "").trim() || undefined}
-                    >
-                      {(u.terms ?? "").trim() ? short(u.terms ?? "", 22) : "—"}
-                    </td>
                     <td className="whitespace-nowrap px-3 py-1.5 align-middle text-xs">{u.isBot ? "yes" : "—"}</td>
-                    <td className="whitespace-nowrap px-3 py-1.5 align-middle text-xs">{u.isDeleted ? "yes" : "—"}</td>
                   </tr>
                   );
                 })}
