@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Footer } from "@/components/landing/footer";
 import { Header } from "@/components/landing/header";
+import { breadcrumbStructuredData } from "@/lib/breadcrumbs";
 
 export const metadata: Metadata = {
   title: "Claude in Slack — make Claude a teammate, not a tab",
@@ -25,8 +26,17 @@ export const metadata: Metadata = {
 };
 
 export default function ClaudeInSlackPage() {
+  const breadcrumbJsonLd = breadcrumbStructuredData([
+    { name: "Home", path: "/" },
+    { name: "Claude in Slack", path: "/claude-in-slack" },
+  ]);
+
   return (
     <main className="min-h-screen bg-background">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+      />
       <Header />
 
       <article className="mx-auto max-w-3xl px-6 py-16 prose prose-neutral dark:prose-invert lg:prose-lg">

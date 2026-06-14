@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Footer } from "@/components/landing/footer";
 import { Header } from "@/components/landing/header";
+import { breadcrumbStructuredData } from "@/lib/breadcrumbs";
 import CostPageClient from "./CostPageClient";
 
 export const metadata: Metadata = {
@@ -23,8 +24,17 @@ export const metadata: Metadata = {
 };
 
 export default function CostPage() {
+  const breadcrumbJsonLd = breadcrumbStructuredData([
+    { name: "Home", path: "/" },
+    { name: "Cost", path: "/cost" },
+  ]);
+
   return (
     <main className="min-h-screen bg-background">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+      />
       <Header />
       <CostPageClient />
       <Footer />
