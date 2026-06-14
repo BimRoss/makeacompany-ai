@@ -110,15 +110,25 @@ function formatRenewDate(unixSec: number): string {
   });
 }
 
+/** Pill values like "none" / "n/a" / "" carry no information without a label
+ *  next to them, so they read as noise. Drop them. */
+function pillValue(v?: string): string | null {
+  const s = (v ?? "").trim();
+  if (!s) return null;
+  const lower = s.toLowerCase();
+  if (lower === "none" || lower === "n/a") return null;
+  return s;
+}
+
 function AccountCard({ me }: { me: MePayload }) {
   const billing = me.billing ?? {};
-  const status = (billing.subscriptionStatus ?? "").trim();
+  const status = pillValue(billing.subscriptionStatus);
   const cancelAtEnd = Boolean(billing.cancelAtPeriodEnd);
   const periodEndUnix =
     typeof billing.currentPeriodEnd === "number" && billing.currentPeriodEnd > 0
       ? billing.currentPeriodEnd
       : null;
-  const tier = me.tier?.trim();
+  const tier = pillValue(me.tier);
 
   return (
     <section className="rounded-2xl border border-border bg-card p-5 shadow-sm ring-1 ring-black/[0.03] dark:ring-white/[0.06]">
