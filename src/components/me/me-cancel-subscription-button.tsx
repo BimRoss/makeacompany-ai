@@ -28,7 +28,13 @@ export function MeCancelSubscriptionButton() {
         setLoading(false);
         return;
       }
+      // router.refresh() is fire-and-forget — it kicks an RSC refetch but doesn't return a
+      // promise we can await. Clear loading immediately so the spinner doesn't hang if the
+      // backend's profile sync happens to lag behind. When the refresh lands and canCancel
+      // flips to false, the parent unmounts this button entirely; until then the button
+      // re-enables on "Cancel subscription" rather than stuck on "Canceling…".
       router.refresh();
+      setLoading(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Network error");
       setLoading(false);

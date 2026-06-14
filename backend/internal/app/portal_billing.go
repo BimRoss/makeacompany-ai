@@ -103,6 +103,17 @@ func (s *Server) handlePortalBillingCancelSubscription(w http.ResponseWriter, r 
 		writeJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
 		return
 	}
+	// Mirror the customer.subscription.updated webhook side-effect synchronously so the
+	// next /v1/me/auth/me reflects cancel_at_period_end immediately instead of racing the
+	// webhook delivery. Without this, the lander's router.refresh() reads stale Redis
+	// state (cancel_at_period_end=false), the cancel button stays mounted with loading=true,
+	// and the user sees a spinner that never resolves until they hard-reload. See me-cancel-
+	// subscription-button.tsx for the matching frontend fix.
+	if err := s.syncUserProfileFromStripeSubscription(r.Context(), updated, nil); err != nil {
+		s.log.Printf("portal cancel subscription profile sync: %v", err)
+		// Best-effort: Stripe is source of truth, the webhook will reconcile within seconds.
+		// Don't fail the request — the cancel itself succeeded.
+	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"ok":                true,
 		"cancelAtPeriodEnd": updated.CancelAtPeriodEnd,
