@@ -2,10 +2,11 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { LogIn, Moon, Sun } from "lucide-react";
+import { Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useEffect, useState, type ReactNode } from "react";
 
+import { HeaderAccountSlot } from "@/components/landing/header-account-slot";
 import { useWorkspaceNavbarTrail } from "@/components/workspace-navbar-trail-provider";
 
 type HeaderProps = {
@@ -68,15 +69,6 @@ export function Header({ endSlot }: HeaderProps = {}) {
               {workspaceNavbarEndLead}
             </div>
           ) : null}
-          {!endSlot ? (
-            <Link
-              href="/me"
-              aria-label="Sign in to your account"
-              className="relative inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-full text-foreground/70 motion-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/25 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent active:scale-[0.97]"
-            >
-              <LogIn className="h-[1.125rem] w-[1.125rem] shrink-0" aria-hidden />
-            </Link>
-          ) : null}
           <button
             type="button"
             onClick={() => setTheme(isDark ? "light" : "dark")}
@@ -98,7 +90,11 @@ export function Header({ endSlot }: HeaderProps = {}) {
               </>
             )}
           </button>
-          {endSlot}
+          {/* On pages that already supply an endSlot (portal/admin/me logouts),
+              the surface owns its own auth chrome — no auto slot. On marketing
+              surfaces, HeaderAccountSlot client-detects auth and renders the
+              right control. */}
+          {endSlot ?? <HeaderAccountSlot />}
         </div>
       </div>
     </header>
