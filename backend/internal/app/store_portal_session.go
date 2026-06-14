@@ -15,14 +15,22 @@ func portalSessionKey(token string) string {
 	return portalSessionKeyPrefix + strings.TrimSpace(token)
 }
 
-// PortalSession is a browser session in the portal, keyed by (email,
-// channelId). Granted by /<channelId>/login flows. ChannelID required.
+// PortalSession is a browser session in the portal.
 //
-// tenant_type used to be a discriminator with a "personal" sibling for
-// the now-removed personal-agents track; only "company" remains.
-// Existing rows written before tenant_type shipped read as "company" via
-// the default in GetPortalSession.
-const PortalTenantTypeCompany = "company"
+// Two tenant types share this storage:
+//   - "company": keyed by (email, channelId). Granted by /<channelId>/login
+//     flows; ChannelID required.
+//   - "user": keyed by email alone. Granted by /me/login flows; ChannelID
+//     must be empty.
+//
+// tenant_type used to also include a "personal" sibling for the
+// now-removed personal-agents track; that variant is gone. Existing rows
+// written before tenant_type shipped read as "company" via the default
+// in GetPortalSession (they always had a non-empty channel_id).
+const (
+	PortalTenantTypeCompany = "company"
+	PortalTenantTypeUser    = "user"
+)
 
 type PortalSession struct {
 	Token      string `json:"token"`
@@ -44,11 +52,17 @@ func (s *Store) CreatePortalSession(ctx context.Context, token, email, channelID
 	if token == "" || email == "" {
 		return fmt.Errorf("missing portal session token/email")
 	}
-	if tenantType != PortalTenantTypeCompany {
+	switch tenantType {
+	case PortalTenantTypeCompany:
+		if channelID == "" {
+			return fmt.Errorf("company portal session missing channel")
+		}
+	case PortalTenantTypeUser:
+		if channelID != "" {
+			return fmt.Errorf("user portal session must not carry channel")
+		}
+	default:
 		return fmt.Errorf("unknown portal tenant_type %q", tenantType)
-	}
-	if channelID == "" {
-		return fmt.Errorf("company portal session missing channel")
 	}
 	if expiresAt.IsZero() {
 		return fmt.Errorf("missing portal session expiration")
@@ -106,7 +120,16 @@ func (s *Store) GetPortalSession(ctx context.Context, token string) (PortalSessi
 	if out.Email == "" {
 		return PortalSession{}, redis.Nil
 	}
-	if out.TenantType == PortalTenantTypeCompany && out.ChannelID == "" {
+	switch out.TenantType {
+	case PortalTenantTypeCompany:
+		if out.ChannelID == "" {
+			return PortalSession{}, redis.Nil
+		}
+	case PortalTenantTypeUser:
+		if out.ChannelID != "" {
+			return PortalSession{}, redis.Nil
+		}
+	default:
 		return PortalSession{}, redis.Nil
 	}
 	gone, err := s.repairPortalSessionTTLIfNeeded(ctx, key, out.ExpiresAt)

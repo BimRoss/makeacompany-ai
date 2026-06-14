@@ -103,6 +103,9 @@ export async function GET(request: Request) {
     }
   }
 
+  if (parsed.kind !== "portal") {
+    return NextResponse.redirect(new URL(`${loginBase}?auth=failed`, origin));
+  }
   const backendURL = `${resolveBackendBaseURL().replace(/\/$/, "")}/v1/portal/auth/google/finish`;
   try {
     const response = await fetch(backendURL, {

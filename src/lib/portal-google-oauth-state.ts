@@ -10,7 +10,8 @@ function stateSecret(): string | null {
 
 export type ParsedGoogleOAuthState =
   | { kind: "portal"; channelId: string }
-  | { kind: "admin" };
+  | { kind: "admin" }
+  | { kind: "me" };
 
 function signPayload(payload: string): string | null {
   const secret = stateSecret();
@@ -40,6 +41,14 @@ export function createAdminGoogleOAuthState(): string | null {
   const exp = Date.now() + 15 * 60 * 1000;
   const n = randomBytes(16).toString("hex");
   const payload = JSON.stringify({ kind: "admin", exp, n });
+  return signPayload(payload);
+}
+
+/** Build signed OAuth state for /me user sign-in (15 min TTL). */
+export function createMeGoogleOAuthState(): string | null {
+  const exp = Date.now() + 15 * 60 * 1000;
+  const n = randomBytes(16).toString("hex");
+  const payload = JSON.stringify({ kind: "me", exp, n });
   return signPayload(payload);
 }
 
@@ -77,6 +86,9 @@ export function parseGoogleOAuthState(state: string): ParsedGoogleOAuthState | n
   }
   if (parsed.kind === "admin") {
     return { kind: "admin" };
+  }
+  if (parsed.kind === "me") {
+    return { kind: "me" };
   }
   const cid = typeof parsed.cid === "string" ? parsed.cid.trim() : "";
   if (cid && (parsed.kind === "portal" || parsed.kind === undefined)) {
