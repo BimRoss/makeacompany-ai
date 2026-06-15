@@ -26,6 +26,7 @@ type SlotSnapshot = {
 
 type AgentSnapshot = {
   window_seconds: number;
+  slot_cap_per_window?: number;
   now: string;
   slots: SlotSnapshot[];
 };
