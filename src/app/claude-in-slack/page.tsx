@@ -5,12 +5,12 @@ import { Header } from "@/components/landing/header";
 import { breadcrumbStructuredData } from "@/lib/breadcrumbs";
 
 export const metadata: Metadata = {
-  title: "Claude in Slack — make Claude a teammate, not a tab",
+  title: "Claude Code as a service: Claude in your Slack, not a tab",
   description:
-    "Run Claude as a persistent teammate inside Slack. Channel-scoped memory, real GitHub + Google access, no copy-paste. Built and dogfooded by the MaC team.",
+    "Claude Code as a service. A persistent Claude agent in your Slack workspace with channel-scoped memory and real GitHub, Google Workspace, and Kubernetes access. No copy-paste, no browser tab.",
   alternates: { canonical: "/claude-in-slack" },
   openGraph: {
-    title: "Claude in Slack — make Claude a teammate, not a tab",
+    title: "Claude Code as a service: Claude in your Slack, not a tab",
     description:
       "Persistent Claude agents that live in your Slack channels. Real tool access, channel memory, no browser tab.",
     url: "/claude-in-slack",
@@ -18,7 +18,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Claude in Slack — make Claude a teammate, not a tab",
+    title: "Claude Code as a service: Claude in your Slack, not a tab",
     description:
       "Persistent Claude agents that live in your Slack channels. Real tool access, channel memory, no browser tab.",
     images: ["/twitter-image"],

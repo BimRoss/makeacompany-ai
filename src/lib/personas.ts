@@ -98,31 +98,31 @@ export interface PersonaMeta {
 
 export const PERSONA_META: Record<Persona, PersonaMeta> = {
   founder: {
-    title: "AI company for founders",
+    title: "AI employees in your Slack workspace, for founders",
     description:
-      "Run your whole company from Slack. Joanne handles ops, Ross ships code, you make the calls only a founder can. $99/month — one Claude seat for an entire AI team.",
-    ogAlt: "makeacompany.ai for founders — AI company in Slack for $99/month",
+      "AI employees in your Slack workspace. Joanne handles ops, Ross ships code, you make the calls only a founder can. $99/month, one Claude seat for an entire AI team.",
+    ogAlt: "makeacompany.ai for founders, AI employees in your Slack workspace for $99/month",
   },
   engineer: {
-    title: "Hosted Claude Code in Slack for engineers",
+    title: "Claude Code as a service, in your Slack, for engineers",
     description:
-      "Run Claude Code from Slack instead of your laptop. Persistent pods with GitHub + your repos pre-wired. Ship PRs from anywhere. $99/month for one seat.",
+      "Claude Code as a service. Hosted Claude in your Slack with GitHub and your repos pre-wired. Ship PRs from anywhere. $99/month for one seat.",
     ogAlt:
-      "makeacompany.ai for engineers — hosted Claude Code that ships PRs from your Slack",
+      "makeacompany.ai for engineers, Claude Code as a service that ships PRs from your Slack",
   },
   team: {
-    title: "AI ops + engineering teammates for Slack teams",
+    title: "AI agents for your Slack team: ops and engineering, $99/mo",
     description:
-      "Joanne handles ops, Ross handles code, both live in your existing Slack channels. No new tool to roll out. $99/month for the pair — your team is shipping by lunch.",
+      "AI agents for your Slack team. Joanne handles ops, Ross handles code, both live in your existing Slack channels. No new tool to roll out. $99/month for the pair.",
     ogAlt:
-      "makeacompany.ai for teams — Joanne and Ross live in your Slack channels",
+      "makeacompany.ai for teams, AI agents for your Slack team living in your channels",
   },
   contractor: {
-    title: "AI teammates for contractors",
+    title: "Personal AI assistant in Slack, for contractors",
     description:
-      "Solo developer? Ship like a small team. Ross pairs in Slack, Joanne handles client comms and invoicing. $99/month — bill senior rates without senior overhead.",
+      "Personal AI assistant in Slack for solo developers and contractors. Ross pairs on code, Joanne handles client comms and invoicing. $99/month, ship like a small team.",
     ogAlt:
-      "makeacompany.ai for contractors — ship like a small team for $99/month",
+      "makeacompany.ai for contractors, personal AI assistant in Slack for $99/month",
   },
 };
 
