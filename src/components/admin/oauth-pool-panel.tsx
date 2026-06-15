@@ -23,6 +23,7 @@ type SlotSnapshot = {
 
 type AgentSnapshot = {
   window_seconds: number;
+  slot_cap_per_window?: number;
   now: string;
   slots: SlotSnapshot[];
 };
@@ -97,27 +98,15 @@ export function OAuthPoolPanel() {
     void load();
   }, [load]);
 
-  // Reference for the usage bars: the highest spawns_in_window across every
-  // slot in the snapshot. We don't know Anthropic's actual cap, so the bar
-  // is a "fullness vs the busiest slot right now" gauge — enough to see at
-  // a glance which slot is approaching its ceiling relative to its peer.
-  const peakInWindow = (() => {
-    let peak = 0;
-    for (const a of data?.agents ?? []) {
-      for (const s of a.snapshot?.slots ?? []) {
-        if (s.spawns_in_window > peak) peak = s.spawns_in_window;
-      }
-    }
-    return peak;
-  })();
-
   return (
     <section className="space-y-3">
       <header className="flex items-center justify-between gap-3 px-0.5">
         <div className="space-y-0.5">
           <h2 className="font-display text-lg font-semibold tracking-tight">Rate-limit headroom</h2>
           <p className="text-xs text-muted-foreground">
-            CLAUDE_CODE_OAUTH_TOKEN pool — per-slot spawn count in the rolling 5h window. Closer to the bar end means closer to the cap.
+            CLAUDE_CODE_OAUTH_TOKEN pool — per-slot spawn count in the rolling 5h window vs. Anthropic&apos;s
+            published Max 20x floor (~900 messages / window). Token-based cap is lower in practice for Opus +
+            long context; we&apos;ll tune the ceiling once we have a 429 data point.
           </p>
         </div>
         <button
@@ -143,7 +132,7 @@ export function OAuthPoolPanel() {
 
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
         {(data?.agents ?? []).map((agent) => (
-          <AgentCard key={agent.agent} agent={agent} peak={peakInWindow} />
+          <AgentCard key={agent.agent} agent={agent} />
         ))}
         {!data && !loading ? (
           <p className="text-xs text-muted-foreground">No data yet.</p>
@@ -153,9 +142,15 @@ export function OAuthPoolPanel() {
   );
 }
 
-function AgentCard({ agent, peak }: { agent: AgentResult; peak: number }) {
+// Fallback cap if the agent snapshot doesn't carry one (older Ross/Joanne
+// builds before the slot_cap_per_window field shipped). Matches the
+// constant in oauth_pool_stats.go on both Go sides.
+const FALLBACK_SLOT_CAP_PER_WINDOW = 900;
+
+function AgentCard({ agent }: { agent: AgentResult }) {
   const slots = agent.snapshot?.slots ?? [];
   const windowHours = agent.snapshot ? Math.round(agent.snapshot.window_seconds / 3600) : 5;
+  const cap = agent.snapshot?.slot_cap_per_window || FALLBACK_SLOT_CAP_PER_WINDOW;
   return (
     <div className="overflow-hidden rounded-2xl border border-border bg-card">
       <div className="flex items-center justify-between gap-2 border-b border-border bg-muted/30 px-3 py-2">
@@ -164,7 +159,7 @@ function AgentCard({ agent, peak }: { agent: AgentResult; peak: number }) {
             {agent.agent}
           </span>
           <span className="text-[10px] text-muted-foreground">
-            {windowHours}h window
+            {windowHours}h window · cap ~{cap}
           </span>
           {!agent.ok ? (
             <span className="inline-flex items-center gap-1 rounded-full border border-[var(--chart-neg)]/40 bg-[var(--chart-neg)]/10 px-2 py-0.5 text-[10px] font-semibold text-[var(--chart-neg)]">
@@ -178,7 +173,7 @@ function AgentCard({ agent, peak }: { agent: AgentResult; peak: number }) {
       {agent.ok && slots.length > 0 ? (
         <div className="divide-y divide-border">
           {slots.map((slot) => (
-            <SlotRow key={slot.slot} slot={slot} peak={peak} />
+            <SlotRow key={slot.slot} slot={slot} cap={cap} />
           ))}
         </div>
       ) : (
@@ -190,13 +185,15 @@ function AgentCard({ agent, peak }: { agent: AgentResult; peak: number }) {
   );
 }
 
-function SlotRow({ slot, peak }: { slot: SlotSnapshot; peak: number }) {
+function SlotRow({ slot, cap }: { slot: SlotSnapshot; cap: number }) {
   const hotErr = isRecent(slot.last_rate_limit_err_at, 3600);
-  // Normalize bar fill against the peak across all slots. With peak=0 (cold
-  // start), keep the bar empty rather than dividing by zero.
-  const pct = peak > 0 ? Math.min(1, slot.spawns_in_window / peak) : 0;
-  // Tone climbs as the slot fills relative to its peer — accent past half,
-  // negative past 85% (and always negative when a 429 fired in the last hour).
+  // Real % of the published Max-20x cap from the agent snapshot. Token-
+  // based cap is lower in practice for Opus + long context, but anchoring
+  // to Anthropic's published floor is more useful than a peer-relative
+  // gauge — at 60% the bar means we're actually at ~60% of the floor,
+  // and a 429 here recalibrates the cap downward.
+  const pct = cap > 0 ? Math.min(1, slot.spawns_in_window / cap) : 0;
+  const pctLabel = Math.round(pct * 100);
   const tone = hotErr || pct >= 0.85 ? "neg" : pct >= 0.5 ? "accent" : "pos";
   const toneVar =
     tone === "neg" ? "var(--chart-neg)" : tone === "accent" ? "var(--chart-accent)" : "var(--chart-pos)";
@@ -209,8 +206,10 @@ function SlotRow({ slot, peak }: { slot: SlotSnapshot; peak: number }) {
           className="font-display text-lg font-semibold tabular-nums leading-none"
           style={{ color: toneVar }}
         >
-          {slot.spawns_in_window}
-          <span className="ml-1 text-[10px] font-normal text-muted-foreground">spawns</span>
+          {pctLabel}%
+          <span className="ml-1 text-[10px] font-normal text-muted-foreground">
+            {slot.spawns_in_window} / {cap}
+          </span>
         </span>
       </div>
       <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-muted">
