@@ -58,7 +58,15 @@ function CopyQueriesChip({ queries }: { queries: string[] }) {
   );
 }
 
-export function MetricPanel({ def, from }: { def: PanelDef; from: string }) {
+export function MetricPanel({
+  def,
+  from,
+  prominent = false,
+}: {
+  def: PanelDef;
+  from: string;
+  prominent?: boolean;
+}) {
   const { series, loading, errored } = useRangeQuery(def.queries, from);
   const chartSeries = useMemo(() => def.toSeries(series ?? []), [def, series]);
   const headline = useMemo(() => latestOf(chartSeries), [chartSeries]);
@@ -72,12 +80,16 @@ export function MetricPanel({ def, from }: { def: PanelDef; from: string }) {
   return (
     <article
       className={`group flex flex-col rounded-2xl border border-border bg-card p-4 transition-colors duration-200 hover:border-foreground/25 ${
-        def.span === 2 ? "sm:col-span-2" : ""
+        def.span === 2 && !prominent ? "sm:col-span-2" : ""
       }`}
     >
       <header className="mb-2 flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h3 className="truncate font-display text-sm font-semibold tracking-tight text-foreground">
+          <h3
+            className={`truncate font-display font-semibold tracking-tight text-foreground ${
+              prominent ? "text-base" : "text-sm"
+            }`}
+          >
             {def.title}
           </h3>
           {def.subtitle ? (
@@ -88,7 +100,9 @@ export function MetricPanel({ def, from }: { def: PanelDef; from: string }) {
           <CopyQueriesChip queries={def.queries} />
           {headline && !loading ? (
             <div
-              className="font-display text-lg font-semibold tabular-nums leading-none"
+              className={`font-display font-semibold tabular-nums leading-none ${
+                prominent ? "text-2xl" : "text-lg"
+              }`}
               style={{ color: TONE_VAR[headline.tone] }}
             >
               {def.format(headline.value)}
@@ -113,7 +127,9 @@ export function MetricPanel({ def, from }: { def: PanelDef; from: string }) {
 
       <div className="mt-auto">
         {loading ? (
-          <div className="h-[188px] w-full animate-pulse rounded-lg bg-muted" />
+          <div
+            className={`w-full animate-pulse rounded-lg bg-muted ${prominent ? "h-[280px]" : "h-[188px]"}`}
+          />
         ) : (
           <TimeSeriesChart
             series={chartSeries}
@@ -121,6 +137,7 @@ export function MetricPanel({ def, from }: { def: PanelDef; from: string }) {
             area={def.area}
             zeroBaseline={def.zeroBaseline ?? true}
             emptyLabel={errored ? "Metric unavailable" : "No data in range"}
+            height={prominent ? 280 : undefined}
           />
         )}
       </div>

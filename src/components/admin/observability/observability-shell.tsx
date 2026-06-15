@@ -67,7 +67,6 @@ function AnomalyBadge({ component }: { component: string }) {
 }
 
 const PANEL_GRID = "grid gap-3 grid-cols-[repeat(auto-fit,minmax(320px,1fr))]";
-const WEB_PANEL_GRID = PANEL_GRID;
 
 function ObservabilityBody() {
   useAlertCountInTitle();
@@ -122,10 +121,25 @@ function ObservabilityBody() {
           </div>
         }
       >
-        <div className={WEB_PANEL_GRID}>
-          {WEB_PANELS.map((def) => (
-            <MetricPanel key={def.id} def={def} from={from} />
-          ))}
+        <div className="space-y-3">
+          {(() => {
+            const traffic = WEB_PANELS.find((p) => p.id === "request-traffic");
+            const rest = WEB_PANELS.filter((p) => p.id !== "request-traffic");
+            return (
+              <>
+                {traffic ? (
+                  <div className="grid grid-cols-1">
+                    <MetricPanel def={traffic} from={from} prominent />
+                  </div>
+                ) : null}
+                <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+                  {rest.map((def) => (
+                    <MetricPanel key={def.id} def={def} from={from} />
+                  ))}
+                </div>
+              </>
+            );
+          })()}
         </div>
       </ObservabilitySection>
 

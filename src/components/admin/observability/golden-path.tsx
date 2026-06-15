@@ -54,83 +54,62 @@ export function GoldenPath() {
   const allOk = flows.length > 0 && flows.every((f) => f.state === "operational");
 
   return (
-    <div className="rounded-2xl border border-border bg-card p-4 sm:p-5">
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <div>
-          <h3 className="font-display text-base font-semibold tracking-tight">Golden path</h3>
-          <p className="hidden text-xs text-muted-foreground sm:block">
-            End-to-end probe — reads each snapshot back and checks freshness.
-          </p>
-        </div>
-        {flows.length > 0 ? (
-          <span
-            className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-1 text-xs font-medium ${
-              allOk
-                ? "border-[var(--chart-pos)]/40 text-[var(--chart-pos)]"
-                : "border-[var(--chart-neg)]/40 text-[var(--chart-neg)]"
-            }`}
-          >
+    <div className="rounded-xl border border-border bg-card px-3 py-2.5">
+      <div className="flex items-center gap-3">
+        <div className="flex shrink-0 items-center gap-2">
+          <h3 className="font-display text-sm font-semibold tracking-tight">Golden path</h3>
+          {flows.length > 0 ? (
             <span
-              className="inline-block h-1.5 w-1.5 rounded-full"
-              style={{ backgroundColor: allOk ? "var(--chart-pos)" : "var(--chart-neg)" }}
-            />
-            {allOk ? "All systems go" : "Attention"}
-          </span>
-        ) : null}
-      </div>
+              className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2 py-0.5 text-[10px] font-medium ${
+                allOk
+                  ? "border-[var(--chart-pos)]/40 text-[var(--chart-pos)]"
+                  : "border-[var(--chart-neg)]/40 text-[var(--chart-neg)]"
+              }`}
+            >
+              <span
+                className="inline-block h-1.5 w-1.5 rounded-full"
+                style={{ backgroundColor: allOk ? "var(--chart-pos)" : "var(--chart-neg)" }}
+              />
+              {allOk ? "all green" : "attention"}
+            </span>
+          ) : null}
+        </div>
 
-      {loading ? (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {[0, 1].map((i) => (
-            <div key={i} className="h-24 animate-pulse rounded-xl bg-muted" />
-          ))}
-        </div>
-      ) : flows.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-border px-3 py-6 text-center text-sm text-muted-foreground">
-          Probe isn&apos;t reporting — the product-works signal is dark.
-        </p>
-      ) : (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {flows.map((f) => (
-            <FlowCard key={f.flow} flow={f} />
-          ))}
-        </div>
-      )}
+        {loading ? (
+          <div className="flex flex-1 gap-2">
+            {[0, 1].map((i) => (
+              <div key={i} className="h-7 flex-1 animate-pulse rounded-md bg-muted" />
+            ))}
+          </div>
+        ) : flows.length === 0 ? (
+          <p className="text-[11px] text-muted-foreground">Probe isn&apos;t reporting.</p>
+        ) : (
+          <div className="grid flex-1 grid-cols-1 gap-2 sm:grid-cols-2">
+            {flows.map((f) => (
+              <FlowStrip key={f.flow} flow={f} />
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
-function FlowCard({ flow }: { flow: FlowStatus }) {
+function FlowStrip({ flow }: { flow: FlowStatus }) {
   const tone =
     flow.state === "operational"
       ? "var(--chart-pos)"
       : flow.state === "down"
         ? "var(--chart-neg)"
         : "var(--chart-muted)";
-  // Only spell out the state when it needs attention — the colored dot says
-  // "operational" already, and the "All systems go" pill above says it too.
-  const word =
-    flow.state === "operational" ? null : flow.state === "down" ? "Down" : "Unknown";
-
   return (
-    <div className="rounded-xl border border-border bg-background/40 p-3">
-      <div className="flex items-center justify-between gap-2">
-        <div className="text-sm font-medium text-foreground">{flow.label}</div>
-        <span
-          className="inline-flex items-center gap-1.5 text-sm font-semibold"
-          style={{ color: tone }}
-        >
-          <span className="inline-block h-2 w-2 rounded-full" style={{ backgroundColor: tone }} />
-          {word}
-        </span>
-      </div>
+    <div className="flex items-center gap-2">
+      <span className="inline-block h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: tone }} />
+      <span className="shrink-0 text-[11px] font-medium text-foreground">{flow.label}</span>
       <UptimeBars history={flow.history} />
-      <div className="mt-1.5 flex items-center justify-between text-[11px] text-muted-foreground">
-        <span>{flow.history.length} recent checks</span>
-        <span className="tabular-nums">
-          {flow.durationSeconds !== null ? `probe ${formatMs(flow.durationSeconds)}` : "—"}
-        </span>
-      </div>
+      <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground">
+        {flow.durationSeconds !== null ? formatMs(flow.durationSeconds) : "—"}
+      </span>
     </div>
   );
 }
@@ -139,7 +118,7 @@ function UptimeBars({ history }: { history: Array<[number, number]> }) {
   // status-page style: one slim bar per recent sample, green ok / red fail.
   const bars = history.length > 0 ? history : [];
   return (
-    <div className="mt-2 flex h-6 items-stretch gap-[3px]">
+    <div className="flex h-3 min-w-0 flex-1 items-stretch gap-[2px]">
       {bars.length === 0
         ? Array.from({ length: 24 }).map((_, i) => (
             <span key={i} className="flex-1 rounded-sm bg-muted" />
