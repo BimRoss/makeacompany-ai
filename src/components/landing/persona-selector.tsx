@@ -36,6 +36,14 @@ export function PersonaSelector() {
             role="tab"
             aria-selected={active}
             onClick={() => {
+              if (active) {
+                track("persona_unselected", {
+                  persona: PERSONA_SLUGS[p],
+                  ...firstTouchToGtagParams(readFirstTouchClient()),
+                });
+                router.push("/");
+                return;
+              }
               track("persona_selected", {
                 persona: PERSONA_SLUGS[p],
                 from: persona,
