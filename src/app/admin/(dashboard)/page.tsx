@@ -13,8 +13,8 @@ export default function AdminPage() {
       <AdminPostAuthWelcomeBoundary />
       <div className="space-y-6">
         <AdminAgentKillSwitch />
-        <AdminObservabilityShell />
         <OAuthPoolPanel />
+        <AdminObservabilityShell />
         <AdminSlackUsersTable />
         <AdminStripeUsersTable />
       </div>

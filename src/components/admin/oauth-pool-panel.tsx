@@ -97,13 +97,27 @@ export function OAuthPoolPanel() {
     void load();
   }, [load]);
 
+  // Reference for the usage bars: the highest spawns_in_window across every
+  // slot in the snapshot. We don't know Anthropic's actual cap, so the bar
+  // is a "fullness vs the busiest slot right now" gauge — enough to see at
+  // a glance which slot is approaching its ceiling relative to its peer.
+  const peakInWindow = (() => {
+    let peak = 0;
+    for (const a of data?.agents ?? []) {
+      for (const s of a.snapshot?.slots ?? []) {
+        if (s.spawns_in_window > peak) peak = s.spawns_in_window;
+      }
+    }
+    return peak;
+  })();
+
   return (
     <section className="space-y-3">
       <header className="flex items-center justify-between gap-3 px-0.5">
         <div className="space-y-0.5">
-          <h2 className="font-display text-lg font-semibold tracking-tight">OAuth pool usage</h2>
+          <h2 className="font-display text-lg font-semibold tracking-tight">Rate-limit headroom</h2>
           <p className="text-xs text-muted-foreground">
-            Per-slot spawn counts and rate-limit hits across Ross + Joanne. In-memory; resets on pod restart.
+            CLAUDE_CODE_OAUTH_TOKEN pool — per-slot spawn count in the rolling 5h window. Closer to the bar end means closer to the cap.
           </p>
         </div>
         <button
@@ -127,9 +141,9 @@ export function OAuthPoolPanel() {
         </div>
       ) : null}
 
-      <div className="space-y-4">
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
         {(data?.agents ?? []).map((agent) => (
-          <AgentCard key={agent.agent} agent={agent} />
+          <AgentCard key={agent.agent} agent={agent} peak={peakInWindow} />
         ))}
         {!data && !loading ? (
           <p className="text-xs text-muted-foreground">No data yet.</p>
@@ -139,15 +153,18 @@ export function OAuthPoolPanel() {
   );
 }
 
-function AgentCard({ agent }: { agent: AgentResult }) {
+function AgentCard({ agent, peak }: { agent: AgentResult; peak: number }) {
   const slots = agent.snapshot?.slots ?? [];
   const windowHours = agent.snapshot ? Math.round(agent.snapshot.window_seconds / 3600) : 5;
   return (
-    <div className="overflow-hidden rounded-lg border border-border bg-card">
+    <div className="overflow-hidden rounded-2xl border border-border bg-card">
       <div className="flex items-center justify-between gap-2 border-b border-border bg-muted/30 px-3 py-2">
         <div className="flex items-center gap-2">
           <span className="font-mono text-xs font-semibold uppercase tracking-wide text-foreground">
             {agent.agent}
+          </span>
+          <span className="text-[10px] text-muted-foreground">
+            {windowHours}h window
           </span>
           {!agent.ok ? (
             <span className="inline-flex items-center gap-1 rounded-full border border-[var(--chart-neg)]/40 bg-[var(--chart-neg)]/10 px-2 py-0.5 text-[10px] font-semibold text-[var(--chart-neg)]">
@@ -156,71 +173,79 @@ function AgentCard({ agent }: { agent: AgentResult }) {
             </span>
           ) : null}
         </div>
-        <span className="font-mono text-[10px] text-muted-foreground">{agent.url}</span>
       </div>
 
       {agent.ok && slots.length > 0 ? (
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs">
-            <thead className="bg-muted/20 text-[10px] uppercase tracking-wide text-muted-foreground">
-              <tr>
-                <th className="px-3 py-1.5 text-left">Slot</th>
-                <th className="px-3 py-1.5 text-right">Spawns ({windowHours}h)</th>
-                <th className="px-3 py-1.5 text-right">Spawns (total)</th>
-                <th className="px-3 py-1.5 text-left">Last spawn</th>
-                <th className="px-3 py-1.5 text-right">Rate-limit errs</th>
-                <th className="px-3 py-1.5 text-left">Last err</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {slots.map((slot) => {
-                const hotErr = isRecent(slot.last_rate_limit_err_at, 3600);
-                return (
-                  <tr
-                    key={slot.slot}
-                    className={
-                      hotErr
-                        ? "bg-[var(--chart-neg)]/5"
-                        : "hover:bg-muted/20"
-                    }
-                  >
-                    <td className="px-3 py-1.5 font-mono">{slot.slot}</td>
-                    <td className="px-3 py-1.5 text-right font-mono">{slot.spawns_in_window}</td>
-                    <td className="px-3 py-1.5 text-right font-mono text-muted-foreground">
-                      {slot.spawns_total}
-                    </td>
-                    <td className="px-3 py-1.5 text-muted-foreground">
-                      {relativeTime(slot.last_spawn_at)}
-                    </td>
-                    <td
-                      className={
-                        slot.rate_limit_errs_total > 0
-                          ? "px-3 py-1.5 text-right font-mono font-semibold text-[var(--chart-neg)]"
-                          : "px-3 py-1.5 text-right font-mono text-muted-foreground"
-                      }
-                    >
-                      {slot.rate_limit_errs_total}
-                    </td>
-                    <td className="px-3 py-1.5 text-muted-foreground">
-                      {!isZeroTime(slot.last_rate_limit_err_at) ? (
-                        <span title={slot.last_rate_limit_err_excerpt ?? ""}>
-                          {relativeTime(slot.last_rate_limit_err_at)}
-                        </span>
-                      ) : (
-                        "—"
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+        <div className="divide-y divide-border">
+          {slots.map((slot) => (
+            <SlotRow key={slot.slot} slot={slot} peak={peak} />
+          ))}
         </div>
       ) : (
         <div className="px-3 py-3 text-xs text-muted-foreground">
           {agent.error ? agent.error : "no spawns observed yet"}
         </div>
       )}
+    </div>
+  );
+}
+
+function SlotRow({ slot, peak }: { slot: SlotSnapshot; peak: number }) {
+  const hotErr = isRecent(slot.last_rate_limit_err_at, 3600);
+  // Normalize bar fill against the peak across all slots. With peak=0 (cold
+  // start), keep the bar empty rather than dividing by zero.
+  const pct = peak > 0 ? Math.min(1, slot.spawns_in_window / peak) : 0;
+  // Tone climbs as the slot fills relative to its peer — accent past half,
+  // negative past 85% (and always negative when a 429 fired in the last hour).
+  const tone = hotErr || pct >= 0.85 ? "neg" : pct >= 0.5 ? "accent" : "pos";
+  const toneVar =
+    tone === "neg" ? "var(--chart-neg)" : tone === "accent" ? "var(--chart-accent)" : "var(--chart-pos)";
+
+  return (
+    <div className={`px-3 py-2.5 ${hotErr ? "bg-[var(--chart-neg)]/5" : ""}`}>
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="font-mono text-[11px] text-muted-foreground">{slot.slot}</span>
+        <span
+          className="font-display text-lg font-semibold tabular-nums leading-none"
+          style={{ color: toneVar }}
+        >
+          {slot.spawns_in_window}
+          <span className="ml-1 text-[10px] font-normal text-muted-foreground">spawns</span>
+        </span>
+      </div>
+      <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+        <div
+          className="h-full rounded-full transition-all duration-300"
+          style={{
+            width: `${Math.max(2, pct * 100)}%`,
+            backgroundColor: toneVar,
+            opacity: pct > 0 ? 1 : 0.4,
+          }}
+        />
+      </div>
+      <div className="mt-1.5 flex items-center justify-between text-[10px] text-muted-foreground">
+        <span>last spawn {relativeTime(slot.last_spawn_at)}</span>
+        <span
+          className={
+            slot.rate_limit_errs_total > 0
+              ? "inline-flex items-center gap-1 font-medium text-[var(--chart-neg)]"
+              : ""
+          }
+          title={slot.last_rate_limit_err_excerpt ?? ""}
+        >
+          {slot.rate_limit_errs_total > 0 ? (
+            <>
+              <AlertTriangle className="h-3 w-3" aria-hidden="true" />
+              {slot.rate_limit_errs_total} 429
+              {!isZeroTime(slot.last_rate_limit_err_at)
+                ? `, last ${relativeTime(slot.last_rate_limit_err_at)}`
+                : ""}
+            </>
+          ) : (
+            "no 429s"
+          )}
+        </span>
+      </div>
     </div>
   );
 }
