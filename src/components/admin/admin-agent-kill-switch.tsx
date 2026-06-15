@@ -215,21 +215,19 @@ export function AdminAgentKillSwitch() {
           return (
             <div
               key={a.name}
-              className="rounded-xl border border-border bg-background p-4 shadow-sm"
+              className="rounded-xl border border-border bg-background px-3 py-2 shadow-sm"
             >
               <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2.5 min-w-0">
                   <span
                     aria-hidden
-                    className={`inline-block h-3 w-3 rounded-full ${STATE_DOT[a.state]} ${live ? "animate-pulse" : ""}`}
+                    className={`inline-block h-2.5 w-2.5 shrink-0 rounded-full ${STATE_DOT[a.state]} ${live ? "animate-pulse" : ""}`}
                   />
-                  <div>
-                    <div className="font-display text-lg font-semibold text-foreground">{displayName(a.name)}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {STATE_LABEL[a.state]} · replicas {a.replicas}/{a.ready} ready
-                      {a.reason ? ` · ${a.reason}` : ""}
-                    </div>
-                  </div>
+                  <span className="font-display text-base font-semibold text-foreground">{displayName(a.name)}</span>
+                  <span className="truncate text-xs text-muted-foreground">
+                    {STATE_LABEL[a.state]} · {a.replicas}/{a.ready}
+                    {a.reason ? ` · ${a.reason}` : ""}
+                  </span>
                 </div>
                 <button
                   type="button"
@@ -238,15 +236,15 @@ export function AdminAgentKillSwitch() {
                   disabled={isBusy || !agents}
                   aria-checked={live}
                   className={[
-                    "inline-flex h-6 w-11 shrink-0 items-center rounded-full p-0.5 transition-colors disabled:opacity-60",
+                    "inline-flex h-5 w-9 shrink-0 items-center rounded-full p-0.5 transition-colors disabled:opacity-60",
                     live ? "bg-emerald-500" : "bg-zinc-300 dark:bg-zinc-700",
                   ].join(" ")}
                   aria-label={`Toggle ${a.name}`}
                 >
                   <span
                     className={[
-                      "inline-block h-5 w-5 rounded-full bg-white shadow transition-transform",
-                      live ? "translate-x-5" : "translate-x-0",
+                      "inline-block h-4 w-4 rounded-full bg-white shadow transition-transform",
+                      live ? "translate-x-4" : "translate-x-0",
                     ].join(" ")}
                   />
                 </button>
