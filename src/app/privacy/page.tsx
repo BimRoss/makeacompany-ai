@@ -7,7 +7,7 @@ import { siteUrl } from "@/lib/site";
 export const metadata: Metadata = {
   title: "Privacy Policy",
   description:
-    "Privacy policy for BimRoss LLC operating MakeACompany.ai and related Platform services.",
+    "Privacy policy for MakeaCompany, a brand of BimRoss LLC, operating makeacompany.ai and related Platform services.",
   alternates: {
     canonical: "/privacy",
   },
@@ -15,7 +15,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Privacy Policy",
     description:
-      "Privacy policy for BimRoss LLC operating MakeACompany.ai and related Platform services.",
+      "Privacy policy for MakeaCompany, a brand of BimRoss LLC, operating makeacompany.ai and related Platform services.",
     url: `${siteUrl}/privacy`,
   },
 };
@@ -78,9 +78,9 @@ export default function PrivacyPage() {
         <div className="mt-10 space-y-8 text-base leading-7 text-foreground/90">
           <div className="space-y-3">
             <p>
-              This Privacy Policy explains how BimRoss LLC (&quot;Company&quot;, &quot;we&quot;, &quot;us&quot; or
-              &quot;our&quot;) collects, uses, discloses, stores and protects personal information when you access
-              or use BimRoss, MakeACompany.ai and any related websites, applications, APIs, AI agents, workflows,
+              This Privacy Policy explains how MakeaCompany, a brand of BimRoss LLC (&quot;Company&quot;, &quot;we&quot;,
+              &quot;us&quot; or &quot;our&quot;), collects, uses, discloses, stores and protects personal information when
+              you access or use makeacompany.ai and any related websites, applications, APIs, AI agents, workflows,
               tools, integrations and services (together, the &quot;Platform&quot;).
             </p>
             <p>
