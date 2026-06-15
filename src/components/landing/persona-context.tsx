@@ -70,6 +70,13 @@ export function PersonaProvider({
       setHydrated(true);
       return;
     }
+    // Base URL means neutral. Don't auto-promote from storage/referrer —
+    // the user can re-pick. (Clicking the active pill routes here to unselect;
+    // a storage upgrade would defeat that.)
+    if (!initialSelected) {
+      setHydrated(true);
+      return;
+    }
     const resolved = resolveInitialPersona(true);
     if (resolved.source !== "default") {
       if (resolved.persona !== initialPersona) {
@@ -80,7 +87,7 @@ export function PersonaProvider({
       setSelected(true);
     }
     setHydrated(true);
-  }, [initialFromUrl, initialPersona]);
+  }, [initialFromUrl, initialPersona, initialSelected]);
 
   const setPersona = useCallback((next: Persona) => {
     setPersonaState((prev) => {
