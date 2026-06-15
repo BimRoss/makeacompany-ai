@@ -9,24 +9,24 @@ import { siteUrl } from "@/lib/site";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "FAQ — makeacompany",
+  title: "FAQ: AI employees in your Slack workspace, $99/month",
   description:
-    "Frequently asked questions about makeacompany.ai — pricing, access, what's included, and how the AI employees work in your Slack.",
+    "Common questions about makeacompany.ai: how the AI employees work in your Slack workspace, what's included for $99/month, what tools they touch, and how to start.",
   alternates: {
     canonical: "/faq",
   },
   openGraph: {
-    title: "FAQ — makeacompany",
+    title: "FAQ: AI employees in your Slack workspace, $99/month",
     description:
-      "Frequently asked questions about makeacompany.ai — pricing, access, what's included, and how the AI employees work in your Slack.",
+      "Common questions about makeacompany.ai: how the AI employees work in your Slack workspace, what's included for $99/month, what tools they touch, and how to start.",
     url: `${siteUrl}/faq`,
     images: ["/opengraph-image"],
   },
   twitter: {
     card: "summary_large_image",
-    title: "FAQ — makeacompany",
+    title: "FAQ: AI employees in your Slack workspace, $99/month",
     description:
-      "Frequently asked questions about makeacompany.ai — pricing, access, what's included, and how the AI employees work in your Slack.",
+      "Common questions about makeacompany.ai: how the AI employees work in your Slack workspace, what's included for $99/month, what tools they touch, and how to start.",
     images: ["/twitter-image"],
   },
 };
@@ -55,7 +55,7 @@ export default async function FaqPage() {
           Frequently asked questions
         </h1>
         <p className="mt-6 text-center text-base text-muted-foreground">
-          Everything we get asked most often about makeacompany.ai.
+          Everything we get asked most often about running AI employees in your Slack workspace.
         </p>
       </section>
       <SeoFaqSection seats={initialSeats} hideHeading />

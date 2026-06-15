@@ -5,21 +5,21 @@ import { breadcrumbStructuredData } from "@/lib/breadcrumbs";
 import CostPageClient from "./CostPageClient";
 
 export const metadata: Metadata = {
-  title: "The Cost of Your Next Hire vs. MaC",
+  title: "Cost of an AI agent for your Slack team vs. a $250K hire",
   description:
-    "A senior NYC hire costs ~$250K/year fully loaded. MaC costs $1,200. That's ~208× more leverage per dollar. Your team doesn't shrink — your output multiplies.",
+    "A senior NYC hire costs ~$250K/year fully loaded. An AI agent for your Slack team costs $1,200/year. ~208× more leverage per dollar. Your team doesn't shrink, your output multiplies.",
   alternates: { canonical: "/cost" },
   openGraph: {
-    title: "Your team doesn't shrink. Your output multiplies.",
+    title: "AI agent for your Slack team: $1,200/yr vs a $250K hire",
     description:
-      "$250K/yr vs $1,200/yr — the math on your next senior hire vs. running MaC.",
+      "$250K/yr vs $1,200/yr, the math on a senior hire vs. an AI agent in your Slack.",
     url: "/cost",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Your team doesn't shrink. Your output multiplies.",
+    title: "AI agent for your Slack team: $1,200/yr vs a $250K hire",
     description:
-      "$250K/yr vs $1,200/yr — the math on your next senior hire vs. running MaC.",
+      "$250K/yr vs $1,200/yr, the math on a senior hire vs. an AI agent in your Slack.",
   },
 };
 
