@@ -61,13 +61,6 @@ function relativeTime(iso?: string): string {
   return `${Math.round(diffSec / 86400)}d ago`;
 }
 
-function isRecent(iso: string | undefined, withinSec: number): boolean {
-  if (isZeroTime(iso)) return false;
-  const then = new Date(iso as string).getTime();
-  if (Number.isNaN(then)) return false;
-  return (Date.now() - then) / 1000 < withinSec;
-}
-
 export function OAuthPoolPanel() {
   const [data, setData] = useState<Payload | null>(null);
   const [loading, setLoading] = useState(true);
@@ -186,7 +179,6 @@ function AgentCard({ agent }: { agent: AgentResult }) {
 }
 
 function SlotRow({ slot, cap }: { slot: SlotSnapshot; cap: number }) {
-  const hotErr = isRecent(slot.last_rate_limit_err_at, 3600);
   // Real % of the published Max-20x cap from the agent snapshot. Token-
   // based cap is lower in practice for Opus + long context, but anchoring
   // to Anthropic's published floor is more useful than a peer-relative
@@ -194,17 +186,18 @@ function SlotRow({ slot, cap }: { slot: SlotSnapshot; cap: number }) {
   // and a 429 here recalibrates the cap downward.
   const pct = cap > 0 ? Math.min(1, slot.spawns_in_window / cap) : 0;
   const pctLabel = Math.round(pct * 100);
-  const tone = hotErr || pct >= 0.85 ? "neg" : pct >= 0.5 ? "accent" : "pos";
-  const toneVar =
-    tone === "neg" ? "var(--chart-neg)" : tone === "accent" ? "var(--chart-accent)" : "var(--chart-pos)";
+  // Single grey ramp that darkens as we climb toward the cap. No red /
+  // green / yellow tone breaks — 13/900 should not panic-flag.
+  const barColor = `color-mix(in oklab, var(--foreground) ${Math.round(20 + pct * 70)}%, transparent)`;
+  const textColor = `color-mix(in oklab, var(--foreground) ${Math.round(50 + pct * 50)}%, transparent)`;
 
   return (
-    <div className={`px-3 py-2.5 ${hotErr ? "bg-[var(--chart-neg)]/5" : ""}`}>
+    <div className="px-3 py-2.5">
       <div className="flex items-baseline justify-between gap-2">
         <span className="font-mono text-[11px] text-muted-foreground">{slot.slot}</span>
         <span
           className="font-display text-lg font-semibold tabular-nums leading-none"
-          style={{ color: toneVar }}
+          style={{ color: textColor }}
         >
           {pctLabel}%
           <span className="ml-1 text-[10px] font-normal text-muted-foreground">
@@ -217,8 +210,7 @@ function SlotRow({ slot, cap }: { slot: SlotSnapshot; cap: number }) {
           className="h-full rounded-full transition-all duration-300"
           style={{
             width: `${Math.max(2, pct * 100)}%`,
-            backgroundColor: toneVar,
-            opacity: pct > 0 ? 1 : 0.4,
+            backgroundColor: barColor,
           }}
         />
       </div>
@@ -227,7 +219,7 @@ function SlotRow({ slot, cap }: { slot: SlotSnapshot; cap: number }) {
         <span
           className={
             slot.rate_limit_errs_total > 0
-              ? "inline-flex items-center gap-1 font-medium text-[var(--chart-neg)]"
+              ? "inline-flex items-center gap-1 font-medium text-foreground/70"
               : ""
           }
           title={slot.last_rate_limit_err_excerpt ?? ""}
