@@ -8,7 +8,7 @@ set -euo pipefail
 # Secret makeacompany-ai-ga4-credentials when ${HOME}/ga4-reader-key.json
 # exists (override path via GA4_SA_KEY_PATH; skipped silently when absent).
 #
-# By default also copies dockerhub-pull from namespace subnet-signal (fallback: bimross-web)
+# By default also copies dockerhub-pull from namespace cluster-bootstrap (fallback: bimross-web)
 # so private geeemoney/* images can pull — same pattern as rancher-admin/scripts/sync-makeacompany-ai-pull-secret.sh.
 # Set SYNC_PULL_SECRET=false to skip.
 # After the Secret apply, by default restarts makeacompany-ai-backend + makeacompany-ai-frontend so
@@ -61,7 +61,7 @@ NAMESPACE="${NAMESPACE:-makeacompany-ai}"
 SECRET_NAME="${SECRET_NAME:-makeacompany-ai-runtime-secrets}"
 SYNC_PULL_SECRET="${SYNC_PULL_SECRET:-true}"
 PULL_SECRET_NAME="${PULL_SECRET_NAME:-dockerhub-pull}"
-PULL_SECRET_SOURCE_NAMESPACE="${PULL_SECRET_SOURCE_NAMESPACE:-subnet-signal}"
+PULL_SECRET_SOURCE_NAMESPACE="${PULL_SECRET_SOURCE_NAMESPACE:-cluster-bootstrap}"
 PULL_SECRET_FALLBACK_NAMESPACE="${PULL_SECRET_FALLBACK_NAMESPACE:-bimross-web}"
 
 kubectl_app() {
@@ -72,7 +72,7 @@ kubectl_app() {
   kubectl "${args[@]}" "$@"
 }
 
-sync_pull_secret_from_subnet_signal() {
+sync_pull_secret() {
   local source_ns="${PULL_SECRET_SOURCE_NAMESPACE}"
 
   kubectl_app get namespace "${NAMESPACE}" >/dev/null 2>&1 || kubectl_app create namespace "${NAMESPACE}"
@@ -139,7 +139,7 @@ if [[ -z "${STRIPE_PRICE_EFFECTIVE}" ]]; then
 fi
 
 if [[ "${SYNC_PULL_SECRET}" == "true" ]]; then
-  sync_pull_secret_from_subnet_signal
+  sync_pull_secret
 fi
 
 read_existing_secret_key() {
