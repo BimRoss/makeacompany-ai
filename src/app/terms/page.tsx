@@ -7,7 +7,7 @@ import { siteUrl } from "@/lib/site";
 export const metadata: Metadata = {
   title: "Terms of Service — makeacompany.ai",
   description:
-    "The agreement covering your makeacompany.ai account, the actions Ross and Joanne take on your behalf, and any third-party services you connect. Plain-English early access terms from BimRoss LLC.",
+    "The agreement covering your makeacompany.ai account, the actions Ross and Joanne take on your behalf, and any third-party services you connect. Plain-English early access terms from MakeaCompany, a brand of BimRoss LLC.",
   alternates: {
     canonical: "/terms",
   },
@@ -44,9 +44,9 @@ export default function TermsPage() {
         <div className="mt-10 space-y-8 text-base leading-7 text-foreground/90">
           <div className="space-y-3">
             <p>
-              These Early Access Terms of Use are entered into between BimRoss LLC, a Wyoming limited liability
-              company (&quot;Company&quot;, &quot;we&quot;, &quot;us&quot; or &quot;our&quot;), and the person or entity accessing or using the
-              Platform (&quot;User&quot;, &quot;you&quot; or &quot;your&quot;).
+              These Early Access Terms of Use are entered into between MakeaCompany, a brand of BimRoss LLC, a Wyoming
+              limited liability company (&quot;Company&quot;, &quot;we&quot;, &quot;us&quot; or &quot;our&quot;), and the person or entity
+              accessing or using the Platform (&quot;User&quot;, &quot;you&quot; or &quot;your&quot;).
             </p>
             <p>
               By clicking &quot;I Accept&quot;, creating an account, accessing the Platform, approving any Agent action,
@@ -93,7 +93,7 @@ export default function TermsPage() {
                 produced, configured or made available by the Platform or any Agent.
               </p>
               <p>
-                <span className="font-semibold tabular-nums">1.7</span> &quot;Platform&quot; means the BimRoss, MakeACompany.ai
+                <span className="font-semibold tabular-nums">1.7</span> &quot;Platform&quot; means makeacompany.ai
                 and related websites, applications, APIs, tools, Agents, workflows, interfaces, documentation,
                 integrations and services made available by us.
               </p>

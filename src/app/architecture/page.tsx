@@ -81,7 +81,7 @@ export default function ArchitecturePage() {
         <div className="min-h-screen flex flex-col justify-center items-center px-6 py-20">
           <div className="text-center space-y-6 animate-fade-in">
             <div className="text-sm font-light tracking-widest text-gray-500 uppercase">
-              BIMROSS · ARCHITECTURE
+              MAKEACOMPANY · ARCHITECTURE
             </div>
 
             <h1 className="text-6xl md:text-8xl font-bold leading-tight">
