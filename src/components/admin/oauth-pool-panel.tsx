@@ -94,14 +94,7 @@ export function OAuthPoolPanel() {
   return (
     <section className="space-y-3">
       <header className="flex items-center justify-between gap-3 px-0.5">
-        <div className="space-y-0.5">
-          <h2 className="font-display text-lg font-semibold tracking-tight">Rate-limit headroom</h2>
-          <p className="text-xs text-muted-foreground">
-            CLAUDE_CODE_OAUTH_TOKEN pool — per-slot spawn count in the rolling 5h window vs. Anthropic&apos;s
-            published Max 20x floor (~900 messages / window). Token-based cap is lower in practice for Opus +
-            long context; we&apos;ll tune the ceiling once we have a 429 data point.
-          </p>
-        </div>
+        <h2 className="font-display text-lg font-semibold tracking-tight">Rate-limit headroom</h2>
         <button
           type="button"
           onClick={() => void load()}
