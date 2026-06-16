@@ -103,12 +103,24 @@ func (w *PersonalAgentWriter) AgentNamespace() string {
 	return w.agentNamespace
 }
 
-// personalAgentSecretName derives the deterministic Secret name for a Slack
-// user id. sha256 truncated to 12 hex chars — matches the shopify-conn shape.
-func personalAgentSecretName(slackUserID string) string {
+// personalAgentResourceName is the shared base name for a personal-agent's
+// K8s resources (Deployment, Service, and the Secret which appends a suffix).
+// sha256(slack_user_id) truncated to 12 hex chars — matches the shopify-conn shape.
+func personalAgentResourceName(slackUserID string) string {
 	sum := sha256.Sum256([]byte(strings.TrimSpace(slackUserID)))
-	return personalAgentSecretNamePrefix + hex.EncodeToString(sum[:6]) + personalAgentSecretNameSuffix
+	return personalAgentSecretNamePrefix + hex.EncodeToString(sum[:6])
 }
+
+// personalAgentSecretName derives the deterministic Secret name for a Slack
+// user id.
+func personalAgentSecretName(slackUserID string) string {
+	return personalAgentResourceName(slackUserID) + personalAgentSecretNameSuffix
+}
+
+// PersonalAgentServicePort is the well-known port the per-agent HTTP Events
+// server listens on (matches claude-code-personal-agent's PERSONAL_HTTP_EVENTS_ADDR
+// default of :8080).
+const PersonalAgentServicePort = 8080
 
 // PersonalAgentRuntimeSecretRequest is what the provisioner hands the writer
 // once the agent's Slack app has been installed and we have bot + signing

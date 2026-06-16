@@ -104,6 +104,11 @@ type Config struct {
 	// install redirect URL. The provisioner appends "<agent_id>/install-complete"
 	// when substituting the manifest. Defaults to AppBaseURL + "/api/portal/personal-agents/".
 	PersonalAgentInstallRedirectBase string
+	// PersonalAgentImage is the container image every per-agent Deployment
+	// runs. Bumped via CI when claude-code-personal-agent cuts a release.
+	// Defaults to docker.io/geeemoney/claude-code-personal-agent:latest when
+	// unset (acceptable in dev; pin explicitly in prod).
+	PersonalAgentImage string
 }
 
 // stripePriceIDBasePlan returns STRIPE_PRICE_ID_BASE_PLAN, else legacy STRIPE_PRICE_ID_WAITLIST.
@@ -159,6 +164,7 @@ func LoadConfig() Config {
 		PersonalAgentNamespace:              envString("PERSONAL_AGENT_NAMESPACE", "personal-agents"),
 		EventsGatewayRequestURL:             envString("EVENTS_GATEWAY_REQUEST_URL", "https://events.makeacompany.ai/slack/events"),
 		PersonalAgentInstallRedirectBase:    strings.TrimSpace(os.Getenv("PERSONAL_AGENT_INSTALL_REDIRECT_BASE")),
+		PersonalAgentImage:                  envString("PERSONAL_AGENT_IMAGE", "docker.io/geeemoney/claude-code-personal-agent:latest"),
 	}
 }
 

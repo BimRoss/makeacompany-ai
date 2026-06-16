@@ -257,6 +257,36 @@ func (s *Server) handlePersonalAgentInstallComplete(w http.ResponseWriter, r *ht
 		return
 	}
 
+	// Per-agent Service + Deployment so the events gateway has somewhere to
+	// route inbound Slack events. Order: Service first (so the gateway has a
+	// stable name to forward to), then Deployment (which produces the
+	// endpoints behind the Service).
+	if err := s.personalAgent.WriteAgentService(r.Context(), rec.OwnerSlackUserID); err != nil {
+		s.log.Printf("personal agent service write: %v", err)
+		_ = s.store.UpdatePersonalAgentStatus(r.Context(), agentID, PersonalAgentStatusFailed)
+		http.Redirect(w, r, "/me?personal_agent_install=failed&reason=service", http.StatusFound)
+		return
+	}
+	if err := s.personalAgent.WriteAgentDeployment(r.Context(), PersonalAgentDeploymentRequest{
+		SlackUserID:      rec.OwnerSlackUserID,
+		OwnerSlackUserID: rec.OwnerSlackUserID,
+		DisplayName:      rec.DisplayName,
+		AgentID:          rec.ID,
+		Image:            s.cfg.PersonalAgentImage,
+	}); err != nil {
+		s.log.Printf("personal agent deployment write: %v", err)
+		_ = s.store.UpdatePersonalAgentStatus(r.Context(), agentID, PersonalAgentStatusFailed)
+		http.Redirect(w, r, "/me?personal_agent_install=failed&reason=deployment", http.StatusFound)
+		return
+	}
+
+	resourceName := personalAgentResourceName(rec.OwnerSlackUserID)
+	if err := s.store.SetPersonalAgentService(r.Context(), agentID, s.personalAgent.AgentNamespace(), resourceName, PersonalAgentServicePort); err != nil {
+		// Non-fatal: pod is up, but the events gateway won't route until this
+		// binding lands. Surface as a soft failure so the user retries.
+		s.log.Printf("set personal agent service binding: %v", err)
+	}
+
 	if err := s.store.MarkPersonalAgentInstalled(r.Context(), agentID); err != nil {
 		s.log.Printf("mark personal agent installed: %v", err)
 	}
