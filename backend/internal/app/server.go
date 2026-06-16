@@ -132,6 +132,13 @@ type Server struct {
 	// clusterHealth returns a sanitized, read-only summary of the cluster
 	// for the sales-pod health bar (#290). nil-safe Disabled() for local dev.
 	clusterHealth *ClusterHealthClient
+	// slackManifest mints per-personal-agent Slack apps via the App Manifest
+	// API (#418). Disabled() short-circuits when the config-token pair isn't
+	// configured.
+	slackManifest *SlackManifestClient
+	// personalAgent owns per-agent K8s Secret writes + the persist callback
+	// the Manifest client uses to durable-write rotated config tokens.
+	personalAgent *PersonalAgentWriter
 }
 
 func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
@@ -175,6 +182,20 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 	if clusterHealth.Disabled() {
 		logger.Printf("cluster-health disabled (no in-cluster config)")
 	}
+	personalAgentWriter, perr := NewPersonalAgentWriter(cfg.PersonalAgentNamespace, "", "")
+	if perr != nil {
+		return nil, fmt.Errorf("personal agent writer init: %w", perr)
+	}
+	if personalAgentWriter.Disabled() {
+		logger.Printf("personal agent writer disabled (no in-cluster config)")
+	}
+	slackConfigTokens := NewSlackConfigTokens(cfg.SlackConfigAccessToken, cfg.SlackConfigRefreshToken)
+	var slackManifestClient *SlackManifestClient
+	if cfg.SlackConfigAccessToken != "" && cfg.SlackConfigRefreshToken != "" {
+		slackManifestClient = NewSlackManifestClient(slackConfigTokens, personalAgentWriter.PersistConfigTokens, logger)
+	} else {
+		logger.Printf("slack manifest client disabled (SLACK_CONFIG_ACCESS_TOKEN/REFRESH_TOKEN missing)")
+	}
 	s := &Server{
 		cfg:                    cfg,
 		log:                    logger,
@@ -187,6 +208,8 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 		shopify:                shopifyWriter,
 		agentToggle:            agentToggle,
 		clusterHealth:          clusterHealth,
+		slackManifest:          slackManifestClient,
+		personalAgent:          personalAgentWriter,
 	}
 	s.mux.HandleFunc("/livez", s.handleLivez)
 	s.mux.HandleFunc("/readyz", s.handleReadiness)
@@ -237,6 +260,13 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 	s.mux.HandleFunc("/v1/me/auth/magic/start", s.handleUserAuthMagicStart)
 	s.mux.HandleFunc("/v1/me/auth/magic/finish", s.handleUserAuthMagicFinish)
 	s.mux.HandleFunc("/v1/me/auth/google/finish", s.handleUserAuthGoogleFinish)
+	// Personal agents track (#418)
+	s.mux.HandleFunc("POST /v1/me/personal-agents", s.handleCreatePersonalAgent)
+	s.mux.HandleFunc("GET /v1/me/personal-agents/mine", s.handleGetMyPersonalAgent)
+	s.mux.HandleFunc("GET /v1/personal-agents/{id}/install-complete", s.handlePersonalAgentInstallComplete)
+	// Shared Slack events gateway for ALL personal-agent apps. Mounted at the
+	// same backend; ingress routes events.makeacompany.ai → /v1/slack/events.
+	s.mux.HandleFunc("POST /v1/slack/events", s.handleSlackEventsGateway)
 	// Cancel handler is tenant-agnostic — same code already powers the
 	// channel-portal cancel button. Mounting at /v1/me/ keeps the surface
 	// boundary clean for the /me browser session cookie.

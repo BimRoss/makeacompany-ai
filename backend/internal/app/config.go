@@ -84,6 +84,31 @@ type Config struct {
 	// Shopify connection Secrets land in. Defaults to "makeacompany-ai"
 	// when unset.
 	ShopifyConnectionNamespace string
+	// Personal-agents track (#418):
+	//
+	// SlackConfigAccessToken / SlackConfigRefreshToken seed the Manifest API
+	// client. The pair rotates ~every 12h; rotations are reactive (triggered
+	// by an auth error from any apps.manifest.* call) and patched back to
+	// the runtime Secret via PersonalAgentWriter.PersistConfigTokens.
+	SlackConfigAccessToken  string
+	SlackConfigRefreshToken string
+	// PersonalAgentNamespace is the K8s namespace that holds all per-agent
+	// runtime Secrets (and, in MVP, the agent pods themselves). Defaults to
+	// "personal-agents".
+	PersonalAgentNamespace string
+	// EventsGatewayRequestURL is the single events.makeacompany.ai URL
+	// baked into every per-agent Slack manifest. The gateway dispatches to
+	// the right in-cluster pod by api_app_id.
+	EventsGatewayRequestURL string
+	// PersonalAgentInstallRedirectBase is the prefix for the per-agent OAuth
+	// install redirect URL. The provisioner appends "<agent_id>/install-complete"
+	// when substituting the manifest. Defaults to AppBaseURL + "/api/portal/personal-agents/".
+	PersonalAgentInstallRedirectBase string
+	// PersonalAgentImage is the container image every per-agent Deployment
+	// runs. Bumped via CI when claude-code-personal-agent cuts a release.
+	// Defaults to docker.io/geeemoney/claude-code-personal-agent:latest when
+	// unset (acceptable in dev; pin explicitly in prod).
+	PersonalAgentImage string
 }
 
 // stripePriceIDBasePlan returns STRIPE_PRICE_ID_BASE_PLAN, else legacy STRIPE_PRICE_ID_WAITLIST.
@@ -134,6 +159,12 @@ func LoadConfig() Config {
 		ShopifyPartnerClientID:              strings.TrimSpace(os.Getenv("SHOPIFY_PARTNER_CLIENT_ID")),
 		ShopifyPartnerClientSecret:          strings.TrimSpace(os.Getenv("SHOPIFY_PARTNER_CLIENT_SECRET")),
 		ShopifyConnectionNamespace:          strings.TrimSpace(os.Getenv("SHOPIFY_CONNECTION_NAMESPACE")),
+		SlackConfigAccessToken:              strings.TrimSpace(os.Getenv("SLACK_CONFIG_ACCESS_TOKEN")),
+		SlackConfigRefreshToken:             strings.TrimSpace(os.Getenv("SLACK_CONFIG_REFRESH_TOKEN")),
+		PersonalAgentNamespace:              envString("PERSONAL_AGENT_NAMESPACE", "personal-agents"),
+		EventsGatewayRequestURL:             envString("EVENTS_GATEWAY_REQUEST_URL", "https://events.makeacompany.ai/slack/events"),
+		PersonalAgentInstallRedirectBase:    strings.TrimSpace(os.Getenv("PERSONAL_AGENT_INSTALL_REDIRECT_BASE")),
+		PersonalAgentImage:                  envString("PERSONAL_AGENT_IMAGE", "docker.io/geeemoney/claude-code-personal-agent:latest"),
 	}
 }
 
