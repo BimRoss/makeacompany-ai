@@ -204,14 +204,9 @@ func (s *Server) handlePersonalAgentInstallComplete(w http.ResponseWriter, r *ht
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	// Path parse: /api/portal/personal-agents/<agent_id>/install-complete
-	parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
-	if len(parts) < 5 {
-		http.Error(w, "bad path", http.StatusBadRequest)
-		return
-	}
-	agentID := parts[len(parts)-2]
-	if strings.TrimSpace(agentID) == "" {
+	// Route registered with Go 1.22+ pattern: GET /v1/personal-agents/{id}/install-complete
+	agentID := strings.TrimSpace(r.PathValue("id"))
+	if agentID == "" {
 		http.Error(w, "missing agent id", http.StatusBadRequest)
 		return
 	}
