@@ -11,13 +11,11 @@ export default function AdminPage() {
       <AdminSlackWorkspaceLiveSyncOnce />
       <AdminPostAuthWelcomeBoundary />
       <div className="space-y-6">
-        {/* ObservabilityShell first so its sticky toolbar (Updated…) and
-            GoldenPath land at the very top. AdminAgentKillSwitch (the big
-            Joanne/Ross Live pills) removed — the controls were duplicated
-            in the sticky compact strip below, and both now live elsewhere
-            in /admin when we need them. */}
-        <AdminObservabilityShell />
+        {/* OAuthPoolPanel (rate-limit headroom) lifted above the
+            ObservabilityShell so the shared-pool draw is visible without a
+            scroll — it's the single most actionable signal on the page. */}
         <OAuthPoolPanel />
+        <AdminObservabilityShell />
         <AdminSlackUsersTable />
         <AdminStripeUsersTable />
       </div>

@@ -57,7 +57,7 @@ export function GoldenPath() {
     <div className="rounded-xl border border-border bg-card px-3 py-2.5">
       <div className="flex items-center gap-3">
         <div className="flex shrink-0 items-center gap-2">
-          <h3 className="font-display text-sm font-semibold tracking-tight">Golden path</h3>
+          <h3 className="font-display text-sm font-semibold tracking-tight">Cron jobs</h3>
           {flows.length > 0 ? (
             <span
               className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2 py-0.5 text-[10px] font-medium ${
