@@ -48,6 +48,7 @@ export function MePersonalAgentEditForm({
   const [description, setDescription] = useState(initialDescription);
   const [longDescription, setLongDescription] = useState(initialLongDescription);
   const [systemPrompt, setSystemPrompt] = useState(initialSystemPrompt);
+  const [icon, setIcon] = useState<IconPickerValue | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [suggesting, setSuggesting] = useState<Field | null>(null);
   const [feedback, setFeedback] = useState<{ kind: "ok" | "err"; message: string } | null>(null);
@@ -60,6 +61,40 @@ export function MePersonalAgentEditForm({
     setSystemPrompt(initialSystemPrompt);
     setFeedback(null);
   }, [initialName, initialDescription, initialLongDescription, initialSystemPrompt]);
+
+  // Hydrate the last-staged icon from localStorage so refresh keeps the preview.
+  useEffect(() => {
+    if (!agentId || typeof window === "undefined") return;
+    try {
+      const raw = window.localStorage.getItem(lastIconStorageKey(agentId));
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as IconPickerValue | null;
+      if (parsed?.base64 && parsed.mimeType) setIcon(parsed);
+    } catch {
+      /* corrupt entry — ignore */
+    }
+  }, [agentId]);
+
+  const cacheIcon = useCallback(
+    (next: IconPickerValue | null) => {
+      if (!agentId || typeof window === "undefined") return;
+      try {
+        if (next) window.localStorage.setItem(lastIconStorageKey(agentId), JSON.stringify(next));
+        else window.localStorage.removeItem(lastIconStorageKey(agentId));
+      } catch {
+        /* quota / privacy mode */
+      }
+    },
+    [agentId],
+  );
+
+  const onIconChange = useCallback(
+    (next: IconPickerValue | null) => {
+      setIcon(next);
+      cacheIcon(next);
+    },
+    [cacheIcon],
+  );
 
   async function suggest(field: Field) {
     setSuggesting(field);
@@ -76,6 +111,12 @@ export function MePersonalAgentEditForm({
           systemPrompt,
           ownerName,
           ownerSlackUserId,
+          // Forward staged icon bytes for the systemPrompt path so the
+          // backend can caption what the user is about to push, not the
+          // stale live icon.
+          ...(field === "systemPrompt" && icon
+            ? { iconBase64: icon.base64, iconMimeType: icon.mimeType }
+            : {}),
         }),
       });
       const body = (await res.json().catch(() => ({}))) as { text?: string; error?: string };
@@ -124,6 +165,32 @@ export function MePersonalAgentEditForm({
         setFeedback({ kind: "err", message: body.error || `Failed (${res.status})` });
         return;
       }
+
+      if (icon) {
+        const iconRes = await fetch("/api/me/personal-agents/icon", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ iconBase64: icon.base64, iconMimeType: icon.mimeType }),
+        });
+        const iconBody = (await iconRes.json().catch(() => ({}))) as {
+          ok?: boolean;
+          error?: string;
+          imageBase64?: string;
+          mimeType?: string;
+        };
+        if (!iconRes.ok || !iconBody.ok) {
+          setFeedback({ kind: "err", message: iconBody.error || `Icon sync failed (${iconRes.status})` });
+          return;
+        }
+        const persisted: IconPickerValue =
+          iconBody.imageBase64 && iconBody.mimeType
+            ? { base64: iconBody.imageBase64, mimeType: iconBody.mimeType }
+            : icon;
+        setIcon(persisted);
+        cacheIcon(persisted);
+        onIconPushed();
+      }
+
       onSaved(
         body.displayName ?? name.trim(),
         body.description ?? description.trim(),
@@ -139,6 +206,15 @@ export function MePersonalAgentEditForm({
 
   return (
     <form onSubmit={save} className="space-y-5">
+      <ChangeIconBlock
+        displayName={name}
+        description={description}
+        icon={icon}
+        liveSlackIconUrl={liveSlackIconUrl}
+        disabled={submitting}
+        onIconChange={onIconChange}
+      />
+
       <FormField
         label="Name"
         suggesting={suggesting === "name"}
@@ -206,15 +282,6 @@ export function MePersonalAgentEditForm({
           className="block w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground shadow-sm focus:border-foreground/30 focus:outline-none focus:ring-2 focus:ring-foreground/10"
         />
       </FormField>
-
-      <ChangeIconBlock
-        agentId={agentId}
-        displayName={name}
-        description={description}
-        liveSlackIconUrl={liveSlackIconUrl}
-        disabled={submitting}
-        onPushed={onIconPushed}
-      />
 
       {feedback ? (
         <p
@@ -291,95 +358,22 @@ function FormField({
 }
 
 function ChangeIconBlock({
-  agentId,
   displayName,
   description,
+  icon,
   liveSlackIconUrl,
   disabled,
-  onPushed,
+  onIconChange,
 }: {
-  agentId: string;
   displayName: string;
   description: string;
+  icon: IconPickerValue | null;
   liveSlackIconUrl: string | null;
   disabled: boolean;
-  onPushed: () => void;
+  onIconChange: (next: IconPickerValue | null) => void;
 }) {
-  const [icon, setIcon] = useState<IconPickerValue | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-  const [feedback, setFeedback] = useState<{ kind: "ok" | "err"; message: string } | null>(null);
-
-  // Hydrate the last-pushed icon from localStorage so refresh keeps preview.
-  useEffect(() => {
-    if (!agentId || typeof window === "undefined") return;
-    try {
-      const raw = window.localStorage.getItem(lastIconStorageKey(agentId));
-      if (!raw) return;
-      const parsed = JSON.parse(raw) as IconPickerValue | null;
-      if (parsed?.base64 && parsed.mimeType) setIcon(parsed);
-    } catch {
-      /* corrupt entry — ignore */
-    }
-  }, [agentId]);
-
-  const cacheIcon = useCallback(
-    (next: IconPickerValue | null) => {
-      if (!agentId || typeof window === "undefined") return;
-      try {
-        if (next) window.localStorage.setItem(lastIconStorageKey(agentId), JSON.stringify(next));
-        else window.localStorage.removeItem(lastIconStorageKey(agentId));
-      } catch {
-        /* quota / privacy mode */
-      }
-    },
-    [agentId],
-  );
-
-  const onIconChange = useCallback(
-    (next: IconPickerValue | null) => {
-      setIcon(next);
-      if (next === null) cacheIcon(null);
-    },
-    [cacheIcon],
-  );
-
   const stagedDataUrl = icon ? `data:${icon.mimeType};base64,${icon.base64}` : null;
   const preview = stagedDataUrl ?? liveSlackIconUrl;
-
-  async function pushIcon() {
-    if (!icon) return;
-    setSubmitting(true);
-    setFeedback(null);
-    try {
-      const res = await fetch("/api/me/personal-agents/icon", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ iconBase64: icon.base64, iconMimeType: icon.mimeType }),
-      });
-      const body = (await res.json().catch(() => ({}))) as {
-        ok?: boolean;
-        error?: string;
-        imageBase64?: string;
-        mimeType?: string;
-      };
-      if (!res.ok || !body.ok) {
-        setFeedback({ kind: "err", message: body.error || `Failed (${res.status})` });
-        return;
-      }
-      const persisted: IconPickerValue | null =
-        body.imageBase64 && body.mimeType ? { base64: body.imageBase64, mimeType: body.mimeType } : icon;
-      if (persisted) {
-        setIcon(persisted);
-        cacheIcon(persisted);
-      }
-      onPushed();
-      setFeedback({ kind: "ok", message: "Icon updated in Slack. May take a moment to refresh in clients." });
-    } catch (err) {
-      setFeedback({ kind: "err", message: err instanceof Error ? err.message : "Network error" });
-    } finally {
-      setSubmitting(false);
-    }
-  }
 
   return (
     <div className="space-y-3 rounded-xl border border-border bg-background/40 p-4">
@@ -387,31 +381,10 @@ function ChangeIconBlock({
       <MePersonalAgentIconPicker
         previewDataUrl={preview}
         onChange={onIconChange}
-        disabled={disabled || submitting}
+        disabled={disabled}
         displayName={displayName}
         description={description}
       />
-      <div className="flex justify-end">
-        <button
-          type="button"
-          onClick={pushIcon}
-          disabled={disabled || submitting || !icon}
-          className="inline-flex h-9 items-center justify-center rounded-lg bg-foreground px-3 text-xs font-semibold text-background transition hover:bg-foreground/90 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {submitting ? "Saving..." : "Save icon"}
-        </button>
-      </div>
-      {feedback ? (
-        <p
-          className={`rounded-lg border px-3 py-2 text-xs ${
-            feedback.kind === "ok"
-              ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
-              : "border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-300"
-          }`}
-        >
-          {feedback.message}
-        </p>
-      ) : null}
     </div>
   );
 }

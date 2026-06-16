@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Github, TerminalSquare } from "lucide-react";
 
 import { MePersonalAgentEditForm, PenIcon } from "@/components/me/me-personal-agent-edit-form";
 
@@ -145,7 +146,17 @@ export function MePersonalAgentStatusPanel({
 
       <dl className="divide-y divide-border/60 px-4 py-2 text-sm sm:px-5">
         <Row label="Slack app" value={agent.slackAppId?.trim() || "Not set"} mono />
-        <Row label="Status" value={status} mono />
+        {agent.description?.trim() ? (
+          <Block label="Description">{agent.description.trim()}</Block>
+        ) : null}
+        {agent.longDescription?.trim() ? (
+          <Block label="Long description">{agent.longDescription.trim()}</Block>
+        ) : null}
+        {agent.systemPrompt?.trim() ? (
+          <Block label="Personality" mono>
+            {agent.systemPrompt.trim()}
+          </Block>
+        ) : null}
       </dl>
 
       {status === "pending_install" && agent.installUrl ? (
@@ -189,21 +200,16 @@ export function MePersonalAgentStatusPanel({
               onDeleted={() => router.refresh()}
             />
           ) : (
-            <>
-              <p className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700 dark:text-emerald-300">
-                Your agent is live. DM @{name} in Slack to start.
-              </p>
-              <div className="flex justify-end">
-                <button
-                  type="button"
-                  onClick={() => setEditOpen(true)}
-                  className="inline-flex h-10 items-center gap-1.5 rounded-xl border-2 border-foreground/15 bg-background px-4 text-sm font-semibold text-foreground shadow-sm transition hover:border-foreground/25 hover:bg-muted/50 dark:border-white/20 dark:bg-zinc-950 dark:hover:bg-zinc-900"
-                >
-                  <PenIcon />
-                  Edit agent
-                </button>
-              </div>
-            </>
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => setEditOpen(true)}
+                className="inline-flex h-10 items-center gap-1.5 rounded-xl border-2 border-foreground/15 bg-background px-4 text-sm font-semibold text-foreground shadow-sm transition hover:border-foreground/25 hover:bg-muted/50 dark:border-white/20 dark:bg-zinc-950 dark:hover:bg-zinc-900"
+              >
+                <PenIcon />
+                Edit agent
+              </button>
+            </div>
           )}
         </div>
       ) : null}
@@ -216,7 +222,71 @@ export function MePersonalAgentStatusPanel({
         </div>
       ) : null}
 
+      <ConnectionsFooter />
     </section>
+  );
+}
+
+function ConnectionsFooter() {
+  return (
+    <footer className="border-t border-border/60 bg-muted/10 px-4 py-4 sm:px-5">
+      <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        Connections
+      </p>
+      <div className="flex flex-wrap gap-2">
+        <ConnectChip label="GitHub" icon={<Github className="h-4 w-4" aria-hidden />} />
+        <ConnectChip label="Google" icon={<GoogleGlyph />} />
+        <ConnectChip label="Shopify" icon={<ShopifyGlyph />} />
+        <ConnectChip label="Cloudflare" icon={<CloudflareGlyph />} />
+        <ConnectChip label="SSH" icon={<TerminalSquare className="h-4 w-4" aria-hidden />} />
+      </div>
+    </footer>
+  );
+}
+
+function ConnectChip({ label, icon }: { label: string; icon: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      disabled
+      title="Coming soon"
+      className="inline-flex h-9 cursor-not-allowed items-center gap-1.5 rounded-lg border border-border bg-background/40 px-3 text-xs font-medium text-muted-foreground opacity-60"
+    >
+      <span aria-hidden className="text-foreground/70">
+        {icon}
+      </span>
+      Connect {label}
+    </button>
+  );
+}
+
+function GoogleGlyph() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 8v4h5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function ShopifyGlyph() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+      <path d="M5 8h14l-1 12H6L5 8z" strokeLinejoin="round" />
+      <path d="M9 8V6a3 3 0 0 1 6 0v2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function CloudflareGlyph() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+      <path
+        d="M18 18H7a4 4 0 0 1-.6-7.95A5 5 0 0 1 16 9.5h.5a3.5 3.5 0 0 1 1.5 6.95"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }
 
@@ -249,6 +319,25 @@ function Row({ label, value, mono }: { label: string; value: string; mono?: bool
       <dt className="shrink-0 text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</dt>
       <dd className={`min-w-0 truncate text-right text-foreground ${mono ? "font-mono" : ""}`} title={value}>
         {value}
+      </dd>
+    </div>
+  );
+}
+
+function Block({
+  label,
+  children,
+  mono,
+}: {
+  label: string;
+  children: React.ReactNode;
+  mono?: boolean;
+}) {
+  return (
+    <div className="space-y-1 py-2.5 first:pt-0 last:pb-0">
+      <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</dt>
+      <dd className={`whitespace-pre-wrap text-foreground ${mono ? "font-mono text-xs" : ""}`}>
+        {children}
       </dd>
     </div>
   );
