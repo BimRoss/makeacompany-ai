@@ -264,8 +264,12 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 	s.mux.HandleFunc("POST /v1/me/personal-agents", s.handleCreatePersonalAgent)
 	s.mux.HandleFunc("GET /v1/me/personal-agents/mine", s.handleGetMyPersonalAgent)
 	s.mux.HandleFunc("GET /v1/personal-agents/{id}/install-complete", s.handlePersonalAgentInstallComplete)
-	// Shared Slack events gateway for ALL personal-agent apps. Mounted at the
-	// same backend; ingress routes events.makeacompany.ai → /v1/slack/events.
+	// Shared Slack events gateway for ALL personal-agent apps. The manifest
+	// template ships with /slack/events as the events request_url, and Slack
+	// persists the value verbatim per app — so we expose the bare path here
+	// (the canonical one apps point at) AND a /v1 alias for parity with the
+	// rest of our backend.
+	s.mux.HandleFunc("POST /slack/events", s.handleSlackEventsGateway)
 	s.mux.HandleFunc("POST /v1/slack/events", s.handleSlackEventsGateway)
 	// Cancel handler is tenant-agnostic — same code already powers the
 	// channel-portal cancel button. Mounting at /v1/me/ keeps the surface
