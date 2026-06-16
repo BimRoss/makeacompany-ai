@@ -231,6 +231,7 @@ function EditAgentSection({
 function DeleteAgentSection({ displayName, onDeleted }: { displayName: string; onDeleted: () => void }) {
   const [armed, setArmed] = useState(false);
   const [confirmText, setConfirmText] = useState("");
+  const [wipeWorkspace, setWipeWorkspace] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -240,7 +241,11 @@ function DeleteAgentSection({ displayName, onDeleted }: { displayName: string; o
     setSubmitting(true);
     setError(null);
     try {
-      const res = await fetch("/api/me/personal-agents/delete", { method: "POST" });
+      const res = await fetch("/api/me/personal-agents/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ wipeWorkspace }),
+      });
       const body = (await res.json().catch(() => ({}))) as { ok?: boolean; problems?: string[]; error?: string };
       if (!res.ok || !body.ok) {
         const msg = body.problems?.join("; ") || body.error || `Failed (${res.status})`;
@@ -283,6 +288,17 @@ function DeleteAgentSection({ displayName, onDeleted }: { displayName: string; o
         placeholder="DELETE"
         className="block w-full rounded-lg border border-rose-500/40 bg-background px-3 py-2 font-mono text-sm uppercase text-foreground shadow-sm focus:border-rose-500/60 focus:outline-none focus:ring-2 focus:ring-rose-500/20"
       />
+      <label className="flex items-start gap-2 text-xs text-rose-700/90 dark:text-rose-300/90">
+        <input
+          type="checkbox"
+          checked={wipeWorkspace}
+          onChange={(e) => setWipeWorkspace(e.target.checked)}
+          className="mt-0.5 h-3.5 w-3.5 rounded border-rose-500/40 text-rose-600 focus:ring-rose-500/30"
+        />
+        <span>
+          Also wipe workspace data on disk (Claude transcripts, project files). A new agent will start with an empty <code className="rounded bg-background/60 px-1 font-mono text-[11px]">/data</code>.
+        </span>
+      </label>
       <div className="flex justify-end gap-2">
         <button
           type="button"
