@@ -58,6 +58,51 @@ func TestWriteAgentDeployment_CreatesDeployment(t *testing.T) {
 	}
 }
 
+func TestWriteAgentDeployment_PersistsWorkspaceViaHostPath(t *testing.T) {
+	cs := fake.NewSimpleClientset()
+	w := newPersonalAgentWriterWithClient(cs, "personal-agents", "", "")
+	ctx := context.Background()
+	req := PersonalAgentDeploymentRequest{
+		SlackUserID:      "U0APBT3364D",
+		OwnerSlackUserID: "U0APBT3364D",
+		DisplayName:      "Garth",
+		AgentID:          "agent-x",
+		Image:            "img:1",
+	}
+	if err := w.WriteAgentDeployment(ctx, req); err != nil {
+		t.Fatalf("WriteAgentDeployment: %v", err)
+	}
+	name := personalAgentResourceName(req.SlackUserID)
+	dep, err := cs.AppsV1().Deployments("personal-agents").Get(ctx, name, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	if dep.Spec.Template.Spec.NodeSelector["kubernetes.io/hostname"] != personalAgentHostNode {
+		t.Errorf("nodeSelector = %v", dep.Spec.Template.Spec.NodeSelector)
+	}
+	if dep.Spec.Template.Spec.SecurityContext == nil || dep.Spec.Template.Spec.SecurityContext.FSGroup == nil || *dep.Spec.Template.Spec.SecurityContext.FSGroup != personalAgentRuntimeGID {
+		t.Errorf("fsGroup not set to %d: %+v", personalAgentRuntimeGID, dep.Spec.Template.Spec.SecurityContext)
+	}
+	if len(dep.Spec.Template.Spec.Volumes) != 1 {
+		t.Fatalf("expected 1 volume, got %d", len(dep.Spec.Template.Spec.Volumes))
+	}
+	vol := dep.Spec.Template.Spec.Volumes[0]
+	if vol.HostPath == nil || vol.HostPath.Path != personalAgentHostPathBase {
+		t.Errorf("hostPath wrong: %+v", vol.HostPath)
+	}
+	c := dep.Spec.Template.Spec.Containers[0]
+	if len(c.VolumeMounts) != 1 {
+		t.Fatalf("expected 1 volumeMount, got %d", len(c.VolumeMounts))
+	}
+	mount := c.VolumeMounts[0]
+	if mount.MountPath != "/data" {
+		t.Errorf("mount path = %q", mount.MountPath)
+	}
+	if mount.SubPath != name {
+		t.Errorf("subPath = %q, want %q (matches Deployment name)", mount.SubPath, name)
+	}
+}
+
 func TestWriteAgentDeployment_UpdatesExisting(t *testing.T) {
 	cs := fake.NewSimpleClientset()
 	w := newPersonalAgentWriterWithClient(cs, "personal-agents", "", "")

@@ -66,6 +66,17 @@ func (w *PersonalAgentWriter) WriteAgentDeployment(ctx context.Context, req Pers
 				ObjectMeta: metav1.ObjectMeta{Labels: labels},
 				Spec: corev1.PodSpec{
 					ImagePullSecrets: []corev1.LocalObjectReference{{Name: "dockerhub-pull"}},
+					// Pin to the makeacompany worker node so the hostPath data
+					// volume below resolves to the same disk every pod restart.
+					// If the pool grows we'll need a real PV/PVC or RWX storage.
+					NodeSelector: map[string]string{"kubernetes.io/hostname": personalAgentHostNode},
+					// fsGroup grants the container's primary group write access
+					// to the mounted hostPath. The PA image runs as the `node`
+					// user (UID/GID 1000) baked into Node Alpine; without this
+					// the mount is owned by root and the workspace writes 403.
+					SecurityContext: &corev1.PodSecurityContext{
+						FSGroup: int64Ptr(personalAgentRuntimeGID),
+					},
 					Containers: []corev1.Container{{
 						Name:  "personal-agent",
 						Image: req.Image,
@@ -94,6 +105,23 @@ func (w *PersonalAgentWriter) WriteAgentDeployment(ctx context.Context, req Pers
 							Limits: corev1.ResourceList{
 								corev1.ResourceCPU:    resource.MustParse("1"),
 								corev1.ResourceMemory: resource.MustParse("1Gi"),
+							},
+							// Per-agent workspace survives pod restarts. SubPath
+							// keys on the deterministic resource name so the data
+							// follows the agent even if the pod template changes.
+						},
+						VolumeMounts: []corev1.VolumeMount{{
+							Name:      "data",
+							MountPath: "/data",
+							SubPath:   name,
+						}},
+					}},
+					Volumes: []corev1.Volume{{
+						Name: "data",
+						VolumeSource: corev1.VolumeSource{
+							HostPath: &corev1.HostPathVolumeSource{
+								Path: personalAgentHostPathBase,
+								Type: hostPathTypePtr(corev1.HostPathDirectoryOrCreate),
 							},
 						},
 					}},
@@ -172,6 +200,23 @@ func (w *PersonalAgentWriter) WriteAgentService(ctx context.Context, slackUserID
 	}
 	return nil
 }
+
+const (
+	// personalAgentHostNode pins every personal-agent pod to one specific
+	// worker. Local hostPath data only resolves on the same disk; until we
+	// move to RWX storage, all per-agent pods share this node.
+	personalAgentHostNode = "makeacompany"
+	// personalAgentHostPathBase is where per-agent workspace data lives on
+	// the host. Each agent's subPath under here is the resource name.
+	personalAgentHostPathBase = "/var/lib/personal-agents"
+	// personalAgentRuntimeGID matches the `node` group baked into the PA
+	// image's Node Alpine base. Used as fsGroup so the container can write
+	// the hostPath mount.
+	personalAgentRuntimeGID int64 = 1000
+)
+
+func int64Ptr(v int64) *int64                              { return &v }
+func hostPathTypePtr(t corev1.HostPathType) *corev1.HostPathType { return &t }
 
 func httpProbeOnHealthz() *corev1.Probe {
 	return &corev1.Probe{
