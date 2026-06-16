@@ -29,9 +29,16 @@ func TestRenderPersonalAgentManifest_Success(t *testing.T) {
 	if di["description"].(string) != "Grant's personal agent" {
 		t.Errorf("display_information.description = %v", di["description"])
 	}
-	// long_description falls back to description when blank.
-	if di["long_description"].(string) != "Grant's personal agent" {
-		t.Errorf("long_description fallback failed: %v", di["long_description"])
+	// long_description must clear Slack's min-length requirement; when the
+	// user supplies nothing, the renderer composes from description + the
+	// platform suffix. Assert the user copy is in the prefix and the result
+	// meets the minimum.
+	longDesc := di["long_description"].(string)
+	if !strings.HasPrefix(longDesc, "Grant's personal agent.") {
+		t.Errorf("long_description should start with the description fallback, got %q", longDesc)
+	}
+	if len(longDesc) < slackManifestLongDescMinChars {
+		t.Errorf("long_description = %d chars, want >= %d", len(longDesc), slackManifestLongDescMinChars)
 	}
 	settings := parsed["settings"].(map[string]any)
 	if settings["socket_mode_enabled"].(bool) {
@@ -80,6 +87,59 @@ func TestRenderPersonalAgentManifest_EscapesQuotes(t *testing.T) {
 	di := parsed["display_information"].(map[string]any)
 	if di["name"].(string) != `Grant's "agent"` {
 		t.Errorf("name not round-tripped through JSON escape: %q", di["name"])
+	}
+}
+
+func TestRenderPersonalAgentManifest_LongDescriptionMeetsSlackMin(t *testing.T) {
+	cases := []struct {
+		name string
+		sub  PersonalAgentManifestSubstitutions
+	}{
+		{"empty long, short description", PersonalAgentManifestSubstitutions{
+			DisplayName: "Pixel", Description: "tiny",
+			EventsRequestURL: "https://e", InstallRedirectURL: "https://i",
+		}},
+		{"empty long, normal description", PersonalAgentManifestSubstitutions{
+			DisplayName: "Pixel", Description: "Grant's personal agent",
+			EventsRequestURL: "https://e", InstallRedirectURL: "https://i",
+		}},
+		{"short user long", PersonalAgentManifestSubstitutions{
+			DisplayName: "Pixel", Description: "x",
+			LongDescription:  "A lot more information about this agent lol",
+			EventsRequestURL: "https://e", InstallRedirectURL: "https://i",
+		}},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			out, err := RenderPersonalAgentManifest(c.sub)
+			if err != nil {
+				t.Fatalf("render: %v", err)
+			}
+			var parsed map[string]any
+			_ = json.Unmarshal(out, &parsed)
+			got := parsed["display_information"].(map[string]any)["long_description"].(string)
+			if len(got) < slackManifestLongDescMinChars {
+				t.Errorf("long_description = %d chars, want >= %d. value: %q",
+					len(got), slackManifestLongDescMinChars, got)
+			}
+		})
+	}
+}
+
+func TestRenderPersonalAgentManifest_LongUserLongPassedThrough(t *testing.T) {
+	long := strings.Repeat("z", 200)
+	out, err := RenderPersonalAgentManifest(PersonalAgentManifestSubstitutions{
+		DisplayName: "Pixel", Description: "x", LongDescription: long,
+		EventsRequestURL: "https://e", InstallRedirectURL: "https://i",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var parsed map[string]any
+	_ = json.Unmarshal(out, &parsed)
+	got := parsed["display_information"].(map[string]any)["long_description"].(string)
+	if got != long {
+		t.Errorf("user-supplied long description not passed through verbatim; got %d chars", len(got))
 	}
 }
 
