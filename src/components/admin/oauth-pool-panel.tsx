@@ -5,11 +5,11 @@ import { useCallback, useEffect, useState } from "react";
 
 import { kickToLoginForUnauthorizedApi } from "@/lib/client-auth-unauthorized-redirect";
 
-// OAuthPoolPanel surfaces per-agent, per-slot usage of the
-// CLAUDE_CODE_OAUTH_TOKEN pool so we can see at a glance whether
-// round-robin is balancing across the two Max accounts and whether either
-// slot just hit its 5h cap. Data comes from /api/admin/oauth-pool which
-// fans out to ross + joanne admin endpoints.
+// OAuthPoolPanel surfaces combined-pool + per-agent draw against the
+// CLAUDE_CODE_OAUTH_TOKEN pool. The story Grant wants on /admin: at a
+// glance see (a) how much of the combined Ross+Joanne pool is left, and
+// (b) which agent is driving the usage. Both bars share the same 0..pool
+// axis so the per-agent draws stack visually to the pool total.
 
 type SlotSnapshot = {
   slot: string;
@@ -116,14 +116,11 @@ export function OAuthPoolPanel() {
         </div>
       ) : null}
 
-      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-        {(data?.agents ?? []).map((agent) => (
-          <AgentCard key={agent.agent} agent={agent} />
-        ))}
-        {!data && !loading ? (
-          <p className="text-xs text-muted-foreground">No data yet.</p>
-        ) : null}
-      </div>
+      {data ? (
+        <PoolCard agents={data.agents} />
+      ) : !loading ? (
+        <p className="text-xs text-muted-foreground">No data yet.</p>
+      ) : null}
     </section>
   );
 }
@@ -133,68 +130,187 @@ export function OAuthPoolPanel() {
 // constant in oauth_pool_stats.go on both Go sides.
 const FALLBACK_SLOT_CAP_PER_WINDOW = 900;
 
-function AgentCard({ agent }: { agent: AgentResult }) {
+type AgentRollup = {
+  agent: string;
+  ok: boolean;
+  error?: string;
+  spawnsInWindow: number;
+  agentCap: number;
+  rateLimitErrs: number;
+  lastRateLimitAt?: string;
+  lastRateLimitExcerpt?: string;
+  slots: SlotSnapshot[];
+  windowSeconds: number;
+};
+
+function rollup(agent: AgentResult): AgentRollup {
   const slots = agent.snapshot?.slots ?? [];
-  const windowHours = agent.snapshot ? Math.round(agent.snapshot.window_seconds / 3600) : 5;
-  const cap = agent.snapshot?.slot_cap_per_window || FALLBACK_SLOT_CAP_PER_WINDOW;
+  const slotCap = agent.snapshot?.slot_cap_per_window || FALLBACK_SLOT_CAP_PER_WINDOW;
+  let spawnsInWindow = 0;
+  let rateLimitErrs = 0;
+  let lastRateLimitAt: string | undefined;
+  let lastRateLimitExcerpt: string | undefined;
+  for (const s of slots) {
+    spawnsInWindow += s.spawns_in_window;
+    rateLimitErrs += s.rate_limit_errs_total;
+    if (!isZeroTime(s.last_rate_limit_err_at)) {
+      if (!lastRateLimitAt || (s.last_rate_limit_err_at as string) > lastRateLimitAt) {
+        lastRateLimitAt = s.last_rate_limit_err_at;
+        lastRateLimitExcerpt = s.last_rate_limit_err_excerpt;
+      }
+    }
+  }
+  return {
+    agent: agent.agent,
+    ok: agent.ok,
+    error: agent.error,
+    spawnsInWindow,
+    agentCap: Math.max(1, slots.length) * slotCap,
+    rateLimitErrs,
+    lastRateLimitAt,
+    lastRateLimitExcerpt,
+    slots,
+    windowSeconds: agent.snapshot?.window_seconds ?? 18000,
+  };
+}
+
+function PoolCard({ agents }: { agents: AgentResult[] }) {
+  const rollups = agents.map(rollup);
+  const poolUsed = rollups.reduce((acc, r) => acc + r.spawnsInWindow, 0);
+  const poolCap = rollups.reduce((acc, r) => acc + r.agentCap, 0) || FALLBACK_SLOT_CAP_PER_WINDOW;
+  const poolPct = poolCap > 0 ? Math.min(1, poolUsed / poolCap) : 0;
+  const windowHours = Math.round((rollups[0]?.windowSeconds ?? 18000) / 3600);
+  const slotCapForLabel =
+    rollups[0] && rollups[0].slots.length > 0
+      ? rollups[0].agentCap / rollups[0].slots.length
+      : FALLBACK_SLOT_CAP_PER_WINDOW;
+
   return (
     <div className="overflow-hidden rounded-2xl border border-border bg-card">
       <div className="flex items-center justify-between gap-2 border-b border-border bg-muted/30 px-3 py-2">
         <div className="flex items-center gap-2">
           <span className="font-mono text-xs font-semibold uppercase tracking-wide text-foreground">
-            {agent.agent}
+            pool
           </span>
           <span className="text-[10px] text-muted-foreground">
-            {windowHours}h window · cap ~{cap}
+            {windowHours}h window · cap ~{slotCapForLabel} per slot · {rollups.length} agent
+            {rollups.length === 1 ? "" : "s"}
           </span>
-          {!agent.ok ? (
+        </div>
+        <span className="font-display text-sm font-semibold tabular-nums leading-none text-foreground">
+          {Math.round(poolPct * 100)}%
+          <span className="ml-1 text-[10px] font-normal text-muted-foreground">
+            {poolUsed} / {poolCap}
+          </span>
+        </span>
+      </div>
+
+      <div className="space-y-3 px-3 py-3">
+        <PoolStackedBar rollups={rollups} poolCap={poolCap} />
+        <div className="space-y-2 pt-1">
+          {rollups.map((r, i) => (
+            <AgentBar key={r.agent} rollup={r} poolCap={poolCap} index={i} />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Two ramps so the two agent segments stay visually distinct in both the
+// stacked pool bar and the per-agent rows. Both ride the foreground color
+// so the card stays in the same grey palette the rest of /admin uses.
+function agentShade(index: number, pct: number): string {
+  const base = index === 0 ? 35 : 20;
+  return `color-mix(in oklab, var(--foreground) ${Math.round(base + pct * 55)}%, transparent)`;
+}
+
+function PoolStackedBar({
+  rollups,
+  poolCap,
+}: {
+  rollups: AgentRollup[];
+  poolCap: number;
+}) {
+  const totalUsed = rollups.reduce((acc, r) => acc + r.spawnsInWindow, 0);
+  const usedFraction = poolCap > 0 ? Math.min(1, totalUsed / poolCap) : 0;
+
+  return (
+    <div>
+      <div className="mb-1 flex items-baseline justify-between text-[10px] text-muted-foreground">
+        <span>combined pool</span>
+        <span className="tabular-nums">
+          {poolCap - totalUsed} left of {poolCap}
+        </span>
+      </div>
+      <div className="flex h-2.5 w-full overflow-hidden rounded-full bg-muted">
+        {rollups.map((r, i) => {
+          const segPct = poolCap > 0 ? Math.min(1, r.spawnsInWindow / poolCap) : 0;
+          if (segPct <= 0) return null;
+          return (
+            <div
+              key={r.agent}
+              className="h-full transition-all duration-300"
+              style={{
+                width: `${segPct * 100}%`,
+                backgroundColor: agentShade(i, usedFraction),
+              }}
+              title={`${r.agent}: ${r.spawnsInWindow} / ${poolCap}`}
+            />
+          );
+        })}
+      </div>
+      <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-muted-foreground">
+        {rollups.map((r, i) => (
+          <span key={r.agent} className="inline-flex items-center gap-1.5">
+            <span
+              aria-hidden="true"
+              className="inline-block h-2 w-2 rounded-full"
+              style={{ backgroundColor: agentShade(i, usedFraction) }}
+            />
+            <span className="font-mono lowercase text-foreground/80">{r.agent}</span>
+            <span className="tabular-nums">{r.spawnsInWindow}</span>
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function AgentBar({
+  rollup: r,
+  poolCap,
+  index,
+}: {
+  rollup: AgentRollup;
+  poolCap: number;
+  index: number;
+}) {
+  const pct = poolCap > 0 ? Math.min(1, r.spawnsInWindow / poolCap) : 0;
+  const ownPct = r.agentCap > 0 ? Math.min(1, r.spawnsInWindow / r.agentCap) : 0;
+  const fillColor = agentShade(index, ownPct);
+
+  return (
+    <div>
+      <div className="flex items-baseline justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <span className="font-mono text-[11px] text-foreground/80">{r.agent}</span>
+          {!r.ok ? (
             <span className="inline-flex items-center gap-1 rounded-full border border-[var(--chart-neg)]/40 bg-[var(--chart-neg)]/10 px-2 py-0.5 text-[10px] font-semibold text-[var(--chart-neg)]">
               <AlertTriangle className="h-3 w-3" aria-hidden="true" />
               unreachable
             </span>
           ) : null}
         </div>
-      </div>
-
-      {agent.ok && slots.length > 0 ? (
-        <div className="divide-y divide-border">
-          {slots.map((slot) => (
-            <SlotRow key={slot.slot} slot={slot} cap={cap} />
-          ))}
-        </div>
-      ) : (
-        <div className="px-3 py-3 text-xs text-muted-foreground">
-          {agent.error ? agent.error : "no spawns observed yet"}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function SlotRow({ slot, cap }: { slot: SlotSnapshot; cap: number }) {
-  // Real % of the published Max-20x cap from the agent snapshot. Token-
-  // based cap is lower in practice for Opus + long context, but anchoring
-  // to Anthropic's published floor is more useful than a peer-relative
-  // gauge — at 60% the bar means we're actually at ~60% of the floor,
-  // and a 429 here recalibrates the cap downward.
-  const pct = cap > 0 ? Math.min(1, slot.spawns_in_window / cap) : 0;
-  const pctLabel = Math.round(pct * 100);
-  // Single grey ramp that darkens as we climb toward the cap. No red /
-  // green / yellow tone breaks — 13/900 should not panic-flag.
-  const barColor = `color-mix(in oklab, var(--foreground) ${Math.round(20 + pct * 70)}%, transparent)`;
-  const textColor = `color-mix(in oklab, var(--foreground) ${Math.round(50 + pct * 50)}%, transparent)`;
-
-  return (
-    <div className="px-3 py-2.5">
-      <div className="flex items-baseline justify-between gap-2">
-        <span className="font-mono text-[11px] text-muted-foreground">{slot.slot}</span>
         <span
-          className="font-display text-lg font-semibold tabular-nums leading-none"
-          style={{ color: textColor }}
+          className="font-display text-sm font-semibold tabular-nums leading-none"
+          style={{
+            color: `color-mix(in oklab, var(--foreground) ${Math.round(55 + ownPct * 45)}%, transparent)`,
+          }}
         >
-          {pctLabel}%
+          {Math.round(ownPct * 100)}%
           <span className="ml-1 text-[10px] font-normal text-muted-foreground">
-            {slot.spawns_in_window} / {cap}
+            {r.spawnsInWindow} / {r.agentCap}
           </span>
         </span>
       </div>
@@ -202,27 +318,36 @@ function SlotRow({ slot, cap }: { slot: SlotSnapshot; cap: number }) {
         <div
           className="h-full rounded-full transition-all duration-300"
           style={{
-            width: `${Math.max(2, pct * 100)}%`,
-            backgroundColor: barColor,
+            width: `${Math.max(r.spawnsInWindow > 0 ? 2 : 0, pct * 100)}%`,
+            backgroundColor: fillColor,
           }}
+          title={`${r.agent}: ${r.spawnsInWindow} of pool ${poolCap}`}
         />
       </div>
-      <div className="mt-1.5 flex items-center justify-between text-[10px] text-muted-foreground">
-        <span>last spawn {relativeTime(slot.last_spawn_at)}</span>
+      <div className="mt-1 flex items-center justify-between text-[10px] text-muted-foreground">
+        <span>
+          {r.ok && r.slots.length > 0
+            ? `${r.slots.length} slot${r.slots.length === 1 ? "" : "s"} · last spawn ${relativeTime(
+                latestSpawn(r.slots),
+              )}`
+            : r.error
+              ? r.error
+              : "no spawns observed yet"}
+        </span>
         <span
           className={
-            slot.rate_limit_errs_total > 0
+            r.rateLimitErrs > 0
               ? "inline-flex items-center gap-1 font-medium text-foreground/70"
               : ""
           }
-          title={slot.last_rate_limit_err_excerpt ?? ""}
+          title={r.lastRateLimitExcerpt ?? ""}
         >
-          {slot.rate_limit_errs_total > 0 ? (
+          {r.rateLimitErrs > 0 ? (
             <>
               <AlertTriangle className="h-3 w-3" aria-hidden="true" />
-              {slot.rate_limit_errs_total} 429
-              {!isZeroTime(slot.last_rate_limit_err_at)
-                ? `, last ${relativeTime(slot.last_rate_limit_err_at)}`
+              {r.rateLimitErrs} 429
+              {!isZeroTime(r.lastRateLimitAt)
+                ? `, last ${relativeTime(r.lastRateLimitAt)}`
                 : ""}
             </>
           ) : (
@@ -232,4 +357,15 @@ function SlotRow({ slot, cap }: { slot: SlotSnapshot; cap: number }) {
       </div>
     </div>
   );
+}
+
+function latestSpawn(slots: SlotSnapshot[]): string | undefined {
+  let latest: string | undefined;
+  for (const s of slots) {
+    if (isZeroTime(s.last_spawn_at)) continue;
+    if (!latest || (s.last_spawn_at as string) > latest) {
+      latest = s.last_spawn_at;
+    }
+  }
+  return latest;
 }
