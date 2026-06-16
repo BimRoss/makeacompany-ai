@@ -346,13 +346,12 @@ function ChangeIconSection({
   description: string;
 }) {
   const [icon, setIcon] = useState<IconPickerValue | null>(null);
+  const [liveSlackIconUrl, setLiveSlackIconUrl] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<{ kind: "ok" | "err"; message: string } | null>(null);
 
-  // Hydrate the last-pushed icon from localStorage so a full reload keeps
-  // showing what's actually in Slack instead of NO ICON. Slack's app-icon
-  // URL isn't exposed via apps.info in a useful shape, so we cache our own
-  // copy of the bytes from the most recent push.
+  // Hydrate the last-pushed icon from localStorage as a fallback so a full
+  // reload keeps showing something even if Slack is slow / down.
   useEffect(() => {
     if (!agentId || typeof window === "undefined") return;
     try {
@@ -366,6 +365,25 @@ function ChangeIconSection({
       /* corrupt entry — ignore, next push will overwrite */
     }
   }, [agentId]);
+
+  // Pull the live Slack-side icon URL on mount + after each push. Source of
+  // truth — beats the localStorage cache when both are present. Silently
+  // tolerated on failure: cache + the user's pending icon still render.
+  const refreshLiveIcon = useCallback(async () => {
+    try {
+      const res = await fetch("/api/me/personal-agents/icon-current", { cache: "no-store" });
+      if (!res.ok) return;
+      const payload = (await res.json().catch(() => ({}))) as { imageUrl?: string };
+      const url = (payload.imageUrl ?? "").trim();
+      setLiveSlackIconUrl(url || null);
+    } catch {
+      /* network blip — keep showing whatever we already have */
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshLiveIcon();
+  }, [refreshLiveIcon]);
 
   const cacheIcon = useCallback(
     (next: IconPickerValue | null) => {
@@ -396,7 +414,11 @@ function ChangeIconSection({
     [cacheIcon],
   );
 
-  const preview = icon ? `data:${icon.mimeType};base64,${icon.base64}` : null;
+  // Display priority: a staged-but-unpushed pick > live Slack URL > cached
+  // last-pushed bytes. Staged pick beats live URL so the user sees what
+  // they're ABOUT to push (which is what they actually care about).
+  const stagedDataUrl = icon ? `data:${icon.mimeType};base64,${icon.base64}` : null;
+  const preview = stagedDataUrl ?? liveSlackIconUrl ?? null;
 
   async function submit(payload: { iconBase64?: string; iconMimeType?: string; regenerate?: boolean }) {
     setSubmitting(true);
@@ -428,6 +450,9 @@ function ChangeIconSection({
         setIcon(persisted);
         cacheIcon(persisted);
       }
+      // Re-pull the live Slack URL so the preview reflects what Slack actually
+      // serves (avatars.slack-edge.com path changes once Slack ingests the new bytes).
+      void refreshLiveIcon();
       setFeedback({ kind: "ok", message: "Icon updated in Slack. May take a moment to refresh in clients." });
     } catch (err) {
       setFeedback({ kind: "err", message: err instanceof Error ? err.message : "Network error" });

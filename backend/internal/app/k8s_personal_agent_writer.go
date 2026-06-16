@@ -140,6 +140,39 @@ func personalAgentSecretData(req PersonalAgentRuntimeSecretRequest) map[string]s
 	return data
 }
 
+// ReadAgentBotToken returns the bot token (xoxb-) stored in the per-agent
+// runtime Secret. Used by the icon-current endpoint to call Slack on the
+// agent's behalf without round-tripping through a different storage layer.
+func (w *PersonalAgentWriter) ReadAgentBotToken(ctx context.Context, slackUserID string) (string, error) {
+	if w.Disabled() {
+		return "", ErrPersonalAgentWriterDisabled
+	}
+	if strings.TrimSpace(slackUserID) == "" {
+		return "", errors.New("ReadAgentBotToken: slack user id empty")
+	}
+	name := personalAgentSecretName(slackUserID)
+	sec, err := w.cs.CoreV1().Secrets(w.agentNamespace).Get(ctx, name, metav1.GetOptions{})
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return "", errors.New("agent runtime secret not found")
+		}
+		return "", fmt.Errorf("get runtime secret: %w", err)
+	}
+	if raw, ok := sec.Data["PERSONAL_SLACK_BOT_TOKEN"]; ok {
+		token := strings.TrimSpace(string(raw))
+		if token != "" {
+			return token, nil
+		}
+	}
+	if raw, ok := sec.StringData["PERSONAL_SLACK_BOT_TOKEN"]; ok {
+		token := strings.TrimSpace(raw)
+		if token != "" {
+			return token, nil
+		}
+	}
+	return "", errors.New("runtime secret missing PERSONAL_SLACK_BOT_TOKEN")
+}
+
 // PersonalAgentRuntimeSecretRequest is what the provisioner hands the writer
 // once the agent's Slack app has been installed and we have bot + signing
 // credentials in hand.

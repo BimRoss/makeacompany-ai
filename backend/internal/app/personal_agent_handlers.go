@@ -251,7 +251,9 @@ func (s *Server) handlePersonalAgentInstallComplete(w http.ResponseWriter, r *ht
 	}
 
 	redirectURI := s.personalAgentInstallRedirectFor(agentID)
-	botToken, err := s.exchangePersonalAgentOAuthCode(r.Context(), rec, code, redirectURI)
+	oauthOut := &personalAgentOAuthResult{}
+	oauthCtx := context.WithValue(r.Context(), personalAgentOAuthResultKey, oauthOut)
+	botToken, err := s.exchangePersonalAgentOAuthCode(oauthCtx, rec, code, redirectURI)
 	if err != nil {
 		s.log.Printf("personal agent oauth exchange: %v", err)
 		_ = s.store.UpdatePersonalAgentStatus(r.Context(), agentID, PersonalAgentStatusFailed)
@@ -306,7 +308,19 @@ func (s *Server) handlePersonalAgentInstallComplete(w http.ResponseWriter, r *ht
 	if err := s.store.MarkPersonalAgentInstalled(r.Context(), agentID); err != nil {
 		s.log.Printf("mark personal agent installed: %v", err)
 	}
+	if oauthOut.BotUserID != "" {
+		if err := s.store.SetPersonalAgentBotUserID(r.Context(), agentID, oauthOut.BotUserID); err != nil {
+			s.log.Printf("set personal agent bot_user_id: %v", err)
+		}
+	}
 	http.Redirect(w, r, "/me?personal_agent_install=ok", http.StatusFound)
+}
+
+// personalAgentOAuthResult is the subset of oauth.v2.access we keep on hand
+// after install-complete.
+type personalAgentOAuthResult struct {
+	BotToken  string
+	BotUserID string
 }
 
 // exchangePersonalAgentOAuthCode trades the install auth code for a bot
@@ -337,9 +351,10 @@ func (s *Server) exchangePersonalAgentOAuthCode(ctx context.Context, rec Persona
 		return "", fmt.Errorf("oauth.v2.access status %d", resp.StatusCode)
 	}
 	var parsed struct {
-		OK         bool   `json:"ok"`
-		Error      string `json:"error"`
+		OK          bool   `json:"ok"`
+		Error       string `json:"error"`
 		AccessToken string `json:"access_token"` // xoxb- bot token (when bot scopes are granted)
+		BotUserID   string `json:"bot_user_id"`
 	}
 	if err := json.Unmarshal(body, &parsed); err != nil {
 		return "", err
@@ -347,5 +362,16 @@ func (s *Server) exchangePersonalAgentOAuthCode(ctx context.Context, rec Persona
 	if !parsed.OK || strings.TrimSpace(parsed.AccessToken) == "" {
 		return "", fmt.Errorf("oauth.v2.access error: %s", parsed.Error)
 	}
+	// Stash bot_user_id on a per-context value the install handler reads back.
+	// Threading it via the return signature would touch every caller; an
+	// out-of-band ctx-bound holder keeps the change tight.
+	if h, ok := ctx.Value(personalAgentOAuthResultKey).(*personalAgentOAuthResult); ok {
+		h.BotToken = parsed.AccessToken
+		h.BotUserID = strings.TrimSpace(parsed.BotUserID)
+	}
 	return parsed.AccessToken, nil
 }
+
+type personalAgentOAuthResultCtxKey struct{}
+
+var personalAgentOAuthResultKey personalAgentOAuthResultCtxKey
