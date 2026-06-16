@@ -153,6 +153,19 @@ export const WEB_PANELS: PanelDef[] = [
     toSeries: single(`go_goroutines{job="makeacompany-backend"}`, "goroutines", "ink"),
     format: formatCompact,
   },
+  {
+    id: "backend-memory",
+    title: "Backend memory",
+    subtitle: "Resident set size (RSS)",
+    queries: [`process_resident_memory_bytes{job="makeacompany-backend"}`],
+    toSeries: single(
+      `process_resident_memory_bytes{job="makeacompany-backend"}`,
+      "RSS",
+      "accent",
+    ),
+    format: formatBytes,
+    area: true,
+  },
 ];
 
 export const JOBS_PANELS: PanelDef[] = [
