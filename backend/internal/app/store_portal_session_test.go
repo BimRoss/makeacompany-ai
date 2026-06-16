@@ -28,7 +28,7 @@ func TestPortalSession_CompanyRequiresChannel(t *testing.T) {
 	ctx := context.Background()
 	exp := time.Now().UTC().Add(time.Hour)
 
-	if err := st.CreatePortalSession(ctx, "tokc", "grant@example.com", "", PortalTenantTypeCompany, exp); err == nil {
+	if err := st.CreatePortalSession(ctx, "tokc", "grant@example.com", "", PortalTenantTypeCompany, "", "", exp); err == nil {
 		t.Fatal("expected company session without channel to be rejected")
 	}
 }
@@ -39,7 +39,7 @@ func TestPortalSession_UserRoundTrip(t *testing.T) {
 	ctx := context.Background()
 	exp := time.Now().UTC().Add(time.Hour)
 
-	if err := st.CreatePortalSession(ctx, "toku", "user@example.com", "", PortalTenantTypeUser, exp); err != nil {
+	if err := st.CreatePortalSession(ctx, "toku", "user@example.com", "", PortalTenantTypeUser, "", "", exp); err != nil {
 		t.Fatalf("create user session: %v", err)
 	}
 	got, err := st.GetPortalSession(ctx, "toku")
@@ -63,7 +63,7 @@ func TestPortalSession_UserRejectsChannel(t *testing.T) {
 	ctx := context.Background()
 	exp := time.Now().UTC().Add(time.Hour)
 
-	if err := st.CreatePortalSession(ctx, "tokub", "user@example.com", "C0BAD", PortalTenantTypeUser, exp); err == nil {
+	if err := st.CreatePortalSession(ctx, "tokub", "user@example.com", "C0BAD", PortalTenantTypeUser, "", "", exp); err == nil {
 		t.Fatal("expected user session with channel to be rejected")
 	}
 }

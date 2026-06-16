@@ -5,6 +5,7 @@ import { MeEmailMagicForm } from "@/components/me/me-email-magic-form";
 import { MeGoogleSignIn } from "@/components/me/me-google-sign-in";
 import { MeLoginMessages } from "@/components/me/me-login-messages";
 import { MeLoginRedirectWhenSessionValid } from "@/components/me/me-login-redirect-when-session-valid";
+import { MeSlackSignIn } from "@/components/me/me-slack-sign-in";
 
 // Force dynamic rendering so process.env.* env-gate checks read the running
 // pod's secrets rather than the (empty) build container's env. Without this,
@@ -18,6 +19,9 @@ export default function MeLoginPage() {
   );
   const magicEmailReady = Boolean(
     process.env.RESEND_API_KEY?.trim() && process.env.PORTAL_AUTH_EMAIL_FROM?.trim(),
+  );
+  const slackOAuthReady = Boolean(
+    process.env.SLACK_OAUTH_CLIENT_ID?.trim() && process.env.SLACK_OAUTH_CLIENT_SECRET?.trim(),
   );
 
   return (
@@ -35,9 +39,11 @@ export default function MeLoginPage() {
           <SignInMethodStack
             googleOAuthReady={googleOAuthReady}
             magicEmailReady={magicEmailReady}
+            slackOAuthReady={slackOAuthReady}
             googleSlot={<MeGoogleSignIn />}
             emailSlot={<MeEmailMagicForm />}
-            unconfiguredMessage="Add Google OAuth and Resend email env vars to enable account sign-in."
+            slackSlot={<MeSlackSignIn />}
+            unconfiguredMessage="Add Google OAuth, Slack OAuth, or Resend email env vars to enable account sign-in."
           />
         }
       />

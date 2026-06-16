@@ -39,19 +39,23 @@ export function SignInCard({ title, description, titleClassName, headingProps, m
 export type SignInMethodStackProps = {
   googleOAuthReady: boolean;
   magicEmailReady: boolean;
+  slackOAuthReady?: boolean;
   googleSlot: ReactNode;
   emailSlot: ReactNode;
+  slackSlot?: ReactNode;
   unconfiguredMessage: string;
 };
 
 export function SignInMethodStack({
   googleOAuthReady,
   magicEmailReady,
+  slackOAuthReady = false,
   googleSlot,
   emailSlot,
+  slackSlot = null,
   unconfiguredMessage,
 }: SignInMethodStackProps) {
-  const showPrimarySignIn = googleOAuthReady || magicEmailReady;
+  const showPrimarySignIn = googleOAuthReady || magicEmailReady || slackOAuthReady;
   if (!showPrimarySignIn) {
     return (
       <p className="rounded-lg border border-border bg-muted/25 px-4 py-3 text-center text-sm text-muted-foreground">
@@ -59,11 +63,18 @@ export function SignInMethodStack({
       </p>
     );
   }
+  const slots: ReactNode[] = [];
+  if (googleOAuthReady) slots.push(googleSlot);
+  if (slackOAuthReady && slackSlot) slots.push(slackSlot);
+  if (magicEmailReady) slots.push(emailSlot);
   return (
     <div className="space-y-3">
-      {googleOAuthReady ? googleSlot : null}
-      {googleOAuthReady && magicEmailReady ? <SignInOrDivider /> : null}
-      {magicEmailReady ? emailSlot : null}
+      {slots.map((slot, i) => (
+        <div key={i} className="space-y-3">
+          {slot}
+          {i < slots.length - 1 ? <SignInOrDivider /> : null}
+        </div>
+      ))}
     </div>
   );
 }

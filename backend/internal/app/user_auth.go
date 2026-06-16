@@ -16,7 +16,8 @@ type userAuthFinishResponse struct {
 
 // writeUserMintResponse persists a user-scope portal session after the caller has verified the email
 // (Google id_token, magic link, etc.). Mirrors writePortalMintResponse but skips the channel piece.
-func (s *Server) writeUserMintResponse(w http.ResponseWriter, r *http.Request, email string) {
+// slackUserID/slackTeamID are populated only for Sign-in-with-Slack (#417); pass "" for other flows.
+func (s *Server) writeUserMintResponse(w http.ResponseWriter, r *http.Request, email, slackUserID, slackTeamID string) {
 	email = normalizeProfileEmail(email)
 	if email == "" {
 		http.Error(w, "bad request", http.StatusBadRequest)
@@ -32,7 +33,7 @@ func (s *Server) writeUserMintResponse(w http.ResponseWriter, r *http.Request, e
 		ttlSec = 43200
 	}
 	expiresAt := time.Now().UTC().Add(time.Duration(ttlSec) * time.Second)
-	if err := s.store.CreatePortalSession(r.Context(), sessionToken, email, "", PortalTenantTypeUser, expiresAt); err != nil {
+	if err := s.store.CreatePortalSession(r.Context(), sessionToken, email, "", PortalTenantTypeUser, slackUserID, slackTeamID, expiresAt); err != nil {
 		http.Error(w, "unable to persist user session", http.StatusInternalServerError)
 		return
 	}

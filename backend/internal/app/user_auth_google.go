@@ -51,5 +51,5 @@ func (s *Server) handleUserAuthGoogleFinish(w http.ResponseWriter, r *http.Reque
 		http.Error(w, "email not verified with google", http.StatusForbidden)
 		return
 	}
-	s.writeUserMintResponse(w, r, email)
+	s.writeUserMintResponse(w, r, email, "", "")
 }

@@ -39,9 +39,16 @@ type PortalSession struct {
 	TenantType string `json:"tenantType"`
 	CreatedAt  string `json:"createdAt"`
 	ExpiresAt  string `json:"expiresAt"`
+	// SlackUserID + SlackTeamID are populated when the session was minted via
+	// Sign-in-with-Slack (#417). Empty for Google / magic-link sessions. Used
+	// as the owner-binding source for personal-agent provisioning.
+	SlackUserID string `json:"slackUserId,omitempty"`
+	SlackTeamID string `json:"slackTeamId,omitempty"`
 }
 
-func (s *Store) CreatePortalSession(ctx context.Context, token, email, channelID, tenantType string, expiresAt time.Time) error {
+// CreatePortalSession writes a session row. slackUserID and slackTeamID are
+// optional; pass "" for non-Slack sign-in flows.
+func (s *Store) CreatePortalSession(ctx context.Context, token, email, channelID, tenantType, slackUserID, slackTeamID string, expiresAt time.Time) error {
 	token = strings.TrimSpace(token)
 	email = normalizeProfileEmail(email)
 	channelID = strings.TrimSpace(channelID)
@@ -75,11 +82,13 @@ func (s *Store) CreatePortalSession(ctx context.Context, token, email, channelID
 	key := portalSessionKey(token)
 	pipe := s.rdb.TxPipeline()
 	pipe.HSet(ctx, key, map[string]any{
-		"email":       email,
-		"channel_id":  channelID,
-		"tenant_type": tenantType,
-		"createdAt":   now,
-		"expiresAt":   expiresAt.UTC().Format(time.RFC3339),
+		"email":         email,
+		"channel_id":    channelID,
+		"tenant_type":   tenantType,
+		"slack_user_id": strings.TrimSpace(slackUserID),
+		"slack_team_id": strings.TrimSpace(slackTeamID),
+		"createdAt":     now,
+		"expiresAt":     expiresAt.UTC().Format(time.RFC3339),
 	})
 	pipe.Expire(ctx, key, ttl)
 	_, err := pipe.Exec(ctx)
@@ -104,12 +113,14 @@ func (s *Store) GetPortalSession(ctx context.Context, token string) (PortalSessi
 		return PortalSession{}, redis.Nil
 	}
 	out := PortalSession{
-		Token:      token,
-		Email:      normalizeProfileEmail(vals["email"]),
-		ChannelID:  strings.TrimSpace(vals["channel_id"]),
-		TenantType: strings.TrimSpace(vals["tenant_type"]),
-		CreatedAt:  strings.TrimSpace(vals["createdAt"]),
-		ExpiresAt:  strings.TrimSpace(vals["expiresAt"]),
+		Token:       token,
+		Email:       normalizeProfileEmail(vals["email"]),
+		ChannelID:   strings.TrimSpace(vals["channel_id"]),
+		TenantType:  strings.TrimSpace(vals["tenant_type"]),
+		CreatedAt:   strings.TrimSpace(vals["createdAt"]),
+		ExpiresAt:   strings.TrimSpace(vals["expiresAt"]),
+		SlackUserID: strings.TrimSpace(vals["slack_user_id"]),
+		SlackTeamID: strings.TrimSpace(vals["slack_team_id"]),
 	}
 	if out.TenantType == "" {
 		// Back-compat: rows written before tenant_type shipped are company

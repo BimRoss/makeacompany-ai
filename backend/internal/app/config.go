@@ -84,6 +84,13 @@ type Config struct {
 	// Shopify connection Secrets land in. Defaults to "makeacompany-ai"
 	// when unset.
 	ShopifyConnectionNamespace string
+	// SlackOAuthClientID / SlackOAuthClientSecret are the OAuth
+	// credentials for the persistent "makeacompany-portal" Slack app
+	// used for Sign-in-with-Slack on /me (#417). identity.basic +
+	// identity.email scopes only — no bot install. Empty disables the
+	// endpoint with 503.
+	SlackOAuthClientID     string
+	SlackOAuthClientSecret string
 }
 
 // stripePriceIDBasePlan returns STRIPE_PRICE_ID_BASE_PLAN, else legacy STRIPE_PRICE_ID_WAITLIST.
@@ -134,6 +141,8 @@ func LoadConfig() Config {
 		ShopifyPartnerClientID:              strings.TrimSpace(os.Getenv("SHOPIFY_PARTNER_CLIENT_ID")),
 		ShopifyPartnerClientSecret:          strings.TrimSpace(os.Getenv("SHOPIFY_PARTNER_CLIENT_SECRET")),
 		ShopifyConnectionNamespace:          strings.TrimSpace(os.Getenv("SHOPIFY_CONNECTION_NAMESPACE")),
+		SlackOAuthClientID:                  strings.TrimSpace(os.Getenv("SLACK_OAUTH_CLIENT_ID")),
+		SlackOAuthClientSecret:              strings.TrimSpace(os.Getenv("SLACK_OAUTH_CLIENT_SECRET")),
 	}
 }
 

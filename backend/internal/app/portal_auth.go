@@ -41,7 +41,7 @@ func (s *Server) writePortalSession(w http.ResponseWriter, r *http.Request, emai
 		ttlSec = 43200
 	}
 	expiresAt := time.Now().UTC().Add(time.Duration(ttlSec) * time.Second)
-	if err := s.store.CreatePortalSession(r.Context(), sessionToken, email, chID, tenantType, expiresAt); err != nil {
+	if err := s.store.CreatePortalSession(r.Context(), sessionToken, email, chID, tenantType, "", "", expiresAt); err != nil {
 		http.Error(w, "unable to persist portal session", http.StatusInternalServerError)
 		return
 	}

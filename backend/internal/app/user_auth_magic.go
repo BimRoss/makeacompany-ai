@@ -82,5 +82,5 @@ func (s *Server) handleUserAuthMagicFinish(w http.ResponseWriter, r *http.Reques
 		http.Error(w, "unable to verify link", http.StatusInternalServerError)
 		return
 	}
-	s.writeUserMintResponse(w, r, email)
+	s.writeUserMintResponse(w, r, email, "", "")
 }
