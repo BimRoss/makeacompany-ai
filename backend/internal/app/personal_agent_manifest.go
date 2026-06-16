@@ -10,6 +10,16 @@ import (
 //go:embed templates/personal-agent-manifest.json
 var personalAgentManifestTemplate string
 
+// slackManifestLongDescMinChars is the minimum length Slack enforces on
+// display_information.long_description when the field is present (175). See
+// the failed_constraint min_length error in apps.manifest.create responses.
+const slackManifestLongDescMinChars = 175
+
+// personalAgentPlatformSuffix is appended when the user-supplied long
+// description doesn't meet Slack's minimum. Worded so it reads naturally
+// after the user's own description.
+const personalAgentPlatformSuffix = "Built on the makeacompany.ai personal-agents platform — a Slack-resident AI bound to the authorizing user's identity, with owner-only message gating."
+
 // PersonalAgentManifestSubstitutions are the placeholders the provisioner
 // fills in before calling apps.manifest.create. The seed lives at
 // templates/personal-agent-manifest.json — kept in sync with the canonical
@@ -43,9 +53,28 @@ func RenderPersonalAgentManifest(sub PersonalAgentManifestSubstitutions) (json.R
 		return nil, errors.New("install redirect url required")
 	}
 
+	// Slack rejects manifests where display_information.long_description is
+	// non-empty and < 175 characters (failed_constraint min_length). We always
+	// include it (because the template has the key), so we have to ensure the
+	// rendered value clears the bar. Strategy:
+	//   1. Use the user-supplied long_description if it's >= 175 chars.
+	//   2. Else compose from short_description + a platform suffix that
+	//      explains what makes this app what it is. Padded out to >= 175.
 	longDesc := strings.TrimSpace(sub.LongDescription)
-	if longDesc == "" {
-		longDesc = strings.TrimSpace(sub.Description)
+	if len(longDesc) < slackManifestLongDescMinChars {
+		shortDesc := strings.TrimSpace(sub.Description)
+		// Compose: <user long desc OR short desc>. <platform suffix>.
+		base := longDesc
+		if base == "" {
+			base = shortDesc
+		}
+		composed := base + ". " + personalAgentPlatformSuffix
+		// If still short (very rare — short desc + suffix should be >= 175
+		// given the suffix is ~140 chars), repeat the suffix.
+		for len(composed) < slackManifestLongDescMinChars {
+			composed += " " + personalAgentPlatformSuffix
+		}
+		longDesc = composed
 	}
 
 	// Slack manifest fields are JSON strings, so the substituted values must
