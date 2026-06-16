@@ -129,19 +129,19 @@ export function MePersonalAgentIconPicker({ previewDataUrl, onChange, disabled, 
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={disabled || generating}
-              className="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-background px-3 text-xs font-semibold text-foreground transition hover:bg-muted/40 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Upload PNG
-            </button>
-            <button
-              type="button"
               onClick={onGenerate}
               disabled={disabled || generating || !promptReady}
               className="inline-flex h-9 items-center justify-center rounded-lg border border-foreground/30 bg-foreground px-3 text-xs font-semibold text-background transition hover:bg-foreground/90 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {generating ? "Generating..." : "Generate profile picture"}
+            </button>
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={disabled || generating}
+              className="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-background px-3 text-xs font-semibold text-foreground transition hover:bg-muted/40 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Or upload PNG
             </button>
             {previewDataUrl ? (
               <button
