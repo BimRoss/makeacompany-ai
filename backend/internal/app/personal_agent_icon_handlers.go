@@ -19,11 +19,18 @@ const (
 type iconGenerateRequest struct {
 	DisplayName string `json:"displayName"`
 	Description string `json:"description"`
+	// Count of candidates to return. Defaults to IconCandidateLimit; clamped
+	// to [1, IconCandidateLimit].
+	Count int `json:"count,omitempty"`
+}
+
+type iconCandidate struct {
+	ImageBase64 string `json:"imageBase64"`
+	MimeType    string `json:"mimeType"`
 }
 
 type iconGenerateResponse struct {
-	ImageBase64 string `json:"imageBase64"`
-	MimeType    string `json:"mimeType"`
+	Candidates []iconCandidate `json:"candidates"`
 }
 
 // handleGeneratePersonalAgentIcon produces a single icon candidate via
@@ -54,17 +61,25 @@ func (s *Server) handleGeneratePersonalAgentIcon(w http.ResponseWriter, r *http.
 		http.Error(w, "displayName required", http.StatusBadRequest)
 		return
 	}
+	count := req.Count
+	if count <= 0 {
+		count = IconCandidateLimit
+	}
 	prompt := IconPromptFor(name, req.Description)
-	img, err := s.imagen.GenerateIcon(r.Context(), prompt)
+	imgs, err := s.imagen.GenerateIconCandidates(r.Context(), prompt, count)
 	if err != nil {
-		s.log.Printf("imagen generate icon: %v", err)
+		s.log.Printf("imagen generate icon candidates: %v", err)
 		http.Error(w, "icon generation failed: "+err.Error(), http.StatusBadGateway)
 		return
 	}
-	writeJSON(w, http.StatusOK, iconGenerateResponse{
-		ImageBase64: base64.StdEncoding.EncodeToString(img.Data),
-		MimeType:    img.MimeType,
-	})
+	candidates := make([]iconCandidate, 0, len(imgs))
+	for _, img := range imgs {
+		candidates = append(candidates, iconCandidate{
+			ImageBase64: base64.StdEncoding.EncodeToString(img.Data),
+			MimeType:    img.MimeType,
+		})
+	}
+	writeJSON(w, http.StatusOK, iconGenerateResponse{Candidates: candidates})
 }
 
 // iconChangeRequest is what the "Change icon" button on the status panel

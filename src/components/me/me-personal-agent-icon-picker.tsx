@@ -22,13 +22,17 @@ type Props = {
   description: string;
 };
 
+type Candidate = { base64: string; mimeType: string };
+
 export function MePersonalAgentIconPicker({ previewDataUrl, onChange, disabled, displayName, description }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [candidates, setCandidates] = useState<Candidate[]>([]);
 
   async function onFile(file: File) {
     setError(null);
+    setCandidates([]);
     if (!file.type.startsWith("image/")) {
       setError("Please pick an image file (PNG, JPEG, WebP).");
       return;
@@ -49,23 +53,38 @@ export function MePersonalAgentIconPicker({ previewDataUrl, onChange, disabled, 
     }
     setError(null);
     setGenerating(true);
+    setCandidates([]);
     try {
       const res = await fetch("/api/me/personal-agents/icon-generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ displayName, description }),
       });
-      const payload = (await res.json().catch(() => ({}))) as { imageBase64?: string; mimeType?: string; error?: string };
-      if (!res.ok || !payload.imageBase64) {
+      const payload = (await res.json().catch(() => ({}))) as {
+        candidates?: { imageBase64: string; mimeType: string }[];
+        error?: string;
+      };
+      if (!res.ok || !payload.candidates || payload.candidates.length === 0) {
         setError(payload.error || `Generate failed (${res.status})`);
         return;
       }
-      onChange({ base64: payload.imageBase64, mimeType: payload.mimeType || "image/png" });
+      const list = payload.candidates.map((c) => ({ base64: c.imageBase64, mimeType: c.mimeType || "image/png" }));
+      if (list.length === 1) {
+        // Single candidate — auto-pick. Same UX as the original single-Generate flow.
+        onChange(list[0]);
+      } else {
+        setCandidates(list);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Network error");
     } finally {
       setGenerating(false);
     }
+  }
+
+  function pickCandidate(c: Candidate) {
+    onChange(c);
+    setCandidates([]);
   }
 
   return (
@@ -127,6 +146,28 @@ export function MePersonalAgentIconPicker({ previewDataUrl, onChange, disabled, 
           />
         </div>
       </div>
+      {candidates.length > 0 ? (
+        <div>
+          <p className="mb-2 text-xs text-muted-foreground">Pick one — click to use, or Generate again for fresh options.</p>
+          <div className="grid grid-cols-4 gap-2">
+            {candidates.map((c, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => pickCandidate(c)}
+                className="group relative aspect-square overflow-hidden rounded-xl border border-border bg-muted/40 transition hover:border-foreground/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground/30"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={`data:${c.mimeType};base64,${c.base64}`}
+                  alt={`Candidate ${i + 1}`}
+                  className="h-full w-full object-cover transition group-hover:scale-105"
+                />
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
       {error ? (
         <p className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-sm text-rose-700 dark:text-rose-300">{error}</p>
       ) : null}

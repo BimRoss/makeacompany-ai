@@ -10,6 +10,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -50,6 +51,12 @@ type GeneratedImage struct {
 	Data     []byte
 	MimeType string
 }
+
+// IconCandidateLimit caps the number of icon candidates we ask Imagen for in
+// a single user request. Each candidate is a separate API call; 4 is the
+// "show a 2x2 grid, pick one" UX without burning credits on long shopping
+// sessions. Bump cautiously.
+const IconCandidateLimit = 4
 
 // imagenPredictRequest mirrors the Imagen :predict API shape (which differs
 // from the Gemini :generateContent shape — Imagen lives at a different endpoint).
@@ -142,6 +149,56 @@ func (g *GeminiImagen) GenerateIcon(ctx context.Context, prompt string) (*Genera
 		mime = "image/png"
 	}
 	return &GeneratedImage{Data: data, MimeType: mime}, nil
+}
+
+// GenerateIconCandidates fans out N concurrent GenerateIcon calls so the /me
+// UI can show a small grid of candidates instead of forcing the user to
+// re-roll one image at a time. N is silently clamped to IconCandidateLimit.
+//
+// Returns whatever candidates succeeded — partial-success is intentional:
+// one bad-prompt rejection shouldn't waste the user's time on the others.
+// If ALL fail, the first error is returned so the UI can surface it.
+func (g *GeminiImagen) GenerateIconCandidates(ctx context.Context, prompt string, n int) ([]*GeneratedImage, error) {
+	if g.Disabled() {
+		return nil, errors.New("gemini imagen disabled (GEMINI_API_KEY unset)")
+	}
+	if n <= 0 {
+		n = 1
+	}
+	if n > IconCandidateLimit {
+		n = IconCandidateLimit
+	}
+	type result struct {
+		img *GeneratedImage
+		err error
+	}
+	results := make([]result, n)
+	var wg sync.WaitGroup
+	for i := 0; i < n; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			img, err := g.GenerateIcon(ctx, prompt)
+			results[i] = result{img: img, err: err}
+		}(i)
+	}
+	wg.Wait()
+
+	out := make([]*GeneratedImage, 0, n)
+	var firstErr error
+	for _, r := range results {
+		if r.err != nil {
+			if firstErr == nil {
+				firstErr = r.err
+			}
+			continue
+		}
+		out = append(out, r.img)
+	}
+	if len(out) == 0 && firstErr != nil {
+		return nil, firstErr
+	}
+	return out, nil
 }
 
 // IconPromptFor composes an Imagen prompt for an agent icon. Single source
