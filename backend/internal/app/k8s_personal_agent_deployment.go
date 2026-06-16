@@ -80,11 +80,18 @@ func (w *PersonalAgentWriter) WriteAgentDeployment(ctx context.Context, req Pers
 					Containers: []corev1.Container{{
 						Name:  "personal-agent",
 						Image: req.Image,
-						Ports: []corev1.ContainerPort{{
-							Name:          "http",
-							ContainerPort: int32(PersonalAgentServicePort),
-							Protocol:      corev1.ProtocolTCP,
-						}},
+						Ports: []corev1.ContainerPort{
+							{
+								Name:          "http",
+								ContainerPort: int32(PersonalAgentServicePort),
+								Protocol:      corev1.ProtocolTCP,
+							},
+							{
+								Name:          "admin",
+								ContainerPort: int32(PersonalAgentAdminPort),
+								Protocol:      corev1.ProtocolTCP,
+							},
+						},
 						EnvFrom: []corev1.EnvFromSource{{
 							SecretRef: &corev1.SecretEnvSource{
 								LocalObjectReference: corev1.LocalObjectReference{Name: secretName},

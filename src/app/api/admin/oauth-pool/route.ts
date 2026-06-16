@@ -41,7 +41,10 @@ type AgentResult = {
 
 type AgentTarget = { agent: string; url?: string; token?: string };
 
-// Static agents (Ross, Joanne).
+// Static agents that share the OAuth pool. Garth is listed here even when
+// scaled to 0 so the per-agent legend always shows all three pool consumers
+// — when his admin endpoint is unreachable he renders with 0 spawns rather
+// than disappearing.
 const STATIC_AGENT_TARGETS: AgentTarget[] = [
   {
     agent: "ross",
@@ -52,6 +55,11 @@ const STATIC_AGENT_TARGETS: AgentTarget[] = [
     agent: "joanne",
     url: process.env.JOANNE_ADMIN_URL ?? "http://joanne.joanne.svc:8092",
     token: process.env.JOANNE_ADMIN_TOKEN,
+  },
+  {
+    agent: "garth",
+    url: process.env.GARTH_ADMIN_URL ?? "http://garth.personal-agents.svc:8092",
+    token: process.env.GARTH_ADMIN_TOKEN,
   },
 ];
 

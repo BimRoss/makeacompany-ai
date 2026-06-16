@@ -6,10 +6,13 @@ import { useCallback, useEffect, useState } from "react";
 import { kickToLoginForUnauthorizedApi } from "@/lib/client-auth-unauthorized-redirect";
 
 // OAuthPoolPanel surfaces combined-pool + per-agent draw against the
-// CLAUDE_CODE_OAUTH_TOKEN pool. The story Grant wants on /admin: at a
-// glance see (a) how much of the combined Ross+Joanne pool is left, and
-// (b) which agent is driving the usage. Both bars share the same 0..pool
-// axis so the per-agent draws stack visually to the pool total.
+// shared CLAUDE_CODE_OAUTH_TOKEN pool. Ross, Joanne, and Garth all draw
+// from the same pool. The story Grant wants on /admin: at a glance see
+// (a) how much of the combined pool is left, and (b) which agent is
+// driving the usage. The stacked bar and legend share the same 0..pool
+// axis so the per-agent draws stack visually to the pool total. Agents
+// that are scaled to 0 or unreachable still show in the legend with 0
+// spawns so the pool's full consumer set stays visible.
 
 type SlotSnapshot = {
   slot: string;

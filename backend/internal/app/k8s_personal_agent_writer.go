@@ -123,6 +123,13 @@ func personalAgentSecretName(slackUserID string) string {
 // default of :8080).
 const PersonalAgentServicePort = 8080
 
+// PersonalAgentAdminPort is the well-known port the per-agent admin HTTP
+// server listens on (matches claude-code-personal-agent's PERSONAL_ADMIN_ADDR
+// default of :8092). Used by the /admin oauth-pool card on makeacompany.ai
+// to fan out to each personal-agent pod and read its slot draw against the
+// shared OAuth pool — same shape Ross/Joanne expose on :8092.
+const PersonalAgentAdminPort = 8092
+
 // personalAgentSecretData returns the stringData payload for a per-agent
 // runtime Secret. Single source of truth so the create + patch paths can't
 // drift on which keys are written.
