@@ -12,10 +12,11 @@ import (
 // context so suggestions stay coherent (don't propose a name that conflicts
 // with the current description, etc).
 type textSuggestRequest struct {
-	Field           string `json:"field"` // "name" | "description" | "longDescription"
+	Field           string `json:"field"` // "name" | "description" | "longDescription" | "systemPrompt"
 	Name            string `json:"name,omitempty"`
 	Description     string `json:"description,omitempty"`
 	LongDescription string `json:"longDescription,omitempty"`
+	SystemPrompt    string `json:"systemPrompt,omitempty"`
 }
 
 type textSuggestResponse struct {
@@ -63,8 +64,10 @@ func personalAgentTextSuggestionPrompt(field string, req textSuggestRequest) (st
 	name := strings.TrimSpace(req.Name)
 	description := strings.TrimSpace(req.Description)
 	long := strings.TrimSpace(req.LongDescription)
-	ctx := fmt.Sprintf("Current name: %q. Current short description: %q. Current long description: %q.",
-		valueOrDash(name), valueOrDash(description), valueOrDash(long))
+	sys := strings.TrimSpace(req.SystemPrompt)
+	ctx := fmt.Sprintf(
+		"Current name: %q. Current short description: %q. Current long description: %q. Current persona/system prompt: %q.",
+		valueOrDash(name), valueOrDash(description), valueOrDash(long), valueOrDash(sys))
 	switch field {
 	case "name":
 		return "You are writing the display name for a user's personal AI agent that lives in their Slack DM. " +
@@ -78,6 +81,9 @@ func personalAgentTextSuggestionPrompt(field string, req textSuggestRequest) (st
 		return "You are writing the long-form Slack-app description for a user's personal AI agent (175-450 characters). " +
 			ctx + " Write 2-3 sentences explaining what the agent does for its owner. Friendly, specific. " +
 			"Reply with just the description.", 220
+	case "systemprompt", "system_prompt", "persona":
+		return "You are writing the system prompt / persona for a user's personal AI agent — this is the durable description of how the agent should behave when answering its owner in Slack. " +
+			ctx + " Write a focused persona paragraph (4-8 sentences, ~400-700 characters): cover voice/tone, how it should approach problems, what kinds of help it is for, and any non-negotiable rules. Address the agent in the second person ('You are…'). Reply with just the persona text — no preface, no quotes, no markdown headings.", 500
 	default:
 		return "", 0
 	}

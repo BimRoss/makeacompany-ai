@@ -7,23 +7,31 @@ type Props = {
   initialName: string;
   initialDescription: string;
   initialLongDescription: string;
+  initialSystemPrompt: string;
   onClose: () => void;
-  onSaved: (name: string, description: string, longDescription: string) => void;
+  onSaved: (
+    name: string,
+    description: string,
+    longDescription: string,
+    systemPrompt: string,
+  ) => void;
 };
 
-type Field = "name" | "description" | "longDescription";
+type Field = "name" | "description" | "longDescription" | "systemPrompt";
 
 export function MePersonalAgentEditModal({
   open,
   initialName,
   initialDescription,
   initialLongDescription,
+  initialSystemPrompt,
   onClose,
   onSaved,
 }: Props) {
   const [name, setName] = useState(initialName);
   const [description, setDescription] = useState(initialDescription);
   const [longDescription, setLongDescription] = useState(initialLongDescription);
+  const [systemPrompt, setSystemPrompt] = useState(initialSystemPrompt);
   const [submitting, setSubmitting] = useState(false);
   const [suggesting, setSuggesting] = useState<Field | null>(null);
   const [feedback, setFeedback] = useState<{ kind: "ok" | "err"; message: string } | null>(null);
@@ -34,8 +42,9 @@ export function MePersonalAgentEditModal({
     setName(initialName);
     setDescription(initialDescription);
     setLongDescription(initialLongDescription);
+    setSystemPrompt(initialSystemPrompt);
     setFeedback(null);
-  }, [open, initialName, initialDescription, initialLongDescription]);
+  }, [open, initialName, initialDescription, initialLongDescription, initialSystemPrompt]);
 
   // Esc closes the modal — matches user expectation for any "X" modal.
   useEffect(() => {
@@ -56,7 +65,7 @@ export function MePersonalAgentEditModal({
       const res = await fetch("/api/me/personal-agents/text-suggest", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ field, name, description, longDescription }),
+        body: JSON.stringify({ field, name, description, longDescription, systemPrompt }),
       });
       const body = (await res.json().catch(() => ({}))) as { text?: string; error?: string };
       if (!res.ok || !body.text) {
@@ -65,7 +74,8 @@ export function MePersonalAgentEditModal({
       }
       if (field === "name") setName(body.text);
       else if (field === "description") setDescription(body.text);
-      else setLongDescription(body.text);
+      else if (field === "longDescription") setLongDescription(body.text);
+      else setSystemPrompt(body.text);
     } catch (err) {
       setFeedback({ kind: "err", message: err instanceof Error ? err.message : "Network error" });
     } finally {
@@ -89,12 +99,14 @@ export function MePersonalAgentEditModal({
           displayName: name.trim(),
           description: description.trim(),
           longDescription: longDescription.trim() || undefined,
+          systemPrompt: systemPrompt.trim() || undefined,
         }),
       });
       const body = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
         displayName?: string;
         description?: string;
+        systemPrompt?: string;
         error?: string;
       };
       if (!res.ok || !body.ok) {
@@ -105,6 +117,7 @@ export function MePersonalAgentEditModal({
         body.displayName ?? name.trim(),
         body.description ?? description.trim(),
         longDescription.trim(),
+        body.systemPrompt ?? systemPrompt.trim(),
       );
       onClose();
     } catch (err) {
@@ -190,6 +203,23 @@ export function MePersonalAgentEditModal({
               maxLength={500}
               value={longDescription}
               onChange={(e) => setLongDescription(e.target.value)}
+              className="block w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground shadow-sm focus:border-foreground/30 focus:outline-none focus:ring-2 focus:ring-foreground/10"
+            />
+          </Field>
+
+          <Field
+            label="Agent personality (system prompt)"
+            hint="Defines how your agent behaves in Slack. Saved takes effect on the next message."
+            suggesting={suggesting === "systemPrompt"}
+            onSuggest={() => suggest("systemPrompt")}
+            disabled={submitting}
+          >
+            <textarea
+              rows={6}
+              maxLength={2000}
+              value={systemPrompt}
+              onChange={(e) => setSystemPrompt(e.target.value)}
+              placeholder="e.g. You are a no-nonsense engineering buddy. Reply in 1-2 lines. Always show your sources…"
               className="block w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground shadow-sm focus:border-foreground/30 focus:outline-none focus:ring-2 focus:ring-foreground/10"
             />
           </Field>

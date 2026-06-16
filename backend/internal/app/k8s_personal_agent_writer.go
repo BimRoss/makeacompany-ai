@@ -137,6 +137,9 @@ func personalAgentSecretData(req PersonalAgentRuntimeSecretRequest) map[string]s
 	if v := strings.TrimSpace(req.ClaudeCodeOAuthToken2); v != "" {
 		data["CLAUDE_CODE_OAUTH_TOKEN_2"] = v
 	}
+	if v := strings.TrimSpace(req.SystemPrompt); v != "" {
+		data["PERSONAL_AGENT_SYSTEM_PROMPT"] = v
+	}
 	return data
 }
 
@@ -190,6 +193,7 @@ type PersonalAgentRuntimeSecretRequest struct {
 	SigningSecret          string // from apps.manifest.create credentials
 	ClaudeCodeOAuthToken   string // from runtime-secrets, optional but recommended
 	ClaudeCodeOAuthToken2  string // second token in the shared pool
+	SystemPrompt           string // user-defined persona text for instructions.md
 }
 
 // WriteAgentRuntimeSecret upserts the per-agent runtime Secret. The personal
