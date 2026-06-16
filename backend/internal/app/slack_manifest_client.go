@@ -141,6 +141,56 @@ func (c *SlackManifestClient) CreateManifest(ctx context.Context, manifest json.
 	return &resp, nil
 }
 
+// UpdateManifest calls apps.manifest.update on an existing app. Used by the
+// "edit description" flow on /me to push name/description changes back to
+// Slack so the bot listing stays in sync.
+func (c *SlackManifestClient) UpdateManifest(ctx context.Context, appID string, manifest json.RawMessage) error {
+	if c.Disabled() {
+		return errors.New("slack manifest client disabled (config tokens unset)")
+	}
+	if strings.TrimSpace(appID) == "" {
+		return errors.New("UpdateManifest: app_id required")
+	}
+	body := map[string]any{
+		"app_id":   appID,
+		"manifest": json.RawMessage(manifest),
+	}
+	var resp struct {
+		OK    bool   `json:"ok"`
+		Error string `json:"error,omitempty"`
+	}
+	if err := c.callJSONWithRefresh(ctx, "/api/apps.manifest.update", body, &resp); err != nil {
+		return err
+	}
+	if !resp.OK {
+		return fmt.Errorf("apps.manifest.update rejected: %s", resp.Error)
+	}
+	return nil
+}
+
+// DeleteApp calls apps.manifest.delete to revoke the Slack app entirely.
+// Used by the "delete agent" flow.
+func (c *SlackManifestClient) DeleteApp(ctx context.Context, appID string) error {
+	if c.Disabled() {
+		return errors.New("slack manifest client disabled (config tokens unset)")
+	}
+	if strings.TrimSpace(appID) == "" {
+		return errors.New("DeleteApp: app_id required")
+	}
+	body := map[string]any{"app_id": appID}
+	var resp struct {
+		OK    bool   `json:"ok"`
+		Error string `json:"error,omitempty"`
+	}
+	if err := c.callJSONWithRefresh(ctx, "/api/apps.manifest.delete", body, &resp); err != nil {
+		return err
+	}
+	if !resp.OK {
+		return fmt.Errorf("apps.manifest.delete rejected: %s", resp.Error)
+	}
+	return nil
+}
+
 // rotateResponse mirrors the subset of tooling.tokens.rotate we use.
 // https://api.slack.com/methods/tooling.tokens.rotate
 type rotateResponse struct {
