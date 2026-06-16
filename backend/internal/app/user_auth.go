@@ -74,17 +74,35 @@ func (s *Server) handleUserAuthMe(w http.ResponseWriter, r *http.Request) {
 		canCancel = portalBillingCanCancel(row)
 	}
 	subscribeURL := appendClientReferenceID(s.trialExpiryCheckoutURL(), slackUserID)
+
+	// Slack workspace profile: avatar + display/real name. Best-effort —
+	// missing snapshot or unknown email just leaves the fields empty so /me
+	// falls back to the email-derived display name.
+	slackProfileImageURL := ""
+	slackDisplayName := ""
+	if wu, ok, err := s.store.LookupSlackWorkspaceUserByEmail(r.Context(), session.Email); err == nil && ok {
+		slackProfileImageURL = strings.TrimSpace(wu.ProfileImageURL)
+		slackDisplayName = strings.TrimSpace(wu.RealName)
+		if slackDisplayName == "" {
+			slackDisplayName = strings.TrimSpace(wu.DisplayName)
+		}
+	} else if err != nil {
+		s.log.Printf("user auth me slack profile lookup: %v", err)
+	}
+
 	writeJSON(w, http.StatusOK, map[string]any{
-		"authenticated": true,
-		"email":         session.Email,
-		"tenantType":    session.TenantType,
-		"expiresAt":     session.ExpiresAt,
-		"slackUserId":   slackUserID,
-		"tier":          tier,
-		"freeLifetime":  freeLifetime,
-		"billing":       billing,
-		"subscribeUrl":  subscribeURL,
-		"canCancel":     canCancel,
+		"authenticated":        true,
+		"email":                session.Email,
+		"tenantType":           session.TenantType,
+		"expiresAt":            session.ExpiresAt,
+		"slackUserId":          slackUserID,
+		"slackProfileImageUrl": slackProfileImageURL,
+		"slackDisplayName":     slackDisplayName,
+		"tier":                 tier,
+		"freeLifetime":         freeLifetime,
+		"billing":              billing,
+		"subscribeUrl":         subscribeURL,
+		"canCancel":            canCancel,
 	})
 }
 

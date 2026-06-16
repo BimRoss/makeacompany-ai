@@ -68,7 +68,7 @@ func (s *Server) handleGeneratePersonalAgentIcon(w http.ResponseWriter, r *http.
 	if count <= 0 {
 		count = IconCandidateLimit
 	}
-	prompt := strings.TrimSpace(req.Prompt)
+	prompt := IconPromptWithPortraitFraming(req.Prompt)
 	if prompt == "" {
 		prompt = IconPromptFor(name, req.Description)
 	}
