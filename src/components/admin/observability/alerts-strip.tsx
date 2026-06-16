@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, CheckCircle2 } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 import { useAlerts, type AdminAlert } from "./alerts-provider";
 
 function severityClasses(severity: string): string {
@@ -41,22 +41,11 @@ function AlertChip({ alert }: { alert: AdminAlert }) {
 export function AlertsStrip() {
   const { fetched, firing } = useAlerts();
 
-  if (!fetched) {
-    return (
-      <div className="rounded-xl border border-dashed border-border bg-background/40 px-4 py-3 text-xs text-muted-foreground">
-        Checking active alerts…
-      </div>
-    );
-  }
-
-  if (firing.length === 0) {
-    return (
-      <div className="flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-sm text-foreground">
-        <CheckCircle2 className="h-4 w-4" style={{ color: "var(--chart-pos)" }} aria-hidden="true" />
-        <span className="font-medium">All clear.</span>
-        <span className="text-xs text-muted-foreground">No alerts firing.</span>
-      </div>
-    );
+  // Silence when nothing's firing — green is the absence of red, no need to
+  // spend visual space on it. Also stays quiet during the first fetch so
+  // the layout doesn't flicker.
+  if (!fetched || firing.length === 0) {
+    return null;
   }
 
   return (
