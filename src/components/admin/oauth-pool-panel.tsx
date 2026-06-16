@@ -177,13 +177,20 @@ function rollup(agent: AgentResult): AgentRollup {
 function PoolCard({ agents }: { agents: AgentResult[] }) {
   const rollups = agents.map(rollup);
   const poolUsed = rollups.reduce((acc, r) => acc + r.spawnsInWindow, 0);
-  const poolCap = rollups.reduce((acc, r) => acc + r.agentCap, 0) || FALLBACK_SLOT_CAP_PER_WINDOW;
+  // Pool cap is the SHARED Claude-OAuth pool, not the sum of per-agent
+  // capacities — every agent (Ross + Joanne + personal agents) draws from
+  // the same N tokens. Take max(agentCap) so the denominator equals
+  // (distinct_tokens × slot_cap), which is what the rate limit actually
+  // enforces. Older summed-cap math double-counted shared tokens and
+  // inflated the denominator (1800 + 900 = 2700 when the real cap is 1800).
+  const poolCap =
+    rollups.reduce((acc, r) => Math.max(acc, r.agentCap), 0) ||
+    FALLBACK_SLOT_CAP_PER_WINDOW;
   const poolPct = poolCap > 0 ? Math.min(1, poolUsed / poolCap) : 0;
   const windowHours = Math.round((rollups[0]?.windowSeconds ?? 18000) / 3600);
+  const maxSlots = rollups.reduce((acc, r) => Math.max(acc, r.slots.length), 0);
   const slotCapForLabel =
-    rollups[0] && rollups[0].slots.length > 0
-      ? rollups[0].agentCap / rollups[0].slots.length
-      : FALLBACK_SLOT_CAP_PER_WINDOW;
+    maxSlots > 0 ? Math.round(poolCap / maxSlots) : FALLBACK_SLOT_CAP_PER_WINDOW;
 
   return (
     <div className="overflow-hidden rounded-2xl border border-border bg-card">

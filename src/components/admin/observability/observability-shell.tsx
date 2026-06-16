@@ -3,7 +3,6 @@
 import { Suspense, useEffect } from "react";
 import { AlertTriangle, ArrowUpRight } from "lucide-react";
 
-import { AdminAgentKillSwitchCompact } from "../admin-agent-kill-switch";
 import { AlertsProvider, useAlerts } from "./alerts-provider";
 import { AlertsStrip } from "./alerts-strip";
 import { CloudflarePanels, useCloudflareSummary } from "./cloudflare-panels";
@@ -95,8 +94,7 @@ function ObservabilityBody() {
 
   return (
     <div className="space-y-4">
-      <div className="sticky top-0 z-20 -mx-4 space-y-2 border-b border-border bg-background/95 px-4 py-2.5 backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
-        <AdminAgentKillSwitchCompact />
+      <div className="sticky top-0 z-20 -mx-4 border-b border-border bg-background/95 px-4 py-2.5 backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
         <ObservabilityToolbar lastUpdatedAt={lastUpdatedAt} loading={loading} />
       </div>
 
