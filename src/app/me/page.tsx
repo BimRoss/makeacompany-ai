@@ -180,7 +180,7 @@ function ProfileCard({ me }: { me: MePayload }) {
 
   return (
     <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm ring-1 ring-black/[0.03] dark:ring-white/[0.06]">
-      <header className="flex flex-wrap items-center gap-4 border-b border-border/60 bg-muted/20 px-5 py-5">
+      <header className="flex flex-wrap items-center gap-3 border-b border-border/60 bg-muted/20 px-4 py-4 sm:gap-4 sm:px-5 sm:py-5">
         <div
           aria-hidden
           className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-foreground/90 text-xl font-semibold text-background"
@@ -197,7 +197,7 @@ function ProfileCard({ me }: { me: MePayload }) {
             {displayName}
           </h1>
           <p className="truncate text-sm text-muted-foreground" title={email}>
-            {email}
+            {email || "No email"}
           </p>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-1.5">
@@ -207,9 +207,9 @@ function ProfileCard({ me }: { me: MePayload }) {
           {cancelAtEnd ? <Pill tone="warning">cancels at period end</Pill> : null}
         </div>
       </header>
-      <dl className="divide-y divide-border/60 px-5 py-2 text-sm">
-        <Row label="Email" value={email || "—"} mono />
-        <Row label="Slack user ID" value={me.slackUserId?.trim() || "—"} mono />
+      <dl className="divide-y divide-border/60 px-4 py-2 text-sm sm:px-5">
+        <Row label="Email" value={email || "No email"} mono />
+        <Row label="Slack user ID" value={me.slackUserId?.trim() || "No Slack ID"} mono />
         {periodEndUnix ? (
           <Row label={cancelAtEnd ? "Ends" : "Renews"} value={formatRenewDate(periodEndUnix)} />
         ) : null}
@@ -228,7 +228,7 @@ function BillingActions({ me }: { me: MePayload }) {
 
   if (canCancel) {
     return (
-      <div className="flex justify-end border-t border-border/60 px-5 py-4">
+      <div className="flex justify-end border-t border-border/60 px-4 py-4 sm:px-5">
         <MeCancelSubscriptionButton />
       </div>
     );
@@ -278,8 +278,21 @@ function PersonalAgentCard({
   ownerName: string;
   ownerSlackUserId: string;
 }) {
+  // When the user has an installed agent, the status panel owns the full
+  // section (avatar + name + rows + edit) so it mirrors the Profile card
+  // structure 1:1. No outer wrapper needed.
+  if (agent.hasAgent) {
+    return (
+      <MePersonalAgentStatusPanel
+        initial={agent}
+        ownerName={ownerName}
+        ownerSlackUserId={ownerSlackUserId}
+      />
+    );
+  }
+
   return (
-    <section className="rounded-2xl border border-border bg-card p-5 shadow-sm ring-1 ring-black/[0.03] dark:ring-white/[0.06]">
+    <section className="rounded-2xl border border-border bg-card p-4 shadow-sm ring-1 ring-black/[0.03] sm:p-5 dark:ring-white/[0.06]">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h2 className="text-base font-semibold tracking-tight text-foreground">Personal agent</h2>
@@ -287,22 +300,10 @@ function PersonalAgentCard({
             Your private Slack-bound AI, gated to your Slack user ID.
           </p>
         </div>
-        {agent.hasAgent ? (
-          <Pill tone={agent.status === "installed" ? "positive" : "neutral"}>
-            {agent.status ?? "pending"}
-          </Pill>
-        ) : (
-          <Pill>New</Pill>
-        )}
+        <Pill>New</Pill>
       </div>
       <div className="mt-4">
-        {agent.hasAgent ? (
-          <MePersonalAgentStatusPanel
-            initial={agent}
-            ownerName={ownerName}
-            ownerSlackUserId={ownerSlackUserId}
-          />
-        ) : !slackUserIDKnown ? (
+        {!slackUserIDKnown ? (
           <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-300">
             Your email isn&apos;t in the MakeaCompany Slack workspace yet, so we can&apos;t bind an agent to your Slack
             identity. Join the workspace, then refresh.
