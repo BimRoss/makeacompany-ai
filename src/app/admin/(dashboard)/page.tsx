@@ -11,11 +11,10 @@ export default function AdminPage() {
       <AdminSlackWorkspaceLiveSyncOnce />
       <AdminPostAuthWelcomeBoundary />
       <div className="space-y-6">
-        {/* OAuthPoolPanel (rate-limit headroom) lifted above the
-            ObservabilityShell so the shared-pool draw is visible without a
-            scroll — it's the single most actionable signal on the page. */}
-        <OAuthPoolPanel />
         <AdminObservabilityShell />
+        {/* OAuthPoolPanel (rate-limit headroom) sits under the time selector
+            so the combined-pool draw updates when "Updated 10s ago" etc. triggers. */}
+        <OAuthPoolPanel />
         <AdminSlackUsersTable />
         <AdminStripeUsersTable />
       </div>

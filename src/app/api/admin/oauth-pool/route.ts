@@ -41,7 +41,8 @@ type AgentResult = {
 
 type AgentTarget = { agent: string; url?: string; token?: string };
 
-const AGENT_TARGETS: AgentTarget[] = [
+// Static agents (Ross, Joanne).
+const STATIC_AGENT_TARGETS: AgentTarget[] = [
   {
     agent: "ross",
     url: process.env.ROSS_ADMIN_URL ?? "http://ross.ross.svc:8092",
@@ -54,16 +55,93 @@ const AGENT_TARGETS: AgentTarget[] = [
   },
 ];
 
+// Discover personal agents from K8s. Each running personal agent pod
+// exposes an admin HTTP server on :8092 (same as Ross/Joanne). Pods are
+// discovered by querying K8s API for all Pods in personal-agents namespace
+// with label app=personal-agent. The pod's IP becomes the target URL.
+async function discoverPersonalAgents(): Promise<AgentTarget[]> {
+  const kubeApiUrl = process.env.KUBERNETES_SERVICE_HOST;
+  const kubeApiPort = process.env.KUBERNETES_SERVICE_PORT;
+  const token = process.env.KUBERNETES_SERVICE_ACCOUNT_TOKEN;
+
+  if (!kubeApiUrl || !token) {
+    // Not running in-cluster; skip personal agent discovery.
+    return [];
+  }
+
+  try {
+    // Temporarily disable TLS verification for K8s API (self-signed cert in-cluster).
+    // This is safe because we're only connecting to the K8s API within the cluster.
+    const originalRejectUnauthorized = process.env.NODE_TLS_REJECT_UNAUTHORIZED;
+    process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+
+    const response = await fetch(
+      `https://${kubeApiUrl}:${kubeApiPort}/api/v1/namespaces/personal-agents/pods?labelSelector=app=personal-agent`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      },
+    );
+
+    // Restore original setting
+    if (originalRejectUnauthorized !== undefined) {
+      process.env.NODE_TLS_REJECT_UNAUTHORIZED = originalRejectUnauthorized;
+    } else {
+      delete process.env.NODE_TLS_REJECT_UNAUTHORIZED;
+    }
+
+    if (!response.ok) {
+      console.error(`K8s API error querying personal-agents pods: HTTP ${response.status}`);
+      return [];
+    }
+
+    const podList = (await response.json()) as {
+      items: Array<{ metadata: { name: string }; status?: { podIP?: string } }>;
+    };
+    const targets: AgentTarget[] = [];
+    for (const pod of podList.items) {
+      const podIp = pod.status?.podIP;
+      const podName = pod.metadata.name;
+      if (podIp) {
+        // Personal agent pods listen on :8092 cluster-internally.
+        // They're deployed without auth tokens (cluster-internal only).
+        targets.push({
+          agent: podName,
+          url: `http://${podIp}:8092`,
+          token: "", // Will be overridden in fetchAgent; skip auth header
+        });
+      }
+    }
+    return targets;
+  } catch (error) {
+    console.error("Failed to discover personal agents from K8s", error);
+    return [];
+  }
+}
+
+async function getAgentTargets(): Promise<AgentTarget[]> {
+  const staticTargets = STATIC_AGENT_TARGETS;
+  const personalTargets = await discoverPersonalAgents();
+  return [...staticTargets, ...personalTargets];
+}
+
 async function fetchAgent({ agent, url, token }: AgentTarget): Promise<AgentResult> {
   const endpoint = `${(url ?? "").replace(/\/$/, "")}/admin/oauth-pool`;
-  if (!url || !token) {
-    return { agent, url: endpoint, ok: false, error: "url or token env unset" };
+  if (!url) {
+    return { agent, url: endpoint, ok: false, error: "url missing" };
   }
   try {
+    // Build headers: include auth token for Ross/Joanne (token present),
+    // but skip for personal agents (token empty/undefined, cluster-internal).
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+
     const response = await fetch(endpoint, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers,
       cache: "no-store",
-      // Short timeout — admin page shouldn't hang if an agent pod is down.
       signal: AbortSignal.timeout(4000),
     });
     if (!response.ok) {
@@ -87,7 +165,8 @@ export async function GET() {
   if (!adminOk) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
-  const agents = await Promise.all(AGENT_TARGETS.map(fetchAgent));
+  const agentTargets = await getAgentTargets();
+  const agents = await Promise.all(agentTargets.map(fetchAgent));
   return NextResponse.json(
     { agents, checked_at: new Date().toISOString() },
     {

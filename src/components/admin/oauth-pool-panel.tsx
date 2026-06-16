@@ -177,12 +177,6 @@ function rollup(agent: AgentResult): AgentRollup {
 function PoolCard({ agents }: { agents: AgentResult[] }) {
   const rollups = agents.map(rollup);
   const poolUsed = rollups.reduce((acc, r) => acc + r.spawnsInWindow, 0);
-  // Pool cap is the SHARED Claude-OAuth pool, not the sum of per-agent
-  // capacities — every agent (Ross + Joanne + personal agents) draws from
-  // the same N tokens. Take max(agentCap) so the denominator equals
-  // (distinct_tokens × slot_cap), which is what the rate limit actually
-  // enforces. Older summed-cap math double-counted shared tokens and
-  // inflated the denominator (1800 + 900 = 2700 when the real cap is 1800).
   const poolCap =
     rollups.reduce((acc, r) => Math.max(acc, r.agentCap), 0) ||
     FALLBACK_SLOT_CAP_PER_WINDOW;
@@ -212,13 +206,8 @@ function PoolCard({ agents }: { agents: AgentResult[] }) {
         </span>
       </div>
 
-      <div className="space-y-3 px-3 py-3">
+      <div className="px-3 py-3">
         <PoolStackedBar rollups={rollups} poolCap={poolCap} />
-        <div className="space-y-2 pt-1">
-          {rollups.map((r, i) => (
-            <AgentBar key={r.agent} rollup={r} poolCap={poolCap} index={i} />
-          ))}
-        </div>
       </div>
     </div>
   );
