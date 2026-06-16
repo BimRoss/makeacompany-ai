@@ -109,6 +109,10 @@ type Config struct {
 	// Defaults to docker.io/geeemoney/claude-code-personal-agent:latest when
 	// unset (acceptable in dev; pin explicitly in prod).
 	PersonalAgentImage string
+	// MakeacompanySlackTeamID pins the workspace the personal-agent install URL
+	// installs into. When set, we append ?team=<id> so Slack skips the workspace
+	// picker for users not currently signed in.
+	MakeacompanySlackTeamID string
 	// ClaudeCodeOAuthToken / ClaudeCodeOAuthToken2 are the shared Claude
 	// Code OAuth-token pool. Backed by the same two values Ross + Joanne use
 	// (centralized into makeacompany-ai-runtime-secrets). Mac-ai backend reads
@@ -179,6 +183,7 @@ func LoadConfig() Config {
 		EventsGatewayRequestURL:             envString("EVENTS_GATEWAY_REQUEST_URL", "https://events.makeacompany.ai/slack/events"),
 		PersonalAgentInstallRedirectBase:    strings.TrimSpace(os.Getenv("PERSONAL_AGENT_INSTALL_REDIRECT_BASE")),
 		PersonalAgentImage:                  envString("PERSONAL_AGENT_IMAGE", "docker.io/geeemoney/claude-code-personal-agent:latest"),
+		MakeacompanySlackTeamID:             strings.TrimSpace(os.Getenv("MAKEACOMPANY_SLACK_TEAM_ID")),
 		ClaudeCodeOAuthToken:                strings.TrimSpace(os.Getenv("CLAUDE_CODE_OAUTH_TOKEN")),
 		ClaudeCodeOAuthToken2:               strings.TrimSpace(os.Getenv("CLAUDE_CODE_OAUTH_TOKEN_2")),
 		GeminiAPIKey:                        strings.TrimSpace(os.Getenv("GEMINI_API_KEY")),
