@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { MePersonalAgentIconPicker, type IconPickerValue } from "@/components/me/me-personal-agent-icon-picker";
+
 type CreateResponse = {
   agentId?: string;
   slackAppId?: string;
@@ -15,9 +17,12 @@ export function MePersonalAgentCreationForm() {
   const [displayName, setDisplayName] = useState("");
   const [description, setDescription] = useState("");
   const [longDescription, setLongDescription] = useState("");
+  const [icon, setIcon] = useState<IconPickerValue | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [installUrl, setInstallUrl] = useState<string | null>(null);
+
+  const iconPreview = icon ? `data:${icon.mimeType};base64,${icon.base64}` : null;
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -31,6 +36,8 @@ export function MePersonalAgentCreationForm() {
           displayName: displayName.trim(),
           description: description.trim(),
           longDescription: longDescription.trim() || undefined,
+          iconBase64: icon?.base64,
+          iconMimeType: icon?.mimeType,
         }),
       });
       const payload = (await res.json().catch(() => ({}))) as CreateResponse;
@@ -113,7 +120,13 @@ export function MePersonalAgentCreationForm() {
         />
       </div>
 
-      {/* Icon upload + Imagen-4-fast generate are deferred to a follow-up. */}
+      <MePersonalAgentIconPicker
+        previewDataUrl={iconPreview}
+        onChange={setIcon}
+        disabled={submitting}
+        displayName={displayName}
+        description={description}
+      />
 
       {error ? (
         <p className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-sm text-rose-700 dark:text-rose-300">{error}</p>
