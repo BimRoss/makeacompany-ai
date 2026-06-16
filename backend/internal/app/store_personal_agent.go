@@ -43,6 +43,12 @@ type PersonalAgentRecord struct {
 	ServiceNamespace string `json:"serviceNamespace"`
 	ServiceName      string `json:"serviceName"`
 	ServicePort      int    `json:"servicePort"`
+	// BotUserID is the Slack user id of the installed app's bot user, captured
+	// from oauth.v2.access on install-complete. Used to fetch the bot's live
+	// profile image URL via users.info on /me load. Optional — historical
+	// records may have this empty; the icon-current endpoint lazy-fills via
+	// auth.test on the per-agent bot token if missing.
+	BotUserID        string `json:"botUserId,omitempty"`
 	Status           string `json:"status"`
 	CreatedAt        string `json:"createdAt"`
 	UpdatedAt        string `json:"updatedAt"`
@@ -194,6 +200,15 @@ func (s *Store) DeletePersonalAgent(ctx context.Context, rec PersonalAgentRecord
 	return err
 }
 
+// SetPersonalAgentBotUserID stores the Slack bot user id resolved at OAuth
+// install (or lazily via auth.test on first icon-current fetch).
+func (s *Store) SetPersonalAgentBotUserID(ctx context.Context, agentID, botUserID string) error {
+	return s.updatePersonalAgentFields(ctx, agentID, map[string]any{
+		"bot_user_id": botUserID,
+		"updated_at":  time.Now().UTC().Format(time.RFC3339),
+	})
+}
+
 // UpdatePersonalAgentStatus flips status to an arbitrary value (e.g. "failed").
 func (s *Store) UpdatePersonalAgentStatus(ctx context.Context, agentID, status string) error {
 	return s.updatePersonalAgentFields(ctx, agentID, map[string]any{
@@ -229,6 +244,7 @@ func recordToHash(r PersonalAgentRecord) map[string]any {
 		"service_namespace":   r.ServiceNamespace,
 		"service_name":        r.ServiceName,
 		"service_port":        r.ServicePort,
+		"bot_user_id":         r.BotUserID,
 		"status":              r.Status,
 		"created_at":          r.CreatedAt,
 		"updated_at":          r.UpdatedAt,
@@ -254,6 +270,7 @@ func hashToRecord(vals map[string]string) PersonalAgentRecord {
 		ServiceNamespace:  vals["service_namespace"],
 		ServiceName:       vals["service_name"],
 		ServicePort:       port,
+		BotUserID:         vals["bot_user_id"],
 		Status:            vals["status"],
 		CreatedAt:         vals["created_at"],
 		UpdatedAt:         vals["updated_at"],
