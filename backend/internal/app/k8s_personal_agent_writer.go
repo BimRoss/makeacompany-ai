@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -122,14 +123,40 @@ func personalAgentSecretName(slackUserID string) string {
 // default of :8080).
 const PersonalAgentServicePort = 8080
 
+// personalAgentSecretData returns the stringData payload for a per-agent
+// runtime Secret. Single source of truth so the create + patch paths can't
+// drift on which keys are written.
+func personalAgentSecretData(req PersonalAgentRuntimeSecretRequest) map[string]string {
+	data := map[string]string{
+		"PERSONAL_SLACK_BOT_TOKEN":      req.BotToken,
+		"PERSONAL_SLACK_SIGNING_SECRET": req.SigningSecret,
+	}
+	if v := strings.TrimSpace(req.ClaudeCodeOAuthToken); v != "" {
+		data["CLAUDE_CODE_OAUTH_TOKEN"] = v
+	}
+	if v := strings.TrimSpace(req.ClaudeCodeOAuthToken2); v != "" {
+		data["CLAUDE_CODE_OAUTH_TOKEN_2"] = v
+	}
+	return data
+}
+
 // PersonalAgentRuntimeSecretRequest is what the provisioner hands the writer
 // once the agent's Slack app has been installed and we have bot + signing
 // credentials in hand.
+//
+// ClaudeCodeOAuthToken / ClaudeCodeOAuthToken2 are the shared Claude-Code
+// OAuth-token pool used by Ross + Joanne + every personal agent. The pool is
+// centralized in makeacompany-ai-runtime-secrets and propagated into each
+// per-agent runtime Secret here so the spawned `claude` CLI authenticates
+// out of the box. Per-user OAuth (so each personal agent has its own pool +
+// rate budget) is a follow-up.
 type PersonalAgentRuntimeSecretRequest struct {
-	SlackUserID   string
-	SlackAppID    string
-	BotToken      string // xoxb-
-	SigningSecret string // from apps.manifest.create credentials
+	SlackUserID            string
+	SlackAppID             string
+	BotToken               string // xoxb-
+	SigningSecret          string // from apps.manifest.create credentials
+	ClaudeCodeOAuthToken   string // from runtime-secrets, optional but recommended
+	ClaudeCodeOAuthToken2  string // second token in the shared pool
 }
 
 // WriteAgentRuntimeSecret upserts the per-agent runtime Secret. The personal
@@ -162,10 +189,7 @@ func (w *PersonalAgentWriter) WriteAgentRuntimeSecret(ctx context.Context, req P
 			},
 		},
 		Type: corev1.SecretTypeOpaque,
-		StringData: map[string]string{
-			"PERSONAL_SLACK_BOT_TOKEN":       req.BotToken,
-			"PERSONAL_SLACK_SIGNING_SECRET":  req.SigningSecret,
-		},
+		StringData: personalAgentSecretData(req),
 	}
 
 	_, err := w.cs.CoreV1().Secrets(w.agentNamespace).Create(ctx, secret, metav1.CreateOptions{})
@@ -178,9 +202,13 @@ func (w *PersonalAgentWriter) WriteAgentRuntimeSecret(ctx context.Context, req P
 	// Already exists — update in place. Preserves anything an operator may
 	// have added by hand (e.g. AGENT_GOOGLE_EMAIL) by only patching the keys
 	// we own.
+	stringDataJSON, err := json.Marshal(personalAgentSecretData(req))
+	if err != nil {
+		return fmt.Errorf("marshal patch stringData: %w", err)
+	}
 	patch := []byte(fmt.Sprintf(
-		`{"stringData":{"PERSONAL_SLACK_BOT_TOKEN":%q,"PERSONAL_SLACK_SIGNING_SECRET":%q},"metadata":{"annotations":{%q:%q}}}`,
-		req.BotToken, req.SigningSecret,
+		`{"stringData":%s,"metadata":{"annotations":{%q:%q}}}`,
+		string(stringDataJSON),
 		personalAgentAnnoInstalledAt, time.Now().UTC().Format(time.RFC3339),
 	))
 	_, err = w.cs.CoreV1().Secrets(w.agentNamespace).Patch(ctx, name, types.StrategicMergePatchType, patch, metav1.PatchOptions{})

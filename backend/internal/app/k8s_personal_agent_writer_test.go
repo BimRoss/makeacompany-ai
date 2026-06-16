@@ -61,6 +61,53 @@ func TestWriteAgentRuntimeSecret_CreatesSecret(t *testing.T) {
 	}
 }
 
+func TestWriteAgentRuntimeSecret_IncludesClaudeOAuthPool(t *testing.T) {
+	cs := fake.NewSimpleClientset()
+	w := newPersonalAgentWriterWithClient(cs, "personal-agents", "", "")
+	ctx := context.Background()
+	req := PersonalAgentRuntimeSecretRequest{
+		SlackUserID:           "U0APBT3364D",
+		SlackAppID:            "A0GARTH",
+		BotToken:              "xoxb-test",
+		SigningSecret:         "sig-test",
+		ClaudeCodeOAuthToken:  "ccoauth1",
+		ClaudeCodeOAuthToken2: "ccoauth2",
+	}
+	if err := w.WriteAgentRuntimeSecret(ctx, req); err != nil {
+		t.Fatalf("WriteAgentRuntimeSecret: %v", err)
+	}
+	name := personalAgentSecretName(req.SlackUserID)
+	got, err := cs.CoreV1().Secrets("personal-agents").Get(ctx, name, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	if got.StringData["CLAUDE_CODE_OAUTH_TOKEN"] != "ccoauth1" {
+		t.Errorf("CLAUDE_CODE_OAUTH_TOKEN = %q, want ccoauth1", got.StringData["CLAUDE_CODE_OAUTH_TOKEN"])
+	}
+	if got.StringData["CLAUDE_CODE_OAUTH_TOKEN_2"] != "ccoauth2" {
+		t.Errorf("CLAUDE_CODE_OAUTH_TOKEN_2 = %q, want ccoauth2", got.StringData["CLAUDE_CODE_OAUTH_TOKEN_2"])
+	}
+}
+
+func TestWriteAgentRuntimeSecret_OmitsClaudeOAuthWhenBlank(t *testing.T) {
+	cs := fake.NewSimpleClientset()
+	w := newPersonalAgentWriterWithClient(cs, "personal-agents", "", "")
+	ctx := context.Background()
+	req := PersonalAgentRuntimeSecretRequest{
+		SlackUserID:   "U1",
+		SlackAppID:    "A1",
+		BotToken:      "xoxb-test",
+		SigningSecret: "sig-test",
+	}
+	if err := w.WriteAgentRuntimeSecret(ctx, req); err != nil {
+		t.Fatalf("WriteAgentRuntimeSecret: %v", err)
+	}
+	got, _ := cs.CoreV1().Secrets("personal-agents").Get(ctx, personalAgentSecretName("U1"), metav1.GetOptions{})
+	if _, ok := got.StringData["CLAUDE_CODE_OAUTH_TOKEN"]; ok {
+		t.Errorf("CLAUDE_CODE_OAUTH_TOKEN should be omitted when blank")
+	}
+}
+
 func TestWriteAgentRuntimeSecret_UpdatesExisting(t *testing.T) {
 	cs := fake.NewSimpleClientset()
 	w := newPersonalAgentWriterWithClient(cs, "personal-agents", "", "")

@@ -109,6 +109,16 @@ type Config struct {
 	// Defaults to docker.io/geeemoney/claude-code-personal-agent:latest when
 	// unset (acceptable in dev; pin explicitly in prod).
 	PersonalAgentImage string
+	// ClaudeCodeOAuthToken / ClaudeCodeOAuthToken2 are the shared Claude
+	// Code OAuth-token pool. Backed by the same two values Ross + Joanne use
+	// (centralized into makeacompany-ai-runtime-secrets). Mac-ai backend reads
+	// them once at boot and writes them into every per-agent runtime Secret
+	// so the spawned `claude` CLI authenticates out of the box.
+	//
+	// Long-term: per-user OAuth so each personal agent has its own pool and
+	// doesn't share rate budget with Ross/Joanne.
+	ClaudeCodeOAuthToken  string
+	ClaudeCodeOAuthToken2 string
 }
 
 // stripePriceIDBasePlan returns STRIPE_PRICE_ID_BASE_PLAN, else legacy STRIPE_PRICE_ID_WAITLIST.
@@ -165,6 +175,8 @@ func LoadConfig() Config {
 		EventsGatewayRequestURL:             envString("EVENTS_GATEWAY_REQUEST_URL", "https://events.makeacompany.ai/slack/events"),
 		PersonalAgentInstallRedirectBase:    strings.TrimSpace(os.Getenv("PERSONAL_AGENT_INSTALL_REDIRECT_BASE")),
 		PersonalAgentImage:                  envString("PERSONAL_AGENT_IMAGE", "docker.io/geeemoney/claude-code-personal-agent:latest"),
+		ClaudeCodeOAuthToken:                strings.TrimSpace(os.Getenv("CLAUDE_CODE_OAUTH_TOKEN")),
+		ClaudeCodeOAuthToken2:               strings.TrimSpace(os.Getenv("CLAUDE_CODE_OAUTH_TOKEN_2")),
 	}
 }
 

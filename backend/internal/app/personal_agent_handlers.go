@@ -241,10 +241,12 @@ func (s *Server) handlePersonalAgentInstallComplete(w http.ResponseWriter, r *ht
 	}
 
 	if err := s.personalAgent.WriteAgentRuntimeSecret(r.Context(), PersonalAgentRuntimeSecretRequest{
-		SlackUserID:   rec.OwnerSlackUserID,
-		SlackAppID:    rec.SlackAppID,
-		BotToken:      botToken,
-		SigningSecret: rec.SlackSigningSecret,
+		SlackUserID:           rec.OwnerSlackUserID,
+		SlackAppID:            rec.SlackAppID,
+		BotToken:              botToken,
+		SigningSecret:         rec.SlackSigningSecret,
+		ClaudeCodeOAuthToken:  s.cfg.ClaudeCodeOAuthToken,
+		ClaudeCodeOAuthToken2: s.cfg.ClaudeCodeOAuthToken2,
 	}); err != nil {
 		s.log.Printf("personal agent secret write: %v", err)
 		_ = s.store.UpdatePersonalAgentStatus(r.Context(), agentID, PersonalAgentStatusFailed)
