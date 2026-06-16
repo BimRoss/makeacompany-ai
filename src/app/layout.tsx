@@ -26,6 +26,11 @@ const syne = Syne({
   weight: ["600", "700", "800"],
 });
 
+// Rendered as <meta name="x-build-version"> below so the deploy-watcher
+// single-probe kind can confirm a tagged version is actually serving without
+// standing up a /api/version endpoint. Threaded from CI as a build arg.
+const buildVersion = process.env.NEXT_PUBLIC_BUILD_VERSION ?? "dev";
+
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: { default: siteTitle, template: `%s · makeacompany.ai` },
@@ -39,6 +44,9 @@ export const metadata: Metadata = {
     follow: true,
   },
   category: "technology",
+  other: {
+    "x-build-version": buildVersion,
+  },
   verification: {
     ...(process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION
       ? { google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION }
