@@ -46,6 +46,36 @@ func (s *Store) GetSlackUsersSnapshotBytes(ctx context.Context) ([]byte, error) 
 	return []byte(raw), nil
 }
 
+// LookupSlackWorkspaceUserByEmail returns the cached snapshot row for a workspace
+// member by profile email. Returns (zero, false, nil) when the snapshot is
+// missing or the email isn't in it.
+func (s *Store) LookupSlackWorkspaceUserByEmail(ctx context.Context, email string) (SlackWorkspaceUser, bool, error) {
+	if s == nil {
+		return SlackWorkspaceUser{}, false, errors.New("nil store")
+	}
+	raw, err := s.GetSlackUsersSnapshotBytes(ctx)
+	if err != nil {
+		if errors.Is(err, ErrSlackUsersSnapshotMissing) {
+			return SlackWorkspaceUser{}, false, nil
+		}
+		return SlackWorkspaceUser{}, false, err
+	}
+	env, err := ParseSlackUsersSnapshotEnvelope(raw)
+	if err != nil {
+		return SlackWorkspaceUser{}, false, err
+	}
+	want := normalizeProfileEmail(strings.TrimSpace(email))
+	if want == "" {
+		return SlackWorkspaceUser{}, false, nil
+	}
+	for i := range env.Users {
+		if normalizeProfileEmail(env.Users[i].Email) == want {
+			return env.Users[i], true, nil
+		}
+	}
+	return SlackWorkspaceUser{}, false, nil
+}
+
 // LookupSlackFirstNameByEmail returns the first token of Slack real_name/display_name for a workspace
 // member whose profile email matches (from the cached users.list snapshot). Returns "" when unknown.
 func (s *Store) LookupSlackFirstNameByEmail(ctx context.Context, email string) string {

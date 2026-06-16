@@ -201,6 +201,17 @@ func (g *GeminiImagen) GenerateIconCandidates(ctx context.Context, prompt string
 	return out, nil
 }
 
+// portraitFramingSuffix forces every Imagen icon — whether user-typed or
+// IconPromptFor-derived — into a profile-picture shape: zoomed-in headshot,
+// centered subject, eye-level angle, neutral background, square. Keeps
+// candidates visually consistent even when the subject is wildly different
+// across prompts (e.g. "Garth from Wayne's World" vs. "a robot mascot").
+const portraitFramingSuffix = " " +
+	"Framing: tight close-up portrait headshot, subject centered, shoulders-up crop, " +
+	"eye-level camera angle, looking toward the camera, neutral solid background with subtle vignette, " +
+	"soft even lighting, sharp focus on the face, app-store profile-picture aesthetic, square 1:1 composition, " +
+	"no text, no watermarks, no full-body shots, no environment shots."
+
 // IconPromptFor composes an Imagen prompt for an agent icon. Single source
 // of truth so the create-time and "regenerate" code paths can't drift.
 func IconPromptFor(name, description string) string {
@@ -210,8 +221,16 @@ func IconPromptFor(name, description string) string {
 		description = "a personal AI agent on Slack"
 	}
 	return fmt.Sprintf(
-		"App icon for an AI agent named %q whose purpose is: %s. "+
-			"Style: flat vector illustration, soft rounded geometry, single dominant accent color on a light neutral background, "+
-			"high-contrast subject centered with breathing room, app-store icon aesthetic, no text, no watermarks, square 1:1 composition.",
-		name, description)
+		"Portrait icon for an AI agent named %q whose purpose is: %s.",
+		name, description) + portraitFramingSuffix
+}
+
+// IconPromptWithPortraitFraming wraps a user-supplied subject so the same
+// framing constraints land regardless of what they typed in.
+func IconPromptWithPortraitFraming(userPrompt string) string {
+	userPrompt = strings.TrimSpace(userPrompt)
+	if userPrompt == "" {
+		return ""
+	}
+	return "Subject: " + userPrompt + "." + portraitFramingSuffix
 }

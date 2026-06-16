@@ -18,6 +18,8 @@ type MePayload = {
   authenticated?: boolean;
   email?: string;
   slackUserId?: string;
+  slackProfileImageUrl?: string;
+  slackDisplayName?: string;
   tier?: string;
   freeLifetime?: boolean;
   expiresAt?: string;
@@ -149,12 +151,16 @@ function displayNameFromEmail(email: string): string {
   return local.charAt(0).toUpperCase() + local.slice(1);
 }
 
-function avatarInitial(email: string): string {
-  return (email.trim()[0] ?? "?").toUpperCase();
+function avatarInitial(name: string, email: string): string {
+  const seed = name.trim() || email.trim();
+  return (seed[0] ?? "?").toUpperCase();
 }
 
 function ProfileCard({ me }: { me: MePayload }) {
   const email = me.email ?? "";
+  const slackName = (me.slackDisplayName ?? "").trim();
+  const displayName = slackName || displayNameFromEmail(email);
+  const portraitUrl = (me.slackProfileImageUrl ?? "").trim();
   const billing = me.billing ?? {};
   const status = pillValue(billing.subscriptionStatus);
   const cancelAtEnd = Boolean(billing.cancelAtPeriodEnd);
@@ -169,13 +175,18 @@ function ProfileCard({ me }: { me: MePayload }) {
       <header className="flex flex-wrap items-center gap-4 border-b border-border/60 bg-muted/20 px-5 py-5">
         <div
           aria-hidden
-          className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-foreground/90 text-xl font-semibold text-background"
+          className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-foreground/90 text-xl font-semibold text-background"
         >
-          {avatarInitial(email)}
+          {portraitUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element -- Slack CDN URL, fine to skip next/image optimization
+            <img src={portraitUrl} alt={displayName} className="h-full w-full object-cover" />
+          ) : (
+            <span>{avatarInitial(displayName, email)}</span>
+          )}
         </div>
         <div className="min-w-0 flex-1">
           <h1 className="truncate text-lg font-semibold tracking-tight text-foreground sm:text-xl">
-            {displayNameFromEmail(email)}
+            {displayName}
           </h1>
           <p className="truncate text-sm text-muted-foreground" title={email}>
             {email}
