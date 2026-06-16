@@ -1,10 +1,17 @@
 package app
 
 import (
+	"context"
+	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
+	"time"
+
+	"github.com/redis/go-redis/v9"
 )
 
 // textSuggestRequest is the body shape for /text-suggest. Field selects which
@@ -21,6 +28,12 @@ type textSuggestRequest struct {
 	// dedicated agent…") instead of generic "the user's agent".
 	OwnerName        string `json:"ownerName,omitempty"`
 	OwnerSlackUserID string `json:"ownerSlackUserId,omitempty"`
+	// Optional staged-icon bytes. When the user has picked a new icon but
+	// hasn't synced it yet, the frontend forwards the base64 here so a
+	// system-prompt suggestion reflects the visual they're about to ship,
+	// not the stale live one. Both fields must be set or both empty.
+	IconBase64   string `json:"iconBase64,omitempty"`
+	IconMimeType string `json:"iconMimeType,omitempty"`
 }
 
 type textSuggestResponse struct {
@@ -50,7 +63,21 @@ func (s *Server) handleSuggestPersonalAgentText(w http.ResponseWriter, r *http.R
 		return
 	}
 	field := strings.ToLower(strings.TrimSpace(req.Field))
-	prompt, maxTokens := personalAgentTextSuggestionPrompt(field, req)
+
+	// Best-effort icon caption for the system-prompt field — gives the
+	// persona suggestion something to riff on visually ("looks like a
+	// stoic viking" → match the voice). Errors are swallowed; the prompt
+	// just runs without the visual context.
+	iconCaption := ""
+	if field == "systemprompt" || field == "system_prompt" || field == "persona" {
+		if c, err := s.captureAgentIconCaption(r.Context(), session.Email, req.IconBase64, req.IconMimeType); err != nil {
+			s.log.Printf("agent-icon caption skipped: %v", err)
+		} else {
+			iconCaption = c
+		}
+	}
+
+	prompt, maxTokens := personalAgentTextSuggestionPrompt(field, req, iconCaption)
 	if prompt == "" {
 		http.Error(w, "unknown field", http.StatusBadRequest)
 		return
@@ -64,37 +91,167 @@ func (s *Server) handleSuggestPersonalAgentText(w http.ResponseWriter, r *http.R
 	writeJSON(w, http.StatusOK, textSuggestResponse{Text: sanitizeSuggestion(text)})
 }
 
-func personalAgentTextSuggestionPrompt(field string, req textSuggestRequest) (string, int) {
+// captureAgentIconCaption returns a one-sentence description of the agent's
+// current visual identity. Prefers staged bytes from the request (so unsaved
+// icon edits get reflected), then falls back to the live Slack icon. Returns
+// ("", nil) when no source is available — caller treats as best-effort.
+func (s *Server) captureAgentIconCaption(ctx context.Context, email, stagedB64, stagedMime string) (string, error) {
+	if s.geminiText == nil || s.geminiText.Disabled() {
+		return "", nil
+	}
+
+	// Staged bytes win — they're what the user is about to push.
+	if strings.TrimSpace(stagedB64) != "" {
+		data, err := base64.StdEncoding.DecodeString(strings.TrimSpace(stagedB64))
+		if err != nil {
+			return "", fmt.Errorf("decode staged icon: %w", err)
+		}
+		mime := strings.TrimSpace(stagedMime)
+		if mime == "" {
+			mime = "image/png"
+		}
+		return s.geminiText.DescribeImage(ctx, data, mime)
+	}
+
+	// Fall back to whatever is currently in Slack.
+	slackUserID, err := s.store.SlackUserIDByProfileEmail(ctx, email)
+	if err != nil || strings.TrimSpace(slackUserID) == "" {
+		return "", nil
+	}
+	rec, err := s.store.GetPersonalAgentByOwner(ctx, slackUserID)
+	if errors.Is(err, redis.Nil) {
+		return "", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	if s.personalAgent == nil || s.personalAgent.Disabled() {
+		return "", nil
+	}
+	botToken, err := s.personalAgent.ReadAgentBotToken(ctx, rec.OwnerSlackUserID)
+	if err != nil {
+		return "", err
+	}
+	botUserID := strings.TrimSpace(rec.BotUserID)
+	if botUserID == "" {
+		resolved, terr := slackAuthTestUserID(ctx, botToken)
+		if terr != nil {
+			return "", terr
+		}
+		botUserID = resolved
+	}
+	imageURL, err := slackUserProfileImageURL(ctx, botToken, botUserID)
+	if err != nil || strings.TrimSpace(imageURL) == "" {
+		return "", err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, imageURL, nil)
+	if err != nil {
+		return "", err
+	}
+	httpClient := &http.Client{Timeout: 15 * time.Second}
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("agent icon status %d", resp.StatusCode)
+	}
+	bodyBytes, err := io.ReadAll(io.LimitReader(resp.Body, 4<<20))
+	if err != nil {
+		return "", err
+	}
+	mime := strings.TrimSpace(resp.Header.Get("Content-Type"))
+	if mime == "" {
+		mime = "image/png"
+	}
+	return s.geminiText.DescribeImage(ctx, bodyBytes, mime)
+}
+
+func personalAgentTextSuggestionPrompt(field string, req textSuggestRequest, iconCaption string) (string, int) {
 	name := strings.TrimSpace(req.Name)
 	description := strings.TrimSpace(req.Description)
 	long := strings.TrimSpace(req.LongDescription)
 	sys := strings.TrimSpace(req.SystemPrompt)
 	owner := strings.TrimSpace(req.OwnerName)
+	ownerFirst := firstWord(owner)
 	ownerLine := ""
 	if owner != "" {
-		ownerLine = fmt.Sprintf(" The agent's sole owner is named %q — reference them by first name when natural (e.g. \"%s's dedicated agent…\"), but don't shoehorn it in if the field is too short.", owner, firstWord(owner))
+		ownerLine = fmt.Sprintf(" The agent's sole owner is named %q — reference them by first name (%q) when natural.", owner, ownerFirst)
 	}
 	ctx := fmt.Sprintf(
 		"Current name: %q. Current short description: %q. Current long description: %q. Current persona/system prompt: %q.",
 		valueOrDash(name), valueOrDash(description), valueOrDash(long), valueOrDash(sys))
+
 	switch field {
 	case "name":
-		// Name is too short to fit the owner naturally — keep the prompt
-		// general and just ask for something memorable.
-		return "You are writing the display name for a user's personal AI agent that lives in their Slack DM. " +
-			ctx + " Suggest ONE short, memorable, friendly name (1-2 words, no punctuation, no quotes). " +
-			"Reply with just the name, nothing else.", 30
+		return "You are naming a user's personal AI agent that lives in their Slack DM. " +
+			ctx + " The name should feel like a trusted human sidekick — one memorable word, 1-2 syllables, easy to @mention. " +
+			"Good examples: Garth, Atlas, Nova, Sage, Echo, Vega. Avoid: 'Assistant', 'Bot', 'AI', anything with punctuation or numbers. " +
+			"If the existing description/persona hints at a vibe, lean into it. Reply with just the name, nothing else.", 30
+
 	case "description":
-		return "You are writing a one-line Slack-app short description for a user's personal AI agent." +
-			ownerLine + " " + ctx + " Suggest ONE concise description (max 120 characters) that reads natural in a Slack app listing. " +
-			"Avoid generic phrases like 'AI assistant'. Reply with just the description.", 80
+		ownerHint := "the owner"
+		if ownerFirst != "" {
+			ownerHint = ownerFirst
+		}
+		seed := description
+		if seed == "" {
+			seed = long
+		}
+		seedLine := ""
+		if seed != "" {
+			seedLine = fmt.Sprintf(" The user already typed %q — sharpen it, don't replace the intent.", seed)
+		}
+		return "You are writing the one-line Slack-app short description for a user's personal AI agent." +
+			ownerLine + " " + ctx + seedLine +
+			fmt.Sprintf(" Output a single line, 40-110 characters. Anchor on the owner — patterns like \"%s's personal AI agent for X\" or \"%s's <role> in Slack\" work well. ", ownerHint, ownerHint) +
+			"Ban generic phrases: 'AI assistant', 'helpful bot', 'powered by'. Reply with just the description — no quotes, no period if it reads better without.", 80
+
 	case "longdescription", "long_description", "longdesc":
-		return "You are writing the long-form Slack-app description for a user's personal AI agent (175-450 characters)." +
-			ownerLine + " " + ctx + " Write 2-3 sentences explaining what the agent does for its owner. Friendly, specific. " +
-			"Reply with just the description.", 220
+		seedLine := ""
+		switch {
+		case long != "":
+			seedLine = fmt.Sprintf(" The user already typed %q — rewrite it tighter and longer (must end up 175+ chars), preserving their intent.", long)
+		case description != "":
+			seedLine = fmt.Sprintf(" Use the existing short description as the seed and expand it: %q. Reuse its angle and specificity.", description)
+		case name != "":
+			seedLine = fmt.Sprintf(" Only the name %q exists so far — invent a coherent role from it.", name)
+		}
+		return "You are writing the long-form Slack-app description for a user's personal AI agent. " +
+			"HARD REQUIREMENT: between 175 and 450 characters — count carefully, under 175 is a failure." +
+			ownerLine + " " + ctx + seedLine +
+			" Write 2-3 specific sentences covering: what the agent does for its owner day-to-day, what tone/voice it uses, and one concrete example of help it provides. " +
+			"Reply with just the description — no quotes, no markdown.", 320
+
 	case "systemprompt", "system_prompt", "persona":
-		return "You are writing the system prompt / persona for a user's personal AI agent — this is the durable description of how the agent should behave when answering its owner in Slack." +
-			ownerLine + " " + ctx + " Write a focused persona paragraph (4-8 sentences, ~400-700 characters): cover voice/tone, how it should approach problems, what kinds of help it is for, and any non-negotiable rules. Address the agent in the second person ('You are…'). Reply with just the persona text — no preface, no quotes, no markdown headings.", 500
+		seedLine := ""
+		if sys != "" {
+			seedLine = fmt.Sprintf(" The user already wrote a draft persona — refine it, don't discard: %q.", sys)
+		} else {
+			parts := []string{}
+			if name != "" {
+				parts = append(parts, fmt.Sprintf("name %q", name))
+			}
+			if description != "" {
+				parts = append(parts, fmt.Sprintf("short description %q", description))
+			}
+			if long != "" {
+				parts = append(parts, fmt.Sprintf("long description %q", long))
+			}
+			if len(parts) > 0 {
+				seedLine = " Build the persona to be coherent with the other fields the user has set: " + strings.Join(parts, "; ") + "."
+			}
+		}
+		iconLine := ""
+		if strings.TrimSpace(iconCaption) != "" {
+			iconLine = fmt.Sprintf(" The agent's current Slack icon looks like: %s. Let the visual inform the personality — a stoic portrait → measured tone, a playful mascot → looser tone, etc.", strings.TrimSpace(iconCaption))
+		}
+		return "You are writing the system prompt / persona for a user's personal AI agent — the durable description of how the agent should behave when answering its owner in Slack." +
+			ownerLine + " " + ctx + seedLine + iconLine +
+			" Write a focused persona paragraph (4-8 sentences, ~400-700 characters): cover voice/tone, how it approaches problems, what kinds of help it is for, and any non-negotiable rules. " +
+			"Address the agent in the second person ('You are…'). Reply with just the persona text — no preface, no quotes, no markdown headings.", 500
+
 	default:
 		return "", 0
 	}
