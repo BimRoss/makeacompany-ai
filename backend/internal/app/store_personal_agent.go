@@ -31,6 +31,7 @@ type PersonalAgentRecord struct {
 	OwnerSlackUserID  string `json:"ownerSlackUserId"`
 	DisplayName       string `json:"displayName"`
 	Description       string `json:"description"`
+	LongDescription   string `json:"longDescription,omitempty"`
 	SlackAppID        string `json:"slackAppId"`
 	SlackClientID     string `json:"slackClientId"`
 	SlackClientSecret string `json:"slackClientSecret"`
@@ -170,13 +171,16 @@ func (s *Store) SetPersonalAgentService(ctx context.Context, agentID, namespace,
 // UpdatePersonalAgentDisplay edits the user-visible name + description on
 // an existing record. The owner index doesn't move (slack_user_id is
 // immutable) and neither does the by-app-id index.
-func (s *Store) UpdatePersonalAgentDisplay(ctx context.Context, agentID, displayName, description string) error {
+func (s *Store) UpdatePersonalAgentDisplay(ctx context.Context, agentID, displayName, description, longDescription string) error {
 	fields := map[string]any{"updated_at": time.Now().UTC().Format(time.RFC3339)}
 	if v := strings.TrimSpace(displayName); v != "" {
 		fields["display_name"] = v
 	}
 	if v := strings.TrimSpace(description); v != "" {
 		fields["description"] = v
+	}
+	if v := strings.TrimSpace(longDescription); v != "" {
+		fields["long_description"] = v
 	}
 	return s.updatePersonalAgentFields(ctx, agentID, fields)
 }
@@ -236,6 +240,7 @@ func recordToHash(r PersonalAgentRecord) map[string]any {
 		"owner_slack_user_id": r.OwnerSlackUserID,
 		"display_name":        r.DisplayName,
 		"description":         r.Description,
+		"long_description":    r.LongDescription,
 		"slack_app_id":        r.SlackAppID,
 		"slack_client_id":     r.SlackClientID,
 		"slack_client_secret": r.SlackClientSecret,
@@ -262,6 +267,7 @@ func hashToRecord(vals map[string]string) PersonalAgentRecord {
 		OwnerSlackUserID:  vals["owner_slack_user_id"],
 		DisplayName:       vals["display_name"],
 		Description:       vals["description"],
+		LongDescription:   vals["long_description"],
 		SlackAppID:        vals["slack_app_id"],
 		SlackClientID:     vals["slack_client_id"],
 		SlackClientSecret: vals["slack_client_secret"],

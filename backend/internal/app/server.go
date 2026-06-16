@@ -142,6 +142,9 @@ type Server struct {
 	// imagen generates app icons for personal agents on creation (Imagen-4-fast).
 	// Disabled() short-circuits when GEMINI_API_KEY isn't set.
 	imagen *GeminiImagen
+	// geminiText drives /me "write for me" copy suggestions for name +
+	// short/long descriptions. Same env var as imagen.
+	geminiText *GeminiText
 }
 
 func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
@@ -203,6 +206,10 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 	if imagen.Disabled() {
 		logger.Printf("imagen icon generator disabled (GEMINI_API_KEY missing)")
 	}
+	geminiText := NewGeminiText(cfg.GeminiAPIKey)
+	if geminiText.Disabled() {
+		logger.Printf("gemini text generator disabled (GEMINI_API_KEY missing)")
+	}
 	s := &Server{
 		cfg:                    cfg,
 		log:                    logger,
@@ -218,6 +225,7 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 		slackManifest:          slackManifestClient,
 		personalAgent:          personalAgentWriter,
 		imagen:                 imagen,
+		geminiText:             geminiText,
 	}
 	s.mux.HandleFunc("/livez", s.handleLivez)
 	s.mux.HandleFunc("/readyz", s.handleReadiness)
@@ -275,6 +283,7 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 	s.mux.HandleFunc("POST /v1/me/personal-agents/icon", s.handleChangePersonalAgentIcon)
 	s.mux.HandleFunc("GET /v1/me/personal-agents/icon-current", s.handlePersonalAgentIconCurrent)
 	s.mux.HandleFunc("POST /v1/me/personal-agents/edit", s.handleEditPersonalAgent)
+	s.mux.HandleFunc("POST /v1/me/personal-agents/text-suggest", s.handleSuggestPersonalAgentText)
 	s.mux.HandleFunc("POST /v1/me/personal-agents/delete", s.handleDeletePersonalAgent)
 	s.mux.HandleFunc("POST /v1/internal/personal-agents/rollout-all", s.handlePersonalAgentRolloutAll)
 	s.mux.HandleFunc("GET /v1/personal-agents/{id}/install-complete", s.handlePersonalAgentInstallComplete)

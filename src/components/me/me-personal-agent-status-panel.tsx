@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { MePersonalAgentEditModal, PenIcon } from "@/components/me/me-personal-agent-edit-modal";
 import { MePersonalAgentIconPicker, type IconPickerValue } from "@/components/me/me-personal-agent-icon-picker";
 
 type AgentStatus = {
@@ -10,6 +11,7 @@ type AgentStatus = {
   agentId?: string;
   displayName?: string;
   description?: string;
+  longDescription?: string;
   slackAppId?: string;
   status?: string;
   installUrl?: string;
@@ -20,6 +22,7 @@ const TERMINAL_STATUSES = new Set(["installed", "failed"]);
 export function MePersonalAgentStatusPanel({ initial }: { initial: AgentStatus }) {
   const router = useRouter();
   const [agent, setAgent] = useState<AgentStatus>(initial);
+  const [editOpen, setEditOpen] = useState(false);
 
   useEffect(() => {
     if (!agent.hasAgent || (agent.status && TERMINAL_STATUSES.has(agent.status))) {
@@ -64,10 +67,36 @@ export function MePersonalAgentStatusPanel({ initial }: { initial: AgentStatus }
   return (
     <div className="space-y-3">
       <dl className="divide-y divide-border/60 text-sm">
-        <Row label="Agent" value={agent.displayName ?? "—"} />
+        <RowWithAction
+          label="Agent"
+          value={agent.displayName ?? "—"}
+          action={
+            status === "installed" ? (
+              <button
+                type="button"
+                onClick={() => setEditOpen(true)}
+                className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2 py-0.5 text-[11px] font-semibold text-foreground transition hover:bg-muted/40"
+                aria-label="Edit agent name and description"
+              >
+                <PenIcon />
+                Edit
+              </button>
+            ) : null
+          }
+        />
         <Row label="Slack app" value={agent.slackAppId ?? "—"} mono />
         <Row label="Status" value={status} mono />
       </dl>
+      <MePersonalAgentEditModal
+        open={editOpen}
+        initialName={agent.displayName ?? ""}
+        initialDescription={agent.description ?? ""}
+        initialLongDescription={agent.longDescription ?? ""}
+        onClose={() => setEditOpen(false)}
+        onSaved={(name, desc, longDesc) =>
+          setAgent((a) => ({ ...a, displayName: name, description: desc, longDescription: longDesc }))
+        }
+      />
       {status === "pending_install" && agent.installUrl ? (
         <div className="space-y-2">
           <p className="text-sm text-muted-foreground">Finish installing your Slack app to bring this agent online.</p>
@@ -84,11 +113,6 @@ export function MePersonalAgentStatusPanel({ initial }: { initial: AgentStatus }
           <p className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700 dark:text-emerald-300">
             Your agent is live. DM @{agent.displayName ?? "your agent"} in Slack to start.
           </p>
-          <EditAgentSection
-            initialName={agent.displayName ?? ""}
-            initialDescription={agent.description ?? ""}
-            onSaved={(name, desc) => setAgent((a) => ({ ...a, displayName: name, description: desc }))}
-          />
           <ChangeIconSection
             agentId={agent.agentId ?? agent.slackAppId ?? ""}
             displayName={agent.displayName ?? ""}
@@ -109,126 +133,23 @@ export function MePersonalAgentStatusPanel({ initial }: { initial: AgentStatus }
   );
 }
 
-function EditAgentSection({
-  initialName,
-  initialDescription,
-  onSaved,
+function RowWithAction({
+  label,
+  value,
+  action,
 }: {
-  initialName: string;
-  initialDescription: string;
-  onSaved: (name: string, description: string) => void;
+  label: string;
+  value: string;
+  action?: React.ReactNode;
 }) {
-  const [editing, setEditing] = useState(false);
-  const [name, setName] = useState(initialName);
-  const [description, setDescription] = useState(initialDescription);
-  const [submitting, setSubmitting] = useState(false);
-  const [feedback, setFeedback] = useState<{ kind: "ok" | "err"; message: string } | null>(null);
-
-  if (!editing) {
-    return (
-      <div className="flex justify-end">
-        <button
-          type="button"
-          onClick={() => {
-            setName(initialName);
-            setDescription(initialDescription);
-            setFeedback(null);
-            setEditing(true);
-          }}
-          className="text-xs font-semibold text-muted-foreground transition hover:text-foreground"
-        >
-          Edit name & description
-        </button>
-      </div>
-    );
-  }
-
-  async function save(e: React.FormEvent) {
-    e.preventDefault();
-    if (!name.trim() || !description.trim()) {
-      setFeedback({ kind: "err", message: "Name and description are required." });
-      return;
-    }
-    setSubmitting(true);
-    setFeedback(null);
-    try {
-      const res = await fetch("/api/me/personal-agents/edit", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ displayName: name.trim(), description: description.trim() }),
-      });
-      const body = (await res.json().catch(() => ({}))) as { ok?: boolean; displayName?: string; description?: string; error?: string };
-      if (!res.ok || !body.ok) {
-        setFeedback({ kind: "err", message: body.error || `Failed (${res.status})` });
-        return;
-      }
-      onSaved(body.displayName ?? name.trim(), body.description ?? description.trim());
-      setFeedback({ kind: "ok", message: "Updated in Slack and saved." });
-      setEditing(false);
-    } catch (err) {
-      setFeedback({ kind: "err", message: err instanceof Error ? err.message : "Network error" });
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
   return (
-    <form onSubmit={save} className="space-y-3 rounded-xl border border-border bg-background/40 p-4">
-      <h3 className="text-sm font-semibold text-foreground">Edit agent</h3>
-      <div>
-        <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-muted-foreground">Name</label>
-        <input
-          type="text"
-          required
-          maxLength={32}
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          className="block w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground shadow-sm focus:border-foreground/30 focus:outline-none focus:ring-2 focus:ring-foreground/10"
-        />
-      </div>
-      <div>
-        <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-muted-foreground">Description</label>
-        <input
-          type="text"
-          required
-          maxLength={140}
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          className="block w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground shadow-sm focus:border-foreground/30 focus:outline-none focus:ring-2 focus:ring-foreground/10"
-        />
-      </div>
-      <div className="flex justify-end gap-2">
-        <button
-          type="button"
-          onClick={() => {
-            setEditing(false);
-            setFeedback(null);
-          }}
-          disabled={submitting}
-          className="inline-flex h-9 items-center justify-center rounded-lg px-3 text-xs font-medium text-muted-foreground transition hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          Cancel
-        </button>
-        <button
-          type="submit"
-          disabled={submitting}
-          className="inline-flex h-9 items-center justify-center rounded-lg bg-foreground px-3 text-xs font-semibold text-background transition hover:bg-foreground/90 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {submitting ? "Saving..." : "Save & sync to Slack"}
-        </button>
-      </div>
-      {feedback ? (
-        <p
-          className={`rounded-lg border px-3 py-2 text-xs ${
-            feedback.kind === "ok"
-              ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
-              : "border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-300"
-          }`}
-        >
-          {feedback.message}
-        </p>
-      ) : null}
-    </form>
+    <div className="flex items-center justify-between gap-3 py-2.5 first:pt-0 last:pb-0">
+      <dt className="shrink-0 text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</dt>
+      <dd className="flex min-w-0 items-center justify-end gap-2 text-right text-foreground" title={value}>
+        <span className="truncate">{value}</span>
+        {action}
+      </dd>
+    </div>
   );
 }
 
@@ -471,22 +392,14 @@ function ChangeIconSection({
         displayName={displayName}
         description={description}
       />
-      <div className="flex justify-end gap-2">
-        <button
-          type="button"
-          onClick={() => submit({ regenerate: true })}
-          disabled={submitting}
-          className="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-background px-3 text-xs font-semibold text-foreground transition hover:bg-muted/40 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {submitting ? "Working..." : "Regenerate & push"}
-        </button>
+      <div className="flex justify-end">
         <button
           type="button"
           onClick={() => icon && submit({ iconBase64: icon.base64, iconMimeType: icon.mimeType })}
           disabled={submitting || !icon}
           className="inline-flex h-9 items-center justify-center rounded-lg bg-foreground px-3 text-xs font-semibold text-background transition hover:bg-foreground/90 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          Push selected
+          {submitting ? "Pushing..." : "Push selected"}
         </button>
       </div>
       {feedback ? (

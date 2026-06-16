@@ -136,6 +136,7 @@ func (s *Server) handleCreatePersonalAgent(w http.ResponseWriter, r *http.Reques
 		OwnerSlackUserID:   slackUserID,
 		DisplayName:        req.DisplayName,
 		Description:        req.Description,
+		LongDescription:    req.LongDescription,
 		SlackAppID:         resp.AppID,
 		SlackClientID:      resp.Credentials.ClientID,
 		SlackClientSecret:  resp.Credentials.ClientSecret,
@@ -200,12 +201,13 @@ func (s *Server) handleGetMyPersonalAgent(w http.ResponseWriter, r *http.Request
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
-		"hasAgent":    true,
-		"agentId":     rec.ID,
-		"displayName": rec.DisplayName,
-		"description": rec.Description,
-		"slackAppId":  rec.SlackAppID,
-		"status":      rec.Status,
+		"hasAgent":        true,
+		"agentId":         rec.ID,
+		"displayName":     rec.DisplayName,
+		"description":     rec.Description,
+		"longDescription": rec.LongDescription,
+		"slackAppId":      rec.SlackAppID,
+		"status":          rec.Status,
 		// install url only useful while pending
 		"installUrl": rec.OAuthAuthorizeURL,
 	})

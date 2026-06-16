@@ -71,14 +71,15 @@ func (s *Server) handleEditPersonalAgent(w http.ResponseWriter, r *http.Request)
 
 	// Persist to our store. Slack-side change has already landed, so even if
 	// this fails the user sees the edited bot in Slack — log loud and move on.
-	if err := s.store.UpdatePersonalAgentDisplay(r.Context(), rec.ID, newName, newDesc); err != nil {
+	if err := s.store.UpdatePersonalAgentDisplay(r.Context(), rec.ID, newName, newDesc, req.LongDescription); err != nil {
 		s.log.Printf("update personal agent display: %v", err)
 	}
 
 	writeJSON(w, http.StatusOK, map[string]any{
-		"ok":          true,
-		"displayName": manifestName,
-		"description": manifestDesc,
+		"ok":              true,
+		"displayName":     manifestName,
+		"description":     manifestDesc,
+		"longDescription": strings.TrimSpace(req.LongDescription),
 	})
 }
 
