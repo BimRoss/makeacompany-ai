@@ -139,6 +139,9 @@ type Server struct {
 	// personalAgent owns per-agent K8s Secret writes + the persist callback
 	// the Manifest client uses to durable-write rotated config tokens.
 	personalAgent *PersonalAgentWriter
+	// imagen generates app icons for personal agents on creation (Imagen-4-fast).
+	// Disabled() short-circuits when GEMINI_API_KEY isn't set.
+	imagen *GeminiImagen
 }
 
 func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
@@ -196,6 +199,10 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 	} else {
 		logger.Printf("slack manifest client disabled (SLACK_CONFIG_ACCESS_TOKEN/REFRESH_TOKEN missing)")
 	}
+	imagen := NewGeminiImagen(cfg.GeminiAPIKey)
+	if imagen.Disabled() {
+		logger.Printf("imagen icon generator disabled (GEMINI_API_KEY missing)")
+	}
 	s := &Server{
 		cfg:                    cfg,
 		log:                    logger,
@@ -210,6 +217,7 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 		clusterHealth:          clusterHealth,
 		slackManifest:          slackManifestClient,
 		personalAgent:          personalAgentWriter,
+		imagen:                 imagen,
 	}
 	s.mux.HandleFunc("/livez", s.handleLivez)
 	s.mux.HandleFunc("/readyz", s.handleReadiness)
@@ -263,6 +271,8 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 	// Personal agents track (#418)
 	s.mux.HandleFunc("POST /v1/me/personal-agents", s.handleCreatePersonalAgent)
 	s.mux.HandleFunc("GET /v1/me/personal-agents/mine", s.handleGetMyPersonalAgent)
+	s.mux.HandleFunc("POST /v1/me/personal-agents/icon-generate", s.handleGeneratePersonalAgentIcon)
+	s.mux.HandleFunc("POST /v1/me/personal-agents/icon", s.handleChangePersonalAgentIcon)
 	s.mux.HandleFunc("GET /v1/personal-agents/{id}/install-complete", s.handlePersonalAgentInstallComplete)
 	// Shared Slack events gateway for ALL personal-agent apps. The manifest
 	// template ships with /slack/events as the events request_url, and Slack

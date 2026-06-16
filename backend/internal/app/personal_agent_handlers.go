@@ -34,11 +34,14 @@ type createPersonalAgentRequest struct {
 	DisplayName     string `json:"displayName"`
 	Description     string `json:"description"`
 	LongDescription string `json:"longDescription"`
-	// IconURL is captured in the request for parity with /me UI but the
-	// Slack manifest API doesn't take an icon directly — operators upload
-	// the icon via the per-app dashboard, or we add a follow-up to push it
-	// via apps.icon.upload (separate ticket).
-	IconURL string `json:"iconUrl,omitempty"`
+	// Icon payload — optional. Either supply base64-encoded image bytes
+	// (uploaded file or a previously-generated candidate), or set
+	// IconRegenerate=true to have the backend roll a fresh Imagen call
+	// right before apps.icon.set. Slack's manifest format has no icon
+	// field; we upload via apps.icon.set after manifest.create succeeds.
+	IconBase64     string `json:"iconBase64,omitempty"`
+	IconMimeType   string `json:"iconMimeType,omitempty"`
+	IconRegenerate bool   `json:"iconRegenerate,omitempty"`
 }
 
 type createPersonalAgentResponse struct {
@@ -144,6 +147,22 @@ func (s *Server) handleCreatePersonalAgent(w http.ResponseWriter, r *http.Reques
 		s.log.Printf("persist personal agent: %v", err)
 		http.Error(w, "persist agent failed", http.StatusInternalServerError)
 		return
+	}
+
+	// Best-effort icon upload. Failure here doesn't fail the provision — the
+	// agent still works, it just shows Slack's default avatar until the user
+	// hits the "Change icon" path. Logged so the operator can see it.
+	if req.IconRegenerate || strings.TrimSpace(req.IconBase64) != "" {
+		imageBytes, mime, ierr := s.resolveIconImage(r.Context(), req.DisplayName, req.Description, iconChangeRequest{
+			IconBase64:   req.IconBase64,
+			IconMimeType: req.IconMimeType,
+			Regenerate:   req.IconRegenerate,
+		})
+		if ierr != nil {
+			s.log.Printf("personal agent icon resolve: %v", ierr)
+		} else if ierr := s.slackManifest.SetAppIcon(r.Context(), resp.AppID, imageBytes, mime); ierr != nil {
+			s.log.Printf("personal agent apps.icon.set: %v", ierr)
+		}
 	}
 
 	writeJSON(w, http.StatusOK, createPersonalAgentResponse{

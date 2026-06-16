@@ -119,6 +119,10 @@ type Config struct {
 	// doesn't share rate budget with Ross/Joanne.
 	ClaudeCodeOAuthToken  string
 	ClaudeCodeOAuthToken2 string
+	// GeminiAPIKey powers Imagen-4-fast icon generation on /me agent
+	// creation (apps.icon.set). Same key Ross + Joanne use for the
+	// gemini-image skill; centralized into makeacompany-ai-runtime-secrets.
+	GeminiAPIKey string
 }
 
 // stripePriceIDBasePlan returns STRIPE_PRICE_ID_BASE_PLAN, else legacy STRIPE_PRICE_ID_WAITLIST.
@@ -177,6 +181,7 @@ func LoadConfig() Config {
 		PersonalAgentImage:                  envString("PERSONAL_AGENT_IMAGE", "docker.io/geeemoney/claude-code-personal-agent:latest"),
 		ClaudeCodeOAuthToken:                strings.TrimSpace(os.Getenv("CLAUDE_CODE_OAUTH_TOKEN")),
 		ClaudeCodeOAuthToken2:               strings.TrimSpace(os.Getenv("CLAUDE_CODE_OAUTH_TOKEN_2")),
+		GeminiAPIKey:                        strings.TrimSpace(os.Getenv("GEMINI_API_KEY")),
 	}
 }
 
