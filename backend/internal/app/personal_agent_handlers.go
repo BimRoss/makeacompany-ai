@@ -30,6 +30,26 @@ func (s *Server) personalAgentInstallRedirectFor(agentID string) string {
 	return s.personalAgentInstallRedirectBase() + strings.TrimSpace(agentID) + "/install-complete"
 }
 
+// pinInstallURLToTeam appends ?team=<MakeacompanySlackTeamID> to the OAuth
+// authorize URL Slack returns from apps.manifest.create so users hit the
+// makeacompany workspace install consent directly, skipping the generic
+// "find your workspace" picker when they're not signed in to any workspace.
+// No-op when the team ID is unset or the URL is empty.
+func (s *Server) pinInstallURLToTeam(raw string) string {
+	teamID := strings.TrimSpace(s.cfg.MakeacompanySlackTeamID)
+	if teamID == "" || raw == "" {
+		return raw
+	}
+	u, err := url.Parse(raw)
+	if err != nil {
+		return raw
+	}
+	q := u.Query()
+	q.Set("team", teamID)
+	u.RawQuery = q.Encode()
+	return u.String()
+}
+
 type createPersonalAgentRequest struct {
 	DisplayName     string `json:"displayName"`
 	Description     string `json:"description"`
@@ -131,6 +151,7 @@ func (s *Server) handleCreatePersonalAgent(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	installURL := s.pinInstallURLToTeam(resp.OAuthAuthorizeURL)
 	rec := PersonalAgentRecord{
 		ID:                 agentID,
 		OwnerEmail:         session.Email,
@@ -143,7 +164,7 @@ func (s *Server) handleCreatePersonalAgent(w http.ResponseWriter, r *http.Reques
 		SlackClientID:      resp.Credentials.ClientID,
 		SlackClientSecret:  resp.Credentials.ClientSecret,
 		SlackSigningSecret: resp.Credentials.SigningSecret,
-		OAuthAuthorizeURL:  resp.OAuthAuthorizeURL,
+		OAuthAuthorizeURL:  installURL,
 		Status:             PersonalAgentStatusPendingInstall,
 	}
 	if err := s.store.CreatePersonalAgent(r.Context(), rec); err != nil {
@@ -171,7 +192,7 @@ func (s *Server) handleCreatePersonalAgent(w http.ResponseWriter, r *http.Reques
 	writeJSON(w, http.StatusOK, createPersonalAgentResponse{
 		AgentID:    agentID,
 		SlackAppID: resp.AppID,
-		InstallURL: resp.OAuthAuthorizeURL,
+		InstallURL: installURL,
 		Status:     PersonalAgentStatusPendingInstall,
 	})
 }
