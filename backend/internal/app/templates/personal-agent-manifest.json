@@ -1,0 +1,70 @@
+{
+  "display_information": {
+    "name": "{{display_name}}",
+    "description": "{{description}}",
+    "background_color": "#000000",
+    "long_description": "{{long_description}}"
+  },
+  "features": {
+    "bot_user": {
+      "display_name": "{{display_name}}",
+      "always_online": true
+    },
+    "app_home": {
+      "home_tab_enabled": false,
+      "messages_tab_enabled": true,
+      "messages_tab_read_only_enabled": false
+    }
+  },
+  "oauth_config": {
+    "redirect_urls": [
+      "{{install_redirect_url}}"
+    ],
+    "scopes": {
+      "bot": [
+        "reactions:read",
+        "reactions:write",
+        "app_mentions:read",
+        "chat:write",
+        "chat:write.public",
+        "channels:join",
+        "channels:history",
+        "channels:read",
+        "groups:history",
+        "im:read",
+        "im:write",
+        "im:history",
+        "mpim:read",
+        "mpim:write",
+        "mpim:write.topic",
+        "mpim:history",
+        "files:read",
+        "files:write",
+        "users:read",
+        "users:read.email"
+      ]
+    },
+    "pkce_enabled": false
+  },
+  "settings": {
+    "event_subscriptions": {
+      "request_url": "{{events_request_url}}",
+      "bot_events": [
+        "app_mention",
+        "message.channels",
+        "message.groups",
+        "message.im",
+        "reaction_added",
+        "reaction_removed"
+      ]
+    },
+    "interactivity": {
+      "is_enabled": true,
+      "request_url": "{{events_request_url}}"
+    },
+    "org_deploy_enabled": false,
+    "socket_mode_enabled": false,
+    "token_rotation_enabled": false,
+    "is_mcp_enabled": false
+  }
+}
