@@ -44,6 +44,9 @@ func TestWriteAgentDeployment_CreatesDeployment(t *testing.T) {
 	if gotEnv["AGENT_DISPLAY_NAME"] != "Garth" {
 		t.Errorf("AGENT_DISPLAY_NAME = %q", gotEnv["AGENT_DISPLAY_NAME"])
 	}
+	if _, present := gotEnv["ROSS_WORKSPACE"]; present {
+		t.Errorf("ROSS_WORKSPACE should be inherited from the image, not overridden in the pod spec (got %q)", gotEnv["ROSS_WORKSPACE"])
+	}
 	if dep.Labels["bimross.com/agent-id"] != "agent-abc" {
 		t.Errorf("agent-id label = %q", dep.Labels["bimross.com/agent-id"])
 	}
@@ -95,8 +98,8 @@ func TestWriteAgentDeployment_PersistsWorkspaceViaHostPath(t *testing.T) {
 		t.Fatalf("expected 1 volumeMount, got %d", len(c.VolumeMounts))
 	}
 	mount := c.VolumeMounts[0]
-	if mount.MountPath != "/data" {
-		t.Errorf("mount path = %q", mount.MountPath)
+	if mount.MountPath != "/data/workspaces" {
+		t.Errorf("mount path = %q, want %q (matches the image's pre-chowned workspace base — see fix/personal-agent-workspace-mount-perms)", mount.MountPath, "/data/workspaces")
 	}
 	if mount.SubPath != name {
 		t.Errorf("subPath = %q, want %q (matches Deployment name)", mount.SubPath, name)

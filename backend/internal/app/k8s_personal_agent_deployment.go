@@ -100,7 +100,12 @@ func (w *PersonalAgentWriter) WriteAgentDeployment(ctx context.Context, req Pers
 						Env: []corev1.EnvVar{
 							{Name: "AGENT_OWNER_USER_ID", Value: strings.TrimSpace(req.OwnerSlackUserID)},
 							{Name: "AGENT_DISPLAY_NAME", Value: strings.TrimSpace(req.DisplayName)},
-							{Name: "ROSS_WORKSPACE", Value: "/data/workspace"},
+							// ROSS_WORKSPACE is intentionally inherited from the
+							// image (Dockerfile: /data/workspaces) so it stays in
+							// lockstep with the pre-baked chown of that exact
+							// path. The hostPath mount below targets the same
+							// directory so the per-agent subPath bind shows up
+							// already group-writable by the `node` user.
 						},
 						LivenessProbe:  httpProbeOnHealthz(),
 						ReadinessProbe: httpProbeOnHealthz(),
@@ -118,8 +123,15 @@ func (w *PersonalAgentWriter) WriteAgentDeployment(ctx context.Context, req Pers
 							// follows the agent even if the pod template changes.
 						},
 						VolumeMounts: []corev1.VolumeMount{{
-							Name:      "data",
-							MountPath: "/data",
+							Name: "data",
+							// Mount directly at the workspace base the image
+							// pre-creates and chowns to node:node. Mounting at
+							// /data instead would shadow that chown with a
+							// fresh root-owned subPath dir, and fsGroup on a
+							// hostPath subPath does not reliably re-chgrp it
+							// — which is how we hit "mkdir /data/workspace:
+							// permission denied" on the first channel spawn.
+							MountPath: "/data/workspaces",
 							SubPath:   name,
 						}},
 					}},
