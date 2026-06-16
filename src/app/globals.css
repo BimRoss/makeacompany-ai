@@ -125,6 +125,8 @@ body,
 
 html {
   background-color: var(--background);
+  /* Kill rubber-band overscroll past the footer on iOS Safari and macOS trackpads. */
+  overscroll-behavior-y: none;
 }
 
 body {
@@ -136,6 +138,7 @@ body {
   letter-spacing: -0.011em;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
+  overscroll-behavior-y: none;
 }
 
 /* App-wide slim scrollbars (viewport + overflow regions) — Firefox */
