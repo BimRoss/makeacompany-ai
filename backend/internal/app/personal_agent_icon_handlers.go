@@ -5,8 +5,11 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/redis/go-redis/v9"
 )
@@ -22,6 +25,10 @@ type iconGenerateRequest struct {
 	// Prompt, when non-empty, replaces the IconPromptFor-derived prompt so the
 	// user can steer Imagen directly from the /me picker text box.
 	Prompt string `json:"prompt,omitempty"`
+	// UseSlackProfile, when true, downloads the caller's Slack workspace
+	// avatar, asks Gemini Vision to describe it, and weaves that description
+	// into the Imagen prompt so the candidates look like the user.
+	UseSlackProfile bool `json:"useSlackProfile,omitempty"`
 	// Count of candidates to return. Defaults to IconCandidateLimit; clamped
 	// to [1, IconCandidateLimit].
 	Count int `json:"count,omitempty"`
@@ -71,6 +78,17 @@ func (s *Server) handleGeneratePersonalAgentIcon(w http.ResponseWriter, r *http.
 	prompt := IconPromptWithPortraitFraming(req.Prompt)
 	if prompt == "" {
 		prompt = IconPromptFor(name, req.Description)
+	}
+	// Optional Slack-profile enrichment: download the caller's workspace
+	// avatar, get a one-sentence visual description via Gemini Vision, and
+	// splice it into the Imagen prompt so the candidates look like them.
+	// Best-effort — any failure logs and falls back to the plain prompt.
+	if req.UseSlackProfile {
+		if caption, err := s.captionUserSlackProfile(r.Context(), session.Email); err != nil {
+			s.log.Printf("slack-profile enrichment skipped: %v", err)
+		} else if caption != "" {
+			prompt = "Subject reference (the user, draw the icon to resemble them): " + caption + " " + prompt
+		}
 	}
 	imgs, err := s.imagen.GenerateIconCandidates(r.Context(), prompt, count)
 	if err != nil {
@@ -184,4 +202,43 @@ func (s *Server) resolveIconImage(ctx context.Context, name, description string,
 		mime = "image/png"
 	}
 	return data, mime, nil
+}
+
+// captionUserSlackProfile looks up the signed-in user's Slack workspace
+// avatar URL, downloads the bytes, and asks Gemini Vision for a one-sentence
+// portrait-reference caption. Used by the "Use my Slack photo" generation
+// path to give Imagen a description of the human to draw.
+func (s *Server) captionUserSlackProfile(ctx context.Context, email string) (string, error) {
+	if s.geminiText == nil || s.geminiText.Disabled() {
+		return "", errors.New("gemini vision disabled (GEMINI_API_KEY missing)")
+	}
+	wu, ok, err := s.store.LookupSlackWorkspaceUserByEmail(ctx, email)
+	if err != nil {
+		return "", fmt.Errorf("workspace user lookup: %w", err)
+	}
+	if !ok || strings.TrimSpace(wu.ProfileImageURL) == "" {
+		return "", errors.New("no slack profile image for this user")
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, wu.ProfileImageURL, nil)
+	if err != nil {
+		return "", err
+	}
+	httpClient := &http.Client{Timeout: 15 * time.Second}
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("download avatar: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("avatar status %d", resp.StatusCode)
+	}
+	bodyBytes, err := io.ReadAll(io.LimitReader(resp.Body, 4<<20))
+	if err != nil {
+		return "", fmt.Errorf("read avatar: %w", err)
+	}
+	mime := strings.TrimSpace(resp.Header.Get("Content-Type"))
+	if mime == "" {
+		mime = "image/jpeg"
+	}
+	return s.geminiText.DescribeImage(ctx, bodyBytes, mime)
 }

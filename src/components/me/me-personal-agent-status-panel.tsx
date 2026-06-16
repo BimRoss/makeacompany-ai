@@ -20,10 +20,41 @@ type AgentStatus = {
 
 const TERMINAL_STATUSES = new Set(["installed", "failed"]);
 
-export function MePersonalAgentStatusPanel({ initial }: { initial: AgentStatus }) {
+export function MePersonalAgentStatusPanel({
+  initial,
+  ownerName,
+  ownerSlackUserId,
+}: {
+  initial: AgentStatus;
+  ownerName: string;
+  ownerSlackUserId: string;
+}) {
   const router = useRouter();
   const [agent, setAgent] = useState<AgentStatus>(initial);
   const [editOpen, setEditOpen] = useState(false);
+  const [liveSlackIconUrl, setLiveSlackIconUrl] = useState<string | null>(null);
+
+  // Card-header source of truth — same /icon-current call the ChangeIconSection
+  // uses. Hoisted here so the card avatar reflects what Slack actually serves.
+  useEffect(() => {
+    let cancelled = false;
+    const tick = async () => {
+      try {
+        const res = await fetch("/api/me/personal-agents/icon-current", { cache: "no-store" });
+        if (!res.ok) return;
+        const payload = (await res.json().catch(() => ({}))) as { imageUrl?: string };
+        if (cancelled) return;
+        const url = (payload.imageUrl ?? "").trim();
+        setLiveSlackIconUrl(url || null);
+      } catch {
+        /* network blip — leave whatever we had */
+      }
+    };
+    void tick();
+    return () => {
+      cancelled = true;
+    };
+  }, [agent.status]);
 
   useEffect(() => {
     if (!agent.hasAgent || (agent.status && TERMINAL_STATUSES.has(agent.status))) {
@@ -65,26 +96,24 @@ export function MePersonalAgentStatusPanel({ initial }: { initial: AgentStatus }
 
   const status = agent.status ?? "unknown";
 
+  const previewDescription =
+    (agent.description ?? "").trim() ||
+    (agent.longDescription ?? "").trim() ||
+    (agent.systemPrompt ?? "").trim().split("\n")[0] ||
+    "No description yet. Edit to add one.";
+
   return (
-    <div className="space-y-3">
-      <dl className="divide-y divide-border/60 text-sm">
-        <RowWithAction
-          label="Agent"
-          value={agent.displayName ?? "—"}
-          action={
-            status === "installed" ? (
-              <button
-                type="button"
-                onClick={() => setEditOpen(true)}
-                className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2 py-0.5 text-[11px] font-semibold text-foreground transition hover:bg-muted/40"
-                aria-label="Edit agent name and description"
-              >
-                <PenIcon />
-                Edit
-              </button>
-            ) : null
-          }
+    <div className="space-y-4">
+      {status === "installed" ? (
+        <AgentCardHeader
+          name={agent.displayName ?? "—"}
+          previewDescription={previewDescription}
+          iconUrl={liveSlackIconUrl}
+          onEdit={() => setEditOpen(true)}
         />
+      ) : null}
+      <dl className="divide-y divide-border/60 text-sm">
+        {status !== "installed" ? <Row label="Agent" value={agent.displayName ?? "—"} /> : null}
         <Row label="Slack app" value={agent.slackAppId ?? "—"} mono />
         <Row label="Status" value={status} mono />
       </dl>
@@ -94,6 +123,8 @@ export function MePersonalAgentStatusPanel({ initial }: { initial: AgentStatus }
         initialDescription={agent.description ?? ""}
         initialLongDescription={agent.longDescription ?? ""}
         initialSystemPrompt={agent.systemPrompt ?? ""}
+        ownerName={ownerName}
+        ownerSlackUserId={ownerSlackUserId}
         onClose={() => setEditOpen(false)}
         onSaved={(name, desc, longDesc, systemPrompt) =>
           setAgent((a) => ({
@@ -104,6 +135,7 @@ export function MePersonalAgentStatusPanel({ initial }: { initial: AgentStatus }
             systemPrompt,
           }))
         }
+        onDeleted={() => router.refresh()}
       />
       {status === "pending_install" && agent.installUrl ? (
         <div className="space-y-2">
@@ -125,10 +157,24 @@ export function MePersonalAgentStatusPanel({ initial }: { initial: AgentStatus }
             agentId={agent.agentId ?? agent.slackAppId ?? ""}
             displayName={agent.displayName ?? ""}
             description={agent.description ?? ""}
-          />
-          <DeleteAgentSection
-            displayName={agent.displayName ?? "your agent"}
-            onDeleted={() => router.refresh()}
+            onPushed={() => {
+              // Refresh the card-header avatar after a successful push so the
+              // new Slack-side URL becomes the source of truth.
+              setLiveSlackIconUrl(null);
+              setTimeout(() => {
+                void (async () => {
+                  try {
+                    const res = await fetch("/api/me/personal-agents/icon-current", { cache: "no-store" });
+                    if (!res.ok) return;
+                    const payload = (await res.json().catch(() => ({}))) as { imageUrl?: string };
+                    const url = (payload.imageUrl ?? "").trim();
+                    setLiveSlackIconUrl(url || null);
+                  } catch {
+                    /* swallow */
+                  }
+                })();
+              }, 200);
+            }}
           />
         </>
       ) : null}
@@ -138,6 +184,50 @@ export function MePersonalAgentStatusPanel({ initial }: { initial: AgentStatus }
         </p>
       ) : null}
     </div>
+  );
+}
+
+function AgentCardHeader({
+  name,
+  previewDescription,
+  iconUrl,
+  onEdit,
+}: {
+  name: string;
+  previewDescription: string;
+  iconUrl: string | null;
+  onEdit: () => void;
+}) {
+  const initial = (name.trim()[0] ?? "?").toUpperCase();
+  return (
+    <header className="-mx-5 -mt-5 mb-1 flex flex-wrap items-center gap-4 border-b border-border/60 bg-muted/20 px-5 py-5">
+      <div
+        aria-hidden
+        className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-foreground/90 text-xl font-semibold text-background"
+      >
+        {iconUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element -- Slack CDN URL, skip next/image
+          <img src={iconUrl} alt={name} className="h-full w-full object-cover" />
+        ) : (
+          <span>{initial}</span>
+        )}
+      </div>
+      <div className="min-w-0 flex-1">
+        <h3 className="truncate text-base font-semibold tracking-tight text-foreground sm:text-lg">{name}</h3>
+        <p className="truncate text-sm text-muted-foreground" title={previewDescription}>
+          {previewDescription}
+        </p>
+      </div>
+      <button
+        type="button"
+        onClick={onEdit}
+        className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-semibold text-foreground transition hover:bg-muted/40"
+        aria-label="Edit agent details"
+      >
+        <PenIcon />
+        Edit
+      </button>
+    </header>
   );
 }
 
@@ -161,106 +251,6 @@ function RowWithAction({
   );
 }
 
-function DeleteAgentSection({ displayName, onDeleted }: { displayName: string; onDeleted: () => void }) {
-  const [armed, setArmed] = useState(false);
-  const [confirmText, setConfirmText] = useState("");
-  const [wipeWorkspace, setWipeWorkspace] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const canSubmit = confirmText.trim().toUpperCase() === "DELETE";
-
-  async function doDelete() {
-    setSubmitting(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/me/personal-agents/delete", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ wipeWorkspace }),
-      });
-      const body = (await res.json().catch(() => ({}))) as { ok?: boolean; problems?: string[]; error?: string };
-      if (!res.ok || !body.ok) {
-        const msg = body.problems?.join("; ") || body.error || `Failed (${res.status})`;
-        setError(msg);
-        return;
-      }
-      onDeleted();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Network error");
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  if (!armed) {
-    return (
-      <div className="flex justify-end">
-        <button
-          type="button"
-          onClick={() => setArmed(true)}
-          className="text-xs font-semibold text-rose-600 transition hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300"
-        >
-          Delete agent
-        </button>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-3 rounded-xl border border-rose-500/30 bg-rose-500/10 p-4">
-      <h3 className="text-sm font-semibold text-rose-700 dark:text-rose-300">Delete {displayName}</h3>
-      <p className="text-xs text-rose-700/80 dark:text-rose-300/80">
-        This removes the Slack app, the running pod, and the per-agent secret. You can create a new agent right
-        after. Type <strong className="font-semibold">DELETE</strong> to confirm.
-      </p>
-      <input
-        type="text"
-        value={confirmText}
-        onChange={(e) => setConfirmText(e.target.value)}
-        placeholder="DELETE"
-        className="block w-full rounded-lg border border-rose-500/40 bg-background px-3 py-2 font-mono text-sm uppercase text-foreground shadow-sm focus:border-rose-500/60 focus:outline-none focus:ring-2 focus:ring-rose-500/20"
-      />
-      <label className="flex items-start gap-2 text-xs text-rose-700/90 dark:text-rose-300/90">
-        <input
-          type="checkbox"
-          checked={wipeWorkspace}
-          onChange={(e) => setWipeWorkspace(e.target.checked)}
-          className="mt-0.5 h-3.5 w-3.5 rounded border-rose-500/40 text-rose-600 focus:ring-rose-500/30"
-        />
-        <span>
-          Also wipe workspace data on disk (Claude transcripts, project files). A new agent will start with an empty <code className="rounded bg-background/60 px-1 font-mono text-[11px]">/data</code>.
-        </span>
-      </label>
-      <div className="flex justify-end gap-2">
-        <button
-          type="button"
-          onClick={() => {
-            setArmed(false);
-            setConfirmText("");
-            setError(null);
-          }}
-          disabled={submitting}
-          className="inline-flex h-9 items-center justify-center rounded-lg px-3 text-xs font-medium text-rose-700 transition hover:text-rose-800 disabled:cursor-not-allowed disabled:opacity-50 dark:text-rose-300 dark:hover:text-rose-200"
-        >
-          Cancel
-        </button>
-        <button
-          type="button"
-          onClick={doDelete}
-          disabled={!canSubmit || submitting}
-          className="inline-flex h-9 items-center justify-center rounded-lg bg-rose-600 px-3 text-xs font-semibold text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {submitting ? "Deleting..." : "Delete agent"}
-        </button>
-      </div>
-      {error ? (
-        <p className="rounded-lg border border-rose-600/30 bg-background px-3 py-2 text-xs text-rose-700 dark:text-rose-300">{error}</p>
-      ) : null}
-    </div>
-  );
-}
-
 function lastIconStorageKey(agentId: string): string {
   return `mac.pa.icon.${agentId}`;
 }
@@ -269,10 +259,12 @@ function ChangeIconSection({
   agentId,
   displayName,
   description,
+  onPushed,
 }: {
   agentId: string;
   displayName: string;
   description: string;
+  onPushed?: () => void;
 }) {
   const [icon, setIcon] = useState<IconPickerValue | null>(null);
   const [liveSlackIconUrl, setLiveSlackIconUrl] = useState<string | null>(null);
@@ -382,6 +374,7 @@ function ChangeIconSection({
       // Re-pull the live Slack URL so the preview reflects what Slack actually
       // serves (avatars.slack-edge.com path changes once Slack ingests the new bytes).
       void refreshLiveIcon();
+      onPushed?.();
       setFeedback({ kind: "ok", message: "Icon updated in Slack. May take a moment to refresh in clients." });
     } catch (err) {
       setFeedback({ kind: "err", message: err instanceof Error ? err.message : "Network error" });
@@ -407,7 +400,7 @@ function ChangeIconSection({
           disabled={submitting || !icon}
           className="inline-flex h-9 items-center justify-center rounded-lg bg-foreground px-3 text-xs font-semibold text-background transition hover:bg-foreground/90 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {submitting ? "Pushing..." : "Push selected"}
+          {submitting ? "Saving..." : "Save"}
         </button>
       </div>
       {feedback ? (

@@ -17,6 +17,10 @@ type textSuggestRequest struct {
 	Description     string `json:"description,omitempty"`
 	LongDescription string `json:"longDescription,omitempty"`
 	SystemPrompt    string `json:"systemPrompt,omitempty"`
+	// Owner context so suggestions can name-drop the human ("Grant's
+	// dedicated agent…") instead of generic "the user's agent".
+	OwnerName        string `json:"ownerName,omitempty"`
+	OwnerSlackUserID string `json:"ownerSlackUserId,omitempty"`
 }
 
 type textSuggestResponse struct {
@@ -65,28 +69,43 @@ func personalAgentTextSuggestionPrompt(field string, req textSuggestRequest) (st
 	description := strings.TrimSpace(req.Description)
 	long := strings.TrimSpace(req.LongDescription)
 	sys := strings.TrimSpace(req.SystemPrompt)
+	owner := strings.TrimSpace(req.OwnerName)
+	ownerLine := ""
+	if owner != "" {
+		ownerLine = fmt.Sprintf(" The agent's sole owner is named %q — reference them by first name when natural (e.g. \"%s's dedicated agent…\"), but don't shoehorn it in if the field is too short.", owner, firstWord(owner))
+	}
 	ctx := fmt.Sprintf(
 		"Current name: %q. Current short description: %q. Current long description: %q. Current persona/system prompt: %q.",
 		valueOrDash(name), valueOrDash(description), valueOrDash(long), valueOrDash(sys))
 	switch field {
 	case "name":
+		// Name is too short to fit the owner naturally — keep the prompt
+		// general and just ask for something memorable.
 		return "You are writing the display name for a user's personal AI agent that lives in their Slack DM. " +
 			ctx + " Suggest ONE short, memorable, friendly name (1-2 words, no punctuation, no quotes). " +
 			"Reply with just the name, nothing else.", 30
 	case "description":
-		return "You are writing a one-line Slack-app short description for a user's personal AI agent. " +
-			ctx + " Suggest ONE concise description (max 120 characters) that reads natural in a Slack app listing. " +
+		return "You are writing a one-line Slack-app short description for a user's personal AI agent." +
+			ownerLine + " " + ctx + " Suggest ONE concise description (max 120 characters) that reads natural in a Slack app listing. " +
 			"Avoid generic phrases like 'AI assistant'. Reply with just the description.", 80
 	case "longdescription", "long_description", "longdesc":
-		return "You are writing the long-form Slack-app description for a user's personal AI agent (175-450 characters). " +
-			ctx + " Write 2-3 sentences explaining what the agent does for its owner. Friendly, specific. " +
+		return "You are writing the long-form Slack-app description for a user's personal AI agent (175-450 characters)." +
+			ownerLine + " " + ctx + " Write 2-3 sentences explaining what the agent does for its owner. Friendly, specific. " +
 			"Reply with just the description.", 220
 	case "systemprompt", "system_prompt", "persona":
-		return "You are writing the system prompt / persona for a user's personal AI agent — this is the durable description of how the agent should behave when answering its owner in Slack. " +
-			ctx + " Write a focused persona paragraph (4-8 sentences, ~400-700 characters): cover voice/tone, how it should approach problems, what kinds of help it is for, and any non-negotiable rules. Address the agent in the second person ('You are…'). Reply with just the persona text — no preface, no quotes, no markdown headings.", 500
+		return "You are writing the system prompt / persona for a user's personal AI agent — this is the durable description of how the agent should behave when answering its owner in Slack." +
+			ownerLine + " " + ctx + " Write a focused persona paragraph (4-8 sentences, ~400-700 characters): cover voice/tone, how it should approach problems, what kinds of help it is for, and any non-negotiable rules. Address the agent in the second person ('You are…'). Reply with just the persona text — no preface, no quotes, no markdown headings.", 500
 	default:
 		return "", 0
 	}
+}
+
+func firstWord(s string) string {
+	s = strings.TrimSpace(s)
+	if i := strings.IndexAny(s, " \t"); i >= 0 {
+		return s[:i]
+	}
+	return s
 }
 
 func valueOrDash(s string) string {
