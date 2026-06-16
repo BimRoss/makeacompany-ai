@@ -11,6 +11,7 @@ import { ObservabilityDataProvider, useObservabilityData } from "./data-provider
 import { GoldenPath } from "./golden-path";
 import { KpiScorecard } from "./kpi-scorecard";
 import { MetricPanel } from "./metric-panel";
+import { OAuthPoolPanel } from "@/components/admin/oauth-pool-panel";
 import { CLUSTER_PANELS, JOBS_PANELS, WEB_PANELS } from "./panels";
 import { SearchDeviceStrip, SearchHostsPanel, SearchPagesPanel, SearchQueriesPanel } from "./search-panel";
 import { SearchTimeseriesPanels } from "./search-timeseries";
@@ -97,6 +98,8 @@ function ObservabilityBody() {
       <div className="sticky top-0 z-20 -mx-4 border-b border-border bg-background/95 px-4 py-2.5 backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
         <ObservabilityToolbar lastUpdatedAt={lastUpdatedAt} loading={loading} />
       </div>
+
+      <OAuthPoolPanel />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
         <div className="lg:col-span-12">
