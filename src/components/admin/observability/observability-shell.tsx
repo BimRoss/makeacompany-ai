@@ -122,14 +122,17 @@ function ObservabilityBody() {
         <div className="space-y-3">
           {(() => {
             const traffic = WEB_PANELS.find((p) => p.id === "request-traffic");
-            const rest = WEB_PANELS.filter((p) => p.id !== "request-traffic");
+            const goroutines = WEB_PANELS.find((p) => p.id === "goroutines");
+            const rest = WEB_PANELS.filter((p) => p.id !== "request-traffic" && p.id !== "goroutines");
             return (
               <>
-                {traffic ? (
-                  <div className="grid grid-cols-1">
-                    <MetricPanel def={traffic} from={from} prominent />
-                  </div>
-                ) : null}
+                {/* Request traffic + goroutines as a 50/50 pair so the
+                    traffic chart fits in-frame and the side panel surfaces
+                    a useful runtime signal without a second scroll. */}
+                <div className="grid gap-3 grid-cols-1 lg:grid-cols-2">
+                  {traffic ? <MetricPanel def={traffic} from={from} prominent /> : null}
+                  {goroutines ? <MetricPanel def={goroutines} from={from} prominent /> : null}
+                </div>
                 <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                   {rest.map((def) => (
                     <MetricPanel key={def.id} def={def} from={from} />
