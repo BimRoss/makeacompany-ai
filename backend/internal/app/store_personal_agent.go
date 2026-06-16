@@ -161,6 +161,39 @@ func (s *Store) SetPersonalAgentService(ctx context.Context, agentID, namespace,
 	})
 }
 
+// UpdatePersonalAgentDisplay edits the user-visible name + description on
+// an existing record. The owner index doesn't move (slack_user_id is
+// immutable) and neither does the by-app-id index.
+func (s *Store) UpdatePersonalAgentDisplay(ctx context.Context, agentID, displayName, description string) error {
+	fields := map[string]any{"updated_at": time.Now().UTC().Format(time.RFC3339)}
+	if v := strings.TrimSpace(displayName); v != "" {
+		fields["display_name"] = v
+	}
+	if v := strings.TrimSpace(description); v != "" {
+		fields["description"] = v
+	}
+	return s.updatePersonalAgentFields(ctx, agentID, fields)
+}
+
+// DeletePersonalAgent removes the agent record + both indexes in a single
+// transaction. Caller is responsible for cleaning up the Slack app and K8s
+// resources first; this is the durable-state final step.
+func (s *Store) DeletePersonalAgent(ctx context.Context, rec PersonalAgentRecord) error {
+	if strings.TrimSpace(rec.ID) == "" {
+		return errors.New("DeletePersonalAgent: id required")
+	}
+	pipe := s.rdb.TxPipeline()
+	pipe.Del(ctx, personalAgentRedisKey(rec.ID))
+	if rec.OwnerSlackUserID != "" {
+		pipe.Del(ctx, personalAgentByOwnerRedisKey(rec.OwnerSlackUserID))
+	}
+	if rec.SlackAppID != "" {
+		pipe.Del(ctx, personalAgentByAppRedisKey(rec.SlackAppID))
+	}
+	_, err := pipe.Exec(ctx)
+	return err
+}
+
 // UpdatePersonalAgentStatus flips status to an arbitrary value (e.g. "failed").
 func (s *Store) UpdatePersonalAgentStatus(ctx context.Context, agentID, status string) error {
 	return s.updatePersonalAgentFields(ctx, agentID, map[string]any{
