@@ -3,6 +3,7 @@ package app
 import (
 	"bytes"
 	"context"
+	base64StdLib "encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -50,7 +51,13 @@ type geminiContent struct {
 }
 
 type geminiPart struct {
-	Text string `json:"text"`
+	Text       string            `json:"text,omitempty"`
+	InlineData *geminiInlineData `json:"inlineData,omitempty"`
+}
+
+type geminiInlineData struct {
+	MimeType string `json:"mimeType"`
+	Data     string `json:"data"` // base64-encoded bytes
 }
 
 type geminiGenerationConfig struct {
@@ -67,6 +74,40 @@ type geminiGenerateContentResponse struct {
 	PromptFeedback struct {
 		BlockReason string `json:"blockReason"`
 	} `json:"promptFeedback"`
+}
+
+// DescribeImage returns a short visual caption of an image (used to enrich
+// Imagen prompts with "what the user looks like"). Returns a single sentence.
+func (g *GeminiText) DescribeImage(ctx context.Context, imageBytes []byte, mimeType string) (string, error) {
+	if g.Disabled() {
+		return "", errors.New("gemini text disabled (GEMINI_API_KEY missing)")
+	}
+	if len(imageBytes) == 0 {
+		return "", errors.New("DescribeImage: empty image bytes")
+	}
+	if strings.TrimSpace(mimeType) == "" {
+		mimeType = "image/jpeg"
+	}
+	prompt := "Describe the person in this photo in one sentence as if writing a brief reference caption for a portrait artist — note approximate age range, hair color and length, facial hair, glasses, complexion, and any distinguishing features. Reply with just the sentence."
+	body := geminiGenerateContentRequest{
+		Contents: []geminiContent{
+			{
+				Role: "user",
+				Parts: []geminiPart{
+					{Text: prompt},
+					{InlineData: &geminiInlineData{
+						MimeType: mimeType,
+						Data:     base64StdLib.StdEncoding.EncodeToString(imageBytes),
+					}},
+				},
+			},
+		},
+		GenerationConfig: geminiGenerationConfig{
+			Temperature:     0.3,
+			MaxOutputTokens: 200,
+		},
+	}
+	return g.run(ctx, body)
 }
 
 // Generate runs one prompt → one short text completion. Returns the trimmed
@@ -90,6 +131,11 @@ func (g *GeminiText) Generate(ctx context.Context, prompt string, maxTokens int)
 			MaxOutputTokens: maxTokens,
 		},
 	}
+	return g.run(ctx, body)
+}
+
+// run is the shared HTTP path used by Generate + DescribeImage.
+func (g *GeminiText) run(ctx context.Context, body geminiGenerateContentRequest) (string, error) {
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return "", err

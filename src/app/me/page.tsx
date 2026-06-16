@@ -85,11 +85,19 @@ export default async function MePage() {
   }
   const agent = await fetchPersonalAgent(token);
   const slackUserIDKnown = Boolean(me.slackUserId?.trim());
+  const ownerName =
+    (me.slackDisplayName ?? "").trim() || displayNameFromEmail(me.email ?? "");
+  const ownerSlackUserId = me.slackUserId?.trim() ?? "";
 
   return (
     <div className="mx-auto flex w-full flex-col gap-6 py-8 sm:py-10">
       <ProfileCard me={me} />
-      <PersonalAgentCard agent={agent} slackUserIDKnown={slackUserIDKnown} />
+      <PersonalAgentCard
+        agent={agent}
+        slackUserIDKnown={slackUserIDKnown}
+        ownerName={ownerName}
+        ownerSlackUserId={ownerSlackUserId}
+      />
     </div>
   );
 }
@@ -262,9 +270,13 @@ function Row({ label, value, mono }: { label: string; value: string; mono?: bool
 function PersonalAgentCard({
   agent,
   slackUserIDKnown,
+  ownerName,
+  ownerSlackUserId,
 }: {
   agent: AgentStatusPayload;
   slackUserIDKnown: boolean;
+  ownerName: string;
+  ownerSlackUserId: string;
 }) {
   return (
     <section className="rounded-2xl border border-border bg-card p-5 shadow-sm ring-1 ring-black/[0.03] dark:ring-white/[0.06]">
@@ -285,7 +297,11 @@ function PersonalAgentCard({
       </div>
       <div className="mt-4">
         {agent.hasAgent ? (
-          <MePersonalAgentStatusPanel initial={agent} />
+          <MePersonalAgentStatusPanel
+            initial={agent}
+            ownerName={ownerName}
+            ownerSlackUserId={ownerSlackUserId}
+          />
         ) : !slackUserIDKnown ? (
           <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-300">
             Your email isn&apos;t in the MakeaCompany Slack workspace yet, so we can&apos;t bind an agent to your Slack

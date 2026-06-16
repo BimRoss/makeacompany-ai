@@ -27,11 +27,12 @@ type Candidate = { base64: string; mimeType: string };
 
 export function MePersonalAgentIconPicker({ previewDataUrl, onChange, disabled, displayName, description }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [generating, setGenerating] = useState(false);
+  const [generating, setGenerating] = useState<null | "plain" | "slack">(null);
   const [error, setError] = useState<string | null>(null);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [prompt, setPrompt] = useState("");
   const promptReady = prompt.trim().length > 0;
+  const busy = generating !== null;
 
   async function onFile(file: File) {
     setError(null);
@@ -49,10 +50,10 @@ export function MePersonalAgentIconPicker({ previewDataUrl, onChange, disabled, 
     onChange({ base64, mimeType: file.type });
   }
 
-  async function onGenerate() {
+  async function runGenerate(mode: "plain" | "slack") {
     if (!promptReady) return;
     setError(null);
-    setGenerating(true);
+    setGenerating(mode);
     setCandidates([]);
     try {
       const res = await fetch("/api/me/personal-agents/icon-generate", {
@@ -62,6 +63,7 @@ export function MePersonalAgentIconPicker({ previewDataUrl, onChange, disabled, 
           displayName,
           description,
           prompt: prompt.trim(),
+          useSlackProfile: mode === "slack",
         }),
       });
       const payload = (await res.json().catch(() => ({}))) as {
@@ -81,7 +83,7 @@ export function MePersonalAgentIconPicker({ previewDataUrl, onChange, disabled, 
     } catch (err) {
       setError(err instanceof Error ? err.message : "Network error");
     } finally {
-      setGenerating(false);
+      setGenerating(null);
     }
   }
 
@@ -119,7 +121,7 @@ export function MePersonalAgentIconPicker({ previewDataUrl, onChange, disabled, 
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               placeholder="A friendly robot mascot, flat vector, soft pastel palette…"
-              disabled={disabled || generating}
+              disabled={disabled || busy}
               className="block w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground shadow-sm focus:border-foreground/30 focus:outline-none focus:ring-2 focus:ring-foreground/10 disabled:cursor-not-allowed disabled:opacity-60"
             />
             <p className="mt-1 text-xs text-muted-foreground">
@@ -129,25 +131,26 @@ export function MePersonalAgentIconPicker({ previewDataUrl, onChange, disabled, 
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
-              onClick={onGenerate}
-              disabled={disabled || generating || !promptReady}
+              onClick={() => runGenerate("plain")}
+              disabled={disabled || busy || !promptReady}
               className="inline-flex h-9 items-center justify-center rounded-lg border border-foreground/30 bg-foreground px-3 text-xs font-semibold text-background transition hover:bg-foreground/90 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {generating ? "Generating..." : "Generate profile picture"}
+              {generating === "plain" ? "Generating..." : "Generate"}
             </button>
             <button
               type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={disabled || generating}
+              onClick={() => runGenerate("slack")}
+              disabled={disabled || busy || !promptReady}
               className="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-background px-3 text-xs font-semibold text-foreground transition hover:bg-muted/40 disabled:cursor-not-allowed disabled:opacity-50"
+              title="Generate using your prompt plus a description of your Slack profile photo"
             >
-              Or upload PNG
+              {generating === "slack" ? "Using your photo..." : "Use my Slack photo + prompt"}
             </button>
             {previewDataUrl ? (
               <button
                 type="button"
                 onClick={() => onChange(null)}
-                disabled={disabled || generating}
+                disabled={disabled || busy}
                 className="inline-flex h-9 items-center justify-center rounded-lg px-2 text-xs font-medium text-muted-foreground transition hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Clear
