@@ -144,7 +144,15 @@ func (s *Server) handleChangePersonalAgentIcon(w http.ResponseWriter, r *http.Re
 		http.Error(w, "slack apps.icon.set failed: "+err.Error(), http.StatusBadGateway)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+	// Echo the bytes back so the frontend can keep showing the just-pushed
+	// icon as its preview (and persist it to localStorage so refresh survives).
+	// Slack's app-icon URL isn't easy to fetch back per-call, so this is the
+	// cheapest way to keep the picker honest.
+	writeJSON(w, http.StatusOK, map[string]any{
+		"ok":          true,
+		"imageBase64": base64.StdEncoding.EncodeToString(imageBytes),
+		"mimeType":    mime,
+	})
 }
 
 // resolveIconImage handles the regenerate/upload branching used by both the

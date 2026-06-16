@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { MePersonalAgentIconPicker, type IconPickerValue } from "@/components/me/me-personal-agent-icon-picker";
@@ -89,7 +89,11 @@ export function MePersonalAgentStatusPanel({ initial }: { initial: AgentStatus }
             initialDescription={agent.description ?? ""}
             onSaved={(name, desc) => setAgent((a) => ({ ...a, displayName: name, description: desc }))}
           />
-          <ChangeIconSection displayName={agent.displayName ?? ""} description={agent.description ?? ""} />
+          <ChangeIconSection
+            agentId={agent.agentId ?? agent.slackAppId ?? ""}
+            displayName={agent.displayName ?? ""}
+            description={agent.description ?? ""}
+          />
           <DeleteAgentSection
             displayName={agent.displayName ?? "your agent"}
             onDeleted={() => router.refresh()}
@@ -328,10 +332,69 @@ function DeleteAgentSection({ displayName, onDeleted }: { displayName: string; o
   );
 }
 
-function ChangeIconSection({ displayName, description }: { displayName: string; description: string }) {
+function lastIconStorageKey(agentId: string): string {
+  return `mac.pa.icon.${agentId}`;
+}
+
+function ChangeIconSection({
+  agentId,
+  displayName,
+  description,
+}: {
+  agentId: string;
+  displayName: string;
+  description: string;
+}) {
   const [icon, setIcon] = useState<IconPickerValue | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<{ kind: "ok" | "err"; message: string } | null>(null);
+
+  // Hydrate the last-pushed icon from localStorage so a full reload keeps
+  // showing what's actually in Slack instead of NO ICON. Slack's app-icon
+  // URL isn't exposed via apps.info in a useful shape, so we cache our own
+  // copy of the bytes from the most recent push.
+  useEffect(() => {
+    if (!agentId || typeof window === "undefined") return;
+    try {
+      const raw = window.localStorage.getItem(lastIconStorageKey(agentId));
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as IconPickerValue | null;
+      if (parsed?.base64 && parsed.mimeType) {
+        setIcon(parsed);
+      }
+    } catch {
+      /* corrupt entry — ignore, next push will overwrite */
+    }
+  }, [agentId]);
+
+  const cacheIcon = useCallback(
+    (next: IconPickerValue | null) => {
+      if (!agentId || typeof window === "undefined") return;
+      try {
+        if (next) {
+          window.localStorage.setItem(lastIconStorageKey(agentId), JSON.stringify(next));
+        } else {
+          window.localStorage.removeItem(lastIconStorageKey(agentId));
+        }
+      } catch {
+        /* quota / privacy mode — preview will just not survive reload */
+      }
+    },
+    [agentId],
+  );
+
+  const onIconChange = useCallback(
+    (next: IconPickerValue | null) => {
+      setIcon(next);
+      // Don't churn the cache on every keystroke — only the final picked
+      // value gets persisted via the submit path below. Local clear from
+      // the picker (next === null) should clear the cache too.
+      if (next === null) {
+        cacheIcon(null);
+      }
+    },
+    [cacheIcon],
+  );
 
   const preview = icon ? `data:${icon.mimeType};base64,${icon.base64}` : null;
 
@@ -344,13 +407,28 @@ function ChangeIconSection({ displayName, description }: { displayName: string; 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      const body = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      const body = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        error?: string;
+        imageBase64?: string;
+        mimeType?: string;
+      };
       if (!res.ok || !body.ok) {
         setFeedback({ kind: "err", message: body.error || `Failed (${res.status})` });
         return;
       }
+      // Prefer the server-echoed bytes (covers the regenerate path where
+      // we don't have the new bytes client-side) and fall back to whatever
+      // is already in state for the upload / pick-candidate paths.
+      const persisted: IconPickerValue | null =
+        body.imageBase64 && body.mimeType
+          ? { base64: body.imageBase64, mimeType: body.mimeType }
+          : icon;
+      if (persisted) {
+        setIcon(persisted);
+        cacheIcon(persisted);
+      }
       setFeedback({ kind: "ok", message: "Icon updated in Slack. May take a moment to refresh in clients." });
-      setIcon(null);
     } catch (err) {
       setFeedback({ kind: "err", message: err instanceof Error ? err.message : "Network error" });
     } finally {
@@ -363,7 +441,7 @@ function ChangeIconSection({ displayName, description }: { displayName: string; 
       <h3 className="text-sm font-semibold text-foreground">Change icon</h3>
       <MePersonalAgentIconPicker
         previewDataUrl={preview}
-        onChange={setIcon}
+        onChange={onIconChange}
         disabled={submitting}
         displayName={displayName}
         description={description}
