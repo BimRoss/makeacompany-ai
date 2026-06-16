@@ -82,11 +82,19 @@ func (s *Server) handleEditPersonalAgent(w http.ResponseWriter, r *http.Request)
 	})
 }
 
+type deletePersonalAgentRequest struct {
+	// WipeWorkspace, when true, also spawns a one-shot K8s Job that rm -rfs
+	// the per-agent hostPath subdirectory so a recreated agent gets a clean
+	// /data instead of inheriting the previous ~/.claude transcripts.
+	WipeWorkspace bool `json:"wipeWorkspace,omitempty"`
+}
+
 // handleDeletePersonalAgent removes the personal agent end-to-end:
 //
 //  1. Slack app via apps.manifest.delete
 //  2. In-cluster Deployment, Service, runtime Secret
-//  3. Redis record + both indexes
+//  3. (optional) hostPath workspace wipe Job
+//  4. Redis record + both indexes
 //
 // Each step is best-effort; failures are surfaced in a multi-error so the
 // user knows what didn't clean up. The owner index is removed last so the
@@ -102,6 +110,10 @@ func (s *Server) handleDeletePersonalAgent(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	// Body is optional — empty body means "delete but keep workspace".
+	var req deletePersonalAgentRequest
+	_ = json.NewDecoder(r.Body).Decode(&req)
+
 	var problems []string
 
 	if s.slackManifest != nil && !s.slackManifest.Disabled() {
@@ -114,6 +126,12 @@ func (s *Server) handleDeletePersonalAgent(w http.ResponseWriter, r *http.Reques
 		if err := s.personalAgent.DeleteAgentResources(r.Context(), rec.OwnerSlackUserID); err != nil {
 			s.log.Printf("delete agent k8s resources: %v", err)
 			problems = append(problems, "k8s resources cleanup failed: "+err.Error())
+		}
+		if req.WipeWorkspace {
+			if err := s.personalAgent.WipeAgentWorkspace(r.Context(), rec.OwnerSlackUserID); err != nil {
+				s.log.Printf("wipe agent workspace: %v", err)
+				problems = append(problems, "workspace wipe failed: "+err.Error())
+			}
 		}
 	}
 	if err := s.store.DeletePersonalAgent(r.Context(), rec); err != nil {

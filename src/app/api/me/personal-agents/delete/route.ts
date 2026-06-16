@@ -6,18 +6,31 @@ import { meSessionCookieName } from "@/lib/me-session-cookies";
 
 export const dynamic = "force-dynamic";
 
-export async function POST() {
+export async function POST(request: Request) {
   const cookieStore = await cookies();
   const token = cookieStore.get(meSessionCookieName)?.value ?? "";
   if (!token) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
+  // Body is optional — the original delete endpoint accepts no payload.
+  // We forward whatever the client sends so the new wipeWorkspace flag
+  // reaches the backend without breaking the no-body path.
+  let body = "";
+  try {
+    body = await request.text();
+  } catch {
+    body = "";
+  }
   const url = `${resolveBackendBaseURL().replace(/\/$/, "")}/v1/me/personal-agents/delete`;
   try {
     const res = await fetch(url, {
       method: "POST",
-      headers: { Authorization: `Bearer ${token}` },
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
       cache: "no-store",
+      body: body || "{}",
     });
     const payload = await res.json().catch(() => ({}));
     return NextResponse.json(payload, { status: res.status });
