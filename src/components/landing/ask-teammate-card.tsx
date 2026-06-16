@@ -134,6 +134,16 @@ export function AskTeammateCard({ persona }: { persona: TeammatePersona }) {
         });
 
         if (!resp.ok || !resp.body) {
+          if (resp.status === 429) {
+            const retryRaw = resp.headers.get("Retry-After");
+            const retrySec = retryRaw ? parseInt(retryRaw, 10) : NaN;
+            const wait =
+              Number.isFinite(retrySec) && retrySec > 0
+                ? `Try again in ${retrySec}s.`
+                : "Try again in a moment.";
+            setError(`Too many messages back-to-back. ${wait}`);
+            return;
+          }
           let detail = "";
           try {
             detail = await resp.text();
