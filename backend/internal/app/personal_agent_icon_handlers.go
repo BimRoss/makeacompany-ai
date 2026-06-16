@@ -19,6 +19,9 @@ const (
 type iconGenerateRequest struct {
 	DisplayName string `json:"displayName"`
 	Description string `json:"description"`
+	// Prompt, when non-empty, replaces the IconPromptFor-derived prompt so the
+	// user can steer Imagen directly from the /me picker text box.
+	Prompt string `json:"prompt,omitempty"`
 	// Count of candidates to return. Defaults to IconCandidateLimit; clamped
 	// to [1, IconCandidateLimit].
 	Count int `json:"count,omitempty"`
@@ -65,7 +68,10 @@ func (s *Server) handleGeneratePersonalAgentIcon(w http.ResponseWriter, r *http.
 	if count <= 0 {
 		count = IconCandidateLimit
 	}
-	prompt := IconPromptFor(name, req.Description)
+	prompt := strings.TrimSpace(req.Prompt)
+	if prompt == "" {
+		prompt = IconPromptFor(name, req.Description)
+	}
 	imgs, err := s.imagen.GenerateIconCandidates(r.Context(), prompt, count)
 	if err != nil {
 		s.log.Printf("imagen generate icon candidates: %v", err)
