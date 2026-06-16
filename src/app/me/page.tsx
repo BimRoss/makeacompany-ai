@@ -2,6 +2,8 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { MeCancelSubscriptionButton } from "@/components/me/me-cancel-subscription-button";
+import { MePersonalAgentCreationForm } from "@/components/me/me-personal-agent-creation-form";
+import { MePersonalAgentStatusPanel } from "@/components/me/me-personal-agent-status-panel";
 import { resolveBackendBaseURL } from "@/lib/backend-proxy-auth";
 import { meSessionCookieName } from "@/lib/me-session-cookies";
 
@@ -42,6 +44,33 @@ async function fetchMe(token: string): Promise<MePayload | null> {
   }
 }
 
+type AgentStatusPayload = {
+  hasAgent: boolean;
+  agentId?: string;
+  displayName?: string;
+  description?: string;
+  slackAppId?: string;
+  status?: string;
+  installUrl?: string;
+};
+
+async function fetchPersonalAgent(token: string): Promise<AgentStatusPayload> {
+  const url = `${resolveBackendBaseURL().replace(/\/$/, "")}/v1/me/personal-agents/mine`;
+  try {
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
+    });
+    if (!res.ok) {
+      return { hasAgent: false };
+    }
+    const payload = (await res.json().catch(() => null)) as AgentStatusPayload | null;
+    return payload ?? { hasAgent: false };
+  } catch {
+    return { hasAgent: false };
+  }
+}
+
 export default async function MePage() {
   const cookieStore = await cookies();
   const token = cookieStore.get(meSessionCookieName)?.value ?? "";
@@ -52,6 +81,8 @@ export default async function MePage() {
   if (!me?.authenticated || !me.email) {
     redirect("/me/login?auth=required");
   }
+  const agent = await fetchPersonalAgent(token);
+  const slackUserIDKnown = Boolean(me.slackUserId?.trim());
 
   return (
     <div className="mx-auto flex w-full flex-col gap-4 py-8 sm:py-10">
@@ -60,7 +91,7 @@ export default async function MePage() {
       </h1>
 
       <AccountCard me={me} />
-      <PersonalAgentsCard />
+      <PersonalAgentsCard agent={agent} slackUserIDKnown={slackUserIDKnown} />
     </div>
   );
 }
@@ -207,16 +238,35 @@ function Row({ label, value, mono }: { label: string; value: string; mono?: bool
   );
 }
 
-function PersonalAgentsCard() {
+function PersonalAgentsCard({
+  agent,
+  slackUserIDKnown,
+}: {
+  agent: AgentStatusPayload;
+  slackUserIDKnown: boolean;
+}) {
   return (
     <section className="rounded-2xl border border-border bg-card p-5 shadow-sm ring-1 ring-black/[0.03] dark:ring-white/[0.06]">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-base font-semibold tracking-tight text-foreground">Personal agents</h2>
-        <Pill>Coming soon</Pill>
+        {agent.hasAgent ? (
+          <Pill tone={agent.status === "installed" ? "positive" : "neutral"}>{agent.status ?? "pending"}</Pill>
+        ) : (
+          <Pill>New</Pill>
+        )}
       </div>
-      <p className="mt-2 text-sm text-muted-foreground">
-        Your own agents, attached to this account. We&apos;ll surface them here as we open the gate.
-      </p>
+      <div className="mt-4">
+        {agent.hasAgent ? (
+          <MePersonalAgentStatusPanel initial={agent} />
+        ) : !slackUserIDKnown ? (
+          <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-300">
+            Your email isn&apos;t in the MakeaCompany Slack workspace yet, so we can&apos;t bind an agent to your Slack
+            identity. Join the workspace, then refresh.
+          </p>
+        ) : (
+          <MePersonalAgentCreationForm />
+        )}
+      </div>
     </section>
   );
 }
