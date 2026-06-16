@@ -32,6 +32,11 @@ type PersonalAgentRecord struct {
 	DisplayName       string `json:"displayName"`
 	Description       string `json:"description"`
 	LongDescription   string `json:"longDescription,omitempty"`
+	// SystemPrompt is the user-defined persona / system prompt rendered into
+	// instructions.md by the PA wrapper. Stored here so the modal can
+	// hydrate AND so spawned-pod restarts re-read the latest value from the
+	// per-agent Secret.
+	SystemPrompt      string `json:"systemPrompt,omitempty"`
 	SlackAppID        string `json:"slackAppId"`
 	SlackClientID     string `json:"slackClientId"`
 	SlackClientSecret string `json:"slackClientSecret"`
@@ -171,7 +176,12 @@ func (s *Store) SetPersonalAgentService(ctx context.Context, agentID, namespace,
 // UpdatePersonalAgentDisplay edits the user-visible name + description on
 // an existing record. The owner index doesn't move (slack_user_id is
 // immutable) and neither does the by-app-id index.
-func (s *Store) UpdatePersonalAgentDisplay(ctx context.Context, agentID, displayName, description, longDescription string) error {
+// UpdatePersonalAgentDisplay edits the user-visible name + description on
+// an existing record. Pass empty string for any field you don't want to
+// change. systemPrompt is a special-case: empty string means "no change" same
+// as the others, but if you want to CLEAR the persona back to the blank-slate
+// default, use UpdatePersonalAgentSystemPrompt(ctx, id, "").
+func (s *Store) UpdatePersonalAgentDisplay(ctx context.Context, agentID, displayName, description, longDescription, systemPrompt string) error {
 	fields := map[string]any{"updated_at": time.Now().UTC().Format(time.RFC3339)}
 	if v := strings.TrimSpace(displayName); v != "" {
 		fields["display_name"] = v
@@ -181,6 +191,9 @@ func (s *Store) UpdatePersonalAgentDisplay(ctx context.Context, agentID, display
 	}
 	if v := strings.TrimSpace(longDescription); v != "" {
 		fields["long_description"] = v
+	}
+	if v := strings.TrimSpace(systemPrompt); v != "" {
+		fields["system_prompt"] = v
 	}
 	return s.updatePersonalAgentFields(ctx, agentID, fields)
 }
@@ -241,6 +254,7 @@ func recordToHash(r PersonalAgentRecord) map[string]any {
 		"display_name":        r.DisplayName,
 		"description":         r.Description,
 		"long_description":    r.LongDescription,
+		"system_prompt":       r.SystemPrompt,
 		"slack_app_id":        r.SlackAppID,
 		"slack_client_id":     r.SlackClientID,
 		"slack_client_secret": r.SlackClientSecret,
@@ -268,6 +282,7 @@ func hashToRecord(vals map[string]string) PersonalAgentRecord {
 		DisplayName:       vals["display_name"],
 		Description:       vals["description"],
 		LongDescription:   vals["long_description"],
+		SystemPrompt:      vals["system_prompt"],
 		SlackAppID:        vals["slack_app_id"],
 		SlackClientID:     vals["slack_client_id"],
 		SlackClientSecret: vals["slack_client_secret"],

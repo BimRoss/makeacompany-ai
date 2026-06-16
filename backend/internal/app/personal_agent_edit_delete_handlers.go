@@ -14,6 +14,10 @@ type editPersonalAgentRequest struct {
 	DisplayName     string `json:"displayName,omitempty"`
 	Description     string `json:"description,omitempty"`
 	LongDescription string `json:"longDescription,omitempty"`
+	// SystemPrompt is the user-defined persona. Empty string means "no
+	// change"; we don't currently expose a way to clear back to blank-slate
+	// from this endpoint (would require a sentinel like SystemPromptClear).
+	SystemPrompt    string `json:"systemPrompt,omitempty"`
 }
 
 // handleEditPersonalAgent updates the agent's display name and/or description
@@ -42,7 +46,8 @@ func (s *Server) handleEditPersonalAgent(w http.ResponseWriter, r *http.Request)
 	}
 	newName := strings.TrimSpace(req.DisplayName)
 	newDesc := strings.TrimSpace(req.Description)
-	if newName == "" && newDesc == "" && strings.TrimSpace(req.LongDescription) == "" {
+	newSystemPrompt := strings.TrimSpace(req.SystemPrompt)
+	if newName == "" && newDesc == "" && strings.TrimSpace(req.LongDescription) == "" && newSystemPrompt == "" {
 		http.Error(w, "no fields to update", http.StatusBadRequest)
 		return
 	}
@@ -71,8 +76,19 @@ func (s *Server) handleEditPersonalAgent(w http.ResponseWriter, r *http.Request)
 
 	// Persist to our store. Slack-side change has already landed, so even if
 	// this fails the user sees the edited bot in Slack — log loud and move on.
-	if err := s.store.UpdatePersonalAgentDisplay(r.Context(), rec.ID, newName, newDesc, req.LongDescription); err != nil {
+	if err := s.store.UpdatePersonalAgentDisplay(r.Context(), rec.ID, newName, newDesc, req.LongDescription, newSystemPrompt); err != nil {
 		s.log.Printf("update personal agent display: %v", err)
+	}
+
+	// System prompt round-trip: patch the per-agent Secret and roll the
+	// dispatcher pod so the next inbound message renders instructions.md
+	// against the new persona. Skipped when the field wasn't touched.
+	if newSystemPrompt != "" && s.personalAgent != nil && !s.personalAgent.Disabled() {
+		if err := s.personalAgent.PatchAgentSystemPrompt(r.Context(), rec.OwnerSlackUserID, newSystemPrompt); err != nil {
+			s.log.Printf("patch system prompt secret: %v", err)
+		} else if err := s.personalAgent.RestartAgentDeployment(r.Context(), rec.OwnerSlackUserID); err != nil {
+			s.log.Printf("restart agent deployment after system prompt change: %v", err)
+		}
 	}
 
 	writeJSON(w, http.StatusOK, map[string]any{
@@ -80,6 +96,7 @@ func (s *Server) handleEditPersonalAgent(w http.ResponseWriter, r *http.Request)
 		"displayName":     manifestName,
 		"description":     manifestDesc,
 		"longDescription": strings.TrimSpace(req.LongDescription),
+		"systemPrompt":    newSystemPrompt,
 	})
 }
 

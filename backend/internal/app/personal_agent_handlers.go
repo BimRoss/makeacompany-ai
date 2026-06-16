@@ -34,6 +34,7 @@ type createPersonalAgentRequest struct {
 	DisplayName     string `json:"displayName"`
 	Description     string `json:"description"`
 	LongDescription string `json:"longDescription"`
+	SystemPrompt    string `json:"systemPrompt,omitempty"`
 	// Icon payload — optional. Either supply base64-encoded image bytes
 	// (uploaded file or a previously-generated candidate), or set
 	// IconRegenerate=true to have the backend roll a fresh Imagen call
@@ -137,6 +138,7 @@ func (s *Server) handleCreatePersonalAgent(w http.ResponseWriter, r *http.Reques
 		DisplayName:        req.DisplayName,
 		Description:        req.Description,
 		LongDescription:    req.LongDescription,
+		SystemPrompt:       req.SystemPrompt,
 		SlackAppID:         resp.AppID,
 		SlackClientID:      resp.Credentials.ClientID,
 		SlackClientSecret:  resp.Credentials.ClientSecret,
@@ -206,6 +208,7 @@ func (s *Server) handleGetMyPersonalAgent(w http.ResponseWriter, r *http.Request
 		"displayName":     rec.DisplayName,
 		"description":     rec.Description,
 		"longDescription": rec.LongDescription,
+		"systemPrompt":    rec.SystemPrompt,
 		"slackAppId":      rec.SlackAppID,
 		"status":          rec.Status,
 		// install url only useful while pending
@@ -270,6 +273,7 @@ func (s *Server) handlePersonalAgentInstallComplete(w http.ResponseWriter, r *ht
 		SigningSecret:         rec.SlackSigningSecret,
 		ClaudeCodeOAuthToken:  s.cfg.ClaudeCodeOAuthToken,
 		ClaudeCodeOAuthToken2: s.cfg.ClaudeCodeOAuthToken2,
+		SystemPrompt:          rec.SystemPrompt,
 	}); err != nil {
 		s.log.Printf("personal agent secret write: %v", err)
 		_ = s.store.UpdatePersonalAgentStatus(r.Context(), agentID, PersonalAgentStatusFailed)

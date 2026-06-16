@@ -12,6 +12,7 @@ type AgentStatus = {
   displayName?: string;
   description?: string;
   longDescription?: string;
+  systemPrompt?: string;
   slackAppId?: string;
   status?: string;
   installUrl?: string;
@@ -92,9 +93,16 @@ export function MePersonalAgentStatusPanel({ initial }: { initial: AgentStatus }
         initialName={agent.displayName ?? ""}
         initialDescription={agent.description ?? ""}
         initialLongDescription={agent.longDescription ?? ""}
+        initialSystemPrompt={agent.systemPrompt ?? ""}
         onClose={() => setEditOpen(false)}
-        onSaved={(name, desc, longDesc) =>
-          setAgent((a) => ({ ...a, displayName: name, description: desc, longDescription: longDesc }))
+        onSaved={(name, desc, longDesc, systemPrompt) =>
+          setAgent((a) => ({
+            ...a,
+            displayName: name,
+            description: desc,
+            longDescription: longDesc,
+            systemPrompt,
+          }))
         }
       />
       {status === "pending_install" && agent.installUrl ? (
