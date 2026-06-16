@@ -15,8 +15,9 @@ type Props = {
   /** Disable buttons during submit. */
   disabled?: boolean;
   /**
-   * Generation context — passed to the generate endpoint. The picker only
-   * generates when both are non-empty.
+   * Generation context — `displayName` and `description` are sent so the
+   * backend can fall back to a derived prompt if the user leaves the prompt
+   * box empty (which the UI blocks, but the backend tolerates).
    */
   displayName: string;
   description: string;
@@ -29,6 +30,8 @@ export function MePersonalAgentIconPicker({ previewDataUrl, onChange, disabled, 
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
+  const [prompt, setPrompt] = useState("");
+  const promptReady = prompt.trim().length > 0;
 
   async function onFile(file: File) {
     setError(null);
@@ -47,10 +50,7 @@ export function MePersonalAgentIconPicker({ previewDataUrl, onChange, disabled, 
   }
 
   async function onGenerate() {
-    if (!displayName.trim() || !description.trim()) {
-      setError("Add a name and short description first — Imagen uses them as the prompt.");
-      return;
-    }
+    if (!promptReady) return;
     setError(null);
     setGenerating(true);
     setCandidates([]);
@@ -58,7 +58,11 @@ export function MePersonalAgentIconPicker({ previewDataUrl, onChange, disabled, 
       const res = await fetch("/api/me/personal-agents/icon-generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ displayName, description }),
+        body: JSON.stringify({
+          displayName,
+          description,
+          prompt: prompt.trim(),
+        }),
       });
       const payload = (await res.json().catch(() => ({}))) as {
         candidates?: { imageBase64: string; mimeType: string }[];
@@ -70,7 +74,6 @@ export function MePersonalAgentIconPicker({ previewDataUrl, onChange, disabled, 
       }
       const list = payload.candidates.map((c) => ({ base64: c.imageBase64, mimeType: c.mimeType || "image/png" }));
       if (list.length === 1) {
-        // Single candidate — auto-pick. Same UX as the original single-Generate flow.
         onChange(list[0]);
       } else {
         setCandidates(list);
@@ -101,7 +104,28 @@ export function MePersonalAgentIconPicker({ previewDataUrl, onChange, disabled, 
             <span className="text-[10px] uppercase tracking-wider text-muted-foreground">no icon</span>
           )}
         </div>
-        <div className="flex-1 space-y-2">
+        <div className="flex-1 space-y-3">
+          <div>
+            <label
+              htmlFor="agent-icon-prompt"
+              className="mb-1.5 block text-[11px] font-medium uppercase tracking-wide text-muted-foreground"
+            >
+              Imagen prompt
+            </label>
+            <textarea
+              id="agent-icon-prompt"
+              rows={2}
+              maxLength={500}
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              placeholder="A friendly robot mascot, flat vector, soft pastel palette…"
+              disabled={disabled || generating}
+              className="block w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground shadow-sm focus:border-foreground/30 focus:outline-none focus:ring-2 focus:ring-foreground/10 disabled:cursor-not-allowed disabled:opacity-60"
+            />
+            <p className="mt-1 text-xs text-muted-foreground">
+              Describe the look you want. Generate is enabled once you&apos;ve typed something.
+            </p>
+          </div>
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
@@ -114,10 +138,10 @@ export function MePersonalAgentIconPicker({ previewDataUrl, onChange, disabled, 
             <button
               type="button"
               onClick={onGenerate}
-              disabled={disabled || generating}
+              disabled={disabled || generating || !promptReady}
               className="inline-flex h-9 items-center justify-center rounded-lg border border-foreground/30 bg-foreground px-3 text-xs font-semibold text-background transition hover:bg-foreground/90 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {generating ? "Generating..." : "Generate with Imagen"}
+              {generating ? "Generating..." : "Generate profile picture"}
             </button>
             {previewDataUrl ? (
               <button
@@ -130,9 +154,6 @@ export function MePersonalAgentIconPicker({ previewDataUrl, onChange, disabled, 
               </button>
             ) : null}
           </div>
-          <p className="text-xs text-muted-foreground">
-            Uploaded or generated once and pushed to Slack. You can change it later from the agent panel.
-          </p>
           <input
             ref={fileInputRef}
             type="file"

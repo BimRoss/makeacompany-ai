@@ -85,26 +85,18 @@ export default async function MePage() {
   const slackUserIDKnown = Boolean(me.slackUserId?.trim());
 
   return (
-    <div className="mx-auto flex w-full flex-col gap-4 py-8 sm:py-10">
-      <h1 className="text-pretty text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
-        Your account
-      </h1>
-
-      <AccountCard me={me} />
-      <PersonalAgentsCard agent={agent} slackUserIDKnown={slackUserIDKnown} />
+    <div className="mx-auto flex w-full flex-col gap-6 py-8 sm:py-10">
+      <ProfileCard me={me} />
+      <PersonalAgentCard agent={agent} slackUserIDKnown={slackUserIDKnown} />
     </div>
   );
 }
 
 const PILL_TONES = {
-  neutral:
-    "border-border bg-muted/40 text-muted-foreground",
-  positive:
-    "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
-  warning:
-    "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300",
-  danger:
-    "border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-300",
+  neutral: "border-border bg-muted/40 text-muted-foreground",
+  positive: "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+  warning: "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300",
+  danger: "border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-300",
 } as const;
 
 type PillTone = keyof typeof PILL_TONES;
@@ -144,8 +136,6 @@ function formatRenewDate(unixSec: number): string {
   });
 }
 
-/** Pill values like "none" / "n/a" / "" carry no information without a label
- *  next to them, so they read as noise. Drop them. */
 function pillValue(v?: string): string | null {
   const s = (v ?? "").trim();
   if (!s) return null;
@@ -154,7 +144,17 @@ function pillValue(v?: string): string | null {
   return s;
 }
 
-function AccountCard({ me }: { me: MePayload }) {
+function displayNameFromEmail(email: string): string {
+  const local = email.split("@")[0] ?? email;
+  return local.charAt(0).toUpperCase() + local.slice(1);
+}
+
+function avatarInitial(email: string): string {
+  return (email.trim()[0] ?? "?").toUpperCase();
+}
+
+function ProfileCard({ me }: { me: MePayload }) {
+  const email = me.email ?? "";
   const billing = me.billing ?? {};
   const status = pillValue(billing.subscriptionStatus);
   const cancelAtEnd = Boolean(billing.cancelAtPeriodEnd);
@@ -165,18 +165,31 @@ function AccountCard({ me }: { me: MePayload }) {
   const tier = pillValue(me.tier);
 
   return (
-    <section className="rounded-2xl border border-border bg-card p-5 shadow-sm ring-1 ring-black/[0.03] dark:ring-white/[0.06]">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-        <h2 className="text-base font-semibold tracking-tight text-foreground">Account</h2>
-        <div className="flex flex-wrap items-center gap-1.5">
+    <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm ring-1 ring-black/[0.03] dark:ring-white/[0.06]">
+      <header className="flex flex-wrap items-center gap-4 border-b border-border/60 bg-muted/20 px-5 py-5">
+        <div
+          aria-hidden
+          className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-foreground/90 text-xl font-semibold text-background"
+        >
+          {avatarInitial(email)}
+        </div>
+        <div className="min-w-0 flex-1">
+          <h1 className="truncate text-lg font-semibold tracking-tight text-foreground sm:text-xl">
+            {displayNameFromEmail(email)}
+          </h1>
+          <p className="truncate text-sm text-muted-foreground" title={email}>
+            {email}
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center justify-end gap-1.5">
           {status ? <Pill tone={statusTone(status)}>{status}</Pill> : null}
           {tier ? <Pill>{tier}</Pill> : null}
           {me.freeLifetime ? <Pill tone="positive">free lifetime</Pill> : null}
           {cancelAtEnd ? <Pill tone="warning">cancels at period end</Pill> : null}
         </div>
-      </div>
-      <dl className="mt-4 divide-y divide-border/60 text-sm">
-        <Row label="Email" value={me.email ?? "—"} mono />
+      </header>
+      <dl className="divide-y divide-border/60 px-5 py-2 text-sm">
+        <Row label="Email" value={email || "—"} mono />
         <Row label="Slack user ID" value={me.slackUserId?.trim() || "—"} mono />
         {periodEndUnix ? (
           <Row label={cancelAtEnd ? "Ends" : "Renews"} value={formatRenewDate(periodEndUnix)} />
@@ -196,22 +209,19 @@ function BillingActions({ me }: { me: MePayload }) {
 
   if (canCancel) {
     return (
-      <div className="mt-5 flex justify-end">
+      <div className="flex justify-end border-t border-border/60 px-5 py-4">
         <MeCancelSubscriptionButton />
       </div>
     );
   }
   if (hasManageableSubscription || cancelAtEnd) {
-    // Active sub that we can't cancel from here (e.g. already scheduled, or
-    // status outside the manageable allow-list). No action button — the pill
-    // row already tells the story.
     return null;
   }
   if (!subscribeUrl) {
     return null;
   }
   return (
-    <div className="mt-5 flex justify-end">
+    <div className="flex justify-end border-t border-border/60 px-5 py-4">
       <a
         href={subscribeUrl}
         className="inline-flex h-10 items-center justify-center rounded-xl border-2 border-foreground/15 bg-background px-5 text-sm font-semibold text-foreground shadow-sm transition hover:border-foreground/25 hover:bg-muted/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground/30 dark:border-white/20 dark:bg-zinc-950 dark:hover:bg-zinc-900"
@@ -224,7 +234,7 @@ function BillingActions({ me }: { me: MePayload }) {
 
 function Row({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
-    <div className="flex items-center justify-between gap-4 py-2.5 first:pt-0 last:pb-0">
+    <div className="flex items-center justify-between gap-4 py-2.5 first:pt-3 last:pb-3">
       <dt className="shrink-0 text-xs font-medium uppercase tracking-wide text-muted-foreground">
         {label}
       </dt>
@@ -238,7 +248,7 @@ function Row({ label, value, mono }: { label: string; value: string; mono?: bool
   );
 }
 
-function PersonalAgentsCard({
+function PersonalAgentCard({
   agent,
   slackUserIDKnown,
 }: {
@@ -248,9 +258,16 @@ function PersonalAgentsCard({
   return (
     <section className="rounded-2xl border border-border bg-card p-5 shadow-sm ring-1 ring-black/[0.03] dark:ring-white/[0.06]">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-base font-semibold tracking-tight text-foreground">Personal agents</h2>
+        <div>
+          <h2 className="text-base font-semibold tracking-tight text-foreground">Personal agent</h2>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Your private Slack-bound AI, gated to your Slack user ID.
+          </p>
+        </div>
         {agent.hasAgent ? (
-          <Pill tone={agent.status === "installed" ? "positive" : "neutral"}>{agent.status ?? "pending"}</Pill>
+          <Pill tone={agent.status === "installed" ? "positive" : "neutral"}>
+            {agent.status ?? "pending"}
+          </Pill>
         ) : (
           <Pill>New</Pill>
         )}
