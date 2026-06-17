@@ -1,10 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { TerminalSquare } from "lucide-react";
 
-import { MePersonalAgentEditForm, PenIcon } from "@/components/me/me-personal-agent-edit-form";
+import {
+  MePersonalAgentIconPicker,
+  type IconPickerValue,
+} from "@/components/me/me-personal-agent-icon-picker";
+import {
+  MePersonalAgentYouTubeIngest,
+  composeYouTubeIntelPrompt,
+  parseYouTubeIntelSources,
+  stripYouTubeIntelFence,
+} from "@/components/me/me-personal-agent-youtube-ingest";
 
 type AgentStatus = {
   hasAgent: boolean;
@@ -18,7 +27,13 @@ type AgentStatus = {
   installUrl?: string;
 };
 
+type Field = "name" | "description" | "longDescription" | "systemPrompt";
+
 const TERMINAL_STATUSES = new Set(["installed", "failed"]);
+
+function lastIconStorageKey(agentId: string): string {
+  return `mac.pa.icon.${agentId}`;
+}
 
 export function MePersonalAgentStatusPanel({
   initial,
@@ -34,8 +49,18 @@ export function MePersonalAgentStatusPanel({
   const [editOpen, setEditOpen] = useState(false);
   const [liveSlackIconUrl, setLiveSlackIconUrl] = useState<string | null>(null);
 
-  // Card-header source of truth — same /icon-current call the ChangeIconSection
-  // uses. Hoisted here so the card avatar reflects what Slack actually serves.
+  const [name, setName] = useState(initial.displayName ?? "");
+  const [description, setDescription] = useState(initial.description ?? "");
+  const [longDescription, setLongDescription] = useState(initial.longDescription ?? "");
+  const [systemPrompt, setSystemPrompt] = useState(
+    stripYouTubeIntelFence(initial.systemPrompt ?? ""),
+  );
+  const [icon, setIcon] = useState<IconPickerValue | null>(null);
+  const [iconPickerOpen, setIconPickerOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [suggesting, setSuggesting] = useState<Field | null>(null);
+  const [feedback, setFeedback] = useState<{ kind: "ok" | "err"; message: string } | null>(null);
+
   useEffect(() => {
     let cancelled = false;
     const tick = async () => {
@@ -60,7 +85,6 @@ export function MePersonalAgentStatusPanel({
     if (!agent.hasAgent || (agent.status && TERMINAL_STATUSES.has(agent.status))) {
       return;
     }
-    // Poll every 4s while pending_install. Cap at ~5min so we don't loop forever.
     let cancelled = false;
     const startedAt = Date.now();
     const tick = async () => {
@@ -77,7 +101,7 @@ export function MePersonalAgentStatusPanel({
           }
         }
       } catch {
-        /* swallow — try again on next tick */
+        /* swallow */
       }
       if (Date.now() - startedAt < 5 * 60 * 1000 && !cancelled) {
         setTimeout(tick, 4000);
@@ -90,22 +114,45 @@ export function MePersonalAgentStatusPanel({
     };
   }, [agent.hasAgent, agent.status, router]);
 
-  if (!agent.hasAgent) {
-    return null;
-  }
+  // Hydrate the last-staged icon from localStorage so refresh keeps the preview.
+  useEffect(() => {
+    const id = agent.agentId ?? agent.slackAppId ?? "";
+    if (!id || typeof window === "undefined") return;
+    try {
+      const raw = window.localStorage.getItem(lastIconStorageKey(id));
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as IconPickerValue | null;
+      if (parsed?.base64 && parsed.mimeType) setIcon(parsed);
+    } catch {
+      /* corrupt entry — ignore */
+    }
+  }, [agent.agentId, agent.slackAppId]);
 
-  const status = agent.status ?? "unknown";
-  const name = (agent.displayName ?? "").trim() || "Not set";
-  const previewDescription =
-    (agent.description ?? "").trim() ||
-    (agent.longDescription ?? "").trim() ||
-    (agent.systemPrompt ?? "").trim().split("\n")[0] ||
-    "No description yet";
+  const cacheIcon = useCallback(
+    (next: IconPickerValue | null) => {
+      const id = agent.agentId ?? agent.slackAppId ?? "";
+      if (!id || typeof window === "undefined") return;
+      try {
+        if (next) window.localStorage.setItem(lastIconStorageKey(id), JSON.stringify(next));
+        else window.localStorage.removeItem(lastIconStorageKey(id));
+      } catch {
+        /* quota / privacy mode */
+      }
+    },
+    [agent.agentId, agent.slackAppId],
+  );
 
-  const refreshLiveSlackIcon = async () => {
+  const onIconChange = useCallback(
+    (next: IconPickerValue | null) => {
+      setIcon(next);
+      cacheIcon(next);
+    },
+    [cacheIcon],
+  );
+
+  const refreshLiveSlackIcon = useCallback(async () => {
     setLiveSlackIconUrl(null);
     try {
-      // Short delay to let Slack ingest before we re-query users.info.
       await new Promise((r) => setTimeout(r, 200));
       const res = await fetch("/api/me/personal-agents/icon-current", { cache: "no-store" });
       if (!res.ok) return;
@@ -115,45 +162,272 @@ export function MePersonalAgentStatusPanel({
     } catch {
       /* swallow */
     }
+  }, []);
+
+  const enterEdit = () => {
+    setName(agent.displayName ?? "");
+    setDescription(agent.description ?? "");
+    setLongDescription(agent.longDescription ?? "");
+    // Edit only the persona — the YouTube intel fence is preserved
+    // separately and re-attached on save.
+    setSystemPrompt(stripYouTubeIntelFence(agent.systemPrompt ?? ""));
+    setFeedback(null);
+    setIconPickerOpen(false);
+    setEditOpen(true);
   };
+
+  const exitEdit = () => {
+    setEditOpen(false);
+    setIconPickerOpen(false);
+    setFeedback(null);
+  };
+
+  async function suggest(field: Field) {
+    setSuggesting(field);
+    setFeedback(null);
+    try {
+      const res = await fetch("/api/me/personal-agents/text-suggest", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          field,
+          name,
+          description,
+          longDescription,
+          systemPrompt,
+          ownerName,
+          ownerSlackUserId,
+          ...(field === "systemPrompt" && icon
+            ? { iconBase64: icon.base64, iconMimeType: icon.mimeType }
+            : {}),
+        }),
+      });
+      const body = (await res.json().catch(() => ({}))) as { text?: string; error?: string };
+      if (!res.ok || !body.text) {
+        setFeedback({ kind: "err", message: body.error || `Suggestion failed (${res.status})` });
+        return;
+      }
+      if (field === "name") setName(body.text);
+      else if (field === "description") setDescription(body.text);
+      else if (field === "longDescription") setLongDescription(body.text);
+      else setSystemPrompt(body.text);
+    } catch (err) {
+      setFeedback({ kind: "err", message: err instanceof Error ? err.message : "Network error" });
+    } finally {
+      setSuggesting(null);
+    }
+  }
+
+  async function save() {
+    if (!name.trim() || !description.trim()) {
+      setFeedback({ kind: "err", message: "Name and short description are required." });
+      return;
+    }
+    setSubmitting(true);
+    setFeedback(null);
+    try {
+      // Re-attach the preserved YouTube intel fence so editing the persona
+      // doesn't blow away ingested sources.
+      const ytSources = parseYouTubeIntelSources(agent.systemPrompt ?? "");
+      const nextFullPrompt = composeYouTubeIntelPrompt(systemPrompt.trim(), ytSources);
+
+      const res = await fetch("/api/me/personal-agents/edit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          displayName: name.trim(),
+          description: description.trim(),
+          longDescription: longDescription.trim() || undefined,
+          systemPrompt: nextFullPrompt.trim() || undefined,
+        }),
+      });
+      const body = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        displayName?: string;
+        description?: string;
+        systemPrompt?: string;
+        error?: string;
+      };
+      if (!res.ok || !body.ok) {
+        setFeedback({ kind: "err", message: body.error || `Failed (${res.status})` });
+        return;
+      }
+
+      if (icon) {
+        const iconRes = await fetch("/api/me/personal-agents/icon", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ iconBase64: icon.base64, iconMimeType: icon.mimeType }),
+        });
+        const iconBody = (await iconRes.json().catch(() => ({}))) as {
+          ok?: boolean;
+          error?: string;
+          imageBase64?: string;
+          mimeType?: string;
+        };
+        if (!iconRes.ok || !iconBody.ok) {
+          setFeedback({ kind: "err", message: iconBody.error || `Icon sync failed (${iconRes.status})` });
+          return;
+        }
+        const persisted: IconPickerValue =
+          iconBody.imageBase64 && iconBody.mimeType
+            ? { base64: iconBody.imageBase64, mimeType: iconBody.mimeType }
+            : icon;
+        setIcon(persisted);
+        cacheIcon(persisted);
+        void refreshLiveSlackIcon();
+      }
+
+      setAgent((a) => ({
+        ...a,
+        displayName: body.displayName ?? name.trim(),
+        description: body.description ?? description.trim(),
+        longDescription: longDescription.trim(),
+        systemPrompt: body.systemPrompt ?? nextFullPrompt,
+      }));
+      exitEdit();
+    } catch (err) {
+      setFeedback({ kind: "err", message: err instanceof Error ? err.message : "Network error" });
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  if (!agent.hasAgent) {
+    return null;
+  }
+
+  const status = agent.status ?? "unknown";
+  const displayName = (agent.displayName ?? "").trim() || "Not set";
+  // Personality row + preview should show only the user-typed persona, not
+  // the appended "Learned from videos" fence (rendered by the YT panel).
+  const personaOnly = stripYouTubeIntelFence((agent.systemPrompt ?? "").trim());
+  const previewDescription =
+    (agent.description ?? "").trim() ||
+    (agent.longDescription ?? "").trim() ||
+    personaOnly.split("\n")[0] ||
+    "No description yet";
+
+  const stagedIconDataUrl = icon ? `data:${icon.mimeType};base64,${icon.base64}` : null;
+  const headerImageUrl = stagedIconDataUrl ?? liveSlackIconUrl;
 
   return (
     <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm ring-1 ring-black/[0.03] dark:ring-white/[0.06]">
       <header className="flex flex-wrap items-center gap-3 border-b border-border/60 bg-muted/20 px-4 py-4 sm:gap-4 sm:px-5 sm:py-5">
-        <div
-          aria-hidden
-          className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-foreground/90 text-xl font-semibold text-background"
+        <button
+          type="button"
+          onClick={editOpen ? () => setIconPickerOpen((v) => !v) : undefined}
+          disabled={!editOpen}
+          aria-label={editOpen ? "Change icon" : displayName}
+          className={`group relative flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-foreground/90 text-xl font-semibold text-background ${
+            editOpen ? "cursor-pointer ring-1 ring-border hover:ring-foreground/30" : ""
+          }`}
         >
-          {liveSlackIconUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element -- Slack CDN URL, skip next/image
-            <img src={liveSlackIconUrl} alt={name} className="h-full w-full object-cover" />
+          {headerImageUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element -- Slack/data URL, skip next/image
+            <img src={headerImageUrl} alt={displayName} className="h-full w-full object-cover" />
           ) : (
-            <span>{(name.trim()[0] ?? "?").toUpperCase()}</span>
+            <span>{(displayName.trim()[0] ?? "?").toUpperCase()}</span>
           )}
-        </div>
+          {editOpen ? (
+            <span className="absolute inset-x-0 bottom-0 bg-black/60 py-0.5 text-center text-[10px] font-medium uppercase tracking-wide text-white opacity-0 transition group-hover:opacity-100">
+              {iconPickerOpen ? "Close" : "Edit"}
+            </span>
+          ) : null}
+        </button>
         <div className="min-w-0 flex-1">
-          <h2 className="truncate text-lg font-semibold tracking-tight text-foreground sm:text-xl">
-            {name}
-          </h2>
-          <p className="truncate text-sm text-muted-foreground" title={previewDescription}>
-            {previewDescription}
-          </p>
+          {editOpen ? (
+            <div className="flex items-center gap-1.5">
+              <input
+                type="text"
+                required
+                maxLength={32}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                disabled={submitting}
+                placeholder="Agent name"
+                className="w-full min-w-0 rounded-md border border-border bg-background px-2 py-1 text-lg font-semibold tracking-tight text-foreground shadow-sm focus:border-foreground/30 focus:outline-none focus:ring-2 focus:ring-foreground/10 sm:text-xl"
+              />
+              <WriteForMeButton
+                onClick={() => suggest("name")}
+                busy={suggesting === "name"}
+                disabled={submitting}
+                compact
+              />
+            </div>
+          ) : (
+            <h2 className="truncate text-lg font-semibold tracking-tight text-foreground sm:text-xl">
+              {displayName}
+            </h2>
+          )}
+          {editOpen ? null : (
+            <p className="truncate text-sm text-muted-foreground" title={previewDescription}>
+              {previewDescription}
+            </p>
+          )}
         </div>
         <div className="flex flex-wrap items-center justify-end gap-1.5">
           <StatusPill status={status} />
         </div>
       </header>
 
+      {editOpen && iconPickerOpen ? (
+        <div className="border-b border-border/60 bg-muted/10 px-4 py-4 sm:px-5">
+          <MePersonalAgentIconPicker
+            previewDataUrl={stagedIconDataUrl ?? liveSlackIconUrl}
+            onChange={onIconChange}
+            disabled={submitting}
+            displayName={name}
+            description={description}
+          />
+        </div>
+      ) : null}
+
       <dl className="divide-y divide-border/60 px-4 py-2 text-sm sm:px-5">
         <Row label="Slack app" value={agent.slackAppId?.trim() || "Not set"} mono />
-        {agent.description?.trim() ? (
+        {editOpen ? (
+          <EditRow
+            label="Description"
+            value={description}
+            onChange={setDescription}
+            onSuggest={() => suggest("description")}
+            suggesting={suggesting === "description"}
+            disabled={submitting}
+            maxLength={140}
+            placeholder="One line — appears in Slack app listings."
+          />
+        ) : agent.description?.trim() ? (
           <Row label="Description" value={agent.description.trim()} />
         ) : null}
-        {agent.longDescription?.trim() ? (
+        {editOpen ? (
+          <EditRow
+            label="Long description"
+            multiline
+            value={longDescription}
+            onChange={setLongDescription}
+            onSuggest={() => suggest("longDescription")}
+            suggesting={suggesting === "longDescription"}
+            disabled={submitting}
+            maxLength={500}
+            placeholder="2-3 sentences for the Slack app detail page (175+ chars)."
+          />
+        ) : agent.longDescription?.trim() ? (
           <Row label="Long description" value={agent.longDescription.trim()} />
         ) : null}
-        {agent.systemPrompt?.trim() ? (
-          <Row label="Personality" value={agent.systemPrompt.trim().replace(/\s+/g, " ")} />
+        {editOpen ? (
+          <EditRow
+            label="Personality"
+            multiline
+            value={systemPrompt}
+            onChange={setSystemPrompt}
+            onSuggest={() => suggest("systemPrompt")}
+            suggesting={suggesting === "systemPrompt"}
+            disabled={submitting}
+            maxLength={2000}
+            placeholder='Defines how your agent behaves in Slack. Saved takes effect on the next message.'
+          />
+        ) : personaOnly ? (
+          <Row label="Personality" value={personaOnly.replace(/\s+/g, " ")} />
         ) : null}
       </dl>
 
@@ -171,32 +445,13 @@ export function MePersonalAgentStatusPanel({
         </div>
       ) : null}
 
-      {status === "installed" && editOpen ? (
-        <div className="space-y-4 border-t border-border/60 px-4 py-4 sm:px-5">
-          <MePersonalAgentEditForm
-            agentId={agent.agentId ?? agent.slackAppId ?? ""}
-            initialName={agent.displayName ?? ""}
-            initialDescription={agent.description ?? ""}
-            initialLongDescription={agent.longDescription ?? ""}
-            initialSystemPrompt={agent.systemPrompt ?? ""}
-            liveSlackIconUrl={liveSlackIconUrl}
-            ownerName={ownerName}
-            ownerSlackUserId={ownerSlackUserId}
-            onCancel={() => setEditOpen(false)}
-            onSaved={(displayName, desc, longDesc, systemPrompt) => {
-              setAgent((a) => ({
-                ...a,
-                displayName,
-                description: desc,
-                longDescription: longDesc,
-                systemPrompt,
-              }));
-              setEditOpen(false);
-            }}
-            onIconPushed={() => void refreshLiveSlackIcon()}
-            onDeleted={() => router.refresh()}
-          />
-        </div>
+      {status === "installed" && !editOpen ? (
+        <MePersonalAgentYouTubeIngest
+          systemPrompt={agent.systemPrompt ?? ""}
+          onPromptChange={(nextPrompt) =>
+            setAgent((a) => ({ ...a, systemPrompt: nextPrompt }))
+          }
+        />
       ) : null}
 
       {status === "failed" ? (
@@ -207,20 +462,136 @@ export function MePersonalAgentStatusPanel({
         </div>
       ) : null}
 
+      {editOpen && feedback ? (
+        <div className="border-t border-border/60 px-4 py-3 sm:px-5">
+          <p
+            className={`rounded-lg border px-3 py-2 text-xs ${
+              feedback.kind === "ok"
+                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                : "border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-300"
+            }`}
+          >
+            {feedback.message}
+          </p>
+        </div>
+      ) : null}
+
+      {editOpen ? (
+        <DeleteAgentInline
+          displayName={agent.displayName?.trim() || "your agent"}
+          disabled={submitting}
+          onDeleted={() => router.refresh()}
+        />
+      ) : null}
+
       <ConnectionsFooter
+        editOpen={editOpen}
         showEdit={status === "installed" && !editOpen}
-        onEdit={() => setEditOpen(true)}
+        submitting={submitting}
+        onEdit={enterEdit}
+        onCancel={exitEdit}
+        onSave={save}
       />
     </section>
   );
 }
 
-function ConnectionsFooter({
-  showEdit,
-  onEdit,
+function EditRow({
+  label,
+  value,
+  onChange,
+  onSuggest,
+  suggesting,
+  disabled,
+  maxLength,
+  placeholder,
+  multiline,
 }: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  onSuggest: () => void;
+  suggesting: boolean;
+  disabled: boolean;
+  maxLength: number;
+  placeholder?: string;
+  multiline?: boolean;
+}) {
+  return (
+    <div className="flex flex-col gap-2 py-2.5 first:pt-0 last:pb-0 sm:flex-row sm:items-start sm:gap-4">
+      <div className="flex items-center gap-2 sm:w-40 sm:shrink-0 sm:pt-2">
+        <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</dt>
+        <WriteForMeButton onClick={onSuggest} busy={suggesting} disabled={disabled} compact />
+      </div>
+      <dd className="min-w-0 flex-1">
+        {multiline ? (
+          <textarea
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            disabled={disabled}
+            maxLength={maxLength}
+            placeholder={placeholder}
+            rows={4}
+            className="block w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground shadow-sm focus:border-foreground/30 focus:outline-none focus:ring-2 focus:ring-foreground/10"
+          />
+        ) : (
+          <input
+            type="text"
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            disabled={disabled}
+            maxLength={maxLength}
+            placeholder={placeholder}
+            className="block w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground shadow-sm focus:border-foreground/30 focus:outline-none focus:ring-2 focus:ring-foreground/10"
+          />
+        )}
+      </dd>
+    </div>
+  );
+}
+
+function WriteForMeButton({
+  onClick,
+  busy,
+  disabled,
+  compact,
+}: {
+  onClick: () => void;
+  busy: boolean;
+  disabled: boolean;
+  compact?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled || busy}
+      title="Write for me"
+      aria-label="Write for me"
+      className={`inline-flex shrink-0 items-center gap-1 rounded-md border border-border bg-background font-semibold text-foreground transition hover:bg-muted/40 disabled:cursor-not-allowed disabled:opacity-50 ${
+        compact ? "px-1.5 py-0.5 text-[10px]" : "px-2 py-1 text-[11px]"
+      }`}
+    >
+      <SparkleIcon />
+      {busy ? "..." : "AI"}
+    </button>
+  );
+}
+
+function ConnectionsFooter({
+  editOpen,
+  showEdit,
+  submitting,
+  onEdit,
+  onCancel,
+  onSave,
+}: {
+  editOpen: boolean;
   showEdit: boolean;
+  submitting: boolean;
   onEdit: () => void;
+  onCancel: () => void;
+  onSave: () => void;
 }) {
   const [toast, setToast] = useState<string | null>(null);
 
@@ -249,7 +620,26 @@ function ConnectionsFooter({
             onClick={announce}
           />
         </div>
-        {showEdit ? (
+        {editOpen ? (
+          <div className="ml-auto flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onCancel}
+              disabled={submitting}
+              className="inline-flex h-9 items-center rounded-full px-3 text-xs font-medium text-muted-foreground transition hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={onSave}
+              disabled={submitting}
+              className="inline-flex h-9 items-center rounded-full bg-foreground px-4 text-xs font-semibold text-background shadow-sm transition hover:bg-foreground/90 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {submitting ? "Saving..." : "Save & sync"}
+            </button>
+          </div>
+        ) : showEdit ? (
           <button
             type="button"
             onClick={onEdit}
@@ -294,6 +684,126 @@ function ConnectChip({
       </span>
       {label}
     </button>
+  );
+}
+
+function DeleteAgentInline({
+  displayName,
+  disabled,
+  onDeleted,
+}: {
+  displayName: string;
+  disabled: boolean;
+  onDeleted: () => void;
+}) {
+  const [armed, setArmed] = useState(false);
+  const [confirmText, setConfirmText] = useState("");
+  const [wipeWorkspace, setWipeWorkspace] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const canSubmit = confirmText.trim().toUpperCase() === "DELETE";
+
+  async function doDelete() {
+    setSubmitting(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/me/personal-agents/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ wipeWorkspace }),
+      });
+      const body = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        problems?: string[];
+        error?: string;
+      };
+      if (!res.ok || !body.ok) {
+        const msg = body.problems?.join("; ") || body.error || `Failed (${res.status})`;
+        setError(msg);
+        return;
+      }
+      onDeleted();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Network error");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  if (!armed) {
+    return (
+      <div className="border-t border-border/60 px-4 py-3 sm:px-5">
+        <button
+          type="button"
+          onClick={() => setArmed(true)}
+          disabled={disabled}
+          className="text-xs font-semibold text-rose-600 transition hover:text-rose-700 disabled:cursor-not-allowed disabled:opacity-50 dark:text-rose-400 dark:hover:text-rose-300"
+        >
+          Delete this agent
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="border-t border-border/60 px-4 py-4 sm:px-5">
+      <div className="space-y-3 rounded-xl border border-rose-500/30 bg-rose-500/10 p-4">
+        <h3 className="text-sm font-semibold text-rose-700 dark:text-rose-300">
+          Delete {displayName}
+        </h3>
+        <p className="text-xs text-rose-700/80 dark:text-rose-300/80">
+          Removes the Slack app, the running pod, and the per-agent secret. You can create a new agent right after.
+          Type <strong className="font-semibold">DELETE</strong> to confirm.
+        </p>
+        <input
+          type="text"
+          value={confirmText}
+          onChange={(e) => setConfirmText(e.target.value)}
+          placeholder="DELETE"
+          className="block w-full rounded-lg border border-rose-500/40 bg-background px-3 py-2 font-mono text-sm uppercase text-foreground shadow-sm focus:border-rose-500/60 focus:outline-none focus:ring-2 focus:ring-rose-500/20"
+        />
+        <label className="flex items-start gap-2 text-xs text-rose-700/90 dark:text-rose-300/90">
+          <input
+            type="checkbox"
+            checked={wipeWorkspace}
+            onChange={(e) => setWipeWorkspace(e.target.checked)}
+            className="mt-0.5 h-3.5 w-3.5 rounded border-rose-500/40 text-rose-600 focus:ring-rose-500/30"
+          />
+          <span>
+            Also wipe workspace data on disk. A new agent will start with an empty{" "}
+            <code className="rounded bg-background/60 px-1 font-mono text-[11px]">/data</code>.
+          </span>
+        </label>
+        <div className="flex flex-wrap justify-end gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setArmed(false);
+              setConfirmText("");
+              setError(null);
+            }}
+            disabled={submitting}
+            className="inline-flex h-9 items-center justify-center rounded-lg px-3 text-xs font-medium text-rose-700 transition hover:text-rose-800 disabled:cursor-not-allowed disabled:opacity-50 dark:text-rose-300 dark:hover:text-rose-200"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={doDelete}
+            disabled={!canSubmit || submitting}
+            className="inline-flex h-9 items-center justify-center rounded-lg bg-rose-600 px-3 text-xs font-semibold text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {submitting ? "Deleting..." : "Delete agent"}
+          </button>
+        </div>
+        {error ? (
+          <p className="rounded-lg border border-rose-600/30 bg-background px-3 py-2 text-xs text-rose-700 dark:text-rose-300">
+            {error}
+          </p>
+        ) : null}
+      </div>
+    </div>
   );
 }
 
@@ -399,3 +909,29 @@ function Row({ label, value, mono }: { label: string; value: string; mono?: bool
   );
 }
 
+function SparkleIcon() {
+  return (
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <path d="M12 2l1.6 5.4L19 9l-5.4 1.6L12 16l-1.6-5.4L5 9l5.4-1.6L12 2zm7 11l.9 3.1L23 17l-3.1.9L19 21l-.9-3.1L15 17l3.1-.9L19 13z" />
+    </svg>
+  );
+}
+
+function PenIcon() {
+  return (
+    <svg
+      width="13"
+      height="13"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" />
+    </svg>
+  );
+}
