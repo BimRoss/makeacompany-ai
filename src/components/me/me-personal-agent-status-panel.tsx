@@ -701,7 +701,7 @@ function ConnectionsFooter({
       {!editOpen ? (
         <div className="flex flex-col gap-3 px-4 py-4 sm:flex-row sm:flex-nowrap sm:items-center sm:gap-3 sm:px-5">
           <div className="flex items-center justify-between gap-2 sm:flex-none sm:justify-start">
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            <p className="inline-flex h-9 items-center text-xs font-medium uppercase tracking-wide text-muted-foreground">
               Connections
             </p>
             {showEdit ? (
