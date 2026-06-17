@@ -39,10 +39,12 @@ export function MePersonalAgentStatusPanel({
   initial,
   ownerName,
   ownerSlackUserId,
+  ownerEmail,
 }: {
   initial: AgentStatus;
   ownerName: string;
   ownerSlackUserId: string;
+  ownerEmail: string;
 }) {
   const router = useRouter();
   const [agent, setAgent] = useState<AgentStatus>(initial);
@@ -411,6 +413,7 @@ export function MePersonalAgentStatusPanel({
       ) : null}
 
       <dl className="divide-y divide-border/60 px-4 py-2 text-sm sm:px-5">
+        <Row label="Email" value={ownerEmail || "—"} />
         <Row label="Slack app" value={agent.slackAppId?.trim() || "Not set"} mono />
         {editOpen ? (
           <EditRow
