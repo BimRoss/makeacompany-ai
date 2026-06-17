@@ -80,6 +80,27 @@ func (s *Server) reconcilePersonalAgentImages(ctx context.Context, force bool) r
 				result.Errors = append(result.Errors, fmt.Sprintf("rewrite deployment %s: %v", dep.Name, err))
 				continue
 			}
+			// Stamp the audit annotation on the pod template so a future
+			// reconcile (or operator) can tell when we last touched this
+			// deployment. WriteAgentDeployment builds the Deployment from
+			// scratch and doesn't carry pod-template annotations, so do a
+			// second annotation-only patch.
+			annoPatch := map[string]any{
+				"spec": map[string]any{
+					"template": map[string]any{
+						"metadata": map[string]any{
+							"annotations": map[string]any{
+								"bimross.com/last-reconciled-at": now,
+							},
+						},
+					},
+				},
+			}
+			annoBytes, _ := json.Marshal(annoPatch)
+			if _, err := s.personalAgent.cs.AppsV1().Deployments(ns).Patch(ctx, dep.Name, types.StrategicMergePatchType, annoBytes, metav1.PatchOptions{}); err != nil {
+				result.Errors = append(result.Errors, fmt.Sprintf("stamp reconciled-at on %s: %v", dep.Name, err))
+				// non-fatal: deployment is already rewritten correctly.
+			}
 			result.InitContainer++
 			s.log.Printf("personal-agent reconciler retrofit %s/%s via full Update (init container + canonical volume)", ns, dep.Name)
 			if needsImagePatch {

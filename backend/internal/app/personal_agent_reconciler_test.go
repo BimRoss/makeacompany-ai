@@ -18,23 +18,55 @@ func seedDeployments(t *testing.T) (*fake.Clientset, *Server) {
 	managedLabels := map[string]string{
 		"app.kubernetes.io/managed-by": personalAgentManagedByLabelValue,
 	}
-	mk := func(name, image string, labels map[string]string) *appsv1.Deployment {
+	// Build deployments whose Name matches personalAgentResourceName(SlackUserID)
+	// so the retrofit path's WriteAgentDeployment lands an Update on the
+	// existing object (Create returns AlreadyExists, then Update replaces
+	// the spec). If the names diverge, the writer would Create a fresh
+	// deployment under a different name and the test seed would survive
+	// unchanged — which would silently mask the bump.
+	mk := func(slackUserID, image string, labels map[string]string) *appsv1.Deployment {
+		name := personalAgentResourceName(slackUserID)
+		annos := map[string]string{}
+		fullLabels := map[string]string{}
+		for k, v := range labels {
+			fullLabels[k] = v
+		}
+		if labels["app.kubernetes.io/managed-by"] == personalAgentManagedByLabelValue {
+			annos[personalAgentAnnoSlackUserID] = slackUserID
+			fullLabels["bimross.com/agent-id"] = "agent-" + slackUserID
+		}
 		return &appsv1.Deployment{
-			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "personal-agents", Labels: labels},
+			ObjectMeta: metav1.ObjectMeta{
+				Name: name, Namespace: "personal-agents",
+				Labels: fullLabels, Annotations: annos,
+			},
 			Spec: appsv1.DeploymentSpec{
 				Template: corev1.PodTemplateSpec{
 					Spec: corev1.PodSpec{
-						Containers: []corev1.Container{{Name: "personal-agent", Image: image}},
+						Containers: []corev1.Container{{
+							Name:  "personal-agent",
+							Image: image,
+							Env: []corev1.EnvVar{
+								{Name: "AGENT_OWNER_USER_ID", Value: "U-owner-" + slackUserID},
+								{Name: "AGENT_DISPLAY_NAME", Value: "Agent " + slackUserID},
+							},
+						}},
 					},
 				},
 			},
 		}
 	}
-	cs := fake.NewSimpleClientset(
-		mk("personal-agent-A", "img:old", managedLabels),
-		mk("personal-agent-B", "img:new", managedLabels),
-		mk("unmanaged-decoy", "img:other", nil),
-	)
+	depA := mk("UA", "img:old", managedLabels)
+	depB := mk("UB", "img:new", managedLabels)
+	decoy := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{Name: "unmanaged-decoy", Namespace: "personal-agents"},
+		Spec: appsv1.DeploymentSpec{
+			Template: corev1.PodTemplateSpec{
+				Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: "personal-agent", Image: "img:other"}}},
+			},
+		},
+	}
+	cs := fake.NewSimpleClientset(depA, depB, decoy)
 	w := newPersonalAgentWriterWithClient(cs, "personal-agents", "", "")
 	srv := &Server{
 		log:           log.Default(),
@@ -56,7 +88,7 @@ func TestReconcilePersonalAgentImages_BumpsDriftedImages(t *testing.T) {
 	if result.Restarted != 0 {
 		t.Errorf("Restarted = %d, want 0 (force=false)", result.Restarted)
 	}
-	got, _ := cs.AppsV1().Deployments("personal-agents").Get(context.Background(), "personal-agent-A", metav1.GetOptions{})
+	got, _ := cs.AppsV1().Deployments("personal-agents").Get(context.Background(), personalAgentResourceName("UA"), metav1.GetOptions{})
 	if got.Spec.Template.Spec.Containers[0].Image != "img:new" {
 		t.Errorf("A image after reconcile = %q, want img:new", got.Spec.Template.Spec.Containers[0].Image)
 	}
@@ -72,7 +104,7 @@ func TestReconcilePersonalAgentImages_ForceRestartsEvenWhenImageMatches(t *testi
 		t.Errorf("Restarted = %d, want 2 (force=true on both managed)", result.Restarted)
 	}
 	// B's image hasn't changed; force-restart annotation should still bump.
-	got, _ := cs.AppsV1().Deployments("personal-agents").Get(context.Background(), "personal-agent-B", metav1.GetOptions{})
+	got, _ := cs.AppsV1().Deployments("personal-agents").Get(context.Background(), personalAgentResourceName("UB"), metav1.GetOptions{})
 	if got.Spec.Template.Annotations["bimross.com/last-reconciled-at"] == "" {
 		t.Errorf("expected last-reconciled-at annotation on B even though image didn't change")
 	}
@@ -89,7 +121,7 @@ func TestReconcilePersonalAgentImages_PatchesMissingInitContainer(t *testing.T) 
 	if result.InitContainer != 2 {
 		t.Errorf("InitContainer = %d, want 2 (both managed lacked it)", result.InitContainer)
 	}
-	for _, name := range []string{"personal-agent-A", "personal-agent-B"} {
+	for _, name := range []string{personalAgentResourceName("UA"), personalAgentResourceName("UB")} {
 		got, err := cs.AppsV1().Deployments("personal-agents").Get(context.Background(), name, metav1.GetOptions{})
 		if err != nil {
 			t.Fatalf("get %s: %v", name, err)
@@ -114,7 +146,7 @@ func TestReconcilePersonalAgentImages_SkipsWhenInitContainerAlreadyPresent(t *te
 		t.Errorf("second pass ImageBumped = %d, want 0 (already on desired image)", result.ImageBumped)
 	}
 	// Sanity: B should not have churned.
-	got, _ := cs.AppsV1().Deployments("personal-agents").Get(context.Background(), "personal-agent-B", metav1.GetOptions{})
+	got, _ := cs.AppsV1().Deployments("personal-agents").Get(context.Background(), personalAgentResourceName("UB"), metav1.GetOptions{})
 	if !hasPersonalAgentInitContainer(got) {
 		t.Errorf("B lost its init container between ticks")
 	}
