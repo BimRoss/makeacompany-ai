@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ChevronDown, Loader2, Trash2, Youtube } from "lucide-react";
 
 // Fence markers MUST stay in sync with the orchestrator routes:
@@ -73,6 +73,13 @@ export function MePersonalAgentYouTubeIngest({ systemPrompt, onPromptChange }: P
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [pendingDeleteUrl, setPendingDeleteUrl] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [toast, setToast] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 2500);
+    return () => clearTimeout(t);
+  }, [toast]);
 
   const toggleExpanded = useCallback((sourceUrl: string) => {
     setExpanded((prev) => {
@@ -158,6 +165,7 @@ export function MePersonalAgentYouTubeIngest({ systemPrompt, onPromptChange }: P
           const nextPrompt = composeYouTubeIntelPrompt(persona, lastDoneEvent.sources);
           onPromptChange(nextPrompt);
           setUrl(""); // Fresh input for the next URL.
+          setToast("Added. Garth will reference this on his next reply.");
         }
       } catch (err) {
         setStage("error");
@@ -316,13 +324,19 @@ export function MePersonalAgentYouTubeIngest({ systemPrompt, onPromptChange }: P
         </button>
       </form>
 
-      {stage === "done" ? (
-        <p className="text-xs text-emerald-700 dark:text-emerald-300">
-          Added. Garth will reference this on his next reply.
-        </p>
-      ) : null}
       {stage === "error" && errorMessage ? (
         <p className="text-xs text-rose-700 dark:text-rose-300">{errorMessage}</p>
+      ) : null}
+
+      {toast ? (
+        <div className="pointer-events-none fixed inset-x-0 bottom-6 z-[70] flex justify-center px-4">
+          <p
+            role="status"
+            className="pointer-events-auto rounded-full border border-foreground bg-background px-5 py-2 text-sm font-medium text-foreground shadow-lg"
+          >
+            {toast}
+          </p>
+        </div>
       ) : null}
     </div>
   );
