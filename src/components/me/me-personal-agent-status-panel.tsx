@@ -163,7 +163,7 @@ export function MePersonalAgentStatusPanel({
           <Row label="Long description" value={agent.longDescription.trim()} />
         ) : null}
         {agent.systemPrompt?.trim() ? (
-          <Row label="Personality" value={agent.systemPrompt.trim().replace(/\s+/g, " ")} mono />
+          <Row label="Personality" value={agent.systemPrompt.trim().replace(/\s+/g, " ")} />
         ) : null}
       </dl>
 
