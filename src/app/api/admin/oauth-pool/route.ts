@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 
-import { hasValidAdminApiSession } from "@/lib/backend-proxy-auth";
+import {
+  backendProxyAuthHeaders,
+  hasValidAdminApiSession,
+  resolveBackendBaseURL,
+} from "@/lib/backend-proxy-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -39,89 +43,157 @@ type AgentResult = {
   snapshot?: AgentSnapshot;
 };
 
-type AgentTarget = { agent: string; url?: string; token?: string };
+type AgentTarget = {
+  agent: string;
+  url?: string;
+  token?: string;
+  /** Upper-cased Slack user ID — used to match the target against the Slack bot table. */
+  slackUserID?: string;
+};
 
-// Static agents that share the OAuth pool. Garth is listed here even when
-// scaled to 0 so the per-agent legend always shows all three pool consumers
-// — when his admin endpoint is unreachable he renders with 0 spawns rather
-// than disappearing.
+type SlackBot = {
+  slackUserID: string;
+  displayName: string;
+};
+
+// Static agents that share the OAuth pool. Ross + Joanne live in their own
+// namespaces with admin tokens; every other pool consumer (garth and
+// friends) is a personal-agent and gets discovered dynamically below.
 const STATIC_AGENT_TARGETS: AgentTarget[] = [
   {
     agent: "ross",
     url: process.env.ROSS_ADMIN_URL ?? "http://ross.ross.svc:8092",
     token: process.env.ROSS_ADMIN_TOKEN,
+    slackUserID: (process.env.ROSS_SLACK_BOT_ID ?? "").trim().toUpperCase() || undefined,
   },
   {
     agent: "joanne",
     url: process.env.JOANNE_ADMIN_URL ?? "http://joanne.joanne.svc:8092",
     token: process.env.JOANNE_ADMIN_TOKEN,
-  },
-  {
-    agent: "garth",
-    url: process.env.GARTH_ADMIN_URL ?? "http://garth.personal-agents.svc:8092",
-    token: process.env.GARTH_ADMIN_TOKEN,
+    slackUserID: (process.env.JOANNE_SLACK_BOT_ID ?? "").trim().toUpperCase() || undefined,
   },
 ];
 
-// Discover personal agents from K8s. Each running personal agent pod
-// exposes an admin HTTP server on :8092 (same as Ross/Joanne). Pods are
-// discovered by querying K8s API for all Pods in personal-agents namespace
-// with label app=personal-agent. The pod's IP becomes the target URL.
+const PERSONAL_AGENT_NAMESPACE = "personal-agents";
+const PERSONAL_AGENT_LABEL_SELECTOR = "bimross.com/integration=personal-agent";
+const PERSONAL_AGENT_AGENT_ID_LABEL = "bimross.com/agent-id";
+const PERSONAL_AGENT_SLACK_USER_ANNO = "bimross.com/slack-user-id";
+
+// Slug → display label for known personal-agent slack identities. Keys are
+// slack user IDs sourced from *_SLACK_BOT_ID env vars (same scheme the
+// backend uses for `MULTIAGENT_BOT_USER_IDS`). Anything unmapped renders as
+// the slack ID or a truncated agent-id hash.
+function personalAgentDisplayLabelFromEnv(slackUserID: string): string | null {
+  const id = slackUserID.trim().toUpperCase();
+  if (!id) return null;
+  const envPairs: Array<[string, string]> = [
+    [process.env.GARTH_SLACK_BOT_ID ?? "", "garth"],
+    [process.env.TIM_SLACK_BOT_ID ?? "", "tim"],
+    [process.env.ALEX_SLACK_BOT_ID ?? "", "alex"],
+    [process.env.ANNA_SLACK_BOT_ID ?? "", "anna"],
+  ];
+  for (const [envVal, label] of envPairs) {
+    if (envVal.trim().toUpperCase() === id) return label;
+  }
+  const multi = (process.env.MULTIAGENT_BOT_USER_IDS ?? "").split(",");
+  for (const pair of multi) {
+    const idx = pair.indexOf(":");
+    if (idx <= 0) continue;
+    const slug = pair.slice(0, idx).trim().toLowerCase();
+    const uid = pair.slice(idx + 1).trim().toUpperCase();
+    if (uid === id && slug) return slug;
+  }
+  return null;
+}
+
+// withK8sTLSRelaxed is a tiny helper so each in-cluster fetch can opt into
+// skipping verification of the self-signed K8s API cert without leaving the
+// process-wide flag flipped after it returns.
+async function withK8sTLSRelaxed<T>(fn: () => Promise<T>): Promise<T> {
+  const prev = process.env.NODE_TLS_REJECT_UNAUTHORIZED;
+  process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+  try {
+    return await fn();
+  } finally {
+    if (prev !== undefined) process.env.NODE_TLS_REJECT_UNAUTHORIZED = prev;
+    else delete process.env.NODE_TLS_REJECT_UNAUTHORIZED;
+  }
+}
+
+// Discover personal agents from K8s. Each running personal-agent pod
+// exposes an admin HTTP server on :8092 (same shape as Ross/Joanne). We
+// join the pod list with the per-agent runtime Secrets (which carry the
+// slack-user-id annotation) so the legend can render "garth" instead of a
+// pod-name hash.
 async function discoverPersonalAgents(): Promise<AgentTarget[]> {
   const kubeApiUrl = process.env.KUBERNETES_SERVICE_HOST;
   const kubeApiPort = process.env.KUBERNETES_SERVICE_PORT;
   const token = process.env.KUBERNETES_SERVICE_ACCOUNT_TOKEN;
 
   if (!kubeApiUrl || !token) {
-    // Not running in-cluster; skip personal agent discovery.
     return [];
   }
 
+  const base = `https://${kubeApiUrl}:${kubeApiPort}/api/v1/namespaces/${PERSONAL_AGENT_NAMESPACE}`;
+  const selector = encodeURIComponent(PERSONAL_AGENT_LABEL_SELECTOR);
+  const authHeaders = { Authorization: `Bearer ${token}` };
+
   try {
-    // Temporarily disable TLS verification for K8s API (self-signed cert in-cluster).
-    // This is safe because we're only connecting to the K8s API within the cluster.
-    const originalRejectUnauthorized = process.env.NODE_TLS_REJECT_UNAUTHORIZED;
-    process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+    return await withK8sTLSRelaxed(async () => {
+      const [podsResp, secretsResp] = await Promise.all([
+        fetch(`${base}/pods?labelSelector=${selector}`, { headers: authHeaders }),
+        fetch(`${base}/secrets?labelSelector=${selector}`, { headers: authHeaders }),
+      ]);
 
-    const response = await fetch(
-      `https://${kubeApiUrl}:${kubeApiPort}/api/v1/namespaces/personal-agents/pods?labelSelector=app=personal-agent`,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      },
-    );
+      if (!podsResp.ok) {
+        console.error(`K8s API error querying personal-agents pods: HTTP ${podsResp.status}`);
+        return [];
+      }
 
-    // Restore original setting
-    if (originalRejectUnauthorized !== undefined) {
-      process.env.NODE_TLS_REJECT_UNAUTHORIZED = originalRejectUnauthorized;
-    } else {
-      delete process.env.NODE_TLS_REJECT_UNAUTHORIZED;
-    }
+      const podList = (await podsResp.json()) as {
+        items: Array<{
+          metadata: { name: string; labels?: Record<string, string> };
+          status?: { podIP?: string; phase?: string };
+        }>;
+      };
 
-    if (!response.ok) {
-      console.error(`K8s API error querying personal-agents pods: HTTP ${response.status}`);
-      return [];
-    }
+      // Build agent-id → slack-user-id from Secret annotations.
+      const slackIDByAgentID = new Map<string, string>();
+      if (secretsResp.ok) {
+        const secretList = (await secretsResp.json()) as {
+          items: Array<{
+            metadata: {
+              labels?: Record<string, string>;
+              annotations?: Record<string, string>;
+            };
+          }>;
+        };
+        for (const s of secretList.items) {
+          const agentID = s.metadata.labels?.[PERSONAL_AGENT_AGENT_ID_LABEL];
+          const slackID = s.metadata.annotations?.[PERSONAL_AGENT_SLACK_USER_ANNO];
+          if (agentID && slackID) slackIDByAgentID.set(agentID, slackID);
+        }
+      } else {
+        console.warn(`K8s API non-200 querying personal-agents secrets: HTTP ${secretsResp.status}`);
+      }
 
-    const podList = (await response.json()) as {
-      items: Array<{ metadata: { name: string }; status?: { podIP?: string } }>;
-    };
-    const targets: AgentTarget[] = [];
-    for (const pod of podList.items) {
-      const podIp = pod.status?.podIP;
-      const podName = pod.metadata.name;
-      if (podIp) {
-        // Personal agent pods listen on :8092 cluster-internally.
-        // They're deployed without auth tokens (cluster-internal only).
+      const targets: AgentTarget[] = [];
+      for (const pod of podList.items) {
+        const podIp = pod.status?.podIP;
+        if (!podIp) continue;
+        const agentID = pod.metadata.labels?.[PERSONAL_AGENT_AGENT_ID_LABEL] ?? "";
+        const slackID = slackIDByAgentID.get(agentID) ?? "";
+        const friendly = slackID ? personalAgentDisplayLabelFromEnv(slackID) : null;
+        const label = friendly ?? (slackID || (agentID ? agentID.slice(0, 8) : pod.metadata.name));
         targets.push({
-          agent: podName,
+          agent: label,
           url: `http://${podIp}:8092`,
-          token: "", // Will be overridden in fetchAgent; skip auth header
+          token: "", // cluster-internal; personal agents skip auth
+          slackUserID: slackID ? slackID.toUpperCase() : undefined,
         });
       }
-    }
-    return targets;
+      return targets;
+    });
   } catch (error) {
     console.error("Failed to discover personal agents from K8s", error);
     return [];
@@ -132,6 +204,53 @@ async function getAgentTargets(): Promise<AgentTarget[]> {
   const staticTargets = STATIC_AGENT_TARGETS;
   const personalTargets = await discoverPersonalAgents();
   return [...staticTargets, ...personalTargets];
+}
+
+// fetchSlackBots pulls the workspace user list from the backend and returns
+// the bots-only view (isBot && !isDeleted). The legend uses this as its
+// source of truth — `bot: yes` rows in the admin Slack table are the agents
+// we want to track in the pool, even when their pod is unreachable. A
+// non-2xx is logged (per the fail-open gate-fetcher convention) and treated
+// as "Slack table unavailable" so the route can fall back to raw targets.
+async function fetchSlackBots(): Promise<SlackBot[] | null> {
+  try {
+    const backend = `${resolveBackendBaseURL().replace(/\/$/, "")}/v1/admin/slack-workspace-users`;
+    const response = await fetch(backend, {
+      headers: await backendProxyAuthHeaders(),
+      cache: "no-store",
+      signal: AbortSignal.timeout(4000),
+    });
+    if (!response.ok) {
+      console.warn(`oauth-pool: slack-workspace-users non-200: HTTP ${response.status}`);
+      return null;
+    }
+    const body = (await response.json()) as {
+      users?: Array<{
+        slackUserId?: string;
+        isBot?: boolean;
+        isDeleted?: boolean;
+        realName?: string;
+        displayName?: string;
+        username?: string;
+      }>;
+    };
+    const bots: SlackBot[] = [];
+    for (const u of body.users ?? []) {
+      if (!u.isBot || u.isDeleted) continue;
+      const id = (u.slackUserId ?? "").trim().toUpperCase();
+      if (!id) continue;
+      const dn =
+        (u.realName ?? "").trim() ||
+        (u.displayName ?? "").trim() ||
+        (u.username ?? "").trim() ||
+        id;
+      bots.push({ slackUserID: id, displayName: dn });
+    }
+    return bots;
+  } catch (error) {
+    console.warn("oauth-pool: failed to fetch slack-workspace-users", error);
+    return null;
+  }
 }
 
 async function fetchAgent({ agent, url, token }: AgentTarget): Promise<AgentResult> {
@@ -173,8 +292,66 @@ export async function GET() {
   if (!adminOk) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
-  const agentTargets = await getAgentTargets();
-  const agents = await Promise.all(agentTargets.map(fetchAgent));
+
+  const [agentTargets, slackBots] = await Promise.all([
+    getAgentTargets(),
+    fetchSlackBots(),
+  ]);
+
+  // When the Slack table is reachable, treat it as the source of truth:
+  // every bot row gets a card (snapshot if its pod is reachable, "down"
+  // marker otherwise). When the table is down, render whatever targets we
+  // can find — better stale than blank.
+  let agents: AgentResult[];
+  if (slackBots && slackBots.length > 0) {
+    const targetBySlackID = new Map<string, AgentTarget>();
+    const unclaimed: AgentTarget[] = [];
+    for (const t of agentTargets) {
+      if (t.slackUserID && !targetBySlackID.has(t.slackUserID)) {
+        targetBySlackID.set(t.slackUserID, t);
+      } else {
+        unclaimed.push(t);
+      }
+    }
+
+    const resolved: Array<AgentTarget & { displayName: string }> = [];
+    const seenSlackIDs = new Set<string>();
+    for (const bot of slackBots) {
+      seenSlackIDs.add(bot.slackUserID);
+      const match = targetBySlackID.get(bot.slackUserID);
+      if (match) {
+        resolved.push({ ...match, agent: bot.displayName, displayName: bot.displayName });
+      } else {
+        resolved.push({
+          agent: bot.displayName,
+          slackUserID: bot.slackUserID,
+          displayName: bot.displayName,
+        });
+      }
+    }
+    // Surface targets that have no Slack bot match too, so a running pod
+    // doesn't disappear silently if its identity is missing from the table.
+    for (const t of unclaimed) {
+      if (t.slackUserID && seenSlackIDs.has(t.slackUserID)) continue;
+      resolved.push({ ...t, displayName: t.agent });
+    }
+
+    agents = await Promise.all(
+      resolved.map((t) =>
+        t.url
+          ? fetchAgent(t)
+          : Promise.resolve<AgentResult>({
+              agent: t.agent,
+              url: "",
+              ok: false,
+              error: "no pod found for slack bot",
+            })
+      )
+    );
+  } else {
+    agents = await Promise.all(agentTargets.map(fetchAgent));
+  }
+
   return NextResponse.json(
     { agents, checked_at: new Date().toISOString() },
     {
