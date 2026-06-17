@@ -143,7 +143,7 @@ export function HeroSection() {
   useEffect(() => () => cancelRef.current?.(), []);
 
   return (
-    <section className="relative flex w-full min-h-0 flex-col items-center justify-start px-4 pb-4 pt-8 sm:min-h-screen sm:justify-center sm:px-6 sm:pb-14 sm:pt-4">
+    <section className="relative flex w-full min-h-0 flex-col items-center justify-start px-4 pb-4 pt-8 sm:min-h-screen sm:px-6 sm:pb-14 sm:pt-10">
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute left-1/2 top-0 h-[500px] w-[800px] -translate-x-1/2 rounded-full bg-primary/5 blur-3xl" />
       </div>
