@@ -232,8 +232,12 @@ func (s *Server) handleGetMyPersonalAgent(w http.ResponseWriter, r *http.Request
 		"systemPrompt":    rec.SystemPrompt,
 		"slackAppId":      rec.SlackAppID,
 		"status":          rec.Status,
-		// install url only useful while pending
-		"installUrl": rec.OAuthAuthorizeURL,
+		// install url only useful while pending. Re-pin team= on read: records
+		// minted before the pin landed (#454) have a bare authorize URL stored,
+		// which lets Slack fall back to the installer's active workspace and
+		// fail with invalid_team_for_non_distributed_app. pinInstallURLToTeam is
+		// idempotent (q.Set), so this is safe for already-pinned URLs too.
+		"installUrl": s.pinInstallURLToTeam(rec.OAuthAuthorizeURL),
 	})
 }
 
