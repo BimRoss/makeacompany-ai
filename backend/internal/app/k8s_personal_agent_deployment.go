@@ -74,9 +74,14 @@ func (w *PersonalAgentWriter) WriteAgentDeployment(ctx context.Context, req Pers
 					// to the mounted hostPath. The PA image runs as the `node`
 					// user (UID/GID 1000) baked into Node Alpine; without this
 					// the mount is owned by root and the workspace writes 403.
+					// fsGroup alone is not enough for hostPath subPath mounts
+					// (kubelet does not reliably chgrp them), so the init
+					// container below runs as root and chowns the mount before
+					// the app container starts. See #455 followup.
 					SecurityContext: &corev1.PodSecurityContext{
 						FSGroup: int64Ptr(personalAgentRuntimeGID),
 					},
+					InitContainers: personalAgentInitContainers(name),
 					Containers: []corev1.Container{{
 						Name:  "personal-agent",
 						Image: req.Image,
@@ -236,6 +241,51 @@ const (
 
 func int64Ptr(v int64) *int64                              { return &v }
 func hostPathTypePtr(t corev1.HostPathType) *corev1.HostPathType { return &t }
+
+// personalAgentInitContainerName is the name of the init container that
+// chowns the hostPath workspace mount to node:node (UID/GID 1000) before
+// the app container starts. Exported as a constant so the reconciler can
+// detect deployments that predate this fix and patch them in place.
+const personalAgentInitContainerName = "chown-workspace"
+
+// personalAgentInitContainerImage is intentionally pinned to a small,
+// static-ABI image with a real coreutils-style chown. busybox is sufficient
+// and already cached on the makeacompany node from other workloads.
+const personalAgentInitContainerImage = "busybox:1.36"
+
+// personalAgentInitContainers returns the init-container list every
+// personal-agent Deployment ships with. It chowns the per-agent hostPath
+// subPath mount to node:node so the app container (running as UID 1000)
+// can write the workspace. fsGroup alone is not reliable on hostPath
+// subPath mounts — kubelet does not consistently recursively chgrp the
+// host directory, and a fresh subPath dir is created root-owned.
+//
+// subPath must match the main container's VolumeMount.SubPath so the same
+// host directory is targeted by the chown.
+func personalAgentInitContainers(subPath string) []corev1.Container {
+	return []corev1.Container{{
+		Name:  personalAgentInitContainerName,
+		Image: personalAgentInitContainerImage,
+		// Runs as root inside the init container; the main container still
+		// runs as the image's node user.
+		SecurityContext: &corev1.SecurityContext{
+			RunAsUser:  int64Ptr(0),
+			RunAsGroup: int64Ptr(0),
+		},
+		Command: []string{"sh", "-c"},
+		// Idempotent. chown is cheap on already-correct trees, and
+		// chmod 0775 keeps the dir group-writable in case future
+		// changes drop fsGroup.
+		Args: []string{
+			"set -e; chown -R 1000:1000 /data/workspaces; chmod 0775 /data/workspaces",
+		},
+		VolumeMounts: []corev1.VolumeMount{{
+			Name:      "data",
+			MountPath: "/data/workspaces",
+			SubPath:   subPath,
+		}},
+	}}
+}
 
 func httpProbeOnHealthz() *corev1.Probe {
 	return &corev1.Probe{
