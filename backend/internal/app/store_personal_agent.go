@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -55,9 +56,25 @@ type PersonalAgentRecord struct {
 	// records may have this empty; the icon-current endpoint lazy-fills via
 	// auth.test on the per-agent bot token if missing.
 	BotUserID        string `json:"botUserId,omitempty"`
+	// YouTubeSources is the list of harvested-from-YouTube intelligence
+	// blocks the user has ingested onto this agent's persona. Each entry
+	// renders into the runtime PERSONAL_AGENT_SYSTEM_PROMPT (see
+	// renderPersonalAgentRuntimePrompt). The user-edited SystemPrompt
+	// stays the source of truth for the typed persona; bullets are
+	// additive.
+	YouTubeSources   []PersonalAgentYouTubeSource `json:"youtubeSources,omitempty"`
 	Status           string `json:"status"`
 	CreatedAt        string `json:"createdAt"`
 	UpdatedAt        string `json:"updatedAt"`
+}
+
+// PersonalAgentYouTubeSource is one harvested-from-YouTube intelligence
+// block. URL is canonical identity (used for dedupe + delete).
+type PersonalAgentYouTubeSource struct {
+	URL        string   `json:"url"`
+	Title      string   `json:"title,omitempty"`
+	Bullets    []string `json:"bullets"`
+	IngestedAt string   `json:"ingestedAt"`
 }
 
 func personalAgentRedisKey(agentID string) string {
@@ -198,6 +215,61 @@ func (s *Store) UpdatePersonalAgentDisplay(ctx context.Context, agentID, display
 	return s.updatePersonalAgentFields(ctx, agentID, fields)
 }
 
+// AppendPersonalAgentYouTubeSource adds a harvested-from-YouTube intelligence
+// block to the agent's sources list, deduping on URL (newest wins). Returns
+// the updated record so the caller can re-render PERSONAL_AGENT_SYSTEM_PROMPT
+// without a second read.
+func (s *Store) AppendPersonalAgentYouTubeSource(ctx context.Context, agentID string, source PersonalAgentYouTubeSource) (PersonalAgentRecord, error) {
+	if strings.TrimSpace(source.URL) == "" {
+		return PersonalAgentRecord{}, errors.New("AppendPersonalAgentYouTubeSource: url required")
+	}
+	rec, err := s.GetPersonalAgent(ctx, agentID)
+	if err != nil {
+		return PersonalAgentRecord{}, err
+	}
+	filtered := make([]PersonalAgentYouTubeSource, 0, len(rec.YouTubeSources)+1)
+	for _, existing := range rec.YouTubeSources {
+		if existing.URL != source.URL {
+			filtered = append(filtered, existing)
+		}
+	}
+	filtered = append(filtered, source)
+	rec.YouTubeSources = filtered
+	if err := s.updatePersonalAgentFields(ctx, agentID, map[string]any{
+		"youtube_sources": marshalYouTubeSources(filtered),
+		"updated_at":      time.Now().UTC().Format(time.RFC3339),
+	}); err != nil {
+		return PersonalAgentRecord{}, err
+	}
+	return rec, nil
+}
+
+// RemovePersonalAgentYouTubeSource drops the source matching URL. No-op when
+// URL is absent; returns the (possibly unchanged) updated record either way.
+func (s *Store) RemovePersonalAgentYouTubeSource(ctx context.Context, agentID, url string) (PersonalAgentRecord, error) {
+	if strings.TrimSpace(url) == "" {
+		return PersonalAgentRecord{}, errors.New("RemovePersonalAgentYouTubeSource: url required")
+	}
+	rec, err := s.GetPersonalAgent(ctx, agentID)
+	if err != nil {
+		return PersonalAgentRecord{}, err
+	}
+	filtered := make([]PersonalAgentYouTubeSource, 0, len(rec.YouTubeSources))
+	for _, existing := range rec.YouTubeSources {
+		if existing.URL != url {
+			filtered = append(filtered, existing)
+		}
+	}
+	rec.YouTubeSources = filtered
+	if err := s.updatePersonalAgentFields(ctx, agentID, map[string]any{
+		"youtube_sources": marshalYouTubeSources(filtered),
+		"updated_at":      time.Now().UTC().Format(time.RFC3339),
+	}); err != nil {
+		return PersonalAgentRecord{}, err
+	}
+	return rec, nil
+}
+
 // DeletePersonalAgent removes the agent record + both indexes in a single
 // transaction. Caller is responsible for cleaning up the Slack app and K8s
 // resources first; this is the durable-state final step.
@@ -264,10 +336,34 @@ func recordToHash(r PersonalAgentRecord) map[string]any {
 		"service_name":        r.ServiceName,
 		"service_port":        r.ServicePort,
 		"bot_user_id":         r.BotUserID,
+		"youtube_sources":     marshalYouTubeSources(r.YouTubeSources),
 		"status":              r.Status,
 		"created_at":          r.CreatedAt,
 		"updated_at":          r.UpdatedAt,
 	}
+}
+
+func marshalYouTubeSources(sources []PersonalAgentYouTubeSource) string {
+	if len(sources) == 0 {
+		return ""
+	}
+	b, err := json.Marshal(sources)
+	if err != nil {
+		return ""
+	}
+	return string(b)
+}
+
+func unmarshalYouTubeSources(raw string) []PersonalAgentYouTubeSource {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return nil
+	}
+	var out []PersonalAgentYouTubeSource
+	if err := json.Unmarshal([]byte(raw), &out); err != nil {
+		return nil
+	}
+	return out
 }
 
 func hashToRecord(vals map[string]string) PersonalAgentRecord {
@@ -292,6 +388,7 @@ func hashToRecord(vals map[string]string) PersonalAgentRecord {
 		ServiceName:       vals["service_name"],
 		ServicePort:       port,
 		BotUserID:         vals["bot_user_id"],
+		YouTubeSources:    unmarshalYouTubeSources(vals["youtube_sources"]),
 		Status:            vals["status"],
 		CreatedAt:         vals["created_at"],
 		UpdatedAt:         vals["updated_at"],
