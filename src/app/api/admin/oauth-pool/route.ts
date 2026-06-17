@@ -206,10 +206,19 @@ async function getAgentTargets(): Promise<AgentTarget[]> {
   return [...staticTargets, ...personalTargets];
 }
 
+// MCP bot users (e.g. "Joanne MCP", "Ross MCP") show up in the workspace
+// users.list with isBot=true but do not draw from the CLAUDE_CODE_OAUTH_TOKEN
+// pool — they're Slack app integrations for the gws-mcp gateway. Filter
+// them out by name so the panel only shows agents that actually consume the
+// pool. Case-insensitive word match on "mcp" across displayName/realName/
+// username catches "Ross MCP", "joanne-mcp", "mcp-bot", etc.
+const MCP_NAME_RE = /\bmcp\b/i;
+
 // fetchSlackBots pulls the workspace user list from the backend and returns
-// the bots-only view (isBot && !isDeleted). The legend uses this as its
-// source of truth — `bot: yes` rows in the admin Slack table are the agents
-// we want to track in the pool, even when their pod is unreachable. A
+// the bots-only view (isBot && !isDeleted, MCPs filtered out). Used purely
+// as a *name enrichment* lookup keyed by Slack user ID — the agent targets
+// (Ross/Joanne static + personal agents discovered from K8s) decide *which*
+// rows render; the Slack table just supplies friendly display names. A
 // non-2xx is logged (per the fail-open gate-fetcher convention) and treated
 // as "Slack table unavailable" so the route can fall back to raw targets.
 async function fetchSlackBots(): Promise<SlackBot[] | null> {
@@ -239,11 +248,17 @@ async function fetchSlackBots(): Promise<SlackBot[] | null> {
       if (!u.isBot || u.isDeleted) continue;
       const id = (u.slackUserId ?? "").trim().toUpperCase();
       if (!id) continue;
-      const dn =
-        (u.realName ?? "").trim() ||
-        (u.displayName ?? "").trim() ||
-        (u.username ?? "").trim() ||
-        id;
+      const realName = (u.realName ?? "").trim();
+      const displayName = (u.displayName ?? "").trim();
+      const username = (u.username ?? "").trim();
+      if (
+        MCP_NAME_RE.test(realName) ||
+        MCP_NAME_RE.test(displayName) ||
+        MCP_NAME_RE.test(username)
+      ) {
+        continue;
+      }
+      const dn = realName || displayName || username || id;
       bots.push({ slackUserID: id, displayName: dn });
     }
     return bots;
@@ -298,59 +313,37 @@ export async function GET() {
     fetchSlackBots(),
   ]);
 
-  // When the Slack table is reachable, treat it as the source of truth:
-  // every bot row gets a card (snapshot if its pod is reachable, "down"
-  // marker otherwise). When the table is down, render whatever targets we
-  // can find — better stale than blank.
-  let agents: AgentResult[];
-  if (slackBots && slackBots.length > 0) {
-    const targetBySlackID = new Map<string, AgentTarget>();
-    const unclaimed: AgentTarget[] = [];
-    for (const t of agentTargets) {
-      if (t.slackUserID && !targetBySlackID.has(t.slackUserID)) {
-        targetBySlackID.set(t.slackUserID, t);
-      } else {
-        unclaimed.push(t);
-      }
-    }
-
-    const resolved: Array<AgentTarget & { displayName: string }> = [];
-    const seenSlackIDs = new Set<string>();
-    for (const bot of slackBots) {
-      seenSlackIDs.add(bot.slackUserID);
-      const match = targetBySlackID.get(bot.slackUserID);
-      if (match) {
-        resolved.push({ ...match, agent: bot.displayName, displayName: bot.displayName });
-      } else {
-        resolved.push({
-          agent: bot.displayName,
-          slackUserID: bot.slackUserID,
-          displayName: bot.displayName,
-        });
-      }
-    }
-    // Surface targets that have no Slack bot match too, so a running pod
-    // doesn't disappear silently if its identity is missing from the table.
-    for (const t of unclaimed) {
-      if (t.slackUserID && seenSlackIDs.has(t.slackUserID)) continue;
-      resolved.push({ ...t, displayName: t.agent });
-    }
-
-    agents = await Promise.all(
-      resolved.map((t) =>
-        t.url
-          ? fetchAgent(t)
-          : Promise.resolve<AgentResult>({
-              agent: t.agent,
-              url: "",
-              ok: false,
-              error: "no pod found for slack bot",
-            })
-      )
-    );
-  } else {
-    agents = await Promise.all(agentTargets.map(fetchAgent));
+  // Targets are the source of truth for *which* rows to render — only
+  // agents that actually draw from the pool (Ross + Joanne static + every
+  // discovered personal-agent pod) show up. The Slack workspace bots table
+  // is used purely to enrich display names by slackUserID; bots without a
+  // matching target are dropped (MCPs in particular — already filtered in
+  // fetchSlackBots — and any other workspace integration that doesn't
+  // consume the pool). De-duped by slackUserID first, then by URL, so
+  // a target that lacks ROSS_SLACK_BOT_ID/JOANNE_SLACK_BOT_ID env wiring
+  // can't collide with itself.
+  const nameBySlackID = new Map<string, string>();
+  if (slackBots) {
+    for (const bot of slackBots) nameBySlackID.set(bot.slackUserID, bot.displayName);
   }
+
+  const seenSlackIDs = new Set<string>();
+  const seenURLs = new Set<string>();
+  const deduped: AgentTarget[] = [];
+  for (const t of agentTargets) {
+    if (t.slackUserID) {
+      if (seenSlackIDs.has(t.slackUserID)) continue;
+      seenSlackIDs.add(t.slackUserID);
+    }
+    if (t.url) {
+      if (seenURLs.has(t.url)) continue;
+      seenURLs.add(t.url);
+    }
+    const displayName = (t.slackUserID && nameBySlackID.get(t.slackUserID)) || t.agent;
+    deduped.push({ ...t, agent: displayName });
+  }
+
+  const agents = await Promise.all(deduped.map(fetchAgent));
 
   return NextResponse.json(
     { agents, checked_at: new Date().toISOString() },
