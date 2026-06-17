@@ -3,10 +3,28 @@ import { NextRequest, NextResponse } from "next/server";
 type ChatRole = "user" | "assistant";
 type ChatMessage = { role: ChatRole; content: string };
 
-const MAX_TURNS = 20;
-const MAX_USER_CHARS = 2000;
-const MAX_TOKENS = 1024;
+// History is re-sent on every call and dominates input cost, so cap turns,
+// per-message size, AND total history size — not just the output ceiling.
+const MAX_TURNS = 12;
+const MAX_USER_CHARS = 1500;
+const MAX_TOTAL_CHARS = 9000;
+const MAX_TOKENS = 768;
 const MODEL = "claude-sonnet-4-6";
+
+// Hosts allowed to call the ask endpoints. A browser sends Origin on every
+// same-origin POST, so legit chat traffic always carries one of these; curl /
+// scripted clients that omit Origin and Referer are rejected. localhost is
+// allowed only outside production for local dev.
+const ALLOWED_ORIGIN_HOSTS = new Set(["makeacompany.ai", "www.makeacompany.ai"]);
+
+// Global circuit breaker across ALL clients. The per-IP limiter below does
+// nothing against IP rotation, so this bounds total upstream calls per hour as
+// a catastrophe backstop. The frontend runs a single replica, so an in-process
+// counter is authoritative (same assumption as the per-IP limiter). This is the
+// app-layer floor; the hard ceiling is the spend/rate limit on the
+// ANTHROPIC_API_KEY_ASK key in the Anthropic Console. Tune as real traffic grows.
+const GLOBAL_PER_HOUR = 1500;
+let GLOBAL_WINDOW = { count: 0, resetAt: 0 };
 
 type Bucket = {
   minute: { count: number; resetAt: number };
@@ -17,12 +35,48 @@ const PER_MINUTE = 3;
 const PER_HOUR = 80;
 
 function clientIp(req: NextRequest): string {
+  // Cloudflare sets CF-Connecting-IP from the real edge connection and strips
+  // client-supplied copies, so prefer it once the zone is proxied. Fall back to
+  // the first X-Forwarded-For hop (spoofable when not behind a trusted proxy).
+  const cf = req.headers.get("cf-connecting-ip")?.trim();
+  if (cf) return cf;
   const fwd = req.headers.get("x-forwarded-for");
   if (fwd) {
     const first = fwd.split(",")[0]?.trim();
     if (first) return first;
   }
   return req.headers.get("x-real-ip")?.trim() || "unknown";
+}
+
+// originAllowed gates the endpoint to requests that originate from the site
+// itself. Checks Origin first (always present on browser POSTs), then Referer.
+function originAllowed(req: NextRequest): boolean {
+  const allowLocalhost = process.env.NODE_ENV !== "production";
+  for (const raw of [req.headers.get("origin"), req.headers.get("referer")]) {
+    if (!raw) continue;
+    try {
+      const host = new URL(raw).hostname;
+      if (ALLOWED_ORIGIN_HOSTS.has(host)) return true;
+      if (allowLocalhost && (host === "localhost" || host === "127.0.0.1")) return true;
+    } catch {
+      // unparseable header — ignore and keep checking
+    }
+  }
+  return false;
+}
+
+// checkGlobal is checked+incremented only right before a real upstream call, so
+// cheap rejected requests (bad origin, bad body) never consume the budget.
+function checkGlobal(): { ok: true } | { ok: false; retryAfter: number } {
+  const now = Date.now();
+  if (now >= GLOBAL_WINDOW.resetAt) {
+    GLOBAL_WINDOW = { count: 0, resetAt: now + 3_600_000 };
+  }
+  if (GLOBAL_WINDOW.count >= GLOBAL_PER_HOUR) {
+    return { ok: false, retryAfter: Math.ceil((GLOBAL_WINDOW.resetAt - now) / 1000) };
+  }
+  GLOBAL_WINDOW.count += 1;
+  return { ok: true };
 }
 
 function checkRate(ip: string): { ok: true } | { ok: false; retryAfter: number } {
@@ -73,7 +127,16 @@ function sanitizeMessages(raw: unknown): ChatMessage[] | null {
   }
   if (out.length === 0) return null;
   if (out[out.length - 1].role !== "user") return null;
-  return out.slice(-MAX_TURNS);
+  let sliced = out.slice(-MAX_TURNS);
+  // Drop oldest turns until total history fits the budget (always keep the
+  // final user turn). History is re-sent every call, so this is the main
+  // per-call cost lever.
+  let total = sliced.reduce((n, m) => n + m.content.length, 0);
+  while (sliced.length > 1 && total > MAX_TOTAL_CHARS) {
+    total -= sliced[0].content.length;
+    sliced = sliced.slice(1);
+  }
+  return sliced;
 }
 
 export async function handleAskEmployee(
@@ -83,6 +146,11 @@ export async function handleAskEmployee(
   const apiKey = process.env.ANTHROPIC_API_KEY_ASK;
   if (!apiKey) {
     return NextResponse.json({ error: "ANTHROPIC_API_KEY_ASK not set" }, { status: 500 });
+  }
+
+  // Same-origin gate first — cheapest rejection, blocks scripted/cross-site callers.
+  if (!originAllowed(req)) {
+    return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
 
   const rate = checkRate(clientIp(req));
@@ -104,6 +172,16 @@ export async function handleAskEmployee(
     return NextResponse.json(
       { error: "messages must be a non-empty array ending in a user turn" },
       { status: 400 },
+    );
+  }
+
+  // Global budget breaker — checked only here, so it counts real upstream calls
+  // and never gets exhausted by cheap rejected requests above.
+  const global = checkGlobal();
+  if (!global.ok) {
+    return NextResponse.json(
+      { error: "service busy, try again shortly" },
+      { status: 429, headers: { "Retry-After": String(global.retryAfter) } },
     );
   }
 
