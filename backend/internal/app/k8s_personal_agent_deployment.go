@@ -40,6 +40,26 @@ func personalAgentDefaultEffort() string {
 	return "high"
 }
 
+// personalAgentLoopModel / personalAgentLoopEffort are the TIER 2 background
+// defaults stamped onto every PA pod. The harness (resolveSpawnSettings) reads
+// them only on loop/watch ticks — unattended recurring spawns — and they sit
+// below a channel pin but above PERSONAL_AGENT_DEFAULT_*. Ticks tier down to
+// non-1M Sonnet: plain claude-sonnet-4-6 runs free on the shared OAuth pool
+// while sonnet-4-6[1m] 429s ("usage credits required for 1M context"), and a
+// bounded tick never needs 1M context. Model-only by default — effort is left
+// empty so ticks keep their per-loop / inherited effort instead of silently
+// dropping exploratory loops below `high`. Override fleet-wide via backend env.
+func personalAgentLoopModel() string {
+	if v := strings.TrimSpace(os.Getenv("PERSONAL_AGENT_LOOP_MODEL")); v != "" {
+		return v
+	}
+	return "claude-sonnet-4-6"
+}
+
+func personalAgentLoopEffort() string {
+	return strings.TrimSpace(os.Getenv("PERSONAL_AGENT_LOOP_EFFORT"))
+}
+
 // PersonalAgentDeploymentRequest carries everything WriteAgentDeployment
 // needs from the provisioner. Image is configurable so the K8s writer
 // doesn't have to read mac-ai Config.
@@ -159,6 +179,14 @@ func (w *PersonalAgentWriter) WriteAgentDeployment(ctx context.Context, req Pers
 							// from the backend env without an image rebuild.
 							{Name: "PERSONAL_AGENT_DEFAULT_MODEL", Value: personalAgentDefaultModel()},
 							{Name: "PERSONAL_AGENT_DEFAULT_EFFORT", Value: personalAgentDefaultEffort()},
+							// Background-tier (TIER 2) defaults for unattended
+							// loop/watch ticks — tier down to non-1M Sonnet so
+							// recurring spawns stop draining the rolling window at
+							// the interactive Opus default. Model-only by default
+							// (effort empty → ticks keep per-loop/inherited effort).
+							// See claude-code-personal-agent#35.
+							{Name: "PERSONAL_AGENT_LOOP_MODEL", Value: personalAgentLoopModel()},
+							{Name: "PERSONAL_AGENT_LOOP_EFFORT", Value: personalAgentLoopEffort()},
 							// ROSS_WORKSPACE is intentionally inherited from the
 							// image (Dockerfile: /data/workspaces) so it stays in
 							// lockstep with the pre-baked chown of that exact
