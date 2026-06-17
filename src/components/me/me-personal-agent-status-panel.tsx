@@ -339,7 +339,7 @@ export function MePersonalAgentStatusPanel({
   const headerImageUrl = stagedIconDataUrl ?? liveSlackIconUrl;
 
   return (
-    <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm ring-1 ring-black/[0.03] dark:ring-white/[0.06]">
+    <section className="overflow-hidden rounded-2xl border border-border bg-white shadow-sm ring-1 ring-black/[0.03] dark:bg-zinc-950 dark:ring-white/[0.06]">
       <header className="flex flex-wrap items-center gap-3 border-b border-border/60 bg-muted/20 px-4 py-4 sm:gap-4 sm:px-5 sm:py-5">
         <button
           type="button"

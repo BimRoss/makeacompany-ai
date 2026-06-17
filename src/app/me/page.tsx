@@ -179,7 +179,7 @@ function ProfileCard({ me }: { me: MePayload }) {
   const tier = pillValue(me.tier);
 
   return (
-    <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm ring-1 ring-black/[0.03] dark:ring-white/[0.06]">
+    <section className="overflow-hidden rounded-2xl border border-border bg-white shadow-sm ring-1 ring-black/[0.03] dark:bg-zinc-950 dark:ring-white/[0.06]">
       <header className="flex flex-wrap items-center gap-3 border-b border-border/60 bg-muted/20 px-4 py-4 sm:gap-4 sm:px-5 sm:py-5">
         <div
           aria-hidden
@@ -292,7 +292,7 @@ function PersonalAgentCard({
   }
 
   return (
-    <section className="rounded-2xl border border-border bg-card p-4 shadow-sm ring-1 ring-black/[0.03] sm:p-5 dark:ring-white/[0.06]">
+    <section className="rounded-2xl border border-border bg-white p-4 shadow-sm ring-1 ring-black/[0.03] sm:p-5 dark:bg-zinc-950 dark:ring-white/[0.06]">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h2 className="text-base font-semibold tracking-tight text-foreground">Personal agent</h2>
