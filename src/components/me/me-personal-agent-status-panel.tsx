@@ -63,6 +63,10 @@ export function MePersonalAgentStatusPanel({
   const [suggesting, setSuggesting] = useState<Field | null>(null);
   const [feedback, setFeedback] = useState<{ kind: "ok" | "err"; message: string } | null>(null);
   const [savedToast, setSavedToast] = useState<string | null>(null);
+  // Delete-confirm UI lives between the form rows and the footer when armed.
+  // The trigger button itself sits in the footer alongside Cancel/Save —
+  // see ConnectionsFooter's edit-mode actions row.
+  const [deleteArmed, setDeleteArmed] = useState(false);
 
   useEffect(() => {
     if (!savedToast) return;
@@ -189,6 +193,7 @@ export function MePersonalAgentStatusPanel({
     setEditOpen(false);
     setIconPickerOpen(false);
     setFeedback(null);
+    setDeleteArmed(false);
   };
 
   async function suggest(field: Field) {
@@ -341,7 +346,7 @@ export function MePersonalAgentStatusPanel({
   const headerImageUrl = stagedIconDataUrl ?? liveSlackIconUrl;
 
   return (
-    <section className="overflow-hidden rounded-2xl bg-white shadow-[0_10px_40px_-12px_rgba(0,0,0,0.18)] ring-1 ring-black/[0.05] transition-shadow duration-200 dark:bg-zinc-950 dark:ring-white/[0.06]">
+    <section className="overflow-hidden rounded-2xl bg-white shadow-[0_10px_40px_-12px_rgba(0,0,0,0.18)] ring-1 ring-black/[0.05] transition-shadow duration-200 hover:shadow-[0_18px_50px_-12px_rgba(0,0,0,0.22)] dark:bg-zinc-950 dark:ring-white/[0.06]">
       <header className="flex flex-wrap items-center gap-3 border-b border-border/60 px-4 py-4 sm:gap-4 sm:px-5 sm:py-5">
         <button
           type="button"
@@ -390,7 +395,7 @@ export function MePersonalAgentStatusPanel({
             </h2>
           )}
           {editOpen ? null : (
-            <p className="truncate pl-2 text-sm text-muted-foreground" title={previewDescription}>
+            <p className="truncate text-sm text-muted-foreground" title={previewDescription}>
               {previewDescription}
             </p>
           )}
@@ -400,15 +405,27 @@ export function MePersonalAgentStatusPanel({
         </div>
       </header>
 
-      {editOpen && iconPickerOpen ? (
-        <div className="border-b border-border/60 bg-muted/10 px-4 py-4 sm:px-5">
-          <MePersonalAgentIconPicker
-            previewDataUrl={stagedIconDataUrl ?? liveSlackIconUrl}
-            onChange={onIconChange}
-            disabled={submitting}
-            displayName={name}
-            description={description}
-          />
+      {editOpen ? (
+        <div
+          className={`grid transition-[grid-template-rows] duration-300 ease-out ${
+            iconPickerOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+          }`}
+        >
+          <div className="overflow-hidden">
+            <div
+              className={`border-b border-border/60 bg-muted/10 px-4 transition-[padding] duration-300 ease-out sm:px-5 ${
+                iconPickerOpen ? "py-4" : "py-0"
+              }`}
+            >
+              <MePersonalAgentIconPicker
+                previewDataUrl={stagedIconDataUrl ?? liveSlackIconUrl}
+                onChange={onIconChange}
+                disabled={submitting}
+                displayName={name}
+                description={description}
+              />
+            </div>
+          </div>
         </div>
       ) : null}
 
@@ -507,11 +524,20 @@ export function MePersonalAgentStatusPanel({
       ) : null}
 
       {editOpen ? (
-        <DeleteAgentInline
-          displayName={agent.displayName?.trim() || "your agent"}
-          disabled={submitting}
-          onDeleted={() => router.refresh()}
-        />
+        <div
+          className={`grid transition-[grid-template-rows] duration-300 ease-out ${
+            deleteArmed ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+          }`}
+        >
+          <div className="overflow-hidden">
+            <DeleteAgentConfirm
+              displayName={agent.displayName?.trim() || "your agent"}
+              disabled={submitting}
+              onCancel={() => setDeleteArmed(false)}
+              onDeleted={() => router.refresh()}
+            />
+          </div>
+        </div>
       ) : null}
 
       <ConnectionsFooter
@@ -521,6 +547,8 @@ export function MePersonalAgentStatusPanel({
         onEdit={enterEdit}
         onCancel={exitEdit}
         onSave={save}
+        onRequestDelete={() => setDeleteArmed(true)}
+        deleteArmed={deleteArmed}
       />
       {savedToast ? (
         <div className="pointer-events-none fixed inset-x-0 bottom-6 z-[70] flex justify-center px-4">
@@ -646,6 +674,8 @@ function ConnectionsFooter({
   onEdit,
   onCancel,
   onSave,
+  onRequestDelete,
+  deleteArmed,
 }: {
   editOpen: boolean;
   showEdit: boolean;
@@ -653,6 +683,8 @@ function ConnectionsFooter({
   onEdit: () => void;
   onCancel: () => void;
   onSave: () => void;
+  onRequestDelete: () => void;
+  deleteArmed: boolean;
 }) {
   const [toast, setToast] = useState<string | null>(null);
 
@@ -666,50 +698,62 @@ function ConnectionsFooter({
 
   return (
     <footer className="border-t border-border/60">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-4 sm:flex-nowrap sm:px-5">
-        <p className="shrink-0 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          Connections
-        </p>
-        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 sm:flex-nowrap sm:overflow-x-auto">
-          <ConnectChip label="GitHub" icon={<GitHubGlyph />} onClick={announce} />
-          <ConnectChip label="Google" icon={<GoogleGlyph />} onClick={announce} />
-          <ConnectChip label="Shopify" icon={<ShopifyGlyph />} onClick={announce} />
-          <ConnectChip label="Cloudflare" icon={<CloudflareGlyph />} onClick={announce} />
-          <ConnectChip
-            label="SSH"
-            icon={<TerminalSquare className="h-4 w-4 text-foreground/80" aria-hidden />}
-            onClick={announce}
-          />
+      {!editOpen ? (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-4 sm:flex-nowrap sm:px-5">
+          <p className="shrink-0 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Connections
+          </p>
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 sm:flex-nowrap sm:overflow-x-auto">
+            <ConnectChip label="GitHub" icon={<GitHubGlyph />} onClick={announce} />
+            <ConnectChip label="Google" icon={<GoogleGlyph />} onClick={announce} />
+            <ConnectChip label="Shopify" icon={<ShopifyGlyph />} onClick={announce} />
+            <ConnectChip label="Cloudflare" icon={<CloudflareGlyph />} onClick={announce} />
+            <ConnectChip
+              label="SSH"
+              icon={<TerminalSquare className="h-4 w-4 text-foreground/80" aria-hidden />}
+              onClick={announce}
+            />
+          </div>
+          {showEdit ? (
+            <button
+              type="button"
+              onClick={onEdit}
+              className="ml-auto inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-border bg-background px-3.5 text-xs font-medium text-foreground transition hover:border-foreground/30 hover:bg-muted/50 dark:bg-zinc-950 dark:hover:bg-zinc-900"
+            >
+              <PenIcon />
+              Edit
+            </button>
+          ) : null}
         </div>
-        {!editOpen && showEdit ? (
-          <button
-            type="button"
-            onClick={onEdit}
-            className="ml-auto inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-border bg-background px-3.5 text-xs font-medium text-foreground transition hover:border-foreground/30 hover:bg-muted/50 dark:bg-zinc-950 dark:hover:bg-zinc-900"
-          >
-            <PenIcon />
-            Edit
-          </button>
-        ) : null}
-      </div>
+      ) : null}
       {editOpen ? (
-        <div className="flex items-center justify-end gap-2 border-t border-border/60 bg-muted/20 px-4 py-3 sm:px-5">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-2 bg-muted/20 px-4 py-3 sm:px-5">
           <button
             type="button"
-            onClick={onCancel}
-            disabled={submitting}
-            className="inline-flex h-9 items-center rounded-full px-3 text-xs font-medium text-muted-foreground transition hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+            onClick={onRequestDelete}
+            disabled={submitting || deleteArmed}
+            className="inline-flex h-9 items-center rounded-full px-3 text-xs font-semibold text-rose-600 transition-colors hover:text-rose-700 disabled:cursor-not-allowed disabled:opacity-50 dark:text-rose-400 dark:hover:text-rose-300"
           >
-            Cancel
+            Delete this agent
           </button>
-          <button
-            type="button"
-            onClick={onSave}
-            disabled={submitting}
-            className="inline-flex h-9 items-center rounded-full bg-foreground px-4 text-xs font-semibold text-background shadow-sm transition hover:bg-foreground/90 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {submitting ? "Saving..." : "Save & sync"}
-          </button>
+          <div className="ml-auto flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onCancel}
+              disabled={submitting}
+              className="inline-flex h-9 items-center rounded-full px-3 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={onSave}
+              disabled={submitting}
+              className="inline-flex h-9 items-center rounded-full bg-foreground px-4 text-xs font-semibold text-background shadow-sm transition-transform duration-150 hover:bg-foreground/90 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {submitting ? "Saving..." : "Save & sync"}
+            </button>
+          </div>
         </div>
       ) : null}
       {toast ? (
@@ -749,16 +793,17 @@ function ConnectChip({
   );
 }
 
-function DeleteAgentInline({
+function DeleteAgentConfirm({
   displayName,
   disabled,
+  onCancel,
   onDeleted,
 }: {
   displayName: string;
   disabled: boolean;
+  onCancel: () => void;
   onDeleted: () => void;
 }) {
-  const [armed, setArmed] = useState(false);
   const [confirmText, setConfirmText] = useState("");
   const [wipeWorkspace, setWipeWorkspace] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -791,21 +836,6 @@ function DeleteAgentInline({
     } finally {
       setSubmitting(false);
     }
-  }
-
-  if (!armed) {
-    return (
-      <div className="border-t border-border/60 px-4 py-3 sm:px-5">
-        <button
-          type="button"
-          onClick={() => setArmed(true)}
-          disabled={disabled}
-          className="text-xs font-semibold text-rose-600 transition hover:text-rose-700 disabled:cursor-not-allowed disabled:opacity-50 dark:text-rose-400 dark:hover:text-rose-300"
-        >
-          Delete this agent
-        </button>
-      </div>
-    );
   }
 
   return (
@@ -841,11 +871,11 @@ function DeleteAgentInline({
           <button
             type="button"
             onClick={() => {
-              setArmed(false);
               setConfirmText("");
               setError(null);
+              onCancel();
             }}
-            disabled={submitting}
+            disabled={submitting || disabled}
             className="inline-flex h-9 items-center justify-center rounded-lg px-3 text-xs font-medium text-rose-700 transition hover:text-rose-800 disabled:cursor-not-allowed disabled:opacity-50 dark:text-rose-300 dark:hover:text-rose-200"
           >
             Cancel
@@ -853,7 +883,7 @@ function DeleteAgentInline({
           <button
             type="button"
             onClick={doDelete}
-            disabled={!canSubmit || submitting}
+            disabled={!canSubmit || submitting || disabled}
             className="inline-flex h-9 items-center justify-center rounded-lg bg-rose-600 px-3 text-xs font-semibold text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {submitting ? "Deleting..." : "Delete agent"}

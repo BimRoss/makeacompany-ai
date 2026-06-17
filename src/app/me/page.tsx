@@ -181,8 +181,8 @@ function ProfileCard({ me }: { me: MePayload }) {
   const tier = pillValue(me.tier);
 
   return (
-    <section className="overflow-hidden rounded-2xl border border-border bg-white shadow-sm ring-1 ring-black/[0.03] dark:bg-zinc-950 dark:ring-white/[0.06]">
-      <header className="flex flex-wrap items-center gap-3 border-b border-border/60 bg-muted/20 px-4 py-4 sm:gap-4 sm:px-5 sm:py-5">
+    <section className="overflow-hidden rounded-2xl bg-white shadow-[0_10px_40px_-12px_rgba(0,0,0,0.18)] ring-1 ring-black/[0.05] transition-shadow duration-200 hover:shadow-[0_18px_50px_-12px_rgba(0,0,0,0.22)] dark:bg-zinc-950 dark:ring-white/[0.06]">
+      <header className="flex flex-wrap items-center gap-3 border-b border-border/60 px-4 py-4 sm:gap-4 sm:px-5 sm:py-5">
         <div
           aria-hidden
           className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-foreground/90 text-xl font-semibold text-background"
@@ -297,7 +297,7 @@ function PersonalAgentCard({
   }
 
   return (
-    <section className="rounded-2xl border border-border bg-white p-4 shadow-sm ring-1 ring-black/[0.03] sm:p-5 dark:bg-zinc-950 dark:ring-white/[0.06]">
+    <section className="rounded-2xl bg-white p-4 shadow-[0_10px_40px_-12px_rgba(0,0,0,0.18)] ring-1 ring-black/[0.05] transition-shadow duration-200 hover:shadow-[0_18px_50px_-12px_rgba(0,0,0,0.22)] sm:p-5 dark:bg-zinc-950 dark:ring-white/[0.06]">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h2 className="text-base font-semibold tracking-tight text-foreground">Personal agent</h2>
