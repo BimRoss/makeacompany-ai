@@ -47,6 +47,8 @@ func (s *Server) handleEditPersonalAgent(w http.ResponseWriter, r *http.Request)
 	newName := strings.TrimSpace(req.DisplayName)
 	newDesc := strings.TrimSpace(req.Description)
 	newSystemPrompt := strings.TrimSpace(req.SystemPrompt)
+	s.log.Printf("edit personal agent %s: name=%d desc=%d longDesc=%d systemPrompt=%d",
+		rec.ID, len(newName), len(newDesc), len(strings.TrimSpace(req.LongDescription)), len(newSystemPrompt))
 	if newName == "" && newDesc == "" && strings.TrimSpace(req.LongDescription) == "" && newSystemPrompt == "" {
 		http.Error(w, "no fields to update", http.StatusBadRequest)
 		return
