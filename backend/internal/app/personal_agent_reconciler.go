@@ -64,6 +64,33 @@ func (s *Server) reconcilePersonalAgentImages(ctx context.Context, force bool) r
 			continue
 		}
 
+		// Retrofit path: pre-fix deployments name their workspace volume
+		// something other than "data", so strategic-merge-patching in the
+		// new chown init container (whose volumeMount references "data")
+		// fails K8s validation. For those, rebuild the spec authoritatively
+		// via WriteAgentDeployment instead of patching, which replaces the
+		// pod template wholesale (new volume name, init container, image).
+		if needsInitContainer {
+			req, err := personalAgentReqFromDeployment(dep, desired)
+			if err != nil {
+				result.Errors = append(result.Errors, fmt.Sprintf("rebuild req for %s: %v", dep.Name, err))
+				continue
+			}
+			if err := s.personalAgent.WriteAgentDeployment(ctx, req); err != nil {
+				result.Errors = append(result.Errors, fmt.Sprintf("rewrite deployment %s: %v", dep.Name, err))
+				continue
+			}
+			result.InitContainer++
+			s.log.Printf("personal-agent reconciler retrofit %s/%s via full Update (init container + canonical volume)", ns, dep.Name)
+			if needsImagePatch {
+				result.ImageBumped++
+			}
+			if needsRestart {
+				result.Restarted++
+			}
+			continue
+		}
+
 		templateSpec := map[string]any{}
 		if needsImagePatch {
 			templateSpec["containers"] = []any{
@@ -72,22 +99,6 @@ func (s *Server) reconcilePersonalAgentImages(ctx context.Context, force bool) r
 					"image": desired,
 				},
 			}
-		}
-		if needsInitContainer {
-			initSpec := personalAgentInitContainers(dep.Name)
-			// json round-trip so the patch carries the same JSON shape the
-			// API server would serialize from a Go corev1.Container.
-			initBytes, err := json.Marshal(initSpec)
-			if err != nil {
-				result.Errors = append(result.Errors, fmt.Sprintf("marshal init container for %s: %v", dep.Name, err))
-				continue
-			}
-			var initRaw []any
-			if err := json.Unmarshal(initBytes, &initRaw); err != nil {
-				result.Errors = append(result.Errors, fmt.Sprintf("unmarshal init container for %s: %v", dep.Name, err))
-				continue
-			}
-			templateSpec["initContainers"] = initRaw
 		}
 
 		patchObj := map[string]any{
@@ -157,6 +168,61 @@ func hasPersonalAgentInitContainer(dep interface{}) bool {
 		}
 	}
 	return false
+}
+
+// personalAgentReqFromDeployment reconstructs the WriteAgentDeployment
+// request from an existing Deployment's labels/annotations/env, so the
+// reconciler can retrofit pre-fix deployments by replaying the writer
+// without a DB round-trip. desiredImage overrides the in-spec image so
+// the rebuild also picks up any image bump in the same pass.
+func personalAgentReqFromDeployment(dep interface{}, desiredImage string) (PersonalAgentDeploymentRequest, error) {
+	type podSpec struct {
+		Template struct {
+			Spec struct {
+				Containers []corev1.Container `json:"containers"`
+			} `json:"spec"`
+		} `json:"template"`
+	}
+	type depShape struct {
+		Metadata struct {
+			Labels      map[string]string `json:"labels"`
+			Annotations map[string]string `json:"annotations"`
+		} `json:"metadata"`
+		Spec podSpec `json:"spec"`
+	}
+	buf, err := json.Marshal(dep)
+	if err != nil {
+		return PersonalAgentDeploymentRequest{}, fmt.Errorf("marshal: %w", err)
+	}
+	var d depShape
+	if err := json.Unmarshal(buf, &d); err != nil {
+		return PersonalAgentDeploymentRequest{}, fmt.Errorf("unmarshal: %w", err)
+	}
+	slackUserID := strings.TrimSpace(d.Metadata.Annotations[personalAgentAnnoSlackUserID])
+	if slackUserID == "" {
+		return PersonalAgentDeploymentRequest{}, fmt.Errorf("annotation %s missing", personalAgentAnnoSlackUserID)
+	}
+	var owner, display string
+	for _, c := range d.Spec.Template.Spec.Containers {
+		if c.Name != "personal-agent" {
+			continue
+		}
+		for _, e := range c.Env {
+			switch e.Name {
+			case "AGENT_OWNER_USER_ID":
+				owner = e.Value
+			case "AGENT_DISPLAY_NAME":
+				display = e.Value
+			}
+		}
+	}
+	return PersonalAgentDeploymentRequest{
+		SlackUserID:      slackUserID,
+		OwnerSlackUserID: owner,
+		DisplayName:      display,
+		AgentID:          strings.TrimSpace(d.Metadata.Labels["bimross.com/agent-id"]),
+		Image:            desiredImage,
+	}, nil
 }
 
 func containerImage(dep interface{}) string {
