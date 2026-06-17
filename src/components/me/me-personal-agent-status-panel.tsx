@@ -383,7 +383,7 @@ export function MePersonalAgentStatusPanel({
               />
             </div>
           ) : (
-            <h2 className="truncate border border-transparent py-1 pl-2 pr-9 text-lg font-semibold tracking-tight text-foreground sm:text-xl">
+            <h2 className="truncate text-lg font-semibold tracking-tight text-foreground sm:text-xl">
               {displayName}
             </h2>
           )}
