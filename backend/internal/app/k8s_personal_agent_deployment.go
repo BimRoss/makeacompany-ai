@@ -4,15 +4,41 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/utils/ptr"
 )
+
+// personalAgentOAuthPoolSecretName is the reflected shared Claude OAuth token
+// pool Secret (source of truth: cluster-bootstrap/claude-oauth-pool, mirrored
+// into the personal-agents namespace). Per-agent pods envFrom it so a pool
+// rotation reaches every agent without rewriting per-agent Secrets.
+const personalAgentOAuthPoolSecretName = "claude-oauth-pool"
+
+// personalAgentDefaultModel / personalAgentDefaultEffort are stamped onto every
+// generated PA pod. Default to opus-4-7[1m] (what the shared OAuth pool accounts
+// support free on the 5h rolling limit; sonnet-4-6[1m] 429s without usage
+// credits). Override fleet-wide via the backend env without an image rebuild.
+func personalAgentDefaultModel() string {
+	if v := strings.TrimSpace(os.Getenv("PERSONAL_AGENT_DEFAULT_MODEL")); v != "" {
+		return v
+	}
+	return "claude-opus-4-7[1m]"
+}
+
+func personalAgentDefaultEffort() string {
+	if v := strings.TrimSpace(os.Getenv("PERSONAL_AGENT_DEFAULT_EFFORT")); v != "" {
+		return v
+	}
+	return "high"
+}
 
 // PersonalAgentDeploymentRequest carries everything WriteAgentDeployment
 // needs from the provisioner. Image is configurable so the K8s writer
@@ -97,14 +123,42 @@ func (w *PersonalAgentWriter) WriteAgentDeployment(ctx context.Context, req Pers
 								Protocol:      corev1.ProtocolTCP,
 							},
 						},
-						EnvFrom: []corev1.EnvFromSource{{
-							SecretRef: &corev1.SecretEnvSource{
-								LocalObjectReference: corev1.LocalObjectReference{Name: secretName},
+						EnvFrom: []corev1.EnvFromSource{
+							{
+								SecretRef: &corev1.SecretEnvSource{
+									LocalObjectReference: corev1.LocalObjectReference{Name: secretName},
+								},
 							},
-						}},
+							// Shared Claude OAuth token pool, reflected into the
+							// personal-agents namespace from cluster-bootstrap
+							// (see rancher-admin admin/apps/cluster-bootstrap).
+							// Listed AFTER the per-agent Secret so the pool's
+							// CLAUDE_CODE_OAUTH_TOKEN[_2] win on collision — this
+							// is what lets a pool rotation reach every agent
+							// without rewriting per-agent Secrets. Optional so a
+							// pod still boots if the mirror is briefly absent;
+							// the per-agent copy written by WriteAgentRuntimeSecret
+							// remains as the fallback during migration.
+							{
+								SecretRef: &corev1.SecretEnvSource{
+									LocalObjectReference: corev1.LocalObjectReference{Name: personalAgentOAuthPoolSecretName},
+									Optional:             ptr.To(true),
+								},
+							},
+						},
 						Env: []corev1.EnvVar{
 							{Name: "AGENT_OWNER_USER_ID", Value: strings.TrimSpace(req.OwnerSlackUserID)},
 							{Name: "AGENT_DISPLAY_NAME", Value: strings.TrimSpace(req.DisplayName)},
+							// Stamp the spawn model/effort defaults onto every PA
+							// pod so they hold regardless of which PA image is
+							// running (the baked-in handlers.go constant could be
+							// stale) and survive re-provisioning. opus-4-7[1m] is
+							// what the shared OAuth pool accounts support free on
+							// the 5h rolling limit; sonnet-4-6[1m] 429s ("usage
+							// credits required for 1M context"). Override fleet-wide
+							// from the backend env without an image rebuild.
+							{Name: "PERSONAL_AGENT_DEFAULT_MODEL", Value: personalAgentDefaultModel()},
+							{Name: "PERSONAL_AGENT_DEFAULT_EFFORT", Value: personalAgentDefaultEffort()},
 							// ROSS_WORKSPACE is intentionally inherited from the
 							// image (Dockerfile: /data/workspaces) so it stays in
 							// lockstep with the pre-baked chown of that exact
@@ -239,7 +293,7 @@ const (
 	personalAgentRuntimeGID int64 = 1000
 )
 
-func int64Ptr(v int64) *int64                              { return &v }
+func int64Ptr(v int64) *int64                                    { return &v }
 func hostPathTypePtr(t corev1.HostPathType) *corev1.HostPathType { return &t }
 
 // personalAgentInitContainerName is the name of the init container that

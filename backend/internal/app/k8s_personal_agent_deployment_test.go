@@ -34,6 +34,16 @@ func TestWriteAgentDeployment_CreatesDeployment(t *testing.T) {
 	if c.EnvFrom[0].SecretRef.Name != personalAgentSecretName(req.SlackUserID) {
 		t.Errorf("envFrom secret = %q", c.EnvFrom[0].SecretRef.Name)
 	}
+	// The reflected shared OAuth pool must be envFrom'd AFTER the per-agent
+	// Secret (so its CLAUDE_CODE_OAUTH_TOKEN[_2] win on collision) and be
+	// optional (so a missing mirror never crashes the pod).
+	if len(c.EnvFrom) < 2 || c.EnvFrom[1].SecretRef == nil ||
+		c.EnvFrom[1].SecretRef.Name != personalAgentOAuthPoolSecretName {
+		t.Fatalf("expected pool envFrom %q at index 1, got %+v", personalAgentOAuthPoolSecretName, c.EnvFrom)
+	}
+	if c.EnvFrom[1].SecretRef.Optional == nil || !*c.EnvFrom[1].SecretRef.Optional {
+		t.Errorf("pool envFrom must be optional=true")
+	}
 	gotEnv := map[string]string{}
 	for _, e := range c.Env {
 		gotEnv[e.Name] = e.Value
@@ -43,6 +53,14 @@ func TestWriteAgentDeployment_CreatesDeployment(t *testing.T) {
 	}
 	if gotEnv["AGENT_DISPLAY_NAME"] != "Garth" {
 		t.Errorf("AGENT_DISPLAY_NAME = %q", gotEnv["AGENT_DISPLAY_NAME"])
+	}
+	// Model/effort defaults must be stamped so PA pods don't fall back to a
+	// stale baked-in constant (sonnet-4-6[1m], which 429s without usage credits).
+	if gotEnv["PERSONAL_AGENT_DEFAULT_MODEL"] != "claude-opus-4-7[1m]" {
+		t.Errorf("PERSONAL_AGENT_DEFAULT_MODEL = %q, want claude-opus-4-7[1m]", gotEnv["PERSONAL_AGENT_DEFAULT_MODEL"])
+	}
+	if gotEnv["PERSONAL_AGENT_DEFAULT_EFFORT"] != "high" {
+		t.Errorf("PERSONAL_AGENT_DEFAULT_EFFORT = %q, want high", gotEnv["PERSONAL_AGENT_DEFAULT_EFFORT"])
 	}
 	if _, present := gotEnv["ROSS_WORKSPACE"]; present {
 		t.Errorf("ROSS_WORKSPACE should be inherited from the image, not overridden in the pod spec (got %q)", gotEnv["ROSS_WORKSPACE"])
