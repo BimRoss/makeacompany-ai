@@ -156,13 +156,25 @@ func (c *SlackManifestClient) UpdateManifest(ctx context.Context, appID string, 
 		"manifest": json.RawMessage(manifest),
 	}
 	var resp struct {
-		OK    bool   `json:"ok"`
-		Error string `json:"error,omitempty"`
+		OK     bool   `json:"ok"`
+		Error  string `json:"error,omitempty"`
+		Errors []struct {
+			Code    string `json:"code,omitempty"`
+			Message string `json:"message,omitempty"`
+			Pointer string `json:"pointer,omitempty"`
+		} `json:"errors,omitempty"`
 	}
 	if err := c.callJSONWithRefresh(ctx, "/api/apps.manifest.update", body, &resp); err != nil {
 		return err
 	}
 	if !resp.OK {
+		if len(resp.Errors) > 0 {
+			detail := make([]string, 0, len(resp.Errors))
+			for _, e := range resp.Errors {
+				detail = append(detail, fmt.Sprintf("%s@%s: %s", e.Code, e.Pointer, e.Message))
+			}
+			return fmt.Errorf("apps.manifest.update rejected: %s (%s)", resp.Error, strings.Join(detail, "; "))
+		}
 		return fmt.Errorf("apps.manifest.update rejected: %s", resp.Error)
 	}
 	return nil
