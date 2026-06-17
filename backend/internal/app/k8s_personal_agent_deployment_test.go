@@ -62,6 +62,15 @@ func TestWriteAgentDeployment_CreatesDeployment(t *testing.T) {
 	if gotEnv["PERSONAL_AGENT_DEFAULT_EFFORT"] != "high" {
 		t.Errorf("PERSONAL_AGENT_DEFAULT_EFFORT = %q, want high", gotEnv["PERSONAL_AGENT_DEFAULT_EFFORT"])
 	}
+	// Background-tier (TIER 2) default for unattended loop/watch ticks: non-1M
+	// Sonnet, which runs free on the pool (sonnet-4-6[1m] 429s). Model-only —
+	// effort stays empty so ticks keep their per-loop / inherited effort.
+	if gotEnv["PERSONAL_AGENT_LOOP_MODEL"] != "claude-sonnet-4-6" {
+		t.Errorf("PERSONAL_AGENT_LOOP_MODEL = %q, want claude-sonnet-4-6", gotEnv["PERSONAL_AGENT_LOOP_MODEL"])
+	}
+	if gotEnv["PERSONAL_AGENT_LOOP_EFFORT"] != "" {
+		t.Errorf("PERSONAL_AGENT_LOOP_EFFORT = %q, want empty (per-loop effort preserved)", gotEnv["PERSONAL_AGENT_LOOP_EFFORT"])
+	}
 	if _, present := gotEnv["ROSS_WORKSPACE"]; present {
 		t.Errorf("ROSS_WORKSPACE should be inherited from the image, not overridden in the pod spec (got %q)", gotEnv["ROSS_WORKSPACE"])
 	}

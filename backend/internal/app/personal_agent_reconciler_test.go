@@ -152,6 +152,120 @@ func TestReconcilePersonalAgentImages_SkipsWhenInitContainerAlreadyPresent(t *te
 	}
 }
 
+func TestSpawnEnvDrift(t *testing.T) {
+	desired := map[string]string{
+		"PERSONAL_AGENT_DEFAULT_MODEL":  "claude-opus-4-7[1m]",
+		"PERSONAL_AGENT_DEFAULT_EFFORT": "high",
+		"PERSONAL_AGENT_LOOP_MODEL":     "claude-sonnet-4-6",
+		"PERSONAL_AGENT_LOOP_EFFORT":    "", // empty desired → never patched
+	}
+	mkDep := func(env ...corev1.EnvVar) *appsv1.Deployment {
+		return &appsv1.Deployment{Spec: appsv1.DeploymentSpec{Template: corev1.PodTemplateSpec{
+			Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: "personal-agent", Env: env}}},
+		}}}
+	}
+	names := func(d []corev1.EnvVar) []string {
+		out := make([]string, len(d))
+		for i, e := range d {
+			out[i] = e.Name
+		}
+		return out
+	}
+	eq := func(a, b []string) bool {
+		if len(a) != len(b) {
+			return false
+		}
+		for i := range a {
+			if a[i] != b[i] {
+				return false
+			}
+		}
+		return true
+	}
+
+	// Missing all model env → the 3 non-empty desired vars, in fixed order,
+	// LOOP_EFFORT excluded (empty desired).
+	drift := spawnEnvDrift(mkDep(corev1.EnvVar{Name: "AGENT_DISPLAY_NAME", Value: "x"}), desired)
+	want := []string{"PERSONAL_AGENT_DEFAULT_MODEL", "PERSONAL_AGENT_DEFAULT_EFFORT", "PERSONAL_AGENT_LOOP_MODEL"}
+	if !eq(names(drift), want) {
+		t.Errorf("missing-all drift = %v, want %v", names(drift), want)
+	}
+
+	// Fully converged → no drift.
+	converged := spawnEnvDrift(mkDep(
+		corev1.EnvVar{Name: "PERSONAL_AGENT_DEFAULT_MODEL", Value: "claude-opus-4-7[1m]"},
+		corev1.EnvVar{Name: "PERSONAL_AGENT_DEFAULT_EFFORT", Value: "high"},
+		corev1.EnvVar{Name: "PERSONAL_AGENT_LOOP_MODEL", Value: "claude-sonnet-4-6"},
+	), desired)
+	if len(converged) != 0 {
+		t.Errorf("converged drift = %v, want none", names(converged))
+	}
+
+	// Only LOOP_MODEL wrong → patch just that one.
+	one := spawnEnvDrift(mkDep(
+		corev1.EnvVar{Name: "PERSONAL_AGENT_DEFAULT_MODEL", Value: "claude-opus-4-7[1m]"},
+		corev1.EnvVar{Name: "PERSONAL_AGENT_DEFAULT_EFFORT", Value: "high"},
+		corev1.EnvVar{Name: "PERSONAL_AGENT_LOOP_MODEL", Value: "claude-opus-4-7[1m]"},
+	), desired)
+	if !eq(names(one), []string{"PERSONAL_AGENT_LOOP_MODEL"}) {
+		t.Errorf("single-drift = %v, want [PERSONAL_AGENT_LOOP_MODEL]", names(one))
+	}
+	if len(one) == 1 && one[0].Value != "claude-sonnet-4-6" {
+		t.Errorf("LOOP_MODEL drift value = %q, want claude-sonnet-4-6", one[0].Value)
+	}
+}
+
+// A pod that already has the init container + desired image but is missing the
+// background-tier env must get it stamped in via the env-reconcile path — this
+// is how the 4 live PA pods pick up PERSONAL_AGENT_LOOP_MODEL without a
+// full re-provision. See claude-code-personal-agent#35.
+func TestReconcilePersonalAgentImages_ConvergesSpawnEnvDrift(t *testing.T) {
+	name := personalAgentResourceName("UC")
+	dep := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name, Namespace: "personal-agents",
+			Labels: map[string]string{
+				"app.kubernetes.io/managed-by": personalAgentManagedByLabelValue,
+				"bimross.com/agent-id":         "agent-UC",
+			},
+			Annotations: map[string]string{personalAgentAnnoSlackUserID: "UC"},
+		},
+		Spec: appsv1.DeploymentSpec{Template: corev1.PodTemplateSpec{Spec: corev1.PodSpec{
+			InitContainers: []corev1.Container{{Name: personalAgentInitContainerName}},
+			Containers: []corev1.Container{{
+				Name: "personal-agent", Image: "img:new",
+				Env: []corev1.EnvVar{{Name: "AGENT_DISPLAY_NAME", Value: "Agent UC"}},
+			}},
+		}}},
+	}
+	cs := fake.NewSimpleClientset(dep)
+	w := newPersonalAgentWriterWithClient(cs, "personal-agents", "", "")
+	srv := &Server{log: log.Default(), personalAgent: w, cfg: Config{PersonalAgentImage: "img:new"}}
+
+	result := srv.reconcilePersonalAgentImages(context.Background(), false)
+	if result.EnvReconciled != 1 {
+		t.Fatalf("EnvReconciled = %d, want 1", result.EnvReconciled)
+	}
+	if result.ImageBumped != 0 || result.InitContainer != 0 {
+		t.Errorf("unexpected other work: %+v", result)
+	}
+	got, _ := cs.AppsV1().Deployments("personal-agents").Get(context.Background(), name, metav1.GetOptions{})
+	env := map[string]string{}
+	for _, e := range got.Spec.Template.Spec.Containers[0].Env {
+		env[e.Name] = e.Value
+	}
+	if env["PERSONAL_AGENT_LOOP_MODEL"] != "claude-sonnet-4-6" {
+		t.Errorf("LOOP_MODEL after reconcile = %q, want claude-sonnet-4-6", env["PERSONAL_AGENT_LOOP_MODEL"])
+	}
+	if env["AGENT_DISPLAY_NAME"] != "Agent UC" {
+		t.Errorf("strategic merge clobbered existing env: AGENT_DISPLAY_NAME=%q", env["AGENT_DISPLAY_NAME"])
+	}
+	// Idempotent: second pass finds no drift.
+	if r2 := srv.reconcilePersonalAgentImages(context.Background(), false); r2.EnvReconciled != 0 {
+		t.Errorf("second pass EnvReconciled = %d, want 0 (already converged)", r2.EnvReconciled)
+	}
+}
+
 func TestReconcilePersonalAgentImages_NoopOnDisabledWriter(t *testing.T) {
 	srv := &Server{log: log.Default(), personalAgent: nil, cfg: Config{PersonalAgentImage: "img:new"}}
 	r := srv.reconcilePersonalAgentImages(context.Background(), true)

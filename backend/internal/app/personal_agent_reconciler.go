@@ -29,6 +29,7 @@ type reconcileAgentImagesResult struct {
 	ImageBumped   int      `json:"imageBumped"`
 	Restarted     int      `json:"restarted"`
 	InitContainer int      `json:"initContainerPatched"`
+	EnvReconciled int      `json:"envReconciled"`
 	Errors        []string `json:"errors,omitempty"`
 }
 
@@ -52,6 +53,17 @@ func (s *Server) reconcilePersonalAgentImages(ctx context.Context, force bool) r
 	}
 	result.Inspected = len(deps.Items)
 	now := time.Now().UTC().Format(time.RFC3339)
+	// Desired spawn-model env (interactive DEFAULT_* + background-tier LOOP_*).
+	// The reconciler converges live pods onto these so a model/tier change in
+	// backend config reaches every existing agent — the image-bump path alone
+	// never touches env, so without this an env change only lands on freshly
+	// provisioned or full-rebuilt pods. See claude-code-personal-agent#35.
+	desiredSpawnEnv := map[string]string{
+		"PERSONAL_AGENT_DEFAULT_MODEL":  personalAgentDefaultModel(),
+		"PERSONAL_AGENT_DEFAULT_EFFORT": personalAgentDefaultEffort(),
+		"PERSONAL_AGENT_LOOP_MODEL":     personalAgentLoopModel(),
+		"PERSONAL_AGENT_LOOP_EFFORT":    personalAgentLoopEffort(),
+	}
 
 	for i := range deps.Items {
 		dep := &deps.Items[i]
@@ -59,8 +71,13 @@ func (s *Server) reconcilePersonalAgentImages(ctx context.Context, force bool) r
 		needsImagePatch := current != desired
 		needsInitContainer := !hasPersonalAgentInitContainer(dep)
 		needsRestart := force
+		// The retrofit path rebuilds the pod template wholesale via
+		// WriteAgentDeployment, which already stamps the current spawn env, so
+		// env drift only needs an explicit patch on the non-retrofit path.
+		driftEnv := spawnEnvDrift(dep, desiredSpawnEnv)
+		needsEnvReconcile := len(driftEnv) > 0
 
-		if !needsImagePatch && !needsRestart && !needsInitContainer {
+		if !needsImagePatch && !needsRestart && !needsInitContainer && !needsEnvReconcile {
 			continue
 		}
 
@@ -113,13 +130,17 @@ func (s *Server) reconcilePersonalAgentImages(ctx context.Context, force bool) r
 		}
 
 		templateSpec := map[string]any{}
-		if needsImagePatch {
-			templateSpec["containers"] = []any{
-				map[string]any{
-					"name":  "personal-agent",
-					"image": desired,
-				},
+		if needsImagePatch || needsEnvReconcile {
+			container := map[string]any{"name": "personal-agent"}
+			if needsImagePatch {
+				container["image"] = desired
 			}
+			if needsEnvReconcile {
+				// env has patchMergeKey "name", so a strategic-merge patch adds
+				// or updates only the drifted vars and leaves the rest intact.
+				container["env"] = driftEnv
+			}
+			templateSpec["containers"] = []any{container}
 		}
 
 		patchObj := map[string]any{
@@ -150,6 +171,14 @@ func (s *Server) reconcilePersonalAgentImages(ctx context.Context, force bool) r
 			result.ImageBumped++
 			s.log.Printf("personal-agent reconciler bumped %s/%s: %s -> %s", ns, dep.Name, current, desired)
 		}
+		if needsEnvReconcile {
+			result.EnvReconciled++
+			names := make([]string, 0, len(driftEnv))
+			for _, e := range driftEnv {
+				names = append(names, e.Name)
+			}
+			s.log.Printf("personal-agent reconciler converged spawn env on %s/%s: %s", ns, dep.Name, strings.Join(names, ","))
+		}
 		if needsInitContainer {
 			result.InitContainer++
 			s.log.Printf("personal-agent reconciler added chown init container to %s/%s", ns, dep.Name)
@@ -160,6 +189,53 @@ func (s *Server) reconcilePersonalAgentImages(ctx context.Context, force bool) r
 		}
 	}
 	return result
+}
+
+// spawnEnvDrift returns the spawn-model env vars whose desired value is
+// non-empty and differs from (or is missing on) dep's first container. The
+// reconciler strategic-merge-patches these by name, so other env vars are
+// untouched. Empty desired values are skipped — we never churn a pod just to
+// add a blank var (e.g. LOOP_EFFORT, which defaults empty so ticks keep their
+// per-loop / inherited effort). Order is fixed for deterministic patches/tests.
+func spawnEnvDrift(dep interface{}, desired map[string]string) []corev1.EnvVar {
+	buf, err := json.Marshal(dep)
+	if err != nil {
+		return nil // fail-closed: don't churn on a marshal error
+	}
+	var s struct {
+		Spec struct {
+			Template struct {
+				Spec struct {
+					Containers []corev1.Container `json:"containers"`
+				} `json:"spec"`
+			} `json:"template"`
+		} `json:"spec"`
+	}
+	if err := json.Unmarshal(buf, &s); err != nil {
+		return nil
+	}
+	current := map[string]string{}
+	if len(s.Spec.Template.Spec.Containers) > 0 {
+		for _, e := range s.Spec.Template.Spec.Containers[0].Env {
+			current[e.Name] = e.Value
+		}
+	}
+	var drift []corev1.EnvVar
+	for _, k := range []string{
+		"PERSONAL_AGENT_DEFAULT_MODEL",
+		"PERSONAL_AGENT_DEFAULT_EFFORT",
+		"PERSONAL_AGENT_LOOP_MODEL",
+		"PERSONAL_AGENT_LOOP_EFFORT",
+	} {
+		want := desired[k]
+		if want == "" {
+			continue
+		}
+		if cur, ok := current[k]; !ok || cur != want {
+			drift = append(drift, corev1.EnvVar{Name: k, Value: want})
+		}
+	}
+	return drift
 }
 
 // hasPersonalAgentInitContainer reports whether dep already carries the
