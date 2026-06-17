@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Github, TerminalSquare } from "lucide-react";
+import { TerminalSquare } from "lucide-react";
 
 import { MePersonalAgentEditForm, PenIcon } from "@/components/me/me-personal-agent-edit-form";
 
@@ -141,21 +141,29 @@ export function MePersonalAgentStatusPanel({
         </div>
         <div className="flex flex-wrap items-center justify-end gap-1.5">
           <StatusPill status={status} />
+          {status === "installed" && !editOpen ? (
+            <button
+              type="button"
+              onClick={() => setEditOpen(true)}
+              className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2.5 py-0.5 text-xs font-medium text-foreground transition hover:bg-muted/50 dark:bg-zinc-950 dark:hover:bg-zinc-900"
+            >
+              <PenIcon />
+              Edit
+            </button>
+          ) : null}
         </div>
       </header>
 
       <dl className="divide-y divide-border/60 px-4 py-2 text-sm sm:px-5">
         <Row label="Slack app" value={agent.slackAppId?.trim() || "Not set"} mono />
         {agent.description?.trim() ? (
-          <Block label="Description">{agent.description.trim()}</Block>
+          <Row label="Description" value={agent.description.trim()} />
         ) : null}
         {agent.longDescription?.trim() ? (
-          <Block label="Long description">{agent.longDescription.trim()}</Block>
+          <Row label="Long description" value={agent.longDescription.trim()} />
         ) : null}
         {agent.systemPrompt?.trim() ? (
-          <Block label="Personality" mono>
-            {agent.systemPrompt.trim()}
-          </Block>
+          <Row label="Personality" value={agent.systemPrompt.trim().replace(/\s+/g, " ")} mono />
         ) : null}
       </dl>
 
@@ -173,44 +181,31 @@ export function MePersonalAgentStatusPanel({
         </div>
       ) : null}
 
-      {status === "installed" ? (
+      {status === "installed" && editOpen ? (
         <div className="space-y-4 border-t border-border/60 px-4 py-4 sm:px-5">
-          {editOpen ? (
-            <MePersonalAgentEditForm
-              agentId={agent.agentId ?? agent.slackAppId ?? ""}
-              initialName={agent.displayName ?? ""}
-              initialDescription={agent.description ?? ""}
-              initialLongDescription={agent.longDescription ?? ""}
-              initialSystemPrompt={agent.systemPrompt ?? ""}
-              liveSlackIconUrl={liveSlackIconUrl}
-              ownerName={ownerName}
-              ownerSlackUserId={ownerSlackUserId}
-              onCancel={() => setEditOpen(false)}
-              onSaved={(displayName, desc, longDesc, systemPrompt) => {
-                setAgent((a) => ({
-                  ...a,
-                  displayName,
-                  description: desc,
-                  longDescription: longDesc,
-                  systemPrompt,
-                }));
-                setEditOpen(false);
-              }}
-              onIconPushed={() => void refreshLiveSlackIcon()}
-              onDeleted={() => router.refresh()}
-            />
-          ) : (
-            <div className="flex justify-end">
-              <button
-                type="button"
-                onClick={() => setEditOpen(true)}
-                className="inline-flex h-10 items-center gap-1.5 rounded-xl border-2 border-foreground/15 bg-background px-4 text-sm font-semibold text-foreground shadow-sm transition hover:border-foreground/25 hover:bg-muted/50 dark:border-white/20 dark:bg-zinc-950 dark:hover:bg-zinc-900"
-              >
-                <PenIcon />
-                Edit agent
-              </button>
-            </div>
-          )}
+          <MePersonalAgentEditForm
+            agentId={agent.agentId ?? agent.slackAppId ?? ""}
+            initialName={agent.displayName ?? ""}
+            initialDescription={agent.description ?? ""}
+            initialLongDescription={agent.longDescription ?? ""}
+            initialSystemPrompt={agent.systemPrompt ?? ""}
+            liveSlackIconUrl={liveSlackIconUrl}
+            ownerName={ownerName}
+            ownerSlackUserId={ownerSlackUserId}
+            onCancel={() => setEditOpen(false)}
+            onSaved={(displayName, desc, longDesc, systemPrompt) => {
+              setAgent((a) => ({
+                ...a,
+                displayName,
+                description: desc,
+                longDescription: longDesc,
+                systemPrompt,
+              }));
+              setEditOpen(false);
+            }}
+            onIconPushed={() => void refreshLiveSlackIcon()}
+            onDeleted={() => router.refresh()}
+          />
         </div>
       ) : null}
 
@@ -228,31 +223,62 @@ export function MePersonalAgentStatusPanel({
 }
 
 function ConnectionsFooter() {
+  const [toast, setToast] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 2500);
+    return () => clearTimeout(t);
+  }, [toast]);
+
+  const announce = (label: string) => setToast(`${label} — coming soon`);
+
   return (
     <footer className="border-t border-border/60 bg-muted/10 px-4 py-4 sm:px-5">
       <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
         Connections
       </p>
       <div className="flex flex-wrap gap-2">
-        <ConnectChip label="GitHub" icon={<Github className="h-4 w-4" aria-hidden />} />
-        <ConnectChip label="Google" icon={<GoogleGlyph />} />
-        <ConnectChip label="Shopify" icon={<ShopifyGlyph />} />
-        <ConnectChip label="Cloudflare" icon={<CloudflareGlyph />} />
-        <ConnectChip label="SSH" icon={<TerminalSquare className="h-4 w-4" aria-hidden />} />
+        <ConnectChip label="GitHub" icon={<GitHubGlyph />} onClick={announce} />
+        <ConnectChip label="Google" icon={<GoogleGlyph />} onClick={announce} />
+        <ConnectChip label="Shopify" icon={<ShopifyGlyph />} onClick={announce} />
+        <ConnectChip label="Cloudflare" icon={<CloudflareGlyph />} onClick={announce} />
+        <ConnectChip
+          label="SSH"
+          icon={<TerminalSquare className="h-4 w-4 text-foreground/80" aria-hidden />}
+          onClick={announce}
+        />
       </div>
+      {toast ? (
+        <div className="pointer-events-none fixed inset-x-0 bottom-6 z-[70] flex justify-center px-4">
+          <p
+            role="status"
+            className="pointer-events-auto rounded-full border border-foreground bg-background px-5 py-2 text-sm font-medium text-foreground shadow-lg"
+          >
+            {toast}
+          </p>
+        </div>
+      ) : null}
     </footer>
   );
 }
 
-function ConnectChip({ label, icon }: { label: string; icon: React.ReactNode }) {
+function ConnectChip({
+  label,
+  icon,
+  onClick,
+}: {
+  label: string;
+  icon: React.ReactNode;
+  onClick: (label: string) => void;
+}) {
   return (
     <button
       type="button"
-      disabled
-      title="Coming soon"
-      className="inline-flex h-9 cursor-not-allowed items-center gap-1.5 rounded-lg border border-border bg-background/40 px-3 text-xs font-medium text-muted-foreground opacity-60"
+      onClick={() => onClick(label)}
+      className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border bg-background px-3 text-xs font-medium text-foreground transition hover:border-foreground/30 hover:bg-muted/50 dark:bg-zinc-950 dark:hover:bg-zinc-900"
     >
-      <span aria-hidden className="text-foreground/70">
+      <span aria-hidden className="inline-flex h-4 w-4 items-center justify-center">
         {icon}
       </span>
       Connect {label}
@@ -260,31 +286,69 @@ function ConnectChip({ label, icon }: { label: string; icon: React.ReactNode }) 
   );
 }
 
+function GitHubGlyph() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden className="text-foreground">
+      <path
+        fill="currentColor"
+        d="M12 .5C5.65.5.5 5.65.5 12a11.5 11.5 0 0 0 7.86 10.92c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.52-1.33-1.28-1.69-1.28-1.69-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.2 1.77 1.2 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.7 0-1.26.45-2.29 1.2-3.1-.12-.3-.52-1.48.11-3.08 0 0 .97-.31 3.18 1.18a11 11 0 0 1 5.79 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.6.23 2.78.11 3.08.75.81 1.2 1.84 1.2 3.1 0 4.43-2.7 5.4-5.26 5.69.41.36.77 1.06.77 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"
+      />
+    </svg>
+  );
+}
+
 function GoogleGlyph() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-      <circle cx="12" cy="12" r="9" />
-      <path d="M12 8v4h5" strokeLinecap="round" strokeLinejoin="round" />
+    <svg width="16" height="16" viewBox="0 0 48 48" aria-hidden>
+      <path
+        fill="#4285F4"
+        d="M45.12 24.5c0-1.56-.14-3.06-.4-4.5H24v8.51h11.84a10.13 10.13 0 0 1-4.4 6.64v5.52h7.11c4.17-3.84 6.57-9.5 6.57-16.17Z"
+      />
+      <path
+        fill="#34A853"
+        d="M24 46c5.94 0 10.93-1.97 14.57-5.33l-7.11-5.52c-1.97 1.32-4.5 2.1-7.46 2.1-5.74 0-10.6-3.87-12.34-9.07H4.34v5.7A22 22 0 0 0 24 46Z"
+      />
+      <path
+        fill="#FBBC04"
+        d="M11.66 28.18a13.2 13.2 0 0 1 0-8.36v-5.7H4.34a22 22 0 0 0 0 19.76l7.32-5.7Z"
+      />
+      <path
+        fill="#EA4335"
+        d="M24 9.75c3.23 0 6.13 1.11 8.42 3.29l6.3-6.3C34.93 3.05 29.94 1 24 1A22 22 0 0 0 4.34 14.12l7.32 5.7C13.4 13.62 18.26 9.75 24 9.75Z"
+      />
     </svg>
   );
 }
 
 function ShopifyGlyph() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-      <path d="M5 8h14l-1 12H6L5 8z" strokeLinejoin="round" />
-      <path d="M9 8V6a3 3 0 0 1 6 0v2" strokeLinecap="round" />
+    <svg width="16" height="16" viewBox="0 0 109.5 124.5" aria-hidden>
+      <path
+        fill="#95BF47"
+        d="M95.9 23.9c-.1-.6-.6-1-1.1-1-.5 0-9.3-.2-9.3-.2s-7.4-7.2-8.2-8c-.7-.7-2.2-.5-2.7-.3 0 0-1.4.4-3.7 1.1-.4-1.3-1-2.8-1.8-4.4-2.6-5-6.5-7.7-11.1-7.7-.3 0-.6 0-1 .1-.1-.2-.3-.3-.4-.5C54.5 1 51.9 0 48.8 0c-6 .2-12 4.5-16.8 12.2-3.4 5.4-6 12.2-6.7 17.5-6.9 2.1-11.7 3.6-11.8 3.7-3.5 1.1-3.6 1.2-4 4.5-.4 2.5-9.6 73.9-9.6 73.9l77.1 13.3 33.4-8.3S96 24.5 95.9 23.9zM68.5 17c-1.7.5-3.7 1.2-5.8 1.8 0-3.1-.4-7.3-1.8-11 4.5.8 6.7 5.9 7.6 9.2zm-9.5 2.9c-4 1.2-8.3 2.6-12.7 4 1.2-4.7 3.5-9.4 6.3-12.5 1-1.2 2.5-2.5 4.2-3.2 1.7 3.4 2.1 8.2 2.2 11.7zm-9.7-18.4c1.4 0 2.5.3 3.5.9-1.6.8-3.2 2.1-4.7 3.7-3.7 4-6.6 10.3-7.7 16.3-3.6 1.1-7.2 2.2-10.4 3.2 2-9.6 10.1-23.8 19.3-24.1z"
+      />
+      <path
+        fill="#5E8E3E"
+        d="M94.8 22.9c-.5 0-9.3-.2-9.3-.2s-7.4-7.2-8.2-8c-.3-.3-.7-.5-1.1-.5l-5.8 117.8 33.4-8.3S96 24.5 95.9 23.9c-.1-.6-.6-1-1.1-1z"
+      />
+      <path
+        fill="#FFF"
+        d="M58.5 41.1l-3.9 14.5s-4.3-2-9.5-1.6c-7.6.5-7.7 5.3-7.6 6.5.4 6.5 17.6 8 18.6 23.4.8 12.1-6.4 20.4-16.7 21-12.4.8-19.2-6.5-19.2-6.5l2.6-11.2s6.8 5.2 12.3 4.8c3.6-.2 4.9-3.2 4.8-5.3-.5-8.5-14.5-8-15.5-22-.7-11.9 7.1-23.9 24.2-25 6.5-.4 9.9 1.4 9.9 1.4z"
+      />
     </svg>
   );
 }
 
 function CloudflareGlyph() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+    <svg width="16" height="16" viewBox="0 0 64 64" aria-hidden>
       <path
-        d="M18 18H7a4 4 0 0 1-.6-7.95A5 5 0 0 1 16 9.5h.5a3.5 3.5 0 0 1 1.5 6.95"
-        strokeLinecap="round"
-        strokeLinejoin="round"
+        fill="#F38020"
+        d="M46.4 41.2 33.6 24.4l-1.6 6.4-13.6 17.6h26.4z"
+      />
+      <path
+        fill="#FAAD3F"
+        d="M51.2 21.6c-.4 0-.8 0-1.2.1-2-5.8-7.5-10-14-10-7.7 0-14 5.9-14.8 13.4-1.2-.6-2.6-.9-4-.9C12 24.2 8 28.2 8 33.4S12 42.6 17.2 42.6h34c4.7 0 8.6-3.8 8.6-8.6 0-4.6-3.9-8.4-8.6-8.4z"
       />
     </svg>
   );
@@ -324,21 +388,3 @@ function Row({ label, value, mono }: { label: string; value: string; mono?: bool
   );
 }
 
-function Block({
-  label,
-  children,
-  mono,
-}: {
-  label: string;
-  children: React.ReactNode;
-  mono?: boolean;
-}) {
-  return (
-    <div className="space-y-1 py-2.5 first:pt-0 last:pb-0">
-      <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</dt>
-      <dd className={`whitespace-pre-wrap text-foreground ${mono ? "font-mono text-xs" : ""}`}>
-        {children}
-      </dd>
-    </div>
-  );
-}
