@@ -135,6 +135,48 @@ func TestWriteAgentDeployment_UpdatesExisting(t *testing.T) {
 	}
 }
 
+func TestWriteAgentDeployment_AddsChownInitContainer(t *testing.T) {
+	cs := fake.NewSimpleClientset()
+	w := newPersonalAgentWriterWithClient(cs, "personal-agents", "", "")
+	ctx := context.Background()
+	req := PersonalAgentDeploymentRequest{
+		SlackUserID:      "U0BB3LCKF4L",
+		OwnerSlackUserID: "U0BB3LCKF4L",
+		DisplayName:      "Gino",
+		AgentID:          "agent-gino",
+		Image:            "img:gino",
+	}
+	if err := w.WriteAgentDeployment(ctx, req); err != nil {
+		t.Fatalf("WriteAgentDeployment: %v", err)
+	}
+	name := personalAgentResourceName(req.SlackUserID)
+	dep, err := cs.AppsV1().Deployments("personal-agents").Get(ctx, name, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	initContainers := dep.Spec.Template.Spec.InitContainers
+	if len(initContainers) != 1 {
+		t.Fatalf("expected 1 init container, got %d", len(initContainers))
+	}
+	ic := initContainers[0]
+	if ic.Name != personalAgentInitContainerName {
+		t.Errorf("init container name = %q, want %q", ic.Name, personalAgentInitContainerName)
+	}
+	if ic.SecurityContext == nil || ic.SecurityContext.RunAsUser == nil || *ic.SecurityContext.RunAsUser != 0 {
+		t.Errorf("init container must runAsUser 0 to chown, got %+v", ic.SecurityContext)
+	}
+	if len(ic.VolumeMounts) != 1 {
+		t.Fatalf("init container needs the data mount, got %d", len(ic.VolumeMounts))
+	}
+	if ic.VolumeMounts[0].SubPath != name {
+		t.Errorf("init container subPath = %q, must match main container subPath %q so the same host dir is chowned",
+			ic.VolumeMounts[0].SubPath, name)
+	}
+	if ic.VolumeMounts[0].MountPath != "/data/workspaces" {
+		t.Errorf("init container mountPath = %q, want %q", ic.VolumeMounts[0].MountPath, "/data/workspaces")
+	}
+}
+
 func TestWriteAgentDeployment_RejectsEmpty(t *testing.T) {
 	cs := fake.NewSimpleClientset()
 	w := newPersonalAgentWriterWithClient(cs, "personal-agents", "", "")

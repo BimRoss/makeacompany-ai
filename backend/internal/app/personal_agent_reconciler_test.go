@@ -78,6 +78,48 @@ func TestReconcilePersonalAgentImages_ForceRestartsEvenWhenImageMatches(t *testi
 	}
 }
 
+// Pre-fix deployments lack the chown init container. The reconciler must
+// patch it in on every tick (no force needed) so existing personal-agent
+// pods get the chown step without operator intervention. Regression guard
+// for the "first DM to Gino after #455 still fails with permission denied"
+// failure mode.
+func TestReconcilePersonalAgentImages_PatchesMissingInitContainer(t *testing.T) {
+	cs, srv := seedDeployments(t)
+	result := srv.reconcilePersonalAgentImages(context.Background(), false)
+	if result.InitContainer != 2 {
+		t.Errorf("InitContainer = %d, want 2 (both managed lacked it)", result.InitContainer)
+	}
+	for _, name := range []string{"personal-agent-A", "personal-agent-B"} {
+		got, err := cs.AppsV1().Deployments("personal-agents").Get(context.Background(), name, metav1.GetOptions{})
+		if err != nil {
+			t.Fatalf("get %s: %v", name, err)
+		}
+		if !hasPersonalAgentInitContainer(got) {
+			t.Errorf("%s still missing %s init container after reconcile", name, personalAgentInitContainerName)
+		}
+	}
+}
+
+// Once the init container is present, the reconciler should NOT keep
+// re-patching it every tick — otherwise the pod template annotation churns
+// and rolls a fresh ReplicaSet on every reconcile interval.
+func TestReconcilePersonalAgentImages_SkipsWhenInitContainerAlreadyPresent(t *testing.T) {
+	cs, srv := seedDeployments(t)
+	_ = srv.reconcilePersonalAgentImages(context.Background(), false)
+	result := srv.reconcilePersonalAgentImages(context.Background(), false)
+	if result.InitContainer != 0 {
+		t.Errorf("second pass InitContainer = %d, want 0 (already patched)", result.InitContainer)
+	}
+	if result.ImageBumped != 0 {
+		t.Errorf("second pass ImageBumped = %d, want 0 (already on desired image)", result.ImageBumped)
+	}
+	// Sanity: B should not have churned.
+	got, _ := cs.AppsV1().Deployments("personal-agents").Get(context.Background(), "personal-agent-B", metav1.GetOptions{})
+	if !hasPersonalAgentInitContainer(got) {
+		t.Errorf("B lost its init container between ticks")
+	}
+}
+
 func TestReconcilePersonalAgentImages_NoopOnDisabledWriter(t *testing.T) {
 	srv := &Server{log: log.Default(), personalAgent: nil, cfg: Config{PersonalAgentImage: "img:new"}}
 	r := srv.reconcilePersonalAgentImages(context.Background(), true)

@@ -25,10 +25,11 @@ import (
 // what they did. Non-fatal on per-Deployment failures — one bad pod
 // shouldn't stop the rest of the fleet from rolling.
 type reconcileAgentImagesResult struct {
-	Inspected   int      `json:"inspected"`
-	ImageBumped int      `json:"imageBumped"`
-	Restarted   int      `json:"restarted"`
-	Errors      []string `json:"errors,omitempty"`
+	Inspected     int      `json:"inspected"`
+	ImageBumped   int      `json:"imageBumped"`
+	Restarted     int      `json:"restarted"`
+	InitContainer int      `json:"initContainerPatched"`
+	Errors        []string `json:"errors,omitempty"`
 }
 
 func (s *Server) reconcilePersonalAgentImages(ctx context.Context, force bool) reconcileAgentImagesResult {
@@ -56,10 +57,37 @@ func (s *Server) reconcilePersonalAgentImages(ctx context.Context, force bool) r
 		dep := &deps.Items[i]
 		current := containerImage(dep)
 		needsImagePatch := current != desired
+		needsInitContainer := !hasPersonalAgentInitContainer(dep)
 		needsRestart := force
 
-		if !needsImagePatch && !needsRestart {
+		if !needsImagePatch && !needsRestart && !needsInitContainer {
 			continue
+		}
+
+		templateSpec := map[string]any{}
+		if needsImagePatch {
+			templateSpec["containers"] = []any{
+				map[string]any{
+					"name":  "personal-agent",
+					"image": desired,
+				},
+			}
+		}
+		if needsInitContainer {
+			initSpec := personalAgentInitContainers(dep.Name)
+			// json round-trip so the patch carries the same JSON shape the
+			// API server would serialize from a Go corev1.Container.
+			initBytes, err := json.Marshal(initSpec)
+			if err != nil {
+				result.Errors = append(result.Errors, fmt.Sprintf("marshal init container for %s: %v", dep.Name, err))
+				continue
+			}
+			var initRaw []any
+			if err := json.Unmarshal(initBytes, &initRaw); err != nil {
+				result.Errors = append(result.Errors, fmt.Sprintf("unmarshal init container for %s: %v", dep.Name, err))
+				continue
+			}
+			templateSpec["initContainers"] = initRaw
 		}
 
 		patchObj := map[string]any{
@@ -73,15 +101,8 @@ func (s *Server) reconcilePersonalAgentImages(ctx context.Context, force bool) r
 				},
 			},
 		}
-		if needsImagePatch {
-			patchObj["spec"].(map[string]any)["template"].(map[string]any)["spec"] = map[string]any{
-				"containers": []any{
-					map[string]any{
-						"name":  "personal-agent",
-						"image": desired,
-					},
-				},
-			}
+		if len(templateSpec) > 0 {
+			patchObj["spec"].(map[string]any)["template"].(map[string]any)["spec"] = templateSpec
 		}
 		patchBytes, err := json.Marshal(patchObj)
 		if err != nil {
@@ -97,12 +118,45 @@ func (s *Server) reconcilePersonalAgentImages(ctx context.Context, force bool) r
 			result.ImageBumped++
 			s.log.Printf("personal-agent reconciler bumped %s/%s: %s -> %s", ns, dep.Name, current, desired)
 		}
+		if needsInitContainer {
+			result.InitContainer++
+			s.log.Printf("personal-agent reconciler added chown init container to %s/%s", ns, dep.Name)
+		}
 		if needsRestart {
 			result.Restarted++
 			s.log.Printf("personal-agent reconciler restarted %s/%s", ns, dep.Name)
 		}
 	}
 	return result
+}
+
+// hasPersonalAgentInitContainer reports whether dep already carries the
+// chown-workspace init container. Older Deployments provisioned before that
+// fix shipped won't, and the reconciler patches it in.
+func hasPersonalAgentInitContainer(dep interface{}) bool {
+	type podSpec struct {
+		Template struct {
+			Spec struct {
+				InitContainers []corev1.Container `json:"initContainers"`
+			} `json:"spec"`
+		} `json:"template"`
+	}
+	buf, err := json.Marshal(dep)
+	if err != nil {
+		return true // fail-closed: don't churn deployments on a marshal error
+	}
+	var s struct {
+		Spec podSpec `json:"spec"`
+	}
+	if err := json.Unmarshal(buf, &s); err != nil {
+		return true
+	}
+	for _, c := range s.Spec.Template.Spec.InitContainers {
+		if c.Name == personalAgentInitContainerName {
+			return true
+		}
+	}
+	return false
 }
 
 func containerImage(dep interface{}) string {
@@ -151,8 +205,8 @@ func (s *Server) StartPersonalAgentReconciler(ctx context.Context) {
 		case <-time.After(30 * time.Second):
 		}
 		r := s.reconcilePersonalAgentImages(ctx, false)
-		s.log.Printf("personal-agent reconciler boot pass: inspected=%d image_bumped=%d restarted=%d errors=%d",
-			r.Inspected, r.ImageBumped, r.Restarted, len(r.Errors))
+		s.log.Printf("personal-agent reconciler boot pass: inspected=%d image_bumped=%d restarted=%d init_container=%d errors=%d",
+			r.Inspected, r.ImageBumped, r.Restarted, r.InitContainer, len(r.Errors))
 
 		t := time.NewTicker(reconcileInterval)
 		defer t.Stop()
@@ -162,9 +216,9 @@ func (s *Server) StartPersonalAgentReconciler(ctx context.Context) {
 				return
 			case <-t.C:
 				r := s.reconcilePersonalAgentImages(ctx, false)
-				if r.ImageBumped > 0 || len(r.Errors) > 0 {
-					s.log.Printf("personal-agent reconciler tick: inspected=%d image_bumped=%d restarted=%d errors=%d",
-						r.Inspected, r.ImageBumped, r.Restarted, len(r.Errors))
+				if r.ImageBumped > 0 || r.InitContainer > 0 || len(r.Errors) > 0 {
+					s.log.Printf("personal-agent reconciler tick: inspected=%d image_bumped=%d restarted=%d init_container=%d errors=%d",
+						r.Inspected, r.ImageBumped, r.Restarted, r.InitContainer, len(r.Errors))
 				}
 			}
 		}
