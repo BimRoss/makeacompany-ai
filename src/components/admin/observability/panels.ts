@@ -70,6 +70,7 @@ const UPSTREAM_ALL = "makeacompany_slack_upstream_http_status_total";
 const REAPER_SCANNED = "makeacompany_trial_expiry_reaper_scanned_total";
 const REAPER_ENQUEUED = "makeacompany_trial_expiry_reaper_enqueued_total";
 const CRONJOB = "makeacompany_cronjob_duration_seconds_count";
+const LIFECYCLE = "makeacompany_lifecycle_users";
 
 const statusTone = (cls: string): ChartTone =>
   cls.startsWith("2") ? "pos" : cls.startsWith("5") ? "neg" : cls.startsWith("4") ? "accent" : "muted";
@@ -288,6 +289,38 @@ export const JOBS_PANELS: PanelDef[] = [
     ]),
     format: formatCompact,
     hideWhenEmpty: true,
+  },
+];
+
+const lifecycleTone = (status: string): ChartTone => {
+  switch (status) {
+    case "trialing":
+      return "accent";
+    case "active":
+      return "pos";
+    case "expired":
+      return "neg";
+    case "free_lifetime":
+      return "ink";
+    default:
+      return "muted";
+  }
+};
+
+const lifecycleLabel = (status: string): string =>
+  status === "free_lifetime" ? "free for life" : status;
+
+export const LIFECYCLE_PANELS: PanelDef[] = [
+  {
+    id: "lifecycle-users",
+    title: "Lifecycle cohorts",
+    subtitle: "User count by effective status, sampled every 5m",
+    queries: [`${LIFECYCLE}`],
+    toSeries: splitByLabel(`${LIFECYCLE}`, "status", lifecycleTone, lifecycleLabel),
+    format: formatCompact,
+    area: true,
+    zeroBaseline: true,
+    span: 2,
   },
 ];
 
