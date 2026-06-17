@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -20,6 +21,24 @@ import (
 // into the personal-agents namespace). Per-agent pods envFrom it so a pool
 // rotation reaches every agent without rewriting per-agent Secrets.
 const personalAgentOAuthPoolSecretName = "claude-oauth-pool"
+
+// personalAgentDefaultModel / personalAgentDefaultEffort are stamped onto every
+// generated PA pod. Default to opus-4-7[1m] (what the shared OAuth pool accounts
+// support free on the 5h rolling limit; sonnet-4-6[1m] 429s without usage
+// credits). Override fleet-wide via the backend env without an image rebuild.
+func personalAgentDefaultModel() string {
+	if v := strings.TrimSpace(os.Getenv("PERSONAL_AGENT_DEFAULT_MODEL")); v != "" {
+		return v
+	}
+	return "claude-opus-4-7[1m]"
+}
+
+func personalAgentDefaultEffort() string {
+	if v := strings.TrimSpace(os.Getenv("PERSONAL_AGENT_DEFAULT_EFFORT")); v != "" {
+		return v
+	}
+	return "high"
+}
 
 // PersonalAgentDeploymentRequest carries everything WriteAgentDeployment
 // needs from the provisioner. Image is configurable so the K8s writer
@@ -130,6 +149,16 @@ func (w *PersonalAgentWriter) WriteAgentDeployment(ctx context.Context, req Pers
 						Env: []corev1.EnvVar{
 							{Name: "AGENT_OWNER_USER_ID", Value: strings.TrimSpace(req.OwnerSlackUserID)},
 							{Name: "AGENT_DISPLAY_NAME", Value: strings.TrimSpace(req.DisplayName)},
+							// Stamp the spawn model/effort defaults onto every PA
+							// pod so they hold regardless of which PA image is
+							// running (the baked-in handlers.go constant could be
+							// stale) and survive re-provisioning. opus-4-7[1m] is
+							// what the shared OAuth pool accounts support free on
+							// the 5h rolling limit; sonnet-4-6[1m] 429s ("usage
+							// credits required for 1M context"). Override fleet-wide
+							// from the backend env without an image rebuild.
+							{Name: "PERSONAL_AGENT_DEFAULT_MODEL", Value: personalAgentDefaultModel()},
+							{Name: "PERSONAL_AGENT_DEFAULT_EFFORT", Value: personalAgentDefaultEffort()},
 							// ROSS_WORKSPACE is intentionally inherited from the
 							// image (Dockerfile: /data/workspaces) so it stays in
 							// lockstep with the pre-baked chown of that exact
