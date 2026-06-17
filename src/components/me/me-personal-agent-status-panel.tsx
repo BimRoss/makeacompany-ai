@@ -60,6 +60,13 @@ export function MePersonalAgentStatusPanel({
   const [submitting, setSubmitting] = useState(false);
   const [suggesting, setSuggesting] = useState<Field | null>(null);
   const [feedback, setFeedback] = useState<{ kind: "ok" | "err"; message: string } | null>(null);
+  const [savedToast, setSavedToast] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!savedToast) return;
+    const t = setTimeout(() => setSavedToast(null), 2500);
+    return () => clearTimeout(t);
+  }, [savedToast]);
 
   useEffect(() => {
     let cancelled = false;
@@ -286,6 +293,26 @@ export function MePersonalAgentStatusPanel({
         systemPrompt: body.systemPrompt ?? nextFullPrompt,
       }));
       exitEdit();
+      setSavedToast(icon ? "Saved & synced to Slack" : "Saved");
+
+      // Refetch fresh agent state so any server-side normalization (e.g.
+      // longDescription stored back differently) replaces the optimistic
+      // values without forcing the user to reload. Best-effort; the
+      // optimistic update above already covers the common case.
+      try {
+        const fresh = await fetch("/api/me/personal-agents/mine", { cache: "no-store" });
+        if (fresh.ok) {
+          const next = (await fresh.json().catch(() => null)) as AgentStatus | null;
+          if (next?.hasAgent) setAgent(next);
+        }
+      } catch {
+        /* optimistic update is fine on its own */
+      }
+      if (icon) {
+        // Slack icon CDN propagation can lag a beat — give it a moment, then
+        // re-poll so the header avatar reflects the just-pushed image.
+        setTimeout(() => void refreshLiveSlackIcon(), 800);
+      }
     } catch (err) {
       setFeedback({ kind: "err", message: err instanceof Error ? err.message : "Network error" });
     } finally {
@@ -492,7 +519,26 @@ export function MePersonalAgentStatusPanel({
         onCancel={exitEdit}
         onSave={save}
       />
+      {savedToast ? (
+        <div className="pointer-events-none fixed inset-x-0 bottom-6 z-[70] flex justify-center px-4">
+          <p
+            role="status"
+            className="pointer-events-auto inline-flex items-center gap-2 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-5 py-2 text-sm font-medium text-emerald-700 shadow-lg dark:text-emerald-300"
+          >
+            <CheckIcon />
+            {savedToast}
+          </p>
+        </div>
+      ) : null}
     </section>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
   );
 }
 
