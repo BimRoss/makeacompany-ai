@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { Loader2, Trash2, Youtube } from "lucide-react";
+import { ChevronDown, Loader2, Trash2, Youtube } from "lucide-react";
 
 // Fence markers MUST stay in sync with the orchestrator routes:
 //   src/app/api/me/personal-agents/youtube/ingest/route.ts
@@ -72,6 +72,16 @@ export function MePersonalAgentYouTubeIngest({ systemPrompt, onPromptChange }: P
   const [stage, setStage] = useState<Stage>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [pendingDeleteUrl, setPendingDeleteUrl] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+
+  const toggleExpanded = useCallback((sourceUrl: string) => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(sourceUrl)) next.delete(sourceUrl);
+      else next.add(sourceUrl);
+      return next;
+    });
+  }, []);
 
   const submit = useCallback(
     async (e: React.FormEvent) => {
@@ -199,40 +209,80 @@ export function MePersonalAgentYouTubeIngest({ systemPrompt, onPromptChange }: P
 
       {sources.length > 0 ? (
         <ul className="space-y-1.5">
-          {sources.map((s) => (
-            <li
-              key={s.url}
-              className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card px-3 py-2"
-            >
-              <div className="min-w-0 flex-1">
-                <a
-                  href={s.url}
-                  target="_blank"
-                  rel="noreferrer noopener"
-                  className="block truncate text-sm font-medium text-foreground hover:underline"
-                  title={s.title || s.url}
-                >
-                  {s.title || s.url}
-                </a>
-                <span className="text-[11px] text-muted-foreground">
-                  {s.bullets.length} {s.bullets.length === 1 ? "insight" : "insights"}
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={() => void deleteSource(s.url)}
-                disabled={pendingDeleteUrl === s.url}
-                className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border bg-background text-muted-foreground transition hover:border-foreground/30 hover:text-foreground disabled:opacity-50"
-                aria-label={`Remove ${s.title || s.url}`}
+          {sources.map((s) => {
+            const isOpen = expanded.has(s.url);
+            const insightLabel = `${s.bullets.length} ${s.bullets.length === 1 ? "insight" : "insights"}`;
+            return (
+              <li
+                key={s.url}
+                className="overflow-hidden rounded-lg border border-border bg-card"
               >
-                {pendingDeleteUrl === s.url ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
-                ) : (
-                  <Trash2 className="h-3.5 w-3.5" aria-hidden />
-                )}
-              </button>
-            </li>
-          ))}
+                <div className="flex items-center gap-3 px-3 py-2">
+                  <button
+                    type="button"
+                    onClick={() => toggleExpanded(s.url)}
+                    aria-expanded={isOpen}
+                    aria-label={isOpen ? "Hide insights" : "Show insights"}
+                    className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                  >
+                    <ChevronDown
+                      className={`h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-150 ${isOpen ? "rotate-0" : "-rotate-90"}`}
+                      aria-hidden
+                    />
+                    <span className="min-w-0 flex-1">
+                      <span
+                        className="block truncate text-sm font-medium text-foreground"
+                        title={s.title || s.url}
+                      >
+                        {s.title || s.url}
+                      </span>
+                      <span className="text-[11px] text-muted-foreground">{insightLabel}</span>
+                    </span>
+                  </button>
+                  <a
+                    href={s.url}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    className="text-[11px] font-medium text-muted-foreground transition hover:text-foreground"
+                    title="Open on YouTube"
+                  >
+                    Open
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => void deleteSource(s.url)}
+                    disabled={pendingDeleteUrl === s.url}
+                    className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-border bg-background text-muted-foreground transition hover:border-foreground/30 hover:text-foreground disabled:opacity-50"
+                    aria-label={`Remove ${s.title || s.url}`}
+                  >
+                    {pendingDeleteUrl === s.url ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                    ) : (
+                      <Trash2 className="h-3.5 w-3.5" aria-hidden />
+                    )}
+                  </button>
+                </div>
+                {isOpen && s.bullets.length > 0 ? (
+                  <ol className="space-y-1.5 border-t border-border/60 bg-muted/20 px-4 py-3 pl-9">
+                    {s.bullets.map((bullet, idx) => (
+                      <li
+                        key={idx}
+                        className="flex gap-2.5 text-[13px] leading-relaxed text-foreground/90"
+                      >
+                        <span
+                          className="mt-[2px] inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-muted text-[10px] font-semibold tabular-nums text-muted-foreground"
+                          aria-hidden
+                        >
+                          {idx + 1}
+                        </span>
+                        <span className="min-w-0 flex-1">{bullet}</span>
+                      </li>
+                    ))}
+                  </ol>
+                ) : null}
+              </li>
+            );
+          })}
         </ul>
       ) : null}
 

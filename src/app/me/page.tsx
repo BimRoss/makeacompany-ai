@@ -88,6 +88,7 @@ export default async function MePage() {
   const ownerName =
     (me.slackDisplayName ?? "").trim() || displayNameFromEmail(me.email ?? "");
   const ownerSlackUserId = me.slackUserId?.trim() ?? "";
+  const ownerEmail = (me.email ?? "").trim();
 
   return (
     <div className="mx-auto flex w-full flex-col gap-6 py-8 sm:py-10">
@@ -97,6 +98,7 @@ export default async function MePage() {
         slackUserIDKnown={slackUserIDKnown}
         ownerName={ownerName}
         ownerSlackUserId={ownerSlackUserId}
+        ownerEmail={ownerEmail}
       />
     </div>
   );
@@ -272,11 +274,13 @@ function PersonalAgentCard({
   slackUserIDKnown,
   ownerName,
   ownerSlackUserId,
+  ownerEmail,
 }: {
   agent: AgentStatusPayload;
   slackUserIDKnown: boolean;
   ownerName: string;
   ownerSlackUserId: string;
+  ownerEmail: string;
 }) {
   // When the user has an installed agent, the status panel owns the full
   // section (avatar + name + rows + edit) so it mirrors the Profile card
@@ -287,6 +291,7 @@ function PersonalAgentCard({
         initial={agent}
         ownerName={ownerName}
         ownerSlackUserId={ownerSlackUserId}
+        ownerEmail={ownerEmail}
       />
     );
   }

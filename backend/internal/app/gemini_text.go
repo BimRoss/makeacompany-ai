@@ -61,8 +61,20 @@ type geminiInlineData struct {
 }
 
 type geminiGenerationConfig struct {
-	Temperature     float64 `json:"temperature"`
-	MaxOutputTokens int     `json:"maxOutputTokens"`
+	Temperature     float64                `json:"temperature"`
+	MaxOutputTokens int                    `json:"maxOutputTokens"`
+	ThinkingConfig  *geminiThinkingConfig  `json:"thinkingConfig,omitempty"`
+}
+
+// geminiThinkingConfig disables (or budgets) reasoning tokens for the
+// gemini-2.5-* family. Default behavior reserves a large slice of
+// MaxOutputTokens for hidden reasoning before any text is emitted, which
+// silently truncates short-form copy tasks (the model "thinks" itself out
+// of budget before writing the description). Setting ThinkingBudget=0
+// turns reasoning off entirely, so the whole MaxOutputTokens budget is
+// available for actual output — what we want for /me copy suggestions.
+type geminiThinkingConfig struct {
+	ThinkingBudget int `json:"thinkingBudget"`
 }
 
 type geminiGenerateContentResponse struct {
@@ -105,13 +117,17 @@ func (g *GeminiText) DescribeImage(ctx context.Context, imageBytes []byte, mimeT
 		GenerationConfig: geminiGenerationConfig{
 			Temperature:     0.3,
 			MaxOutputTokens: 200,
+			ThinkingConfig:  &geminiThinkingConfig{ThinkingBudget: 0},
 		},
 	}
 	return g.run(ctx, body)
 }
 
 // Generate runs one prompt → one short text completion. Returns the trimmed
-// first candidate. maxTokens caps the output (defaults to 200 when <= 0).
+// first candidate. maxTokens caps the output (defaults to 512 when <= 0).
+// Reasoning is disabled — these are short copy tasks where hidden thinking
+// tokens silently eat the output budget and leave the user with a single
+// truncated word.
 func (g *GeminiText) Generate(ctx context.Context, prompt string, maxTokens int) (string, error) {
 	if g.Disabled() {
 		return "", errors.New("gemini text disabled (GEMINI_API_KEY missing)")
@@ -120,7 +136,7 @@ func (g *GeminiText) Generate(ctx context.Context, prompt string, maxTokens int)
 		return "", errors.New("Generate: prompt required")
 	}
 	if maxTokens <= 0 {
-		maxTokens = 200
+		maxTokens = 512
 	}
 	body := geminiGenerateContentRequest{
 		Contents: []geminiContent{
@@ -129,6 +145,7 @@ func (g *GeminiText) Generate(ctx context.Context, prompt string, maxTokens int)
 		GenerationConfig: geminiGenerationConfig{
 			Temperature:     0.8,
 			MaxOutputTokens: maxTokens,
+			ThinkingConfig:  &geminiThinkingConfig{ThinkingBudget: 0},
 		},
 	}
 	return g.run(ctx, body)

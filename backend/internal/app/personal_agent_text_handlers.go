@@ -201,33 +201,36 @@ func personalAgentTextSuggestionPrompt(field string, req textSuggestRequest, ico
 		}
 		seedLine := ""
 		if seed != "" {
-			seedLine = fmt.Sprintf(" The user already typed %q — sharpen it, don't replace the intent.", seed)
+			seedLine = fmt.Sprintf(" The user already typed %q — sharpen it, expand it, don't replace the intent.", seed)
 		}
 		return "You are writing the one-line Slack-app short description for a user's personal AI agent." +
 			ownerLine + " " + ctx + seedLine +
-			fmt.Sprintf(" Output a single line, 40-110 characters. Anchor on the owner — patterns like \"%s's personal AI agent for X\" or \"%s's <role> in Slack\" work well. ", ownerHint, ownerHint) +
-			"Ban generic phrases: 'AI assistant', 'helpful bot', 'powered by'. Reply with just the description — no quotes, no period if it reads better without.", 80
+			fmt.Sprintf(" Output a single substantive line of 60-110 characters (12-20 words). Anchor on the owner — patterns like \"%s's personal AI agent for X\" or \"%s's <role> in Slack\" work well. ", ownerHint, ownerHint) +
+			"Ban generic phrases: 'AI assistant', 'helpful bot', 'powered by'. " +
+			"HARD FLOOR: at least 60 characters. A short fragment like just the name is a failure — name the role AND the value. " +
+			"Reply with just the description — no quotes, no period if it reads better without.", 256
 
 	case "longdescription", "long_description", "longdesc":
 		seedLine := ""
 		switch {
 		case long != "":
-			seedLine = fmt.Sprintf(" The user already typed %q — rewrite it tighter and longer (must end up 175+ chars), preserving their intent.", long)
+			seedLine = fmt.Sprintf(" The user already typed %q — rewrite it richer and longer (must end up 250+ chars), preserving their intent. Don't just polish — EXPAND with specificity.", long)
 		case description != "":
-			seedLine = fmt.Sprintf(" Use the existing short description as the seed and expand it: %q. Reuse its angle and specificity.", description)
+			seedLine = fmt.Sprintf(" Use the existing short description as the seed and expand it substantially: %q. Reuse its angle and specificity, then go deeper.", description)
 		case name != "":
-			seedLine = fmt.Sprintf(" Only the name %q exists so far — invent a coherent role from it.", name)
+			seedLine = fmt.Sprintf(" Only the name %q exists so far — invent a coherent role from it with concrete detail.", name)
 		}
 		return "You are writing the long-form Slack-app description for a user's personal AI agent. " +
-			"HARD REQUIREMENT: between 175 and 450 characters — count carefully, under 175 is a failure." +
+			"HARD REQUIREMENT: between 250 and 450 characters (roughly 40-75 words) — count carefully, under 250 is a failure and will be rejected." +
 			ownerLine + " " + ctx + seedLine +
-			" Write 2-3 specific sentences covering: what the agent does for its owner day-to-day, what tone/voice it uses, and one concrete example of help it provides. " +
-			"Reply with just the description — no quotes, no markdown.", 320
+			" Write 3-4 specific sentences covering: (1) what the agent does for its owner day-to-day, (2) what tone/voice it uses, (3) one concrete example of help it provides, and (4) what makes it distinct from a generic chatbot. " +
+			"Be specific, not vague — name actual workflows, decisions, or moments the agent shows up in. " +
+			"Reply with just the description — no quotes, no markdown. Remember the 250-character floor.", 768
 
 	case "systemprompt", "system_prompt", "persona":
 		seedLine := ""
 		if sys != "" {
-			seedLine = fmt.Sprintf(" The user already wrote a draft persona — refine it, don't discard: %q.", sys)
+			seedLine = fmt.Sprintf(" The user already wrote a draft persona — refine and EXPAND it, don't discard or shrink: %q.", sys)
 		} else {
 			parts := []string{}
 			if name != "" {
@@ -249,8 +252,9 @@ func personalAgentTextSuggestionPrompt(field string, req textSuggestRequest, ico
 		}
 		return "You are writing the system prompt / persona for a user's personal AI agent — the durable description of how the agent should behave when answering its owner in Slack." +
 			ownerLine + " " + ctx + seedLine + iconLine +
-			" Write a focused persona paragraph (4-8 sentences, ~400-700 characters): cover voice/tone, how it approaches problems, what kinds of help it is for, and any non-negotiable rules. " +
-			"Address the agent in the second person ('You are…'). Reply with just the persona text — no preface, no quotes, no markdown headings.", 500
+			" Write a substantive persona paragraph: 6-10 sentences, 600-900 characters total. Cover: voice/tone (with examples), how it approaches problems, what kinds of help it is for, what it refuses or pushes back on, any non-negotiable rules, and one signature mannerism. " +
+			"HARD FLOOR: at least 500 characters. A short paragraph is a failure — the persona needs enough specificity that the agent's voice is unmistakable. " +
+			"Address the agent in the second person ('You are…'). Reply with just the persona text — no preface, no quotes, no markdown headings.", 1024
 
 	default:
 		return "", 0
