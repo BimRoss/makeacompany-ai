@@ -339,8 +339,8 @@ export function MePersonalAgentStatusPanel({
   const headerImageUrl = stagedIconDataUrl ?? liveSlackIconUrl;
 
   return (
-    <section className="overflow-hidden rounded-2xl border border-border bg-white shadow-sm ring-1 ring-black/[0.03] dark:bg-zinc-950 dark:ring-white/[0.06]">
-      <header className="flex flex-wrap items-center gap-3 border-b border-border/60 bg-muted/20 px-4 py-4 sm:gap-4 sm:px-5 sm:py-5">
+    <section className="overflow-hidden rounded-2xl bg-white shadow-[0_10px_40px_-12px_rgba(0,0,0,0.18)] ring-1 ring-black/[0.05] transition-shadow duration-200 dark:bg-zinc-950 dark:ring-white/[0.06]">
+      <header className="flex flex-wrap items-center gap-3 border-b border-border/60 px-4 py-4 sm:gap-4 sm:px-5 sm:py-5">
         <button
           type="button"
           onClick={editOpen ? () => setIconPickerOpen((v) => !v) : undefined}
@@ -364,7 +364,7 @@ export function MePersonalAgentStatusPanel({
         </button>
         <div className="min-w-0 flex-1">
           {editOpen ? (
-            <div className="flex items-center gap-1.5">
+            <div className="relative">
               <input
                 type="text"
                 required
@@ -373,22 +373,22 @@ export function MePersonalAgentStatusPanel({
                 onChange={(e) => setName(e.target.value)}
                 disabled={submitting}
                 placeholder="Agent name"
-                className="w-full min-w-0 rounded-md border border-border bg-background px-2 py-1 text-lg font-semibold tracking-tight text-foreground shadow-sm focus:border-foreground/30 focus:outline-none focus:ring-2 focus:ring-foreground/10 sm:text-xl"
+                className="w-full min-w-0 rounded-md border border-border bg-background py-1 pl-2 pr-9 text-lg font-semibold tracking-tight text-foreground shadow-sm focus:border-foreground/30 focus:outline-none focus:ring-2 focus:ring-foreground/10 sm:text-xl"
               />
-              <WriteForMeButton
+              <WriteForMeIconButton
                 onClick={() => suggest("name")}
                 busy={suggesting === "name"}
                 disabled={submitting}
-                compact
+                className="absolute right-1.5 top-1/2 -translate-y-1/2"
               />
             </div>
           ) : (
-            <h2 className="truncate text-lg font-semibold tracking-tight text-foreground sm:text-xl">
+            <h2 className="truncate border border-transparent py-1 pl-2 pr-9 text-lg font-semibold tracking-tight text-foreground sm:text-xl">
               {displayName}
             </h2>
           )}
           {editOpen ? null : (
-            <p className="truncate text-sm text-muted-foreground" title={previewDescription}>
+            <p className="truncate pl-2 text-sm text-muted-foreground" title={previewDescription}>
               {previewDescription}
             </p>
           )}
@@ -565,47 +565,54 @@ function EditRow({
 }) {
   return (
     <div className="flex flex-col gap-2 py-2.5 first:pt-0 last:pb-0 sm:flex-row sm:items-start sm:gap-4">
-      <div className="flex items-center gap-2 sm:w-40 sm:shrink-0 sm:pt-2">
-        <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</dt>
-        <WriteForMeButton onClick={onSuggest} busy={suggesting} disabled={disabled} compact />
-      </div>
+      <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground sm:w-40 sm:shrink-0 sm:pt-2">
+        {label}
+      </dt>
       <dd className="min-w-0 flex-1">
-        {multiline ? (
-          <textarea
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
+        <div className="relative">
+          {multiline ? (
+            <textarea
+              value={value}
+              onChange={(e) => onChange(e.target.value)}
+              disabled={disabled}
+              maxLength={maxLength}
+              placeholder={placeholder}
+              rows={4}
+              className="block w-full rounded-lg border border-border bg-background py-2 pl-3 pr-10 text-sm text-foreground shadow-sm focus:border-foreground/30 focus:outline-none focus:ring-2 focus:ring-foreground/10"
+            />
+          ) : (
+            <input
+              type="text"
+              value={value}
+              onChange={(e) => onChange(e.target.value)}
+              disabled={disabled}
+              maxLength={maxLength}
+              placeholder={placeholder}
+              className="block w-full rounded-lg border border-border bg-background py-2 pl-3 pr-10 text-sm text-foreground shadow-sm focus:border-foreground/30 focus:outline-none focus:ring-2 focus:ring-foreground/10"
+            />
+          )}
+          <WriteForMeIconButton
+            onClick={onSuggest}
+            busy={suggesting}
             disabled={disabled}
-            maxLength={maxLength}
-            placeholder={placeholder}
-            rows={4}
-            className="block w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground shadow-sm focus:border-foreground/30 focus:outline-none focus:ring-2 focus:ring-foreground/10"
+            className={multiline ? "absolute right-2 top-2" : "absolute right-2 top-1/2 -translate-y-1/2"}
           />
-        ) : (
-          <input
-            type="text"
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            disabled={disabled}
-            maxLength={maxLength}
-            placeholder={placeholder}
-            className="block w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground shadow-sm focus:border-foreground/30 focus:outline-none focus:ring-2 focus:ring-foreground/10"
-          />
-        )}
+        </div>
       </dd>
     </div>
   );
 }
 
-function WriteForMeButton({
+function WriteForMeIconButton({
   onClick,
   busy,
   disabled,
-  compact,
+  className = "",
 }: {
   onClick: () => void;
   busy: boolean;
   disabled: boolean;
-  compact?: boolean;
+  className?: string;
 }) {
   return (
     <button
@@ -614,13 +621,18 @@ function WriteForMeButton({
       disabled={disabled || busy}
       title="Write for me"
       aria-label="Write for me"
-      className={`inline-flex shrink-0 items-center gap-1 rounded-md border border-border bg-background font-semibold text-foreground transition hover:bg-muted/40 disabled:cursor-not-allowed disabled:opacity-50 ${
-        compact ? "px-1.5 py-0.5 text-[10px]" : "px-2 py-1 text-[11px]"
-      }`}
+      className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition hover:bg-muted/60 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
     >
-      <SparkleIcon />
-      {busy ? "..." : "AI"}
+      {busy ? <SpinnerDot /> : <SparkleIcon />}
     </button>
+  );
+}
+
+function SpinnerDot() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden className="animate-spin">
+      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeDasharray="40 60" />
+    </svg>
   );
 }
 
@@ -650,12 +662,12 @@ function ConnectionsFooter({
   const announce = (label: string) => setToast(`${label} — coming soon`);
 
   return (
-    <footer className="border-t border-border/60 bg-muted/10 px-4 py-4 sm:px-5">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+    <footer className="border-t border-border/60">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-4 sm:flex-nowrap sm:px-5">
         <p className="shrink-0 text-xs font-medium uppercase tracking-wide text-muted-foreground">
           Connections
         </p>
-        <div className="flex flex-1 flex-wrap items-center gap-2">
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 sm:flex-nowrap sm:overflow-x-auto">
           <ConnectChip label="GitHub" icon={<GitHubGlyph />} onClick={announce} />
           <ConnectChip label="Google" icon={<GoogleGlyph />} onClick={announce} />
           <ConnectChip label="Shopify" icon={<ShopifyGlyph />} onClick={announce} />
@@ -666,36 +678,37 @@ function ConnectionsFooter({
             onClick={announce}
           />
         </div>
-        {editOpen ? (
-          <div className="ml-auto flex items-center gap-2">
-            <button
-              type="button"
-              onClick={onCancel}
-              disabled={submitting}
-              className="inline-flex h-9 items-center rounded-full px-3 text-xs font-medium text-muted-foreground transition hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={onSave}
-              disabled={submitting}
-              className="inline-flex h-9 items-center rounded-full bg-foreground px-4 text-xs font-semibold text-background shadow-sm transition hover:bg-foreground/90 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {submitting ? "Saving..." : "Save & sync"}
-            </button>
-          </div>
-        ) : showEdit ? (
+        {!editOpen && showEdit ? (
           <button
             type="button"
             onClick={onEdit}
-            className="ml-auto inline-flex h-9 items-center gap-1.5 rounded-full border border-border bg-background px-3.5 text-xs font-medium text-foreground transition hover:border-foreground/30 hover:bg-muted/50 dark:bg-zinc-950 dark:hover:bg-zinc-900"
+            className="ml-auto inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-border bg-background px-3.5 text-xs font-medium text-foreground transition hover:border-foreground/30 hover:bg-muted/50 dark:bg-zinc-950 dark:hover:bg-zinc-900"
           >
             <PenIcon />
             Edit
           </button>
         ) : null}
       </div>
+      {editOpen ? (
+        <div className="flex items-center justify-end gap-2 border-t border-border/60 bg-muted/20 px-4 py-3 sm:px-5">
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={submitting}
+            className="inline-flex h-9 items-center rounded-full px-3 text-xs font-medium text-muted-foreground transition hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={onSave}
+            disabled={submitting}
+            className="inline-flex h-9 items-center rounded-full bg-foreground px-4 text-xs font-semibold text-background shadow-sm transition hover:bg-foreground/90 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {submitting ? "Saving..." : "Save & sync"}
+          </button>
+        </div>
+      ) : null}
       {toast ? (
         <div className="pointer-events-none fixed inset-x-0 bottom-6 z-[70] flex justify-center px-4">
           <p
