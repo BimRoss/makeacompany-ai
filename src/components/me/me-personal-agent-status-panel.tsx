@@ -141,16 +141,6 @@ export function MePersonalAgentStatusPanel({
         </div>
         <div className="flex flex-wrap items-center justify-end gap-1.5">
           <StatusPill status={status} />
-          {status === "installed" && !editOpen ? (
-            <button
-              type="button"
-              onClick={() => setEditOpen(true)}
-              className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2.5 py-0.5 text-xs font-medium text-foreground transition hover:bg-muted/50 dark:bg-zinc-950 dark:hover:bg-zinc-900"
-            >
-              <PenIcon />
-              Edit
-            </button>
-          ) : null}
         </div>
       </header>
 
@@ -217,12 +207,21 @@ export function MePersonalAgentStatusPanel({
         </div>
       ) : null}
 
-      <ConnectionsFooter />
+      <ConnectionsFooter
+        showEdit={status === "installed" && !editOpen}
+        onEdit={() => setEditOpen(true)}
+      />
     </section>
   );
 }
 
-function ConnectionsFooter() {
+function ConnectionsFooter({
+  showEdit,
+  onEdit,
+}: {
+  showEdit: boolean;
+  onEdit: () => void;
+}) {
   const [toast, setToast] = useState<string | null>(null);
 
   useEffect(() => {
@@ -235,19 +234,31 @@ function ConnectionsFooter() {
 
   return (
     <footer className="border-t border-border/60 bg-muted/10 px-4 py-4 sm:px-5">
-      <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-        Connections
-      </p>
-      <div className="flex flex-wrap gap-2">
-        <ConnectChip label="GitHub" icon={<GitHubGlyph />} onClick={announce} />
-        <ConnectChip label="Google" icon={<GoogleGlyph />} onClick={announce} />
-        <ConnectChip label="Shopify" icon={<ShopifyGlyph />} onClick={announce} />
-        <ConnectChip label="Cloudflare" icon={<CloudflareGlyph />} onClick={announce} />
-        <ConnectChip
-          label="SSH"
-          icon={<TerminalSquare className="h-4 w-4 text-foreground/80" aria-hidden />}
-          onClick={announce}
-        />
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+        <p className="shrink-0 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          Connections
+        </p>
+        <div className="flex flex-1 flex-wrap items-center gap-2">
+          <ConnectChip label="GitHub" icon={<GitHubGlyph />} onClick={announce} />
+          <ConnectChip label="Google" icon={<GoogleGlyph />} onClick={announce} />
+          <ConnectChip label="Shopify" icon={<ShopifyGlyph />} onClick={announce} />
+          <ConnectChip label="Cloudflare" icon={<CloudflareGlyph />} onClick={announce} />
+          <ConnectChip
+            label="SSH"
+            icon={<TerminalSquare className="h-4 w-4 text-foreground/80" aria-hidden />}
+            onClick={announce}
+          />
+        </div>
+        {showEdit ? (
+          <button
+            type="button"
+            onClick={onEdit}
+            className="ml-auto inline-flex h-9 items-center gap-1.5 rounded-full border border-border bg-background px-3.5 text-xs font-medium text-foreground transition hover:border-foreground/30 hover:bg-muted/50 dark:bg-zinc-950 dark:hover:bg-zinc-900"
+          >
+            <PenIcon />
+            Edit
+          </button>
+        ) : null}
       </div>
       {toast ? (
         <div className="pointer-events-none fixed inset-x-0 bottom-6 z-[70] flex justify-center px-4">
