@@ -12,7 +12,7 @@ import { GoldenPath } from "./golden-path";
 import { KpiScorecard } from "./kpi-scorecard";
 import { MetricPanel } from "./metric-panel";
 import { OAuthPoolPanel } from "@/components/admin/oauth-pool-panel";
-import { CLUSTER_PANELS, JOBS_PANELS, WEB_PANELS } from "./panels";
+import { CLUSTER_PANELS, JOBS_PANELS, LIFECYCLE_PANELS, WEB_PANELS } from "./panels";
 import { SearchDeviceStrip, SearchHostsPanel, SearchPagesPanel, SearchQueriesPanel } from "./search-panel";
 import { SearchTimeseriesPanels } from "./search-timeseries";
 import { ObservabilitySection } from "./section";
@@ -100,6 +100,18 @@ function ObservabilityBody() {
       </div>
 
       <OAuthPoolPanel />
+
+      <ObservabilitySection
+        id="lifecycle"
+        title="Lifecycle cohorts"
+        description="Free-for-life, trialing, active, and expired user counts over time. Sweeper updates every 5 minutes."
+      >
+        <div className={PANEL_GRID}>
+          {LIFECYCLE_PANELS.map((def) => (
+            <MetricPanel key={def.id} def={def} from={from} />
+          ))}
+        </div>
+      </ObservabilitySection>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
         <div className="lg:col-span-12">
