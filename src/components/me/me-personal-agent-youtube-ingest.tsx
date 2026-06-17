@@ -262,23 +262,33 @@ export function MePersonalAgentYouTubeIngest({ systemPrompt, onPromptChange }: P
                     )}
                   </button>
                 </div>
-                {isOpen && s.bullets.length > 0 ? (
-                  <ol className="space-y-1.5 border-t border-border/60 bg-muted/20 px-4 py-3 pl-9">
-                    {s.bullets.map((bullet, idx) => (
-                      <li
-                        key={idx}
-                        className="flex gap-2.5 text-[13px] leading-relaxed text-foreground/90"
-                      >
-                        <span
-                          className="mt-[2px] inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-muted text-[10px] font-semibold tabular-nums text-muted-foreground"
-                          aria-hidden
+                {s.bullets.length > 0 ? (
+                  <div
+                    className={`grid transition-[grid-template-rows] duration-300 ease-out ${
+                      isOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+                    }`}
+                  >
+                    <ol
+                      className={`space-y-1.5 overflow-hidden border-t border-border/60 bg-muted/20 px-4 pl-9 transition-[padding] duration-300 ease-out ${
+                        isOpen ? "py-3" : "py-0"
+                      }`}
+                    >
+                      {s.bullets.map((bullet, idx) => (
+                        <li
+                          key={idx}
+                          className="flex gap-2.5 text-[13px] leading-relaxed text-foreground/90"
                         >
-                          {idx + 1}
-                        </span>
-                        <span className="min-w-0 flex-1">{bullet}</span>
-                      </li>
-                    ))}
-                  </ol>
+                          <span
+                            className="mt-[2px] inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-muted text-[10px] font-semibold tabular-nums text-muted-foreground"
+                            aria-hidden
+                          >
+                            {idx + 1}
+                          </span>
+                          <span className="min-w-0 flex-1">{bullet}</span>
+                        </li>
+                      ))}
+                    </ol>
+                  </div>
                 ) : null}
               </li>
             );
