@@ -128,7 +128,7 @@ export function MePersonalAgentIconPicker({ previewDataUrl, onChange, disabled, 
               Describe the look you want. Generate is enabled once you&apos;ve typed something.
             </p>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap justify-end gap-2">
             <button
               type="button"
               onClick={() => runGenerate("plain")}
