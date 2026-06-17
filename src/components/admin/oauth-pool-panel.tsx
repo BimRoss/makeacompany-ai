@@ -1,9 +1,10 @@
 "use client";
 
-import { AlertTriangle, Loader2, RefreshCw } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 import { kickToLoginForUnauthorizedApi } from "@/lib/client-auth-unauthorized-redirect";
+import { useObservabilityData } from "@/components/admin/observability/data-provider";
 
 // OAuthPoolPanel surfaces combined-pool + per-agent draw against the
 // shared CLAUDE_CODE_OAUTH_TOKEN pool. Ross, Joanne, and Garth all draw
@@ -68,6 +69,11 @@ export function OAuthPoolPanel() {
   const [data, setData] = useState<Payload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Refetch on every observability tick so the legend (and per-agent
+  // spawn counts) stays in lockstep with the rest of the page's
+  // "Updated just now" pill. The data-provider polls /api/admin/health
+  // every 30s; lastUpdatedAt changing is our cue to refresh.
+  const { lastUpdatedAt } = useObservabilityData();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -92,25 +98,12 @@ export function OAuthPoolPanel() {
 
   useEffect(() => {
     void load();
-  }, [load]);
+  }, [load, lastUpdatedAt]);
 
   return (
     <section className="space-y-3">
-      <header className="flex items-center justify-between gap-3 px-0.5">
+      <header className="px-0.5">
         <h2 className="font-display text-lg font-semibold tracking-tight">Rate-limit headroom</h2>
-        <button
-          type="button"
-          onClick={() => void load()}
-          disabled={loading}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1 text-[11px] text-muted-foreground transition hover:border-foreground/30 hover:text-foreground disabled:opacity-50"
-        >
-          {loading ? (
-            <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
-          ) : (
-            <RefreshCw className="h-3 w-3" aria-hidden="true" />
-          )}
-          <span>Refresh</span>
-        </button>
       </header>
 
       {error ? (
