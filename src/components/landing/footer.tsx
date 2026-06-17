@@ -14,7 +14,7 @@ export function Footer({ extraNav }: FooterProps) {
       <div className="mx-auto flex max-w-6xl flex-col items-center gap-6 px-6">
         <div className="flex w-full flex-col items-center justify-between gap-4 sm:flex-row">
           <div className="flex flex-col items-center gap-1 sm:items-start">
-            <p className="text-sm text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               &copy; {year} makeacompany.ai. All rights reserved.
             </p>
             <p className="text-xs text-muted-foreground">
@@ -30,7 +30,7 @@ export function Footer({ extraNav }: FooterProps) {
               , using the product itself.
             </p>
           </div>
-          <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-muted-foreground">
+          <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs text-muted-foreground">
             <Link href="/privacy" className="motion-colors hover:text-foreground">
               Privacy
             </Link>

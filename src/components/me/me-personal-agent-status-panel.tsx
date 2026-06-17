@@ -276,12 +276,12 @@ function ConnectChip({
     <button
       type="button"
       onClick={() => onClick(label)}
-      className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border bg-background px-3 text-xs font-medium text-foreground transition hover:border-foreground/30 hover:bg-muted/50 dark:bg-zinc-950 dark:hover:bg-zinc-900"
+      className="inline-flex h-9 items-center gap-1.5 rounded-full border border-border bg-background px-3.5 text-xs font-medium text-foreground transition hover:border-foreground/30 hover:bg-muted/50 dark:bg-zinc-950 dark:hover:bg-zinc-900"
     >
       <span aria-hidden className="inline-flex h-4 w-4 items-center justify-center">
         {icon}
       </span>
-      Connect {label}
+      {label}
     </button>
   );
 }
