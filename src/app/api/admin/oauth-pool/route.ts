@@ -49,6 +49,13 @@ type AgentTarget = {
   token?: string;
   /** Upper-cased Slack user ID — used to match the target against the Slack bot table. */
   slackUserID?: string;
+  /**
+   * Set when the target is known to be unreachable before we even attempt a
+   * fetch (e.g. a personal-agent Deployment scaled to 0 with no Pod). The
+   * row still renders in the legend so the agent stays visible; fetchAgent
+   * short-circuits with this string in `error`.
+   */
+  preFailReason?: string;
 };
 
 type SlackBot = {
@@ -120,11 +127,13 @@ async function withK8sTLSRelaxed<T>(fn: () => Promise<T>): Promise<T> {
   }
 }
 
-// Discover personal agents from K8s. Each running personal-agent pod
-// exposes an admin HTTP server on :8092 (same shape as Ross/Joanne). We
-// join the pod list with the per-agent runtime Secrets (which carry the
-// slack-user-id annotation) so the legend can render "garth" instead of a
-// pod-name hash.
+// Discover personal agents from K8s. Each personal-agent has a Deployment
+// + Service + Secret in the personal-agents namespace, all labeled
+// `bimross.com/integration=personal-agent`. We enumerate Deployments (so
+// scaled-to-0 agents still render in the legend, with 0 spawns and a
+// "scaled to 0" marker) and join with Pods to pick up a pod IP when one
+// is running. Secret annotations carry the slack-user-id so the legend
+// can render "garth" instead of a resource-name hash.
 async function discoverPersonalAgents(): Promise<AgentTarget[]> {
   const kubeApiUrl = process.env.KUBERNETES_SERVICE_HOST;
   const kubeApiPort = process.env.KUBERNETES_SERVICE_PORT;
@@ -134,28 +143,54 @@ async function discoverPersonalAgents(): Promise<AgentTarget[]> {
     return [];
   }
 
-  const base = `https://${kubeApiUrl}:${kubeApiPort}/api/v1/namespaces/${PERSONAL_AGENT_NAMESPACE}`;
+  const coreBase = `https://${kubeApiUrl}:${kubeApiPort}/api/v1/namespaces/${PERSONAL_AGENT_NAMESPACE}`;
+  const appsBase = `https://${kubeApiUrl}:${kubeApiPort}/apis/apps/v1/namespaces/${PERSONAL_AGENT_NAMESPACE}`;
   const selector = encodeURIComponent(PERSONAL_AGENT_LABEL_SELECTOR);
   const authHeaders = { Authorization: `Bearer ${token}` };
 
   try {
     return await withK8sTLSRelaxed(async () => {
-      const [podsResp, secretsResp] = await Promise.all([
-        fetch(`${base}/pods?labelSelector=${selector}`, { headers: authHeaders }),
-        fetch(`${base}/secrets?labelSelector=${selector}`, { headers: authHeaders }),
+      const [deploysResp, podsResp, secretsResp] = await Promise.all([
+        fetch(`${appsBase}/deployments?labelSelector=${selector}`, { headers: authHeaders }),
+        fetch(`${coreBase}/pods?labelSelector=${selector}`, { headers: authHeaders }),
+        fetch(`${coreBase}/secrets?labelSelector=${selector}`, { headers: authHeaders }),
       ]);
 
-      if (!podsResp.ok) {
-        console.error(`K8s API error querying personal-agents pods: HTTP ${podsResp.status}`);
+      if (!deploysResp.ok) {
+        console.error(
+          `K8s API error querying personal-agents deployments: HTTP ${deploysResp.status}`,
+        );
         return [];
       }
 
-      const podList = (await podsResp.json()) as {
+      const deployList = (await deploysResp.json()) as {
         items: Array<{
           metadata: { name: string; labels?: Record<string, string> };
-          status?: { podIP?: string; phase?: string };
         }>;
       };
+
+      // Build resource-name → pod IP. Deployment and its pods share the
+      // `app.kubernetes.io/name` label (set in k8s_personal_agent_deployment.go),
+      // so that's the join key.
+      const podIPByResourceName = new Map<string, string>();
+      if (podsResp.ok) {
+        const podList = (await podsResp.json()) as {
+          items: Array<{
+            metadata: { name: string; labels?: Record<string, string> };
+            status?: { podIP?: string };
+          }>;
+        };
+        for (const pod of podList.items) {
+          const podIp = pod.status?.podIP;
+          if (!podIp) continue;
+          const rn = pod.metadata.labels?.["app.kubernetes.io/name"];
+          if (rn && !podIPByResourceName.has(rn)) podIPByResourceName.set(rn, podIp);
+        }
+      } else {
+        console.warn(
+          `K8s API non-200 querying personal-agents pods: HTTP ${podsResp.status}`,
+        );
+      }
 
       // Build agent-id → slack-user-id from Secret annotations.
       const slackIDByAgentID = new Map<string, string>();
@@ -174,22 +209,25 @@ async function discoverPersonalAgents(): Promise<AgentTarget[]> {
           if (agentID && slackID) slackIDByAgentID.set(agentID, slackID);
         }
       } else {
-        console.warn(`K8s API non-200 querying personal-agents secrets: HTTP ${secretsResp.status}`);
+        console.warn(
+          `K8s API non-200 querying personal-agents secrets: HTTP ${secretsResp.status}`,
+        );
       }
 
       const targets: AgentTarget[] = [];
-      for (const pod of podList.items) {
-        const podIp = pod.status?.podIP;
-        if (!podIp) continue;
-        const agentID = pod.metadata.labels?.[PERSONAL_AGENT_AGENT_ID_LABEL] ?? "";
+      for (const dep of deployList.items) {
+        const resourceName = dep.metadata.name;
+        const agentID = dep.metadata.labels?.[PERSONAL_AGENT_AGENT_ID_LABEL] ?? "";
         const slackID = slackIDByAgentID.get(agentID) ?? "";
         const friendly = slackID ? personalAgentDisplayLabelFromEnv(slackID) : null;
-        const label = friendly ?? (slackID || (agentID ? agentID.slice(0, 8) : pod.metadata.name));
+        const label = friendly ?? (slackID || (agentID ? agentID.slice(0, 8) : resourceName));
+        const podIp = podIPByResourceName.get(resourceName);
         targets.push({
           agent: label,
-          url: `http://${podIp}:8092`,
+          url: podIp ? `http://${podIp}:8092` : undefined,
           token: "", // cluster-internal; personal agents skip auth
           slackUserID: slackID ? slackID.toUpperCase() : undefined,
+          preFailReason: podIp ? undefined : "scaled to 0",
         });
       }
       return targets;
@@ -268,8 +306,11 @@ async function fetchSlackBots(): Promise<SlackBot[] | null> {
   }
 }
 
-async function fetchAgent({ agent, url, token }: AgentTarget): Promise<AgentResult> {
+async function fetchAgent({ agent, url, token, preFailReason }: AgentTarget): Promise<AgentResult> {
   const endpoint = `${(url ?? "").replace(/\/$/, "")}/admin/oauth-pool`;
+  if (preFailReason) {
+    return { agent, url: endpoint, ok: false, error: preFailReason };
+  }
   if (!url) {
     return { agent, url: endpoint, ok: false, error: "url missing" };
   }
