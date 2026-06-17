@@ -34,6 +34,16 @@ func TestWriteAgentDeployment_CreatesDeployment(t *testing.T) {
 	if c.EnvFrom[0].SecretRef.Name != personalAgentSecretName(req.SlackUserID) {
 		t.Errorf("envFrom secret = %q", c.EnvFrom[0].SecretRef.Name)
 	}
+	// The reflected shared OAuth pool must be envFrom'd AFTER the per-agent
+	// Secret (so its CLAUDE_CODE_OAUTH_TOKEN[_2] win on collision) and be
+	// optional (so a missing mirror never crashes the pod).
+	if len(c.EnvFrom) < 2 || c.EnvFrom[1].SecretRef == nil ||
+		c.EnvFrom[1].SecretRef.Name != personalAgentOAuthPoolSecretName {
+		t.Fatalf("expected pool envFrom %q at index 1, got %+v", personalAgentOAuthPoolSecretName, c.EnvFrom)
+	}
+	if c.EnvFrom[1].SecretRef.Optional == nil || !*c.EnvFrom[1].SecretRef.Optional {
+		t.Errorf("pool envFrom must be optional=true")
+	}
 	gotEnv := map[string]string{}
 	for _, e := range c.Env {
 		gotEnv[e.Name] = e.Value
