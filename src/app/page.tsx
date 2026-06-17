@@ -69,7 +69,7 @@ export default async function HomePage({
   const faqJsonLd = faqStructuredData(initialSeats);
 
   return (
-    <main className="min-h-screen bg-background">
+    <main className="flex min-h-screen flex-col bg-background">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}

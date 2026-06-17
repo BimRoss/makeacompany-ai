@@ -1,3 +1,5 @@
+import { readFile } from "node:fs/promises";
+
 import { NextResponse } from "next/server";
 
 import {
@@ -7,6 +9,18 @@ import {
 } from "@/lib/backend-proxy-auth";
 
 export const dynamic = "force-dynamic";
+
+const SERVICE_ACCOUNT_TOKEN_PATH = "/var/run/secrets/kubernetes.io/serviceaccount/token";
+
+async function readServiceAccountToken(): Promise<string | null> {
+  try {
+    const raw = await readFile(SERVICE_ACCOUNT_TOKEN_PATH, "utf8");
+    const trimmed = raw.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  } catch {
+    return null;
+  }
+}
 
 // Fans out to each agent's /admin/oauth-pool endpoint (Ross + Joanne) and
 // merges the snapshots so the admin page can render a single table. The
@@ -137,7 +151,9 @@ async function withK8sTLSRelaxed<T>(fn: () => Promise<T>): Promise<T> {
 async function discoverPersonalAgents(): Promise<AgentTarget[]> {
   const kubeApiUrl = process.env.KUBERNETES_SERVICE_HOST;
   const kubeApiPort = process.env.KUBERNETES_SERVICE_PORT;
-  const token = process.env.KUBERNETES_SERVICE_ACCOUNT_TOKEN;
+  // The in-cluster service account token is mounted by kubelet at a
+  // well-known path; it is not exposed as an env var.
+  const token = await readServiceAccountToken();
 
   if (!kubeApiUrl || !token) {
     return [];

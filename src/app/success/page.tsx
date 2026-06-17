@@ -16,7 +16,7 @@ export default async function SuccessPage({ searchParams }: Props) {
   const sessionID = (params.session_id ?? "").trim();
 
   return (
-    <main className="min-h-screen bg-background">
+    <main className="flex min-h-screen flex-col bg-background">
       <Header />
       <section className="relative px-6 py-16 sm:py-24">
         <div className="pointer-events-none absolute inset-0 overflow-hidden">

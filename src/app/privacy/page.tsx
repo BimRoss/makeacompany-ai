@@ -69,7 +69,7 @@ export default function PrivacyPage() {
   ];
 
   return (
-    <main className="min-h-screen bg-background">
+    <main className="flex min-h-screen flex-col bg-background">
       <Header />
       <section className="mx-auto w-full max-w-3xl px-6 py-16 sm:py-20">
         <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">Privacy Policy</h1>

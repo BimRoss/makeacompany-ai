@@ -65,7 +65,7 @@ export default async function ShopifyIntegrationPage({ searchParams }: Props) {
   };
 
   return (
-    <main className="min-h-screen bg-background">
+    <main className="flex min-h-screen flex-col bg-background">
       <Header />
       <section className="relative px-6 py-16 sm:py-24">
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
