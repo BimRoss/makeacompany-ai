@@ -2,7 +2,7 @@
 
 import { ChevronDown, ChevronsUpDown, ChevronUp, Copy, Loader2, RefreshCw } from "lucide-react";
 import Image from "next/image";
-import { useCallback, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useState } from "react";
 
 import { useAdminFlashToast } from "@/components/admin/admin-flash-toast";
 import { kickToLoginForUnauthorizedApi } from "@/lib/client-auth-unauthorized-redirect";
@@ -325,10 +325,26 @@ type SlackSortKey =
   | "name"
   | "status"
   | "trialEnds"
+  | "messages"
   | "username"
   | "slackId"
   | "team"
   | "bot";
+
+type EngagementDayBin = { day: string; messages: number };
+type EngagementSummary = {
+  slack_user_id: string;
+  total_messages: number;
+  ross_messages: number;
+  joanne_messages: number;
+  ross_mentions: number;
+  joanne_mentions: number;
+  first_seen_at?: string;
+  last_seen_at?: string;
+  sparkline: EngagementDayBin[];
+};
+type EngagementTopResponse = { users?: EngagementSummary[]; error?: string };
+type EngagementMap = Record<string, number>;
 
 type SlackSortDir = "asc" | "desc";
 
@@ -341,7 +357,11 @@ const STATUS_SORT_RANK: Record<string, number> = {
   expired: 3,
 };
 
-function getSlackSortValue(u: SlackWorkspaceUserRow, key: SlackSortKey): string | number | null {
+function getSlackSortValue(
+  u: SlackWorkspaceUserRow,
+  key: SlackSortKey,
+  engagement: EngagementMap,
+): string | number | null {
   switch (key) {
     case "email":
       return (u.email ?? "").toLowerCase();
@@ -354,6 +374,10 @@ function getSlackSortValue(u: SlackWorkspaceUserRow, key: SlackSortKey): string 
     }
     case "trialEnds":
       return typeof u.trialExpiresAt === "number" && u.trialExpiresAt > 0 ? u.trialExpiresAt : null;
+    case "messages": {
+      const n = engagement[u.slackUserId];
+      return typeof n === "number" ? n : 0;
+    }
     case "username":
       return (u.username ?? "").toLowerCase();
     case "slackId":
@@ -370,9 +394,10 @@ function compareSlackUsers(
   b: SlackWorkspaceUserRow,
   key: SlackSortKey,
   dir: SlackSortDir,
+  engagement: EngagementMap,
 ): number {
-  const av = getSlackSortValue(a, key);
-  const bv = getSlackSortValue(b, key);
+  const av = getSlackSortValue(a, key, engagement);
+  const bv = getSlackSortValue(b, key, engagement);
   // Nulls (e.g. trialEnds when not trialing) always sort to the end,
   // regardless of direction — they're "no value", not "small value".
   if (av === null && bv === null) return 0;
@@ -424,6 +449,105 @@ function SortableTh({
   );
 }
 
+function EngagementSparkline({ bins }: { bins: EngagementDayBin[] }) {
+  if (!bins || bins.length === 0) {
+    return <span className="text-xs text-muted-foreground">No activity in the last 30 days.</span>;
+  }
+  const w = 360;
+  const h = 56;
+  const max = Math.max(1, ...bins.map((b) => b.messages));
+  const dx = bins.length > 1 ? w / (bins.length - 1) : 0;
+  // Two-decimal precision keeps the SVG payload tight without visible jitter.
+  const points = bins
+    .map((b, i) => `${(i * dx).toFixed(2)},${(h - (b.messages / max) * (h - 4) - 2).toFixed(2)}`)
+    .join(" ");
+  const lastIdx = bins.length - 1;
+  const lastX = (lastIdx * dx).toFixed(2);
+  const lastY = (h - (bins[lastIdx].messages / max) * (h - 4) - 2).toFixed(2);
+  return (
+    <svg
+      viewBox={`0 0 ${w} ${h}`}
+      width="100%"
+      height={h}
+      role="img"
+      aria-label={`Messages per day, last ${bins.length} days. Max ${max}.`}
+      className="text-emerald-500"
+    >
+      <polyline
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+        points={points}
+      />
+      <circle cx={lastX} cy={lastY} r="2" fill="currentColor" />
+    </svg>
+  );
+}
+
+function EngagementDetailPanel({
+  slackUserId,
+  detail,
+  loading,
+  error,
+}: {
+  slackUserId: string;
+  detail: EngagementSummary | undefined;
+  loading: boolean;
+  error: string | undefined;
+}) {
+  if (loading) {
+    return (
+      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+        <Loader2 className="size-3.5 animate-spin" aria-hidden /> Loading engagement…
+      </div>
+    );
+  }
+  if (error) {
+    return (
+      <p className="text-xs text-destructive" role="alert">
+        Could not load engagement for {slackUserId}: {error}
+      </p>
+    );
+  }
+  if (!detail) {
+    return <p className="text-xs text-muted-foreground">No engagement data.</p>;
+  }
+  const lastSeen = (detail.last_seen_at ?? "").trim();
+  const firstSeen = (detail.first_seen_at ?? "").trim();
+  return (
+    <div className="grid gap-3 sm:grid-cols-[1fr_1.4fr]">
+      <dl className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
+        <dt className="text-muted-foreground">Total messages</dt>
+        <dd className="tabular-nums font-medium text-foreground">{detail.total_messages.toLocaleString()}</dd>
+        <dt className="text-muted-foreground">To Ross</dt>
+        <dd className="tabular-nums">
+          {detail.ross_messages.toLocaleString()}
+          {detail.ross_mentions > 0 ? (
+            <span className="ml-1 text-muted-foreground">({detail.ross_mentions.toLocaleString()} @-mentions)</span>
+          ) : null}
+        </dd>
+        <dt className="text-muted-foreground">To Joanne</dt>
+        <dd className="tabular-nums">
+          {detail.joanne_messages.toLocaleString()}
+          {detail.joanne_mentions > 0 ? (
+            <span className="ml-1 text-muted-foreground">({detail.joanne_mentions.toLocaleString()} @-mentions)</span>
+          ) : null}
+        </dd>
+        <dt className="text-muted-foreground">First seen</dt>
+        <dd className="tabular-nums">{firstSeen || "—"}</dd>
+        <dt className="text-muted-foreground">Last seen</dt>
+        <dd className="tabular-nums">{lastSeen || "—"}</dd>
+      </dl>
+      <div>
+        <div className="mb-1 text-[10px] uppercase tracking-wide text-muted-foreground">Messages per day, last 30 days</div>
+        <EngagementSparkline bins={detail.sparkline} />
+      </div>
+    </div>
+  );
+}
+
 function renderStatusCell(u: SlackWorkspaceUserRow) {
   const status = (u.status ?? "") as LifecycleStatus | "";
   if (!status) {
@@ -468,6 +592,15 @@ export function AdminSlackUsersTable() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [sortKey, setSortKey] = useState<SlackSortKey | null>(null);
   const [sortDir, setSortDir] = useState<SlackSortDir>("asc");
+  // Engagement counters power the sortable Messages column and the
+  // expandable row's stats card. We fetch the top-N on mount; the map is
+  // keyed by slackUserId and stores total_messages for the column. The
+  // detail (per-bot counters + sparkline) is lazy-loaded per expanded row.
+  const [engagement, setEngagement] = useState<EngagementMap>({});
+  const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
+  const [engagementDetail, setEngagementDetail] = useState<Record<string, EngagementSummary | undefined>>({});
+  const [engagementDetailLoading, setEngagementDetailLoading] = useState<Record<string, boolean | undefined>>({});
+  const [engagementDetailError, setEngagementDetailError] = useState<Record<string, string | undefined>>({});
   const handleSortClick = useCallback((key: SlackSortKey) => {
     setSortKey((prev) => {
       if (prev === key) {
@@ -544,9 +677,69 @@ export function AdminSlackUsersTable() {
     }
   }, [slackUsers, flash]);
 
+  const fetchEngagementTop = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/user-engagement/top?limit=500", { cache: "no-store" });
+      if (kickToLoginForUnauthorizedApi(res.status, "admin")) return;
+      const body = (await res.json().catch(() => null)) as EngagementTopResponse | null;
+      if (!res.ok || !body || !Array.isArray(body.users)) {
+        return;
+      }
+      const next: EngagementMap = {};
+      for (const u of body.users) {
+        if (u.slack_user_id) next[u.slack_user_id] = u.total_messages || 0;
+      }
+      setEngagement(next);
+    } catch {
+      // Silent: engagement is a soft signal on the admin page. A failure
+      // leaves the Messages column showing 0s, which is correct enough
+      // until the next refresh.
+    }
+  }, []);
+
+  const loadEngagementDetail = useCallback(async (slackUserId: string) => {
+    if (!slackUserId) return;
+    setEngagementDetailLoading((m) => ({ ...m, [slackUserId]: true }));
+    setEngagementDetailError((m) => ({ ...m, [slackUserId]: undefined }));
+    try {
+      const res = await fetch(`/api/admin/user-engagement/${encodeURIComponent(slackUserId)}`, { cache: "no-store" });
+      if (kickToLoginForUnauthorizedApi(res.status, "admin")) return;
+      const body = (await res.json().catch(() => null)) as EngagementSummary | { error?: string } | null;
+      if (!res.ok || !body) {
+        const msg = (body as { error?: string } | null)?.error ?? `HTTP ${res.status}`;
+        setEngagementDetailError((m) => ({ ...m, [slackUserId]: msg }));
+        return;
+      }
+      const summary = body as EngagementSummary;
+      setEngagementDetail((m) => ({ ...m, [slackUserId]: summary }));
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "fetch failed";
+      setEngagementDetailError((m) => ({ ...m, [slackUserId]: msg }));
+    } finally {
+      setEngagementDetailLoading((m) => ({ ...m, [slackUserId]: false }));
+    }
+  }, []);
+
+  const toggleExpanded = useCallback(
+    (slackUserId: string) => {
+      setExpandedUserId((prev) => {
+        const next = prev === slackUserId ? null : slackUserId;
+        if (next && !engagementDetail[next]) {
+          void loadEngagementDetail(next);
+        }
+        return next;
+      });
+    },
+    [engagementDetail, loadEngagementDetail],
+  );
+
   useEffect(() => {
     void fetchSlackUsers(false, showDeleted);
   }, [fetchSlackUsers, showDeleted]);
+
+  useEffect(() => {
+    void fetchEngagementTop();
+  }, [fetchEngagementTop]);
 
   const visibleSlackUsers = slackUsers.filter((u) => {
     if (statusFilter === "all") return true;
@@ -560,7 +753,7 @@ export function AdminSlackUsersTable() {
   });
 
   const sortedSlackUsers = sortKey
-    ? [...visibleSlackUsers].sort((a, b) => compareSlackUsers(a, b, sortKey, sortDir))
+    ? [...visibleSlackUsers].sort((a, b) => compareSlackUsers(a, b, sortKey, sortDir, engagement))
     : visibleSlackUsers;
 
   return (
@@ -732,6 +925,7 @@ export function AdminSlackUsersTable() {
                       ["name", "Name"],
                       ["status", "Status"],
                       ["trialEnds", "Trial ends"],
+                      ["messages", "Messages"],
                       ["username", "Username"],
                       ["slackId", "Slack ID"],
                       ["team", "Team"],
@@ -753,8 +947,15 @@ export function AdminSlackUsersTable() {
                 {sortedSlackUsers.map((u) => {
                   const display = (u.realName || u.displayName || u.username || "").trim();
                   const avatarSrc = (u.profileImageUrl ?? "").trim();
+                  const isExpanded = expandedUserId === u.slackUserId;
+                  const totalMessages = engagement[u.slackUserId] ?? 0;
                   return (
-                  <tr key={u.slackUserId} className="border-b border-border/80 last:border-0 transition-colors duration-150 hover:bg-emerald-500/4 dark:hover:bg-emerald-400/6">
+                  <Fragment key={u.slackUserId}>
+                  <tr
+                    aria-expanded={isExpanded}
+                    onClick={() => toggleExpanded(u.slackUserId)}
+                    className="border-b border-border/80 last:border-0 cursor-pointer transition-colors duration-150 hover:bg-emerald-500/4 dark:hover:bg-emerald-400/6"
+                  >
                     <td className="px-2 py-1.5 align-middle">
                       {avatarSrc ? (
                         <Image
@@ -787,11 +988,29 @@ export function AdminSlackUsersTable() {
                         ? formatRelativeFromNow(u.trialExpiresAt, nowSeconds)
                         : "—"}
                     </td>
+                    <td className="whitespace-nowrap px-3 py-1.5 align-middle text-xs tabular-nums">
+                      {totalMessages > 0 ? totalMessages.toLocaleString() : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </td>
                     <td className="whitespace-nowrap px-3 py-1.5 align-middle font-mono text-xs">{short(u.username, 28)}</td>
                     <td className="whitespace-nowrap px-3 py-1.5 align-middle font-mono text-xs">{short(u.slackUserId, 16)}</td>
                     <td className="whitespace-nowrap px-3 py-1.5 align-middle font-mono text-xs">{short(u.teamId, 14)}</td>
                     <td className="whitespace-nowrap px-3 py-1.5 align-middle text-xs">{u.isBot ? "yes" : "—"}</td>
                   </tr>
+                  {isExpanded ? (
+                    <tr className="bg-muted/40 dark:bg-emerald-400/5">
+                      <td colSpan={10} className="px-4 py-3">
+                        <EngagementDetailPanel
+                          slackUserId={u.slackUserId}
+                          detail={engagementDetail[u.slackUserId]}
+                          loading={engagementDetailLoading[u.slackUserId] === true}
+                          error={engagementDetailError[u.slackUserId]}
+                        />
+                      </td>
+                    </tr>
+                  ) : null}
+                  </Fragment>
                   );
                 })}
               </tbody>
