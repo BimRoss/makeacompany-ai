@@ -394,3 +394,35 @@ func hashToRecord(vals map[string]string) PersonalAgentRecord {
 		UpdatedAt:         vals["updated_at"],
 	}
 }
+
+// ListPersonalAgents returns every personal-agent record. It SCANs the main
+// record keyspace (makeacompany:personal_agent:<id>) — the by-owner / by-app
+// index keys have distinct prefixes (personal_agent_by_owner:, _by_app:) and
+// do NOT match this glob, so no filtering is needed. Used by the manifest
+// backfill. Records that vanish mid-scan are skipped, not fatal.
+func (s *Store) ListPersonalAgents(ctx context.Context) ([]PersonalAgentRecord, error) {
+	var out []PersonalAgentRecord
+	var cursor uint64
+	pattern := personalAgentKeyPrefix + "*"
+	for {
+		keys, next, err := s.rdb.Scan(ctx, cursor, pattern, 200).Result()
+		if err != nil {
+			return nil, fmt.Errorf("scan personal agents: %w", err)
+		}
+		for _, key := range keys {
+			id := strings.TrimPrefix(key, personalAgentKeyPrefix)
+			rec, err := s.GetPersonalAgent(ctx, id)
+			if err != nil {
+				// redis.Nil (deleted between scan and read) or a malformed
+				// entry — skip, don't abort the whole listing.
+				continue
+			}
+			out = append(out, rec)
+		}
+		if next == 0 {
+			break
+		}
+		cursor = next
+	}
+	return out, nil
+}
