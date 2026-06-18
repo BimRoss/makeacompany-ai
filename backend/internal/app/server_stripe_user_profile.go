@@ -99,7 +99,31 @@ func primarySubscriptionProductID(sub *stripe.Subscription) string {
 	return ""
 }
 
+// subscriptionProductIsForeign reports whether a subscription on productID belongs to a different
+// Stripe product than the MaC base plan, and so must not mint/update a MaC profile (the shared BimRoss
+// account hosts other products, e.g. cycler.io). Lenient (false) when basePlanProductID is unresolved
+// (boot race) or productID is empty (no price expansion) — same stance as the #485 lifecycle filter so a
+// transient gap never drops real base-plan subscribers. See #492.
+func subscriptionProductIsForeign(productID, basePlanProductID string) bool {
+	base := strings.TrimSpace(basePlanProductID)
+	pid := strings.TrimSpace(productID)
+	return base != "" && pid != "" && pid != base
+}
+
 func (s *Server) syncUserProfileFromStripeSubscription(ctx context.Context, sub *stripe.Subscription, raw json.RawMessage) error {
+	productID := strings.TrimSpace(primarySubscriptionProductID(sub))
+	// Other products live on the shared BimRoss Stripe account (e.g. cycler.io). Their subscription
+	// webhooks must not mint MaC user profiles — that is the creation half of the lifecycle-cohort
+	// over-count (#492; #493 fixed only the classification half by excluding such orphans from the
+	// chart). Skip the sync entirely when the subscription is on a known non-base-plan product. Done
+	// before customer.Get so a foreign-product webhook costs no Stripe API call. Lenient when the base-
+	// plan product id is unresolved (boot race, see server.go) or the subscription carries no product id,
+	// matching the #485 filter stance so a transient resolution failure never drops real subscribers.
+	if subscriptionProductIsForeign(productID, s.cfg.StripeProductBasePlan) {
+		s.log.Printf("stripe subscription sync: skipping non-base-plan product %s (sub %s, base %s) — not a MaC profile", productID, sub.ID, strings.TrimSpace(s.cfg.StripeProductBasePlan))
+		return nil
+	}
+
 	custID := subscriptionCustomerID(sub)
 	if custID == "" {
 		custID = subscriptionCustomerIDFromRaw(raw)
@@ -117,7 +141,6 @@ func (s *Server) syncUserProfileFromStripeSubscription(ctx context.Context, sub 
 	}
 	tier := profileTierFromSubscription(sub)
 	priceID := primarySubscriptionPriceID(sub)
-	productID := primarySubscriptionProductID(sub)
 	if err := s.store.UpsertUserProfileStripeSubscription(ctx, email, custID, sub.ID, string(sub.Status), tier, priceID, productID, sub.CancelAtPeriodEnd, subscriptionCurrentPeriodEndUnix(sub)); err != nil {
 		return err
 	}
