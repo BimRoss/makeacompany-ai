@@ -46,6 +46,37 @@ func (s *Store) GetSlackUsersSnapshotBytes(ctx context.Context) ([]byte, error) 
 	return []byte(raw), nil
 }
 
+// DeletedOrBotSlackUserIDs returns the set of Slack user ids in the cached snapshot
+// that are deactivated (deleted=true) or bots/apps (is_bot=true). The lifecycle
+// sweeper uses this to drop those rows from the cohort counts so the graph tracks
+// the same "active humans" the admin Slack Users table shows with deleted hidden.
+//
+// Returns ErrSlackUsersSnapshotMissing when no snapshot has been written yet; the
+// caller should treat that as "exclude nothing" rather than blanking the graph.
+func (s *Store) DeletedOrBotSlackUserIDs(ctx context.Context) (map[string]struct{}, error) {
+	if s == nil {
+		return nil, errors.New("nil store")
+	}
+	raw, err := s.GetSlackUsersSnapshotBytes(ctx)
+	if err != nil {
+		return nil, err
+	}
+	env, err := ParseSlackUsersSnapshotEnvelope(raw)
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[string]struct{})
+	for i := range env.Users {
+		if !env.Users[i].IsDeleted && !env.Users[i].IsBot {
+			continue
+		}
+		if id := strings.TrimSpace(env.Users[i].SlackUserID); id != "" {
+			out[id] = struct{}{}
+		}
+	}
+	return out, nil
+}
+
 // LookupSlackWorkspaceUserByEmail returns the cached snapshot row for a workspace
 // member by profile email. Returns (zero, false, nil) when the snapshot is
 // missing or the email isn't in it.

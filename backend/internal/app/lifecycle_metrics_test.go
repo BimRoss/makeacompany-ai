@@ -91,6 +91,46 @@ func TestSweepLifecycleOnce_excludesForeignProductOrphans(t *testing.T) {
 	}
 }
 
+func TestSweepLifecycleOnce_excludesDeletedAndBotSlackMembers(t *testing.T) {
+	s, _ := newReaperTestServer(t)
+	ctx := context.Background()
+	lifecycleUsers.Reset()
+
+	// Three free-lifetime members, all carrying a Slack id.
+	for _, m := range []struct{ email, slackID string }{
+		{"active-human@example.com", "UHUMAN"},
+		{"left-workspace@example.com", "UDELETED"},
+		{"agent@example.com", "UBOT"},
+	} {
+		if err := s.store.MarkProfileFreeLifetime(ctx, m.email); err != nil {
+			t.Fatal(err)
+		}
+		if err := s.store.UpsertUserProfileSlackID(ctx, m.email, m.slackID); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// Slack snapshot: UDELETED has left the workspace (deleted) and UBOT is an agent (is_bot).
+	// Both keep their Redis profile but must drop out of the cohort counts.
+	blob, err := MarshalSlackUsersSnapshot([]SlackWorkspaceUser{
+		{SlackUserID: "UHUMAN", Email: "active-human@example.com"},
+		{SlackUserID: "UDELETED", Email: "left-workspace@example.com", IsDeleted: true},
+		{SlackUserID: "UBOT", Email: "agent@example.com", IsBot: true},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.store.SaveSlackUsersSnapshot(ctx, blob); err != nil {
+		t.Fatal(err)
+	}
+
+	s.sweepLifecycleOnce(ctx)
+
+	if got := testutil.ToFloat64(lifecycleUsers.WithLabelValues("free_lifetime")); got != 1 {
+		t.Errorf("lifecycleUsers{status=\"free_lifetime\"} = %v, want 1 (only the active human)", got)
+	}
+}
+
 func TestSweepLifecycleOnce_emptyStoreZeroesAllStatuses(t *testing.T) {
 	s, _ := newReaperTestServer(t)
 	lifecycleUsers.Reset()
