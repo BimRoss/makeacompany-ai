@@ -510,6 +510,18 @@ const (
 // active subscriptions would otherwise inflate the paying count. See #485. When basePlanProductID is
 // empty (boot race or unconfigured local dev) or when row.StripeProductID is empty (legacy rows pre-
 // dating the product_id field), behavior is unchanged from before #485.
+//
+// One refinement on top of #485: a profile whose Stripe footprint is a *known foreign product* (its
+// StripeProductID is set and differs from the base plan) and that has no Slack identity is not a MaC
+// member at all — it's a customer of another product on the shared Stripe account whose profile got
+// minted by the checkout snapshot. #485 stopped these from inflating the *paying* count by blanking
+// their Stripe state, but that pushed them into the conservative free_lifetime default below, where
+// they inflated the *free-for-life* cohort instead (the over-count audit: ~40 such orphans on
+// prod_UFoe…/prod_HcfK… showed up as free-for-life). Silence them as expired. This is deliberately
+// narrow: a foreign-product buyer who *is* in the workspace (SlackUserID set) still gets the
+// conservative free_lifetime default, and a row with no product id at all — including the empty-row
+// probe handleInternalUserStatus uses for unrecognized users — is untouched, so the gate never
+// silences someone we don't recognize.
 func EffectiveStatus(row UserProfileRow, now time.Time, basePlanProductID string) LifecycleStatus {
 	st := strings.ToLower(strings.TrimSpace(row.StripeSubscriptionStatus))
 	if !stripeStateMatchesBasePlan(row, basePlanProductID) {
@@ -536,6 +548,13 @@ func EffectiveStatus(row UserProfileRow, now time.Time, basePlanProductID string
 	}
 	if st == "trialing" {
 		return LifecycleTrialing
+	}
+	// Known foreign-product orphan with no Slack identity: a customer of another BimRoss Stripe
+	// product, not a MaC member. Don't let it land in the free_lifetime default below. See the doc
+	// comment above and #485. stripeStateMatchesBasePlan is false only when basePlanProductID and
+	// row.StripeProductID are both set and differ, so the empty-row gate probe stays free_lifetime.
+	if row.SlackUserID == "" && !stripeStateMatchesBasePlan(row, basePlanProductID) {
+		return LifecycleExpired
 	}
 	return LifecycleFreeLifetime
 }
