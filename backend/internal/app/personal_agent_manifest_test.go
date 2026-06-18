@@ -55,6 +55,37 @@ func TestRenderPersonalAgentManifest_Success(t *testing.T) {
 	}
 }
 
+// TestRenderPersonalAgentManifest_SubscribesAppUninstalled locks the contract
+// that makes the uninstall webhook work: without app_uninstalled in bot_events,
+// Slack never tells the gateway an app was removed and the front-door
+// deprovision never fires (only the liveness-prune backstop would).
+func TestRenderPersonalAgentManifest_SubscribesAppUninstalled(t *testing.T) {
+	out, err := RenderPersonalAgentManifest(PersonalAgentManifestSubstitutions{
+		DisplayName:        "Garth",
+		Description:        "Grant's personal agent",
+		EventsRequestURL:   "https://events.makeacompany.ai/slack/events",
+		InstallRedirectURL: "https://makeacompany.ai/v1/personal-agents/abc/install-complete",
+	})
+	if err != nil {
+		t.Fatalf("RenderPersonalAgentManifest: %v", err)
+	}
+	var parsed map[string]any
+	if err := json.Unmarshal(out, &parsed); err != nil {
+		t.Fatalf("output is not valid JSON: %v", err)
+	}
+	events := parsed["settings"].(map[string]any)["event_subscriptions"].(map[string]any)
+	botEvents := events["bot_events"].([]any)
+	found := false
+	for _, e := range botEvents {
+		if e.(string) == "app_uninstalled" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("manifest bot_events missing app_uninstalled: %v", botEvents)
+	}
+}
+
 func TestRenderPersonalAgentManifest_RejectsEmpty(t *testing.T) {
 	cases := []PersonalAgentManifestSubstitutions{
 		{Description: "x", EventsRequestURL: "u1", InstallRedirectURL: "u2"},

@@ -306,6 +306,7 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 	s.mux.HandleFunc("POST /v1/me/personal-agents/text-suggest", s.handleSuggestPersonalAgentText)
 	s.mux.HandleFunc("POST /v1/me/personal-agents/delete", s.handleDeletePersonalAgent)
 	s.mux.HandleFunc("POST /v1/internal/personal-agents/rollout-all", s.handlePersonalAgentRolloutAll)
+	s.mux.HandleFunc("POST /v1/internal/personal-agents/backfill-manifest", s.handlePersonalAgentBackfillManifest)
 	s.mux.HandleFunc("GET /v1/personal-agents/{id}/install-complete", s.handlePersonalAgentInstallComplete)
 	// Shared Slack events gateway for ALL personal-agent apps. The manifest
 	// template ships with /slack/events as the events request_url, and Slack

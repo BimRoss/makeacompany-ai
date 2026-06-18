@@ -223,26 +223,41 @@ func (s *Server) reconcilePersonalAgentLiveness(ctx context.Context, streak map[
 	return result
 }
 
-// deprovisionDeadPersonalAgent tears down a personal agent end-to-end, mirroring
-// the portal delete handler: K8s resources first (Deployment + Service +
-// Secret), then the DB record. DB cleanup is best-effort — if the row is
-// already gone (e.g. the agent was deleted from the portal but K8s teardown
-// failed earlier) a NotFound there must not block the resource teardown that
-// is the whole point of this pass.
+// deprovisionDeadPersonalAgent tears down a personal agent the liveness pass
+// found dead, identified by the resource-owning slack user id from the
+// deployment annotation. Resolves the store record (best-effort) then delegates
+// to the shared teardown.
 func (s *Server) deprovisionDeadPersonalAgent(ctx context.Context, slackUserID string) error {
-	if err := s.personalAgent.DeleteAgentResources(ctx, slackUserID); err != nil {
+	var rec *PersonalAgentRecord
+	if r, err := s.store.GetPersonalAgentByOwner(ctx, slackUserID); err != nil {
+		s.log.Printf("personal-agent liveness: DB row lookup for %s skipped/failed: %v", slackUserID, err)
+	} else {
+		rec = &r
+	}
+	return s.deprovisionPersonalAgent(ctx, slackUserID, rec)
+}
+
+// deprovisionPersonalAgent is the single end-to-end teardown, mirroring the
+// portal delete handler: K8s resources first (Deployment + Service + Secret),
+// then the store record. Shared by the liveness prune and the app_uninstalled
+// webhook so there is exactly one teardown definition.
+//
+//   - resourceID is the slack user id the per-agent K8s resources are NAMED by
+//     (== OwnerSlackUserID). It is what DeleteAgentResources keys off.
+//   - rec, when non-nil, is the store record to delete. DB cleanup is
+//     best-effort: the K8s teardown is the load-bearing part (it stops the
+//     crashloop / frees the slot), so a missing or failed DB delete must not
+//     fail the whole operation. A nil rec means "no record to clean" (already
+//     gone, or never resolved).
+func (s *Server) deprovisionPersonalAgent(ctx context.Context, resourceID string, rec *PersonalAgentRecord) error {
+	if err := s.personalAgent.DeleteAgentResources(ctx, resourceID); err != nil {
 		return fmt.Errorf("delete k8s resources: %w", err)
 	}
-	rec, err := s.store.GetPersonalAgentByOwner(ctx, slackUserID)
-	if err != nil {
-		// No matching DB row (or lookup failed): the K8s teardown — the thing
-		// that stops the crashloop — already succeeded. Log and return clean.
-		s.log.Printf("personal-agent liveness: k8s torn down for %s; DB row lookup skipped/failed: %v", slackUserID, err)
+	if rec == nil {
 		return nil
 	}
-	if err := s.store.DeletePersonalAgent(ctx, rec); err != nil {
-		s.log.Printf("personal-agent liveness: k8s torn down for %s but DB delete failed: %v", slackUserID, err)
-		return nil
+	if err := s.store.DeletePersonalAgent(ctx, *rec); err != nil {
+		s.log.Printf("personal-agent deprovision: k8s torn down for %s but DB delete failed: %v", resourceID, err)
 	}
 	return nil
 }

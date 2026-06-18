@@ -55,7 +55,8 @@
         "message.groups",
         "message.im",
         "reaction_added",
-        "reaction_removed"
+        "reaction_removed",
+        "app_uninstalled"
       ]
     },
     "interactivity": {
