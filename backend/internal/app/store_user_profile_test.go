@@ -322,10 +322,29 @@ func TestEffectiveStatus_BasePlanProductFilter(t *testing.T) {
 		want           LifecycleStatus
 	}{
 		{
-			name:           "non-MaC active sub is filtered out and falls through to free_lifetime",
+			// #485 stops the foreign-product sub from counting as active/paying; the free-for-life
+			// over-count fix then keeps it out of the free_lifetime default too (no Slack identity →
+			// not a MaC member). Silenced as expired.
+			name:           "non-MaC active sub with no slack id is silenced (foreign-product orphan)",
 			row:            UserProfileRow{StripeSubscriptionStatus: "active", StripeProductID: other},
 			basePlanProdID: mac,
+			want:           LifecycleExpired,
+		},
+		{
+			// A workspace member who also bought another BimRoss product is still a member: the
+			// foreign-orphan branch requires an empty SlackUserID, so this keeps the conservative default.
+			name:           "non-MaC active sub WITH slack id stays free_lifetime (workspace member preserved)",
+			row:            UserProfileRow{StripeSubscriptionStatus: "active", StripeProductID: other, SlackUserID: "U123"},
+			basePlanProdID: mac,
 			want:           LifecycleFreeLifetime,
+		},
+		{
+			// The dominant over-count bucket: a profile minted from a foreign-product checkout with no
+			// subscription status and no Slack identity.
+			name:           "foreign product id, no sub status, no slack id is silenced",
+			row:            UserProfileRow{StripeProductID: other},
+			basePlanProdID: mac,
+			want:           LifecycleExpired,
 		},
 		{
 			name:           "MaC active sub still counts as active",
@@ -334,14 +353,22 @@ func TestEffectiveStatus_BasePlanProductFilter(t *testing.T) {
 			want:           LifecycleActive,
 		},
 		{
-			name:           "non-MaC canceled does not silence to expired",
+			name:           "non-MaC canceled with no slack id is silenced (foreign-product orphan)",
 			row:            UserProfileRow{StripeSubscriptionStatus: "canceled", StripeProductID: other},
 			basePlanProdID: mac,
-			want:           LifecycleFreeLifetime,
+			want:           LifecycleExpired,
 		},
 		{
-			name:           "non-MaC trialing does not count as trialing",
+			name:           "non-MaC trialing with no slack id is silenced (foreign-product orphan)",
 			row:            UserProfileRow{StripeSubscriptionStatus: "trialing", StripeProductID: other},
+			basePlanProdID: mac,
+			want:           LifecycleExpired,
+		},
+		{
+			// The handleInternalUserStatus empty-row probe for unrecognized Slack users must never be
+			// silenced: no product id → stripeStateMatchesBasePlan true → foreign-orphan branch skipped.
+			name:           "empty row (unrecognized-user gate probe) stays free_lifetime",
+			row:            UserProfileRow{},
 			basePlanProdID: mac,
 			want:           LifecycleFreeLifetime,
 		},
