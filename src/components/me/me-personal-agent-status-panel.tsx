@@ -14,6 +14,7 @@ import {
   parseYouTubeIntelSources,
   stripYouTubeIntelFence,
 } from "@/components/me/me-personal-agent-youtube-ingest";
+import { readCachedAgentIcon, writeCachedAgentIcon } from "@/lib/personal-agent-icon-cache";
 
 type AgentStatus = {
   hasAgent: boolean;
@@ -30,10 +31,6 @@ type AgentStatus = {
 type Field = "name" | "description" | "longDescription" | "systemPrompt";
 
 const TERMINAL_STATUSES = new Set(["installed", "failed"]);
-
-function lastIconStorageKey(agentId: string): string {
-  return `mac.pa.icon.${agentId}`;
-}
 
 export function MePersonalAgentStatusPanel({
   initial,
@@ -128,29 +125,16 @@ export function MePersonalAgentStatusPanel({
   }, [agent.hasAgent, agent.status, router]);
 
   // Hydrate the last-staged icon from localStorage so refresh keeps the preview.
+  // This is also how a just-created agent's icon shows pre-install: the creation
+  // form writes the same cache, keyed on agentId (falling back to slackAppId).
   useEffect(() => {
-    const id = agent.agentId ?? agent.slackAppId ?? "";
-    if (!id || typeof window === "undefined") return;
-    try {
-      const raw = window.localStorage.getItem(lastIconStorageKey(id));
-      if (!raw) return;
-      const parsed = JSON.parse(raw) as IconPickerValue | null;
-      if (parsed?.base64 && parsed.mimeType) setIcon(parsed);
-    } catch {
-      /* corrupt entry — ignore */
-    }
+    const cached = readCachedAgentIcon(agent.agentId ?? agent.slackAppId);
+    if (cached) setIcon(cached);
   }, [agent.agentId, agent.slackAppId]);
 
   const cacheIcon = useCallback(
     (next: IconPickerValue | null) => {
-      const id = agent.agentId ?? agent.slackAppId ?? "";
-      if (!id || typeof window === "undefined") return;
-      try {
-        if (next) window.localStorage.setItem(lastIconStorageKey(id), JSON.stringify(next));
-        else window.localStorage.removeItem(lastIconStorageKey(id));
-      } catch {
-        /* quota / privacy mode */
-      }
+      writeCachedAgentIcon(agent.agentId ?? agent.slackAppId, next);
     },
     [agent.agentId, agent.slackAppId],
   );

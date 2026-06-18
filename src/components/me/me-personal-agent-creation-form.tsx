@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { MePersonalAgentIconPicker, type IconPickerValue } from "@/components/me/me-personal-agent-icon-picker";
+import { writeCachedAgentIcon } from "@/lib/personal-agent-icon-cache";
 
 type CreateResponse = {
   agentId?: string;
@@ -45,6 +46,13 @@ export function MePersonalAgentCreationForm() {
         setError(payload.error || `Create failed (${res.status})`);
         setSubmitting(false);
         return;
+      }
+      // Stash the chosen icon so the status panel can show it pre-install.
+      // Slack's icon-current returns empty until OAuth completes, so this
+      // localStorage cache is the only source for the preview until then.
+      // Key on the same id the status panel hydrates from (agentId ?? slackAppId).
+      if (icon) {
+        writeCachedAgentIcon(payload.agentId ?? payload.slackAppId, icon);
       }
       setInstallUrl(payload.installUrl);
       // Stay on this card so the user can click the install link. The status
