@@ -503,8 +503,18 @@ const (
 // status (canceled / incomplete_expired / unpaid) silences the user. Then a live trial_expires_at
 // gates trialing vs expired. Default is free_lifetime — the conservative choice so unknown profiles
 // don't get silenced when #243 lands.
-func EffectiveStatus(row UserProfileRow, now time.Time) LifecycleStatus {
+//
+// basePlanProductID, when non-empty, restricts Stripe state to subscriptions on the MaC base-plan
+// product. Rows whose StripeProductID is set to a different product are treated as if Stripe weren't
+// configured at all — the BimRoss Stripe account hosts other products (older landers, etc.) whose
+// active subscriptions would otherwise inflate the paying count. See #485. When basePlanProductID is
+// empty (boot race or unconfigured local dev) or when row.StripeProductID is empty (legacy rows pre-
+// dating the product_id field), behavior is unchanged from before #485.
+func EffectiveStatus(row UserProfileRow, now time.Time, basePlanProductID string) LifecycleStatus {
 	st := strings.ToLower(strings.TrimSpace(row.StripeSubscriptionStatus))
+	if !stripeStateMatchesBasePlan(row, basePlanProductID) {
+		st = ""
+	}
 	if st == "active" {
 		return LifecycleActive
 	}
@@ -530,6 +540,22 @@ func EffectiveStatus(row UserProfileRow, now time.Time) LifecycleStatus {
 	return LifecycleFreeLifetime
 }
 
+// stripeStateMatchesBasePlan reports whether the row's Stripe state should be honored for MaC
+// lifecycle purposes. Returns true when basePlanProductID is empty (no filter configured), when
+// row.StripeProductID is empty (legacy row, can't tell — be lenient), or when the two match.
+// See #485.
+func stripeStateMatchesBasePlan(row UserProfileRow, basePlanProductID string) bool {
+	base := strings.TrimSpace(basePlanProductID)
+	if base == "" {
+		return true
+	}
+	rowProd := strings.TrimSpace(row.StripeProductID)
+	if rowProd == "" {
+		return true
+	}
+	return rowProd == base
+}
+
 // DeployGateStatus describes whether a user may ship a deployment.
 type DeployGateStatus struct {
 	Allowed bool   `json:"allowed"`
@@ -538,13 +564,19 @@ type DeployGateStatus struct {
 
 // CheckDeployGate returns whether the user is allowed to ship based on subscription and free-tier state.
 // When gateEnabled is false, always allows (the gate can ship to prod before being turned on).
-func CheckDeployGate(row UserProfileRow, gateEnabled bool) DeployGateStatus {
+//
+// basePlanProductID, when non-empty, requires the row's StripeProductID to match it before honoring
+// an active/trialing Stripe status. Without the filter, a paying subscription on a non-MaC BimRoss
+// product would slip through the gate; see #485.
+func CheckDeployGate(row UserProfileRow, gateEnabled bool, basePlanProductID string) DeployGateStatus {
 	if !gateEnabled {
 		return DeployGateStatus{Allowed: true, Reason: "gate_disabled"}
 	}
-	switch strings.ToLower(strings.TrimSpace(row.StripeSubscriptionStatus)) {
-	case "active", "trialing":
-		return DeployGateStatus{Allowed: true, Reason: "paid"}
+	if stripeStateMatchesBasePlan(row, basePlanProductID) {
+		switch strings.ToLower(strings.TrimSpace(row.StripeSubscriptionStatus)) {
+		case "active", "trialing":
+			return DeployGateStatus{Allowed: true, Reason: "paid"}
+		}
 	}
 	if !row.FreeTierConsumed {
 		return DeployGateStatus{Allowed: true, Reason: "free_tier_available"}
@@ -556,7 +588,10 @@ func CheckDeployGate(row UserProfileRow, gateEnabled bool) DeployGateStatus {
 // (via makeacompany:user_by_slack): humans terms, resolved lifecycle status, trial expiry, and Stripe customer id.
 // Uses two pipelined batches (slack→email lookup, then profile HMGET) so it stays O(2) round-trips regardless of
 // member count — see admin trial-gating (#245).
-func (s *Store) EnrichSlackWorkspaceUsersWithProfileTerms(ctx context.Context, users []SlackWorkspaceUser) {
+//
+// basePlanProductID is forwarded to EffectiveStatus so non-MaC-product subscriptions don't inflate
+// the admin status column. Pass s.cfg.StripeProductBasePlan. See #485.
+func (s *Store) EnrichSlackWorkspaceUsersWithProfileTerms(ctx context.Context, users []SlackWorkspaceUser, basePlanProductID string) {
 	if s == nil || len(users) == 0 {
 		return
 	}
@@ -596,6 +631,7 @@ func (s *Store) EnrichSlackWorkspaceUsersWithProfileTerms(ctx context.Context, u
 		"trial_expires_at",
 		"stripe_customer_id",
 		"free_lifetime",
+		"stripe_product_id",
 	}
 	for k, i := range idxs {
 		raw, err := emailCmds[k].Result()
@@ -640,8 +676,9 @@ func (s *Store) EnrichSlackWorkspaceUsersWithProfileTerms(ctx context.Context, u
 			TrialExpiresAt:                     parseUnixSecondsString(strAt(4)),
 			StripeCustomerID:                   strAt(5),
 			FreeLifetime:                       strings.EqualFold(strAt(6), "true"),
+			StripeProductID:                    strAt(7),
 		}
-		status := EffectiveStatus(row, now)
+		status := EffectiveStatus(row, now, basePlanProductID)
 		users[p.userIdx].Status = string(status)
 		users[p.userIdx].StripeCustomerID = row.StripeCustomerID
 		if status == LifecycleTrialing && row.TrialExpiresAt > 0 {

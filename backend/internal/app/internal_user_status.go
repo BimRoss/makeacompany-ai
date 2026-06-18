@@ -35,7 +35,7 @@ func (s *Server) handleInternalUserStatus(w http.ResponseWriter, r *http.Request
 	}
 	if email == "" {
 		writeJSON(w, http.StatusOK, map[string]any{
-			"status":      string(EffectiveStatus(UserProfileRow{}, time.Now().UTC())),
+			"status":      string(EffectiveStatus(UserProfileRow{}, time.Now().UTC(), s.cfg.StripeProductBasePlan)),
 			"slackUserId": slackUserID,
 		})
 		return
@@ -47,7 +47,7 @@ func (s *Server) handleInternalUserStatus(w http.ResponseWriter, r *http.Request
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
-		"status":      string(EffectiveStatus(row, time.Now().UTC())),
+		"status":      string(EffectiveStatus(row, time.Now().UTC(), s.cfg.StripeProductBasePlan)),
 		"slackUserId": slackUserID,
 	})
 }

@@ -58,7 +58,7 @@ func (s *Server) sweepLifecycleOnce(ctx context.Context) {
 	}
 	now := time.Now().UTC()
 	for _, row := range rows {
-		counts[EffectiveStatus(row, now)]++
+		counts[EffectiveStatus(row, now, s.cfg.StripeProductBasePlan)]++
 	}
 	for status, n := range counts {
 		lifecycleUsers.WithLabelValues(string(status)).Set(float64(n))
