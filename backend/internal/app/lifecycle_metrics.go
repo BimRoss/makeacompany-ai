@@ -58,7 +58,12 @@ func (s *Server) sweepLifecycleOnce(ctx context.Context) {
 	}
 	now := time.Now().UTC()
 	for _, row := range rows {
-		counts[EffectiveStatus(row, now, s.cfg.StripeProductBasePlan)]++
+		st := EffectiveStatus(row, now, s.cfg.StripeProductBasePlan)
+		if st == LifecycleExcluded {
+			// Not a MaC member (e.g. a foreign-product Stripe orphan). Don't count it in any cohort.
+			continue
+		}
+		counts[st]++
 	}
 	for status, n := range counts {
 		lifecycleUsers.WithLabelValues(string(status)).Set(float64(n))

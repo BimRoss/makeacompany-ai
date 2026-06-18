@@ -495,14 +495,22 @@ const (
 	LifecycleTrialing     LifecycleStatus = "trialing"
 	LifecycleActive       LifecycleStatus = "active"
 	LifecycleExpired      LifecycleStatus = "expired"
+	// LifecycleExcluded marks a profile that is not a MaC member at all — e.g. a foreign-product Stripe
+	// orphan (a customer of another product on the shared BimRoss Stripe account, like cycler.io). It is
+	// not one of the four real cohorts; the lifecycle sweeper skips it so it never appears on the chart.
+	// EffectiveStatus only ever returns this for a row with no Slack identity, so it is never produced for
+	// a profile reachable via the internal user-status gate (those are always looked up by Slack id).
+	LifecycleExcluded LifecycleStatus = "excluded"
 )
 
 // EffectiveStatus collapses StripeSubscriptionStatus, FreeLifetime, and TrialExpiresAt into one lifecycle
 // value. Precedence: Stripe active wins over everything (handles trial→paid). Then free_lifetime (the
 // pre-100 cliff — preserved on cancel, see store_user_profile.go:133-135). Then any terminal Stripe
-// status (canceled / incomplete_expired / unpaid) silences the user. Then a live trial_expires_at
-// gates trialing vs expired. Default is free_lifetime — the conservative choice so unknown profiles
-// don't get silenced when #243 lands.
+// status (canceled / incomplete_expired / unpaid) silences the user. Then a trial gates trialing vs
+// expired — but only for a profile with a Slack identity; a trial-only profile that never joined the
+// workspace (the free-trial-invite email form mints these, and bots spam it) is LifecycleExcluded, not
+// counted in any cohort. Default is free_lifetime — the conservative choice so unknown profiles don't
+// get silenced when #243 lands.
 //
 // basePlanProductID, when non-empty, restricts Stripe state to subscriptions on the MaC base-plan
 // product. Rows whose StripeProductID is set to a different product are treated as if Stripe weren't
@@ -513,15 +521,17 @@ const (
 //
 // One refinement on top of #485: a profile whose Stripe footprint is a *known foreign product* (its
 // StripeProductID is set and differs from the base plan) and that has no Slack identity is not a MaC
-// member at all — it's a customer of another product on the shared Stripe account whose profile got
-// minted by the checkout snapshot. #485 stopped these from inflating the *paying* count by blanking
-// their Stripe state, but that pushed them into the conservative free_lifetime default below, where
-// they inflated the *free-for-life* cohort instead (the over-count audit: ~40 such orphans on
-// prod_UFoe…/prod_HcfK… showed up as free-for-life). Silence them as expired. This is deliberately
-// narrow: a foreign-product buyer who *is* in the workspace (SlackUserID set) still gets the
-// conservative free_lifetime default, and a row with no product id at all — including the empty-row
-// probe handleInternalUserStatus uses for unrecognized users — is untouched, so the gate never
-// silences someone we don't recognize.
+// member at all — it's a customer of another product on the shared Stripe account (e.g. cycler.io
+// subscription webhooks) whose profile got minted into the store. #485 stopped these from inflating the
+// *paying* count by blanking their Stripe state, but that pushed them into the conservative
+// free_lifetime default below, where they inflated the *free-for-life* cohort instead (the over-count
+// audit: ~40 such orphans on prod_UFoe…/prod_HcfK… showed up as free-for-life). These are not a real
+// cohort — not free-for-life, and not churned MaC members either — so EffectiveStatus returns
+// LifecycleExcluded and the sweeper drops them rather than counting them as expired. This is
+// deliberately narrow: a foreign-product buyer who *is* in the workspace (SlackUserID set) still gets
+// the conservative free_lifetime default, and a row with no product id at all — including the empty-row
+// probe handleInternalUserStatus uses for unrecognized users — is untouched, so the gate never silences
+// someone we don't recognize.
 func EffectiveStatus(row UserProfileRow, now time.Time, basePlanProductID string) LifecycleStatus {
 	st := strings.ToLower(strings.TrimSpace(row.StripeSubscriptionStatus))
 	if !stripeStateMatchesBasePlan(row, basePlanProductID) {
@@ -541,20 +551,33 @@ func EffectiveStatus(row UserProfileRow, now time.Time, basePlanProductID string
 		return LifecycleExpired
 	}
 	if row.TrialExpiresAt > 0 {
+		// A trial only counts as a real cohort member once they've joined the workspace. The
+		// free-trial-invite endpoint mints a profile from an email-form submission before (and often
+		// without) any Slack join, and it's a magnet for bot/spam signups (disposable domains, malformed
+		// addresses). Without a Slack identity it's not an activated trial user — exclude it from the
+		// cohorts entirely rather than count it as trialing/expired. A trial row is never reachable via the
+		// internal user-status gate without a Slack id, so this is metric-only.
+		if row.SlackUserID == "" {
+			return LifecycleExcluded
+		}
 		if now.Unix() < row.TrialExpiresAt {
 			return LifecycleTrialing
 		}
 		return LifecycleExpired
 	}
 	if st == "trialing" {
+		if row.SlackUserID == "" {
+			return LifecycleExcluded
+		}
 		return LifecycleTrialing
 	}
 	// Known foreign-product orphan with no Slack identity: a customer of another BimRoss Stripe
-	// product, not a MaC member. Don't let it land in the free_lifetime default below. See the doc
-	// comment above and #485. stripeStateMatchesBasePlan is false only when basePlanProductID and
-	// row.StripeProductID are both set and differ, so the empty-row gate probe stays free_lifetime.
+	// product (e.g. cycler.io), not a MaC member. Exclude it from the cohorts entirely — it is neither
+	// free-for-life nor an expired MaC user. See the doc comment above and #485. stripeStateMatchesBasePlan
+	// is false only when basePlanProductID and row.StripeProductID are both set and differ, so the
+	// empty-row gate probe stays free_lifetime.
 	if row.SlackUserID == "" && !stripeStateMatchesBasePlan(row, basePlanProductID) {
-		return LifecycleExpired
+		return LifecycleExcluded
 	}
 	return LifecycleFreeLifetime
 }
@@ -696,6 +719,11 @@ func (s *Store) EnrichSlackWorkspaceUsersWithProfileTerms(ctx context.Context, u
 			StripeCustomerID:                   strAt(5),
 			FreeLifetime:                       strings.EqualFold(strAt(6), "true"),
 			StripeProductID:                    strAt(7),
+			// These rows are built only for entries with a non-empty Slack id (filtered above), and the
+			// workspace user IS the Slack identity. Populate it so EffectiveStatus's member-only checks
+			// (trial requires a Slack id; foreign-product orphan exclusion) classify them as the workspace
+			// members they are rather than excluding them.
+			SlackUserID: strings.TrimSpace(users[p.userIdx].SlackUserID),
 		}
 		status := EffectiveStatus(row, now, basePlanProductID)
 		users[p.userIdx].Status = string(status)
