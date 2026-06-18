@@ -287,9 +287,14 @@ func TestEffectiveStatus(t *testing.T) {
 	}{
 		{"stripe active beats everything", UserProfileRow{StripeSubscriptionStatus: "active", FreeLifetime: true, TrialExpiresAt: 1}, LifecycleActive},
 		{"free lifetime when no stripe", UserProfileRow{FreeLifetime: true}, LifecycleFreeLifetime},
-		{"trialing within window", UserProfileRow{TrialExpiresAt: now.Unix() + 3600}, LifecycleTrialing},
-		{"expired past window", UserProfileRow{TrialExpiresAt: now.Unix() - 1}, LifecycleExpired},
-		{"stripe trialing without local expiry", UserProfileRow{StripeSubscriptionStatus: "trialing"}, LifecycleTrialing},
+		{"trialing within window (workspace member)", UserProfileRow{TrialExpiresAt: now.Unix() + 3600, SlackUserID: "U1"}, LifecycleTrialing},
+		{"expired past window (workspace member)", UserProfileRow{TrialExpiresAt: now.Unix() - 1, SlackUserID: "U1"}, LifecycleExpired},
+		{"stripe trialing without local expiry (workspace member)", UserProfileRow{StripeSubscriptionStatus: "trialing", SlackUserID: "U1"}, LifecycleTrialing},
+		// Trial-only profiles that never joined Slack (free-trial-invite email form / bot spam) are not
+		// activated trial users — excluded from the cohorts, not counted as trialing or expired.
+		{"trial within window but no slack id is excluded", UserProfileRow{TrialExpiresAt: now.Unix() + 3600}, LifecycleExcluded},
+		{"expired trial but no slack id is excluded", UserProfileRow{TrialExpiresAt: now.Unix() - 1}, LifecycleExcluded},
+		{"stripe trialing but no slack id is excluded", UserProfileRow{StripeSubscriptionStatus: "trialing"}, LifecycleExcluded},
 		{"unknown defaults to free_lifetime (conservative)", UserProfileRow{}, LifecycleFreeLifetime},
 		// #341 — post-cliff cancel must silence, not fall through to free_lifetime.
 		{"stripe canceled post-cliff silences", UserProfileRow{StripeSubscriptionStatus: "canceled"}, LifecycleExpired},
