@@ -84,7 +84,7 @@ func (s *Server) tryWarmSlackUsersSnapshotWhenMissing(ctx context.Context) map[s
 	}
 	synced, syncErr := s.store.SyncSlackUserIndexFromWorkspaceUsers(ctx, users)
 	s.assignLifecycleTiersForWorkspaceUsers(ctx, users)
-	s.store.EnrichSlackWorkspaceUsersWithProfileTerms(ctx, users)
+	s.store.EnrichSlackWorkspaceUsersWithProfileTerms(ctx, users, s.cfg.StripeProductBasePlan)
 	if syncErr != nil {
 		s.log.Printf("admin slack users snapshot warm (missing): sync index: %v", syncErr)
 	}
@@ -164,7 +164,7 @@ func (s *Server) handleAdminSlackWorkspaceUsers(w http.ResponseWriter, r *http.R
 				s.log.Printf("admin slack users live sync index: %v", syncErr)
 			}
 			s.assignLifecycleTiersForWorkspaceUsers(r.Context(), users)
-			s.store.EnrichSlackWorkspaceUsersWithProfileTerms(r.Context(), users)
+			s.store.EnrichSlackWorkspaceUsersWithProfileTerms(r.Context(), users, s.cfg.StripeProductBasePlan)
 		}
 		visible, hidden := filterSlackUsersForDisplay(users, includeDeleted)
 		resp["users"] = visible
@@ -205,7 +205,7 @@ func (s *Server) handleAdminSlackWorkspaceUsers(w http.ResponseWriter, r *http.R
 		writeJSONNoStore(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
 		return
 	}
-	s.store.EnrichSlackWorkspaceUsersWithProfileTerms(r.Context(), env.Users)
+	s.store.EnrichSlackWorkspaceUsersWithProfileTerms(r.Context(), env.Users, s.cfg.StripeProductBasePlan)
 	visible, hidden := filterSlackUsersForDisplay(env.Users, includeDeleted)
 	writeJSONNoStore(w, http.StatusOK, map[string]any{
 		"source":         "snapshot",

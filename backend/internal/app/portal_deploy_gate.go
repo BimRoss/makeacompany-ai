@@ -31,7 +31,7 @@ func (s *Server) handleInternalDeployGateCheck(w http.ResponseWriter, r *http.Re
 	}
 	if email == "" {
 		// Unknown Slack user — treat as free tier not yet consumed (safe default).
-		status := CheckDeployGate(UserProfileRow{}, s.cfg.FreeTierGateEnabled)
+		status := CheckDeployGate(UserProfileRow{}, s.cfg.FreeTierGateEnabled, s.cfg.StripeProductBasePlan)
 		writeJSON(w, http.StatusOK, gateJSON(status, s.cfg.AppBaseURL))
 		return
 	}
@@ -41,7 +41,7 @@ func (s *Server) handleInternalDeployGateCheck(w http.ResponseWriter, r *http.Re
 		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": "unable to load profile"})
 		return
 	}
-	status := CheckDeployGate(row, s.cfg.FreeTierGateEnabled)
+	status := CheckDeployGate(row, s.cfg.FreeTierGateEnabled, s.cfg.StripeProductBasePlan)
 	writeJSON(w, http.StatusOK, gateJSON(status, s.cfg.AppBaseURL))
 }
 
@@ -78,7 +78,7 @@ func (s *Server) handleInternalDeployGateConsume(w http.ResponseWriter, r *http.
 		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": "unable to load profile"})
 		return
 	}
-	status := CheckDeployGate(row, s.cfg.FreeTierGateEnabled)
+	status := CheckDeployGate(row, s.cfg.FreeTierGateEnabled, s.cfg.StripeProductBasePlan)
 	if status.Reason == "paid" || status.Reason == "gate_disabled" {
 		writeJSON(w, http.StatusOK, map[string]any{"ok": true, "consumed": false})
 		return
@@ -128,7 +128,7 @@ func (s *Server) handlePortalDeployGateCheck(w http.ResponseWriter, r *http.Requ
 		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": "unable to load profile"})
 		return
 	}
-	writeJSON(w, http.StatusOK, gateJSON(CheckDeployGate(row, s.cfg.FreeTierGateEnabled), s.cfg.AppBaseURL))
+	writeJSON(w, http.StatusOK, gateJSON(CheckDeployGate(row, s.cfg.FreeTierGateEnabled, s.cfg.StripeProductBasePlan), s.cfg.AppBaseURL))
 }
 
 // handlePortalDeployGateConsume marks the authenticated user's free deploy allotment as consumed.
@@ -154,7 +154,7 @@ func (s *Server) handlePortalDeployGateConsume(w http.ResponseWriter, r *http.Re
 		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": "unable to load profile"})
 		return
 	}
-	status := CheckDeployGate(row, s.cfg.FreeTierGateEnabled)
+	status := CheckDeployGate(row, s.cfg.FreeTierGateEnabled, s.cfg.StripeProductBasePlan)
 	if status.Reason == "paid" || status.Reason == "gate_disabled" {
 		// Paid users have no free tier to consume; gate disabled means nothing to track.
 		writeJSON(w, http.StatusOK, map[string]any{"ok": true, "consumed": false})

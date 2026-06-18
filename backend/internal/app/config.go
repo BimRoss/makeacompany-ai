@@ -29,6 +29,12 @@ type Config struct {
 	// StripePriceBasePlan is the Stripe Dashboard "Base Plan" price_* used for homepage checkout (test or live).
 	// Env: STRIPE_PRICE_ID_BASE_PLAN; legacy STRIPE_PRICE_ID_WAITLIST is still read if BASE_PLAN is unset.
 	StripePriceBasePlan string
+	// StripeProductBasePlan is the prod_* that StripePriceBasePlan belongs to. Resolved at server boot
+	// from StripePriceBasePlan via Stripe price.Get (NewServer in server.go), with STRIPE_PRODUCT_ID_BASE_PLAN
+	// as an explicit override. Used by EffectiveStatus and CheckDeployGate to filter out subscriptions on
+	// other BimRoss-account products that share the same Stripe account — see makeacompany-ai#485 for why
+	// the price-id lever isn't enough (a single product can have many prices over its lifetime).
+	StripeProductBasePlan string
 	// StripePriceWaitlistDeposit is an optional second price_* (one-time waitlist / deposit) whose completed
 	// Checkouts are merged into the same admin Stripe table as Base Plan. Env: STRIPE_PRICE_ID_WAITLIST_DEPOSIT.
 	StripePriceWaitlistDeposit string
@@ -160,6 +166,7 @@ func LoadConfig() Config {
 		StripeSecretKey:                     strings.TrimSpace(os.Getenv("STRIPE_SECRET_KEY")),
 		StripeWebhookSecret:                 strings.TrimSpace(os.Getenv("STRIPE_WEBHOOK_SECRET")),
 		StripePriceBasePlan:                 stripePriceIDBasePlan(),
+		StripeProductBasePlan:               strings.TrimSpace(os.Getenv("STRIPE_PRODUCT_ID_BASE_PLAN")),
 		StripePriceWaitlistDeposit:          strings.TrimSpace(os.Getenv("STRIPE_PRICE_ID_WAITLIST_DEPOSIT")),
 		SlackBotToken:                       orchestratorSlackBotToken(),
 		GoogleOAuthClientID:                 strings.TrimSpace(os.Getenv("GOOGLE_OAUTH_CLIENT_ID")),

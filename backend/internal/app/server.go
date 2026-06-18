@@ -17,6 +17,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/stripe/stripe-go/v82"
 	checkoutsession "github.com/stripe/stripe-go/v82/checkout/session"
+	"github.com/stripe/stripe-go/v82/price"
 	stripewebhook "github.com/stripe/stripe-go/v82/webhook"
 
 	"makeacompany-ai/backend/internal/upstream"
@@ -159,6 +160,25 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 	stripe.SetBackend(stripe.UploadsBackend, stripe.GetBackendWithConfig(stripe.UploadsBackend, &stripe.BackendConfig{
 		HTTPClient: stripeHTTPClient,
 	}))
+	// Resolve the MaC base-plan product id from the configured price so EffectiveStatus and
+	// CheckDeployGate can filter out subscriptions on other BimRoss products that share the
+	// same Stripe account (#485). Skip if STRIPE_PRODUCT_ID_BASE_PLAN was supplied directly or
+	// no secret/price is configured. Resolution failure is logged but non-fatal — when the field
+	// stays empty, both EffectiveStatus and CheckDeployGate behave as they did pre-#485, so a
+	// transient Stripe outage at boot doesn't take the server down.
+	if strings.TrimSpace(cfg.StripeProductBasePlan) == "" &&
+		strings.TrimSpace(cfg.StripeSecretKey) != "" &&
+		strings.HasPrefix(cfg.StripePriceBasePlan, "price_") {
+		p, err := price.Get(cfg.StripePriceBasePlan, nil)
+		if err != nil {
+			logger.Printf("base-plan product id resolve failed (price %s): %v — lifecycle filter disabled until restart succeeds", cfg.StripePriceBasePlan, err)
+		} else if p.Product != nil && strings.TrimSpace(p.Product.ID) != "" {
+			cfg.StripeProductBasePlan = strings.TrimSpace(p.Product.ID)
+			logger.Printf("base-plan product id resolved: %s (from price %s)", cfg.StripeProductBasePlan, cfg.StripePriceBasePlan)
+		} else {
+			logger.Printf("base-plan product id resolve returned empty product (price %s) — lifecycle filter disabled", cfg.StripePriceBasePlan)
+		}
+	}
 	workspaceWriter, werr := NewWorkspaceWriter(cfg.WorkspaceTenantConfig)
 	if werr != nil {
 		// Bad tenant config JSON is a config error — fail loud, don't 503 silently in prod.

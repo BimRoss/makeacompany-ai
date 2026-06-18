@@ -62,7 +62,7 @@ func TestCheckDeployGate(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			got := CheckDeployGate(tc.row, tc.gateEnabled)
+			got := CheckDeployGate(tc.row, tc.gateEnabled, "")
 			if got.Allowed != tc.wantAllowed {
 				t.Errorf("Allowed: got %v want %v", got.Allowed, tc.wantAllowed)
 			}

@@ -300,10 +300,81 @@ func TestEffectiveStatus(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := EffectiveStatus(tc.row, now); got != tc.want {
+			if got := EffectiveStatus(tc.row, now, ""); got != tc.want {
 				t.Fatalf("EffectiveStatus = %q, want %q", got, tc.want)
 			}
 		})
+	}
+}
+
+// #485 — Stripe state on a row whose product id doesn't match the configured MaC base-plan product
+// must not count as active/expired/trialing. Empty basePlanProductID (boot race or unconfigured
+// local dev) and empty row.StripeProductID (legacy rows pre-dating the field) both preserve the
+// prior behavior so the filter never silences someone who used to count.
+func TestEffectiveStatus_BasePlanProductFilter(t *testing.T) {
+	const mac = "prod_mac_base"
+	const other = "prod_other"
+	now := time.Unix(1_700_000_000, 0)
+	cases := []struct {
+		name           string
+		row            UserProfileRow
+		basePlanProdID string
+		want           LifecycleStatus
+	}{
+		{
+			name:           "non-MaC active sub is filtered out and falls through to free_lifetime",
+			row:            UserProfileRow{StripeSubscriptionStatus: "active", StripeProductID: other},
+			basePlanProdID: mac,
+			want:           LifecycleFreeLifetime,
+		},
+		{
+			name:           "MaC active sub still counts as active",
+			row:            UserProfileRow{StripeSubscriptionStatus: "active", StripeProductID: mac},
+			basePlanProdID: mac,
+			want:           LifecycleActive,
+		},
+		{
+			name:           "non-MaC canceled does not silence to expired",
+			row:            UserProfileRow{StripeSubscriptionStatus: "canceled", StripeProductID: other},
+			basePlanProdID: mac,
+			want:           LifecycleFreeLifetime,
+		},
+		{
+			name:           "non-MaC trialing does not count as trialing",
+			row:            UserProfileRow{StripeSubscriptionStatus: "trialing", StripeProductID: other},
+			basePlanProdID: mac,
+			want:           LifecycleFreeLifetime,
+		},
+		{
+			name:           "empty basePlanProductID disables filter (backward compat)",
+			row:            UserProfileRow{StripeSubscriptionStatus: "active", StripeProductID: other},
+			basePlanProdID: "",
+			want:           LifecycleActive,
+		},
+		{
+			name:           "empty row.StripeProductID legacy row still honored",
+			row:            UserProfileRow{StripeSubscriptionStatus: "active", StripeProductID: ""},
+			basePlanProdID: mac,
+			want:           LifecycleActive,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := EffectiveStatus(tc.row, now, tc.basePlanProdID); got != tc.want {
+				t.Fatalf("EffectiveStatus = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestCheckDeployGate_BasePlanProductFilter(t *testing.T) {
+	const mac = "prod_mac_base"
+	const other = "prod_other"
+	if got := CheckDeployGate(UserProfileRow{StripeSubscriptionStatus: "active", StripeProductID: other, FreeTierConsumed: true}, true, mac); got.Allowed {
+		t.Fatalf("non-MaC active sub should not bypass deploy gate: %+v", got)
+	}
+	if got := CheckDeployGate(UserProfileRow{StripeSubscriptionStatus: "active", StripeProductID: mac}, true, mac); !got.Allowed || got.Reason != "paid" {
+		t.Fatalf("MaC active sub should be allowed as paid: %+v", got)
 	}
 }
 
@@ -339,7 +410,7 @@ func TestUpsertUserProfileStripeSubscription_clearsTrialOnActive(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := EffectiveStatus(row, time.Unix(1_900_000_000, 0)); got != LifecycleActive {
+	if got := EffectiveStatus(row, time.Unix(1_900_000_000, 0), ""); got != LifecycleActive {
 		t.Fatalf("EffectiveStatus = %q, want active", got)
 	}
 }
@@ -493,7 +564,7 @@ func TestEnrichSlackWorkspaceUsersWithProfileTerms_Status(t *testing.T) {
 		{SlackUserID: "UUNKNOWN", Email: "unknown@example.com"},
 		{SlackUserID: "UBOT", IsBot: true},
 	}
-	st.EnrichSlackWorkspaceUsersWithProfileTerms(ctx, users)
+	st.EnrichSlackWorkspaceUsersWithProfileTerms(ctx, users, "")
 
 	want := map[string]string{
 		"UTRIAL": "trialing",
