@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 )
@@ -11,6 +12,21 @@ import (
 type billingFreeTrialInviteBody struct {
 	Email string `json:"email"`
 	Ref   string `json:"ref"`
+}
+
+// inviteEmailRe is a conservative address shape: a sane local-part charset (no spaces, no display
+// names, no braces), a domain, and a real TLD. It deliberately rejects the malformed addresses the
+// free-trial-invite form was minting profiles from (e.g. "{}foo@gmail.com") and the no-TLD / angle-
+// bracket junk that net/mail.ParseAddress would otherwise accept. See #494.
+var inviteEmailRe = regexp.MustCompile(`^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$`)
+
+// validInviteEmail reports whether email is a well-formed address we'll mint a trial profile for.
+// email is expected already lower-cased and trimmed.
+func validInviteEmail(email string) bool {
+	if email == "" || len(email) > 254 { // RFC 5321 total-length ceiling
+		return false
+	}
+	return inviteEmailRe.MatchString(email)
 }
 
 // handleBillingFreeTrialInvite sends the Joanne welcome email without requiring Stripe checkout.
@@ -45,7 +61,7 @@ func (s *Server) handleBillingFreeTrialInvite(w http.ResponseWriter, r *http.Req
 		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "email is required"})
 		return
 	}
-	if !strings.Contains(email, "@") {
+	if !validInviteEmail(email) {
 		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "invalid email"})
 		return
 	}
