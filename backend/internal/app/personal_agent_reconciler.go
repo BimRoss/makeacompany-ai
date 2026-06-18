@@ -360,6 +360,11 @@ func (s *Server) StartPersonalAgentReconciler(ctx context.Context) {
 		return
 	}
 	go func() {
+		// deadStreak carries the per-agent definitive-dead-token streak across
+		// liveness passes (see reconcilePersonalAgentLiveness). Owned solely by
+		// this goroutine, so no locking needed.
+		deadStreak := map[string]int{}
+
 		// Boot-time pass with a small delay so the rest of NewServer finishes
 		// wiring before we start patching things.
 		select {
@@ -370,6 +375,10 @@ func (s *Server) StartPersonalAgentReconciler(ctx context.Context) {
 		r := s.reconcilePersonalAgentImages(ctx, false)
 		s.log.Printf("personal-agent reconciler boot pass: inspected=%d image_bumped=%d restarted=%d init_container=%d errors=%d",
 			r.Inspected, r.ImageBumped, r.Restarted, r.InitContainer, len(r.Errors))
+		if p := s.reconcilePersonalAgentLiveness(ctx, deadStreak); p.Pruned > 0 || len(p.Errors) > 0 {
+			s.log.Printf("personal-agent liveness boot pass: checked=%d dead_observed=%d pruned=%d errors=%d",
+				p.Checked, p.DeadObserved, p.Pruned, len(p.Errors))
+		}
 
 		t := time.NewTicker(reconcileInterval)
 		defer t.Stop()
@@ -382,6 +391,10 @@ func (s *Server) StartPersonalAgentReconciler(ctx context.Context) {
 				if r.ImageBumped > 0 || r.InitContainer > 0 || len(r.Errors) > 0 {
 					s.log.Printf("personal-agent reconciler tick: inspected=%d image_bumped=%d restarted=%d init_container=%d errors=%d",
 						r.Inspected, r.ImageBumped, r.Restarted, r.InitContainer, len(r.Errors))
+				}
+				if p := s.reconcilePersonalAgentLiveness(ctx, deadStreak); p.Pruned > 0 || len(p.Errors) > 0 {
+					s.log.Printf("personal-agent liveness tick: checked=%d dead_observed=%d pruned=%d errors=%d",
+						p.Checked, p.DeadObserved, p.Pruned, len(p.Errors))
 				}
 			}
 		}
