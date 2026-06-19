@@ -443,7 +443,7 @@ function SortableTh({
     <th
       scope="col"
       aria-sort={ariaSort}
-      className={`px-4 py-2 ${className ?? ""}`}
+      className={`px-3 py-1.5 ${className ?? ""}`}
     >
       <button
         type="button"
@@ -493,25 +493,6 @@ function EngagementSparkline({ bins }: { bins: EngagementDayBin[] }) {
       />
       <circle cx={lastX} cy={lastY} r="2" fill="currentColor" />
     </svg>
-  );
-}
-
-function SlackUserIdentityStrip({ user }: { user: SlackWorkspaceUserRow }) {
-  const items: Array<[string, string]> = [
-    ["Username", (user.username || "").trim() || "—"],
-    ["Slack ID", (user.slackUserId || "").trim() || "—"],
-    ["Team", (user.teamId || "").trim() || "—"],
-    ["Bot", user.isBot ? "yes" : "no"],
-  ];
-  return (
-    <dl className="mb-3 grid grid-cols-2 gap-x-4 gap-y-1 border-b border-border/60 pb-3 text-[11px] sm:grid-cols-4">
-      {items.map(([label, value]) => (
-        <div key={label} className="flex flex-col">
-          <dt className="uppercase tracking-wide text-muted-foreground">{label}</dt>
-          <dd className="truncate font-mono text-foreground" title={value}>{value}</dd>
-        </div>
-      ))}
-    </dl>
   );
 }
 
@@ -606,11 +587,15 @@ function FreeLifetimeControl({
   freeLifetime,
   saving,
   onChange,
+  autoFocus,
+  onBlur,
 }: {
   email: string;
   freeLifetime: boolean;
   saving: boolean;
   onChange: (email: string, next: boolean) => void;
+  autoFocus?: boolean;
+  onBlur?: () => void;
 }) {
   const trimmed = (email || "").trim();
   const hasEmail = trimmed !== "" && trimmed !== "—";
@@ -620,6 +605,8 @@ function FreeLifetimeControl({
       title={hasEmail ? "Set free-for-life status" : "No linked email — can't set free-for-life"}
       disabled={!hasEmail || saving}
       value={freeLifetime ? "free_lifetime" : "standard"}
+      autoFocus={autoFocus}
+      onBlur={onBlur}
       onClick={(e) => e.stopPropagation()}
       onMouseDown={(e) => e.stopPropagation()}
       onChange={(e) => {
@@ -631,6 +618,57 @@ function FreeLifetimeControl({
       <option value="standard">Standard</option>
       <option value="free_lifetime">Free for life</option>
     </select>
+  );
+}
+
+/**
+ * Desktop status cell. Default is the read-only pill from renderStatusCell. Clicking the pill swaps it for
+ * the FreeLifetimeControl select (the only directly-settable lifecycle lever). The select auto-focuses;
+ * blur or a successful change swaps back to the pill. stopPropagation keeps clicks from toggling the row.
+ */
+function DesktopStatusCell({
+  user,
+  isEditing,
+  onStartEdit,
+  onStopEdit,
+  saving,
+  onSetFreeLifetime,
+}: {
+  user: SlackWorkspaceUserRow;
+  isEditing: boolean;
+  onStartEdit: () => void;
+  onStopEdit: () => void;
+  saving: boolean;
+  onSetFreeLifetime: (email: string, next: boolean) => void;
+}) {
+  if (isEditing) {
+    return (
+      <FreeLifetimeControl
+        email={user.email}
+        freeLifetime={user.freeLifetime === true || user.status === "free_lifetime"}
+        saving={saving}
+        onChange={(em, next) => {
+          onSetFreeLifetime(em, next);
+          onStopEdit();
+        }}
+        autoFocus
+        onBlur={onStopEdit}
+      />
+    );
+  }
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        onStartEdit();
+      }}
+      onMouseDown={(e) => e.stopPropagation()}
+      title="Click to change status"
+      className="cursor-pointer rounded outline-none focus-visible:ring-1 focus-visible:ring-foreground/30"
+    >
+      {renderStatusCell(user)}
+    </button>
   );
 }
 
@@ -652,6 +690,9 @@ export function AdminSlackUsersTable() {
   // detail (per-bot counters + sparkline) is lazy-loaded per expanded row.
   const [engagement, setEngagement] = useState<EngagementMap>({});
   const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
+  // Desktop-only: which row's status cell is currently in edit mode (pill swapped for select).
+  // Mobile keeps the always-visible select in the expanded panel.
+  const [statusEditingUserId, setStatusEditingUserId] = useState<string | null>(null);
   const [engagementDetail, setEngagementDetail] = useState<Record<string, EngagementSummary | undefined>>({});
   const [engagementDetailLoading, setEngagementDetailLoading] = useState<Record<string, boolean | undefined>>({});
   const [engagementDetailError, setEngagementDetailError] = useState<Record<string, string | undefined>>({});
@@ -1077,10 +1118,10 @@ export function AdminSlackUsersTable() {
         ) : null}
         {visibleSlackUsers.length > 0 ? (
           <div className="hidden overflow-x-auto rounded-xl border border-border dark:border-emerald-400/15 sm:block dark:shadow-[0_4px_24px_rgba(52,211,153,0.08)]">
-            <table className="w-full border-collapse text-left text-sm">
+            <table className="w-full min-w-[1080px] border-collapse text-left text-sm">
               <thead>
                 <tr className="border-b border-border bg-muted/40 dark:bg-emerald-400/5 text-xs uppercase tracking-wide text-muted-foreground">
-                  <th className="w-12 px-3 py-2" scope="col">
+                  <th className="w-12 px-3 py-1.5" scope="col">
                     <span className="sr-only">Photo</span>
                   </th>
                   {(
@@ -1090,6 +1131,10 @@ export function AdminSlackUsersTable() {
                       ["status", "Status"],
                       ["trialEnds", "Trial ends"],
                       ["messages", "Messages"],
+                      ["username", "Username"],
+                      ["slackId", "Slack ID"],
+                      ["team", "Team"],
+                      ["bot", "Bot"],
                     ] as Array<[SlackSortKey, string]>
                   ).map(([key, label]) => (
                     <SortableTh
@@ -1116,7 +1161,7 @@ export function AdminSlackUsersTable() {
                     onClick={() => toggleExpanded(u.slackUserId)}
                     className="border-b border-border/80 last:border-0 cursor-pointer transition-colors duration-150 hover:bg-emerald-500/4 dark:hover:bg-emerald-400/6"
                   >
-                    <td className="px-3 py-2 align-middle">
+                    <td className="px-3 py-1.5 align-middle">
                       {avatarSrc ? (
                         <Image
                           src={avatarSrc}
@@ -1138,34 +1183,44 @@ export function AdminSlackUsersTable() {
                         </span>
                       )}
                     </td>
-                    <td className="whitespace-nowrap px-4 py-2 align-middle font-mono text-xs">{short(u.email || "—", 48)}</td>
-                    <td className="whitespace-nowrap px-4 py-2 align-middle text-xs">{short(display || "—", 40)}</td>
-                    <td className="whitespace-nowrap px-4 py-2 align-middle text-xs">
-                      <div className="flex flex-col items-start gap-1">
-                        {renderStatusCell(u)}
-                        <FreeLifetimeControl
-                          email={u.email}
-                          freeLifetime={u.freeLifetime === true || u.status === "free_lifetime"}
-                          saving={freeLifetimeSaving[(u.email || "").trim()] === true}
-                          onChange={(em, next) => void setFreeLifetime(em, next)}
-                        />
-                      </div>
+                    <td className="whitespace-nowrap px-3 py-1.5 align-middle font-mono text-xs">{short(u.email || "—", 48)}</td>
+                    <td className="whitespace-nowrap px-3 py-1.5 align-middle text-xs">{short(display || "—", 40)}</td>
+                    <td className="whitespace-nowrap px-3 py-1.5 align-middle text-xs">
+                      <DesktopStatusCell
+                        user={u}
+                        isEditing={statusEditingUserId === u.slackUserId}
+                        onStartEdit={() => setStatusEditingUserId(u.slackUserId)}
+                        onStopEdit={() => setStatusEditingUserId((prev) => (prev === u.slackUserId ? null : prev))}
+                        saving={freeLifetimeSaving[(u.email || "").trim()] === true}
+                        onSetFreeLifetime={(em, next) => void setFreeLifetime(em, next)}
+                      />
                     </td>
-                    <td className="whitespace-nowrap px-4 py-2 align-middle text-xs text-muted-foreground">
+                    <td className="whitespace-nowrap px-3 py-1.5 align-middle text-xs text-muted-foreground">
                       {u.status === "trialing" && typeof u.trialExpiresAt === "number" && u.trialExpiresAt > 0
                         ? formatRelativeFromNow(u.trialExpiresAt, nowSeconds)
                         : "—"}
                     </td>
-                    <td className="whitespace-nowrap px-4 py-2 align-middle text-xs tabular-nums">
+                    <td className="whitespace-nowrap px-3 py-1.5 align-middle text-xs tabular-nums">
                       {totalMessages > 0 ? totalMessages.toLocaleString() : (
                         <span className="text-muted-foreground">—</span>
                       )}
                     </td>
+                    <td className="whitespace-nowrap px-3 py-1.5 align-middle font-mono text-xs text-muted-foreground">
+                      {short(u.username || "—", 24)}
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-1.5 align-middle font-mono text-xs text-muted-foreground">
+                      {short(u.slackUserId || "—", 16)}
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-1.5 align-middle font-mono text-xs text-muted-foreground">
+                      {short(u.teamId || "—", 16)}
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-1.5 align-middle text-xs text-muted-foreground">
+                      {u.isBot ? "yes" : "no"}
+                    </td>
                   </tr>
                   {isExpanded ? (
                     <tr className="bg-muted/40 dark:bg-emerald-400/5">
-                      <td colSpan={6} className="px-4 py-3">
-                        <SlackUserIdentityStrip user={u} />
+                      <td colSpan={10} className="px-3 py-3">
                         <EngagementDetailPanel
                           slackUserId={u.slackUserId}
                           detail={engagementDetail[u.slackUserId]}
