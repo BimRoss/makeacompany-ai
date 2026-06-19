@@ -852,6 +852,7 @@ export function AdminSlackUsersTable() {
               const display = (u.realName || u.displayName || u.username || "").trim();
               const avatarSrc = (u.profileImageUrl ?? "").trim();
               const initial = (display || u.username || "?").trim().charAt(0).toUpperCase();
+              const isExpanded = expandedUserId === u.slackUserId;
               const trialCountdown =
                 u.status === "trialing" && typeof u.trialExpiresAt === "number" && u.trialExpiresAt > 0
                   ? formatRelativeFromNow(u.trialExpiresAt, nowSeconds)
@@ -859,53 +860,74 @@ export function AdminSlackUsersTable() {
               return (
                 <li
                   key={u.slackUserId}
-                  className="flex items-center gap-3 rounded-xl border border-border bg-card px-3 py-2"
+                  className="overflow-hidden rounded-xl border border-border bg-card"
                 >
-                  {avatarSrc ? (
-                    <Image
-                      src={avatarSrc}
-                      alt={display ? `${display} Slack profile` : "Slack profile"}
-                      width={40}
-                      height={40}
-                      loading="lazy"
-                      decoding="async"
-                      referrerPolicy="no-referrer"
-                      className="h-10 w-10 shrink-0 rounded-full object-cover ring-1 ring-border"
-                    />
-                  ) : (
-                    <span
-                      className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-medium text-muted-foreground ring-1 ring-border"
-                      aria-hidden
-                    >
-                      {initial}
-                    </span>
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5">
-                      <span className="truncate text-sm font-medium text-foreground">{display || "—"}</span>
-                      {u.isBot ? (
-                        <span className="rounded bg-muted px-1 text-[10px] uppercase tracking-wide text-muted-foreground">
-                          bot
-                        </span>
-                      ) : null}
-                      {u.isDeleted ? (
-                        <span className="rounded bg-muted px-1 text-[10px] uppercase tracking-wide text-muted-foreground">
-                          deleted
-                        </span>
-                      ) : null}
-                    </div>
-                    <div className="truncate font-mono text-xs text-muted-foreground">{u.email || "—"}</div>
-                    {u.status ? (
-                      <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                        {renderStatusCell(u)}
-                        {trialCountdown ? (
-                          <span className="text-[11px] tabular-nums text-muted-foreground">
-                            ends {trialCountdown}
+                  <button
+                    type="button"
+                    aria-expanded={isExpanded}
+                    onClick={() => toggleExpanded(u.slackUserId)}
+                    className="flex w-full items-center gap-3 px-3 py-2 text-left transition-colors duration-150 hover:bg-emerald-500/4 dark:hover:bg-emerald-400/6"
+                  >
+                    {avatarSrc ? (
+                      <Image
+                        src={avatarSrc}
+                        alt={display ? `${display} Slack profile` : "Slack profile"}
+                        width={40}
+                        height={40}
+                        loading="lazy"
+                        decoding="async"
+                        referrerPolicy="no-referrer"
+                        className="h-10 w-10 shrink-0 rounded-full object-cover ring-1 ring-border"
+                      />
+                    ) : (
+                      <span
+                        className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-medium text-muted-foreground ring-1 ring-border"
+                        aria-hidden
+                      >
+                        {initial}
+                      </span>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5">
+                        <span className="truncate text-sm font-medium text-foreground">{display || "—"}</span>
+                        {u.isBot ? (
+                          <span className="rounded bg-muted px-1 text-[10px] uppercase tracking-wide text-muted-foreground">
+                            bot
+                          </span>
+                        ) : null}
+                        {u.isDeleted ? (
+                          <span className="rounded bg-muted px-1 text-[10px] uppercase tracking-wide text-muted-foreground">
+                            deleted
                           </span>
                         ) : null}
                       </div>
-                    ) : null}
-                  </div>
+                      <div className="truncate font-mono text-xs text-muted-foreground">{u.email || "—"}</div>
+                      {u.status ? (
+                        <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                          {renderStatusCell(u)}
+                          {trialCountdown ? (
+                            <span className="text-[11px] tabular-nums text-muted-foreground">
+                              ends {trialCountdown}
+                            </span>
+                          ) : null}
+                        </div>
+                      ) : null}
+                    </div>
+                    <ChevronDown
+                      className={`size-4 shrink-0 text-muted-foreground transition-transform duration-150 ${isExpanded ? "rotate-180" : ""}`}
+                      aria-hidden
+                    />
+                  </button>
+                  {isExpanded ? (
+                    <div className="border-t border-border bg-muted/40 px-3 py-3 dark:bg-emerald-400/5">
+                      <EngagementDetailPanel
+                        slackUserId={u.slackUserId}
+                        detail={engagementDetail[u.slackUserId]}
+                        loading={engagementDetailLoading[u.slackUserId] === true}
+                        error={engagementDetailError[u.slackUserId]}
+                      />
+                    </div>
+                  ) : null}
                 </li>
               );
             })}
