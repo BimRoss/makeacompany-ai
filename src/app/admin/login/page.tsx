@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { Footer } from "@/components/landing/footer";
 import { Header } from "@/components/landing/header";
+import { AdminEmailMagicForm } from "@/components/admin/admin-email-magic-form";
 import { AdminGoogleSignIn } from "@/components/admin/admin-google-sign-in";
 import { AdminLoginMessages } from "@/components/admin/admin-login-messages";
 import { SignInCard, SignInMethodStack } from "@/components/auth/sign-in-card";
@@ -11,13 +12,16 @@ export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Admin sign in",
-  description: "Sign in with Google to access the admin dashboard",
+  description: "Sign in with Google or an email link to access the admin dashboard",
   robots: { index: false, follow: false },
 };
 
 export default function AdminLoginPage() {
   const googleOAuthReady = Boolean(
     process.env.GOOGLE_OAUTH_CLIENT_ID?.trim() && process.env.GOOGLE_OAUTH_CLIENT_SECRET?.trim(),
+  );
+  const magicEmailReady = Boolean(
+    process.env.RESEND_API_KEY?.trim() && process.env.PORTAL_AUTH_EMAIL_FROM?.trim(),
   );
   return (
     <main className="flex min-h-screen flex-col bg-background">
@@ -39,10 +43,10 @@ export default function AdminLoginPage() {
         signIn={
           <SignInMethodStack
             googleOAuthReady={googleOAuthReady}
-            magicEmailReady={false}
+            magicEmailReady={magicEmailReady}
             googleSlot={<AdminGoogleSignIn />}
-            emailSlot={null}
-            unconfiguredMessage="Configure Google OAuth env vars to enable admin sign-in."
+            emailSlot={<AdminEmailMagicForm />}
+            unconfiguredMessage="Configure Google OAuth or Resend email env vars to enable admin sign-in."
           />
         }
       />
