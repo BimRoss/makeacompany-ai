@@ -337,10 +337,6 @@ type EngagementDayBin = { day: string; messages: number };
 type EngagementSummary = {
   slack_user_id: string;
   total_messages: number;
-  ross_messages: number;
-  joanne_messages: number;
-  ross_mentions: number;
-  joanne_mentions: number;
   first_seen_at?: string;
   last_seen_at?: string;
   sparkline: EngagementDayBin[];
@@ -521,22 +517,8 @@ function EngagementDetailPanel({
   return (
     <div className="grid gap-3 sm:grid-cols-[1fr_1.4fr]">
       <dl className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
-        <dt className="text-muted-foreground">Total messages</dt>
+        <dt className="text-muted-foreground">Slack messages</dt>
         <dd className="tabular-nums font-medium text-foreground">{detail.total_messages.toLocaleString()}</dd>
-        <dt className="text-muted-foreground">To Ross</dt>
-        <dd className="tabular-nums">
-          {detail.ross_messages.toLocaleString()}
-          {detail.ross_mentions > 0 ? (
-            <span className="ml-1 text-muted-foreground">({detail.ross_mentions.toLocaleString()} @-mentions)</span>
-          ) : null}
-        </dd>
-        <dt className="text-muted-foreground">To Joanne</dt>
-        <dd className="tabular-nums">
-          {detail.joanne_messages.toLocaleString()}
-          {detail.joanne_mentions > 0 ? (
-            <span className="ml-1 text-muted-foreground">({detail.joanne_mentions.toLocaleString()} @-mentions)</span>
-          ) : null}
-        </dd>
         <dt className="text-muted-foreground">First seen</dt>
         <dd className="tabular-nums">{firstSeen || "—"}</dd>
         <dt className="text-muted-foreground">Last seen</dt>

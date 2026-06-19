@@ -1,21 +1,18 @@
-// backfill-user-engagement seeds the per-user engagement counters surfaced
-// on /admin (issue #498) by replaying the last N days of channel history
-// via FetchSlackActivityDay. Idempotent per (bot, day) via a Redis marker;
-// re-running is safe.
+// backfill-user-engagement seeds the deduped per-user message counters
+// (#498 follow-up) by replaying the last N days of channel history *and*
+// thread replies via FetchSlackUserMessagesDay. Idempotent per (day) via a
+// Redis marker key; re-running is safe.
 //
 // Usage:
 //
 //	backfill-user-engagement \
 //	    --redis-url=$REDIS_URL \
 //	    --slack-token=$ORCHESTRATOR_SLACK_BOT_TOKEN \
-//	    --bot=ross \
-//	    --days=30
+//	    --days=60
 //
-// Run inside the cluster (the backend pod has redis + slack token in env)
-// or locally with `make backfill-user-engagement`. Slack rate limits are
-// the only meaningful pressure: tier-3 history is paced by FetchSlackActivityDay's
-// internal sleep, so a 30-day backfill across our current channel count is
-// a few minutes of work, well under the per-method ceilings.
+// Bot attribution is no longer required — the dedup store keys off
+// (channel_id, message_ts), not the observing bot. Run with whichever bot
+// token has the broadest channel membership.
 package main
 
 import (
@@ -34,8 +31,7 @@ func main() {
 	var (
 		redisURL   = flag.String("redis-url", os.Getenv("MAKEACOMPANY_REDIS_URL"), "Redis URL (also reads MAKEACOMPANY_REDIS_URL)")
 		slackToken = flag.String("slack-token", os.Getenv("ORCHESTRATOR_SLACK_BOT_TOKEN"), "Slack bot token (also reads ORCHESTRATOR_SLACK_BOT_TOKEN)")
-		botName    = flag.String("bot", "ross", "Bot label to attribute backfilled counts to (ross|joanne)")
-		days       = flag.Int("days", 30, "How many days back to backfill, ending yesterday UTC")
+		days       = flag.Int("days", 60, "How many days back to backfill, ending yesterday UTC")
 	)
 	flag.Parse()
 
@@ -44,9 +40,6 @@ func main() {
 	}
 	if strings.TrimSpace(*slackToken) == "" {
 		log.Fatal("missing --slack-token / ORCHESTRATOR_SLACK_BOT_TOKEN")
-	}
-	if *botName != "ross" && *botName != "joanne" {
-		log.Fatalf("bad --bot %q (want ross or joanne)", *botName)
 	}
 	if *days <= 0 || *days > 90 {
 		log.Fatalf("--days must be 1..90, got %d", *days)
@@ -58,40 +51,36 @@ func main() {
 	}
 	defer store.Close()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Minute)
 	defer cancel()
 
 	end := time.Now().UTC().AddDate(0, 0, -1)
 	start := end.AddDate(0, 0, -(*days - 1))
-	fmt.Printf("backfilling %s from %s through %s (%d days)\n", *botName, start.Format("2006-01-02"), end.Format("2006-01-02"), *days)
+	fmt.Printf("backfilling deduped messages from %s through %s (%d days)\n", start.Format("2006-01-02"), end.Format("2006-01-02"), *days)
 
 	totalApplied := 0
 	totalSkipped := 0
-	totalMessages := 0
+	totalEvents := 0
 	for d := start; !d.After(end); d = d.AddDate(0, 0, 1) {
 		day := d.Format("2006-01-02")
-		activity, err := app.FetchSlackActivityDay(ctx, *slackToken, day)
+		events, err := app.FetchSlackUserMessagesDay(ctx, *slackToken, day)
 		if err != nil {
 			log.Printf("fetch %s: %v (skipped)", day, err)
 			continue
 		}
-		applied, err := store.BackfillUserEngagementDay(ctx, *botName, day, activity.ByUser)
+		applied, err := store.BackfillUserMessagesDay(ctx, day, events)
 		if err != nil {
 			log.Printf("apply %s: %v (skipped)", day, err)
 			continue
 		}
-		dayMsgs := 0
-		for _, n := range activity.ByUser {
-			dayMsgs += n
-		}
 		if applied {
 			totalApplied++
-			totalMessages += dayMsgs
-			fmt.Printf("  %s: %d users, %d messages — applied\n", day, len(activity.ByUser), dayMsgs)
+			totalEvents += len(events)
+			fmt.Printf("  %s: %d fingerprints — applied\n", day, len(events))
 		} else {
 			totalSkipped++
 			fmt.Printf("  %s: already backfilled — skipped\n", day)
 		}
 	}
-	fmt.Printf("done: %d days applied, %d skipped, %d messages attributed to %s\n", totalApplied, totalSkipped, totalMessages, *botName)
+	fmt.Printf("done: %d days applied, %d skipped, %d fingerprints written\n", totalApplied, totalSkipped, totalEvents)
 }
