@@ -6,7 +6,7 @@ import { AlertTriangle, ArrowUpRight } from "lucide-react";
 import { AlertsProvider, useAlerts } from "./alerts-provider";
 import { AlertsStrip } from "./alerts-strip";
 import { CloudflarePanels, useCloudflareSummary } from "./cloudflare-panels";
-import { Ga4CountriesPanel, Ga4SourcesPanel, Ga4TopPagesPanel } from "./ga4-panels";
+import { Ga4CountriesPanel, Ga4DevicesPanel, Ga4SourcesPanel, Ga4TopPagesPanel } from "./ga4-panels";
 import { ObservabilityDataProvider, useObservabilityData } from "./data-provider";
 import { GoldenPath } from "./golden-path";
 import { KpiScorecard } from "./kpi-scorecard";
@@ -168,6 +168,7 @@ function ObservabilityBody() {
           <Ga4TopPagesPanel />
           <Ga4SourcesPanel />
           <Ga4CountriesPanel />
+          <Ga4DevicesPanel />
         </div>
       </ObservabilitySection>
 

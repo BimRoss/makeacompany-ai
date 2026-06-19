@@ -35,6 +35,7 @@ const (
 	ga4TopPagesRowLimit    = 10
 	ga4SourcesRowLimit     = 6
 	ga4CountriesRowLimit   = 6
+	ga4DevicesRowLimit     = 5
 )
 
 type ga4TopPage struct {
@@ -52,6 +53,12 @@ type ga4SourceRow struct {
 type ga4CountryRow struct {
 	Country string `json:"country"`
 	Users   int64  `json:"users"`
+}
+
+type ga4DeviceRow struct {
+	Device   string `json:"device"`
+	Sessions int64  `json:"sessions"`
+	Users    int64  `json:"users"`
 }
 
 type ga4DailyPoint struct {
@@ -123,6 +130,7 @@ func (s *Server) handleAdminGA4Summary(w http.ResponseWriter, r *http.Request) {
 	topPages := ga4FetchTopPages(ctx, s, svc, propertyID)
 	sources := ga4FetchSources(ctx, s, svc, propertyID)
 	countries := ga4FetchCountries(ctx, s, svc, propertyID)
+	devices := ga4FetchDevices(ctx, s, svc, propertyID)
 	realtime := ga4FetchRealtime(ctx, s, svc, propertyID)
 	activeUsersDaily, sessionsDaily := ga4FetchDaily(ctx, s, svc, propertyID)
 
@@ -138,6 +146,7 @@ func (s *Server) handleAdminGA4Summary(w http.ResponseWriter, r *http.Request) {
 		"topPages":         topPages,
 		"sources":          sources,
 		"countries":        countries,
+		"devices":          devices,
 		"realtimeUsers":    realtime,
 		"fetchedAt":        time.Now().UTC().Format(time.RFC3339),
 	})
@@ -244,6 +253,43 @@ func ga4FetchCountries(ctx context.Context, s *Server, svc *analyticsdata.Servic
 			users = parseGA4Int(row.MetricValues[0].Value)
 		}
 		out = append(out, ga4CountryRow{Country: country, Users: users})
+	}
+	return out
+}
+
+func ga4FetchDevices(ctx context.Context, s *Server, svc *analyticsdata.Service, propertyID string) []ga4DeviceRow {
+	req := &analyticsdata.RunReportRequest{
+		DateRanges: []*analyticsdata.DateRange{{StartDate: "7daysAgo", EndDate: "yesterday"}},
+		Dimensions: []*analyticsdata.Dimension{{Name: "deviceCategory"}},
+		Metrics: []*analyticsdata.Metric{
+			{Name: "sessions"},
+			{Name: "activeUsers"},
+		},
+		OrderBys: []*analyticsdata.OrderBy{{
+			Desc:   true,
+			Metric: &analyticsdata.MetricOrderBy{MetricName: "sessions"},
+		}},
+		Limit: ga4DevicesRowLimit,
+	}
+	resp, err := svc.Properties.RunReport("properties/"+propertyID, req).Context(ctx).Do()
+	if err != nil {
+		s.log.Printf("admin ga4-summary: devices: %v", err)
+		return []ga4DeviceRow{}
+	}
+	out := make([]ga4DeviceRow, 0, len(resp.Rows))
+	for _, row := range resp.Rows {
+		device := ""
+		if len(row.DimensionValues) > 0 {
+			device = row.DimensionValues[0].Value
+		}
+		var sessions, users int64
+		if len(row.MetricValues) >= 1 {
+			sessions = parseGA4Int(row.MetricValues[0].Value)
+		}
+		if len(row.MetricValues) >= 2 {
+			users = parseGA4Int(row.MetricValues[1].Value)
+		}
+		out = append(out, ga4DeviceRow{Device: device, Sessions: sessions, Users: users})
 	}
 	return out
 }

@@ -200,6 +200,7 @@ export type Ga4Summary = {
   topPages?: { path: string; views: number; users: number }[];
   sources?: { channel: string; sessions: number; users: number }[];
   countries?: { country: string; users: number }[];
+  devices?: { device: string; sessions: number; users: number }[];
 };
 
 type GscDailyPoint = { date: string; impressions: number; clicks: number; ctr: number; position: number };
