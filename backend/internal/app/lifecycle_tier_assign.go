@@ -90,6 +90,7 @@ func (s *Server) AssignInitialLifecycleTier(ctx context.Context, email string) (
 	if err := s.store.UpsertUserProfileFreeTrialInvite(ctx, em, row.AttributedTo, deadline); err != nil {
 		return LifecycleAssignmentUnchanged, fmt.Errorf("mark trialing: %w", err)
 	}
+	trialStartTotal.WithLabelValues(strings.TrimSpace(row.AttributedTo)).Inc()
 	return LifecycleAssignmentTrialing, nil
 }
 

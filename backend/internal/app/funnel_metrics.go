@@ -45,6 +45,20 @@ var firstMessageTotal = prometheus.NewCounterVec(
 	[]string{"bot"},
 )
 
+// trialStartTotal counts the moment the cliff logic flips a fresh profile
+// into trialing. Idempotent per profile by virtue of the upstream
+// AssignInitialLifecycleTier short-circuit — once a profile has
+// trial_expires_at > 0 the assignment returns Unchanged and this counter
+// stays put. Labeled by the attribution ref that drove the signup (empty
+// when none) so we can split trial-start volume by source.
+var trialStartTotal = prometheus.NewCounterVec(
+	prometheus.CounterOpts{
+		Name: "makeacompany_trial_start_total",
+		Help: "Profiles flipped into trialing by the post-100-cliff lifecycle assignment, labeled by attribution ref.",
+	},
+	[]string{"attributed_to"},
+)
+
 func init() {
-	prometheus.MustRegister(installClickTotal, oauthCallbackTotal, firstMessageTotal)
+	prometheus.MustRegister(installClickTotal, oauthCallbackTotal, firstMessageTotal, trialStartTotal)
 }
