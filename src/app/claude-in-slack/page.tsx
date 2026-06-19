@@ -143,6 +143,47 @@ export default function ClaudeInSlackPage() {
           </li>
         </ul>
 
+        <h2>How software ships</h2>
+
+        <p>
+          When you work with a MaC engineering agent, the loop is the same one
+          any software team uses, just faster and without the context-switching.
+        </p>
+
+        <ol>
+          <li>
+            <strong>File a ticket</strong> — describe what you want in Slack.
+            The agent opens a GitHub issue, pulls context from the thread, and
+            confirms back with the issue number.
+          </li>
+          <li>
+            <strong>Refine</strong> — iterate on scope in the same thread. The
+            agent updates the issue, flags missing requirements, and asks
+            clarifying questions before it writes a line of code.
+          </li>
+          <li>
+            <strong>Implement</strong> — the agent opens a pull request, posts
+            a link in Slack, and explains the diff. CI runs and the agent
+            monitors it.
+          </li>
+          <li>
+            <strong>Merge</strong> — review the PR on GitHub and approve (or
+            ask the agent to squash-merge once CI is green).
+          </li>
+          <li>
+            <strong>Deploy</strong> — a tagged release triggers the GitOps
+            pipeline. The deploy-watcher monitors the rollout and posts a
+            confirmation in Slack when the new version is live.
+          </li>
+        </ol>
+
+        <p>
+          The agent owns steps 1, 3, and 5 — the parts that don&apos;t need
+          your judgment. You own 2 and 4 — scope decisions and code sign-off.
+          That division keeps you in control without asking you to do the
+          mechanical work.
+        </p>
+
         <h2>How it&apos;s built</h2>
 
         <p>
