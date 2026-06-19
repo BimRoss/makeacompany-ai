@@ -312,12 +312,12 @@ export function MePersonalAgentYouTubeIngest({ systemPrompt, onPromptChange }: P
           onChange={(e) => setUrl(e.target.value)}
           placeholder="https://youtube.com/watch?v=…"
           disabled={busy}
-          className="h-12 flex-1 rounded-lg border border-border bg-background px-4 text-base text-foreground placeholder:text-muted-foreground focus:border-foreground/40 focus:outline-none disabled:opacity-60 sm:h-10 sm:text-sm sm:px-3"
+          className="h-14 flex-1 rounded-lg border border-border bg-background px-4 text-base text-foreground placeholder:text-muted-foreground focus:border-foreground/40 focus:outline-none disabled:opacity-60 sm:h-10 sm:text-sm sm:px-3"
         />
         <button
           type="submit"
           disabled={busy || !url.trim()}
-          className="inline-flex h-12 items-center justify-center gap-1.5 rounded-lg bg-foreground px-4 text-base font-semibold text-background transition hover:bg-foreground/90 disabled:opacity-50 sm:h-10 sm:text-sm"
+          className="inline-flex h-14 items-center justify-center gap-1.5 rounded-lg bg-foreground px-4 text-base font-semibold text-background transition hover:bg-foreground/90 disabled:opacity-50 sm:h-10 sm:text-sm"
         >
           {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : null}
           <span>{busy ? STAGE_LABEL[stage] : "Add"}</span>
