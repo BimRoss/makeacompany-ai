@@ -14,6 +14,11 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
+// gatewayForwardClient caps the in-cluster forward at 2.5 s. Slack requires
+// a response within 3 s before it retries the event — staying under that
+// gives us 500 ms to write the error back before the retry window closes.
+var gatewayForwardClient = &http.Client{Timeout: 2500 * time.Millisecond}
+
 // handleSlackEventsGateway is the public ingress for inbound Slack events
 // addressed to ANY personal-agent app. It routes by `api_app_id` extracted
 // from the JSON payload to the right in-cluster Service, preserves the body
@@ -132,7 +137,7 @@ func (s *Server) handleSlackEventsGateway(w http.ResponseWriter, r *http.Request
 			forwardReq.Header.Set(h, v)
 		}
 	}
-	resp, err := http.DefaultClient.Do(forwardReq)
+	resp, err := gatewayForwardClient.Do(forwardReq)
 	if err != nil {
 		s.log.Printf("slack events gateway forward: %v", err)
 		http.Error(w, "forward failed", http.StatusBadGateway)
