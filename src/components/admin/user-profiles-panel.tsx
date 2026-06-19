@@ -443,7 +443,7 @@ function SortableTh({
     <th
       scope="col"
       aria-sort={ariaSort}
-      className={`px-3 py-1.5 ${className ?? ""}`}
+      className={`px-4 py-2 ${className ?? ""}`}
     >
       <button
         type="button"
@@ -493,6 +493,25 @@ function EngagementSparkline({ bins }: { bins: EngagementDayBin[] }) {
       />
       <circle cx={lastX} cy={lastY} r="2" fill="currentColor" />
     </svg>
+  );
+}
+
+function SlackUserIdentityStrip({ user }: { user: SlackWorkspaceUserRow }) {
+  const items: Array<[string, string]> = [
+    ["Username", (user.username || "").trim() || "—"],
+    ["Slack ID", (user.slackUserId || "").trim() || "—"],
+    ["Team", (user.teamId || "").trim() || "—"],
+    ["Bot", user.isBot ? "yes" : "no"],
+  ];
+  return (
+    <dl className="mb-3 grid grid-cols-2 gap-x-4 gap-y-1 border-b border-border/60 pb-3 text-[11px] sm:grid-cols-4">
+      {items.map(([label, value]) => (
+        <div key={label} className="flex flex-col">
+          <dt className="uppercase tracking-wide text-muted-foreground">{label}</dt>
+          <dd className="truncate font-mono text-foreground" title={value}>{value}</dd>
+        </div>
+      ))}
+    </dl>
   );
 }
 
@@ -1058,10 +1077,10 @@ export function AdminSlackUsersTable() {
         ) : null}
         {visibleSlackUsers.length > 0 ? (
           <div className="hidden overflow-x-auto rounded-xl border border-border dark:border-emerald-400/15 sm:block dark:shadow-[0_4px_24px_rgba(52,211,153,0.08)]">
-            <table className="w-full min-w-[1080px] border-collapse text-left text-sm">
+            <table className="w-full border-collapse text-left text-sm">
               <thead>
                 <tr className="border-b border-border bg-muted/40 dark:bg-emerald-400/5 text-xs uppercase tracking-wide text-muted-foreground">
-                  <th className="w-12 px-2 py-1.5" scope="col">
+                  <th className="w-12 px-3 py-2" scope="col">
                     <span className="sr-only">Photo</span>
                   </th>
                   {(
@@ -1071,10 +1090,6 @@ export function AdminSlackUsersTable() {
                       ["status", "Status"],
                       ["trialEnds", "Trial ends"],
                       ["messages", "Messages"],
-                      ["username", "Username"],
-                      ["slackId", "Slack ID"],
-                      ["team", "Team"],
-                      ["bot", "Bot"],
                     ] as Array<[SlackSortKey, string]>
                   ).map(([key, label]) => (
                     <SortableTh
@@ -1101,7 +1116,7 @@ export function AdminSlackUsersTable() {
                     onClick={() => toggleExpanded(u.slackUserId)}
                     className="border-b border-border/80 last:border-0 cursor-pointer transition-colors duration-150 hover:bg-emerald-500/4 dark:hover:bg-emerald-400/6"
                   >
-                    <td className="px-2 py-1.5 align-middle">
+                    <td className="px-3 py-2 align-middle">
                       {avatarSrc ? (
                         <Image
                           src={avatarSrc}
@@ -1123,9 +1138,9 @@ export function AdminSlackUsersTable() {
                         </span>
                       )}
                     </td>
-                    <td className="whitespace-nowrap px-3 py-1.5 align-middle font-mono text-xs">{short(u.email || "—", 48)}</td>
-                    <td className="whitespace-nowrap px-3 py-1.5 align-middle text-xs">{short(display || "—", 40)}</td>
-                    <td className="whitespace-nowrap px-3 py-1.5 align-middle text-xs">
+                    <td className="whitespace-nowrap px-4 py-2 align-middle font-mono text-xs">{short(u.email || "—", 48)}</td>
+                    <td className="whitespace-nowrap px-4 py-2 align-middle text-xs">{short(display || "—", 40)}</td>
+                    <td className="whitespace-nowrap px-4 py-2 align-middle text-xs">
                       <div className="flex flex-col items-start gap-1">
                         {renderStatusCell(u)}
                         <FreeLifetimeControl
@@ -1136,24 +1151,21 @@ export function AdminSlackUsersTable() {
                         />
                       </div>
                     </td>
-                    <td className="whitespace-nowrap px-3 py-1.5 align-middle text-xs text-muted-foreground">
+                    <td className="whitespace-nowrap px-4 py-2 align-middle text-xs text-muted-foreground">
                       {u.status === "trialing" && typeof u.trialExpiresAt === "number" && u.trialExpiresAt > 0
                         ? formatRelativeFromNow(u.trialExpiresAt, nowSeconds)
                         : "—"}
                     </td>
-                    <td className="whitespace-nowrap px-3 py-1.5 align-middle text-xs tabular-nums">
+                    <td className="whitespace-nowrap px-4 py-2 align-middle text-xs tabular-nums">
                       {totalMessages > 0 ? totalMessages.toLocaleString() : (
                         <span className="text-muted-foreground">—</span>
                       )}
                     </td>
-                    <td className="whitespace-nowrap px-3 py-1.5 align-middle font-mono text-xs">{short(u.username, 28)}</td>
-                    <td className="whitespace-nowrap px-3 py-1.5 align-middle font-mono text-xs">{short(u.slackUserId, 16)}</td>
-                    <td className="whitespace-nowrap px-3 py-1.5 align-middle font-mono text-xs">{short(u.teamId, 14)}</td>
-                    <td className="whitespace-nowrap px-3 py-1.5 align-middle text-xs">{u.isBot ? "yes" : "—"}</td>
                   </tr>
                   {isExpanded ? (
                     <tr className="bg-muted/40 dark:bg-emerald-400/5">
-                      <td colSpan={10} className="px-4 py-3">
+                      <td colSpan={6} className="px-4 py-3">
+                        <SlackUserIdentityStrip user={u} />
                         <EngagementDetailPanel
                           slackUserId={u.slackUserId}
                           detail={engagementDetail[u.slackUserId]}
