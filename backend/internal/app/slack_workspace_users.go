@@ -34,6 +34,10 @@ type SlackWorkspaceUser struct {
 	// Status is the resolved LifecycleStatus (free_lifetime|trialing|active|expired) from the profile hash.
 	// Merged by EnrichSlackWorkspaceUsersWithProfileTerms; empty when no profile is linked.
 	Status string `json:"status,omitempty"`
+	// FreeLifetime is the raw free_lifetime profile flag (distinct from Status, since a Stripe-active
+	// user can be free_lifetime=true yet show Status="active"). Lets the /admin status control reflect
+	// the actual flag rather than inferring it from the effective status.
+	FreeLifetime bool `json:"freeLifetime,omitempty"`
 	// TrialExpiresAt is the unix-second deadline of the post-cliff trial. Omitted when not trialing.
 	TrialExpiresAt int64 `json:"trialExpiresAt,omitempty"`
 	// StripeCustomerID is mirrored from the profile so admin can deep-link active rows to Stripe.

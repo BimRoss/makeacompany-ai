@@ -48,6 +48,8 @@ type SlackWorkspaceUserRow = {
   termsMessageTs?: string;
   /** From Redis profile via EffectiveStatus (#245). */
   status?: LifecycleStatus | string;
+  /** Raw free_lifetime profile flag — distinct from status (a Stripe-active user can be free_lifetime=true). */
+  freeLifetime?: boolean;
   /** Unix-seconds trial deadline, only present when status=trialing. */
   trialExpiresAt?: number;
   /** Mirrored from profile so active rows can deep-link to the Stripe dashboard. */
@@ -580,6 +582,45 @@ function renderStatusCell(u: SlackWorkspaceUserRow) {
   return pillBody;
 }
 
+/**
+ * Per-row status control. Currently scoped to the free-for-life flag (the only directly-settable
+ * lifecycle lever — trialing/active/expired are derived from Stripe + trial deadlines). Rendered as a
+ * dropdown so more settable statuses can be added later. stopPropagation keeps clicks from toggling the
+ * expandable desktop row.
+ */
+function FreeLifetimeControl({
+  email,
+  freeLifetime,
+  saving,
+  onChange,
+}: {
+  email: string;
+  freeLifetime: boolean;
+  saving: boolean;
+  onChange: (email: string, next: boolean) => void;
+}) {
+  const trimmed = (email || "").trim();
+  const hasEmail = trimmed !== "" && trimmed !== "—";
+  return (
+    <select
+      aria-label="Set free-for-life status"
+      title={hasEmail ? "Set free-for-life status" : "No linked email — can't set free-for-life"}
+      disabled={!hasEmail || saving}
+      value={freeLifetime ? "free_lifetime" : "standard"}
+      onClick={(e) => e.stopPropagation()}
+      onMouseDown={(e) => e.stopPropagation()}
+      onChange={(e) => {
+        e.stopPropagation();
+        onChange(trimmed, e.target.value === "free_lifetime");
+      }}
+      className="w-fit rounded-md border border-border bg-background px-1.5 py-0.5 text-[11px] text-foreground shadow-sm outline-none transition focus:border-foreground/25 focus:ring-1 focus:ring-foreground/20 disabled:opacity-50"
+    >
+      <option value="standard">Standard</option>
+      <option value="free_lifetime">Free for life</option>
+    </select>
+  );
+}
+
 /** Slack workspace members (users.list). Mount reads Redis snapshots; live refresh pulls upstream and updates Redis. */
 export function AdminSlackUsersTable() {
   const flash = useAdminFlashToast();
@@ -601,6 +642,8 @@ export function AdminSlackUsersTable() {
   const [engagementDetail, setEngagementDetail] = useState<Record<string, EngagementSummary | undefined>>({});
   const [engagementDetailLoading, setEngagementDetailLoading] = useState<Record<string, boolean | undefined>>({});
   const [engagementDetailError, setEngagementDetailError] = useState<Record<string, string | undefined>>({});
+  // In-flight guard for the per-row free-for-life control, keyed by trimmed email.
+  const [freeLifetimeSaving, setFreeLifetimeSaving] = useState<Record<string, boolean | undefined>>({});
   const handleSortClick = useCallback((key: SlackSortKey) => {
     setSortKey((prev) => {
       if (prev === key) {
@@ -733,6 +776,48 @@ export function AdminSlackUsersTable() {
     [engagementDetail, loadEngagementDetail],
   );
 
+  // Mark a user free-for-life (or revert). Keyed by email — the canonical profile key. On success the
+  // backend returns the recomputed EffectiveStatus, so we patch the row in place (no full refetch).
+  const setFreeLifetime = useCallback(
+    async (email: string, freeLifetime: boolean) => {
+      const em = (email || "").trim();
+      if (!em || em === "—") {
+        flash("error", "No linked email for this user — can't set free-for-life.");
+        return;
+      }
+      setFreeLifetimeSaving((m) => ({ ...m, [em]: true }));
+      try {
+        const res = await fetch("/api/admin/user-profile/free-lifetime", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          cache: "no-store",
+          body: JSON.stringify({ email: em, freeLifetime }),
+        });
+        if (kickToLoginForUnauthorizedApi(res.status, "admin")) return;
+        const body = (await res.json().catch(() => null)) as
+          | { ok?: boolean; status?: string; error?: string }
+          | null;
+        if (!res.ok || !body?.ok) {
+          flash("error", body?.error ?? `Could not update status (HTTP ${res.status})`);
+          return;
+        }
+        setSlackUsers((prev) =>
+          prev.map((u) =>
+            (u.email || "").trim().toLowerCase() === em.toLowerCase()
+              ? { ...u, freeLifetime, status: body.status || u.status }
+              : u,
+          ),
+        );
+        flash("success", freeLifetime ? `${em} marked free for life.` : `Free-for-life removed for ${em}.`);
+      } catch (e) {
+        flash("error", e instanceof Error ? e.message : "Network error");
+      } finally {
+        setFreeLifetimeSaving((m) => ({ ...m, [em]: false }));
+      }
+    },
+    [flash],
+  );
+
   useEffect(() => {
     void fetchSlackUsers(false, showDeleted);
   }, [fetchSlackUsers, showDeleted]);
@@ -852,6 +937,7 @@ export function AdminSlackUsersTable() {
               const display = (u.realName || u.displayName || u.username || "").trim();
               const avatarSrc = (u.profileImageUrl ?? "").trim();
               const initial = (display || u.username || "?").trim().charAt(0).toUpperCase();
+              const isExpanded = expandedUserId === u.slackUserId;
               const trialCountdown =
                 u.status === "trialing" && typeof u.trialExpiresAt === "number" && u.trialExpiresAt > 0
                   ? formatRelativeFromNow(u.trialExpiresAt, nowSeconds)
@@ -859,53 +945,85 @@ export function AdminSlackUsersTable() {
               return (
                 <li
                   key={u.slackUserId}
-                  className="flex items-center gap-3 rounded-xl border border-border bg-card px-3 py-2"
+                  className="overflow-hidden rounded-xl border border-border bg-card"
                 >
-                  {avatarSrc ? (
-                    <Image
-                      src={avatarSrc}
-                      alt={display ? `${display} Slack profile` : "Slack profile"}
-                      width={40}
-                      height={40}
-                      loading="lazy"
-                      decoding="async"
-                      referrerPolicy="no-referrer"
-                      className="h-10 w-10 shrink-0 rounded-full object-cover ring-1 ring-border"
-                    />
-                  ) : (
-                    <span
-                      className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-medium text-muted-foreground ring-1 ring-border"
-                      aria-hidden
-                    >
-                      {initial}
-                    </span>
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5">
-                      <span className="truncate text-sm font-medium text-foreground">{display || "—"}</span>
-                      {u.isBot ? (
-                        <span className="rounded bg-muted px-1 text-[10px] uppercase tracking-wide text-muted-foreground">
-                          bot
-                        </span>
-                      ) : null}
-                      {u.isDeleted ? (
-                        <span className="rounded bg-muted px-1 text-[10px] uppercase tracking-wide text-muted-foreground">
-                          deleted
-                        </span>
-                      ) : null}
-                    </div>
-                    <div className="truncate font-mono text-xs text-muted-foreground">{u.email || "—"}</div>
-                    {u.status ? (
-                      <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                        {renderStatusCell(u)}
-                        {trialCountdown ? (
-                          <span className="text-[11px] tabular-nums text-muted-foreground">
-                            ends {trialCountdown}
+                  <button
+                    type="button"
+                    aria-expanded={isExpanded}
+                    onClick={() => toggleExpanded(u.slackUserId)}
+                    className="flex w-full items-center gap-3 px-3 py-2 text-left transition-colors duration-150 hover:bg-emerald-500/4 dark:hover:bg-emerald-400/6"
+                  >
+                    {avatarSrc ? (
+                      <Image
+                        src={avatarSrc}
+                        alt={display ? `${display} Slack profile` : "Slack profile"}
+                        width={40}
+                        height={40}
+                        loading="lazy"
+                        decoding="async"
+                        referrerPolicy="no-referrer"
+                        className="h-10 w-10 shrink-0 rounded-full object-cover ring-1 ring-border"
+                      />
+                    ) : (
+                      <span
+                        className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-medium text-muted-foreground ring-1 ring-border"
+                        aria-hidden
+                      >
+                        {initial}
+                      </span>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5">
+                        <span className="truncate text-sm font-medium text-foreground">{display || "—"}</span>
+                        {u.isBot ? (
+                          <span className="rounded bg-muted px-1 text-[10px] uppercase tracking-wide text-muted-foreground">
+                            bot
+                          </span>
+                        ) : null}
+                        {u.isDeleted ? (
+                          <span className="rounded bg-muted px-1 text-[10px] uppercase tracking-wide text-muted-foreground">
+                            deleted
                           </span>
                         ) : null}
                       </div>
-                    ) : null}
-                  </div>
+                      <div className="truncate font-mono text-xs text-muted-foreground">{u.email || "—"}</div>
+                      {u.status ? (
+                        <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                          {renderStatusCell(u)}
+                          {trialCountdown ? (
+                            <span className="text-[11px] tabular-nums text-muted-foreground">
+                              ends {trialCountdown}
+                            </span>
+                          ) : null}
+                        </div>
+                      ) : null}
+                    </div>
+                    <ChevronDown
+                      className={`size-4 shrink-0 text-muted-foreground transition-transform duration-150 ${isExpanded ? "rotate-180" : ""}`}
+                      aria-hidden
+                    />
+                  </button>
+                  {isExpanded ? (
+                    <div className="space-y-3 border-t border-border bg-muted/40 px-3 py-3 dark:bg-emerald-400/5">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                          Status
+                        </span>
+                        <FreeLifetimeControl
+                          email={u.email}
+                          freeLifetime={u.freeLifetime === true || u.status === "free_lifetime"}
+                          saving={freeLifetimeSaving[(u.email || "").trim()] === true}
+                          onChange={(em, next) => void setFreeLifetime(em, next)}
+                        />
+                      </div>
+                      <EngagementDetailPanel
+                        slackUserId={u.slackUserId}
+                        detail={engagementDetail[u.slackUserId]}
+                        loading={engagementDetailLoading[u.slackUserId] === true}
+                        error={engagementDetailError[u.slackUserId]}
+                      />
+                    </div>
+                  ) : null}
                 </li>
               );
             })}
@@ -981,7 +1099,15 @@ export function AdminSlackUsersTable() {
                     <td className="whitespace-nowrap px-3 py-1.5 align-middle font-mono text-xs">{short(u.email || "—", 48)}</td>
                     <td className="whitespace-nowrap px-3 py-1.5 align-middle text-xs">{short(display || "—", 40)}</td>
                     <td className="whitespace-nowrap px-3 py-1.5 align-middle text-xs">
-                      {renderStatusCell(u)}
+                      <div className="flex flex-col items-start gap-1">
+                        {renderStatusCell(u)}
+                        <FreeLifetimeControl
+                          email={u.email}
+                          freeLifetime={u.freeLifetime === true || u.status === "free_lifetime"}
+                          saving={freeLifetimeSaving[(u.email || "").trim()] === true}
+                          onChange={(em, next) => void setFreeLifetime(em, next)}
+                        />
+                      </div>
                     </td>
                     <td className="whitespace-nowrap px-3 py-1.5 align-middle text-xs text-muted-foreground">
                       {u.status === "trialing" && typeof u.trialExpiresAt === "number" && u.trialExpiresAt > 0
