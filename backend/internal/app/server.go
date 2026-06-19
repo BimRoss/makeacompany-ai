@@ -536,7 +536,8 @@ func (s *Server) handleCheckout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var reqBody struct {
-		Ref string `json:"ref"`
+		Ref        string             `json:"ref"`
+		FirstTouch *firstTouchPayload `json:"first_touch"`
 	}
 	if r.Body != nil {
 		_ = json.NewDecoder(io.LimitReader(r.Body, 4096)).Decode(&reqBody)
@@ -557,6 +558,11 @@ func (s *Server) handleCheckout(w http.ResponseWriter, r *http.Request) {
 	if ref != "" {
 		metadata["ref"] = ref
 	}
+	ftSource := ""
+	if reqBody.FirstTouch != nil {
+		ftSource = reqBody.FirstTouch.applyToCheckoutMetadata(metadata)
+	}
+	installClickTotal.WithLabelValues(ftSource).Inc()
 	params := &stripe.CheckoutSessionParams{
 		Params:     stripe.Params{Context: upstream.WithOperation(r.Context(), "checkout.session.create")},
 		Mode:       stripe.String(string(stripe.CheckoutSessionModeSubscription)),
@@ -878,6 +884,11 @@ func (s *Server) saveWaitlistFromSession(ctx context.Context, sess *stripe.Check
 	ref := strings.TrimSpace(sess.Metadata["ref"])
 	if err := s.store.SaveWaitlistSignup(ctx, sess.ID, email, custID, status, amount, cur, stripeProductID, ref); err != nil {
 		return "", err
+	}
+	if ft := firstTouchFieldsFromMetadata(sess.Metadata); len(ft) > 0 {
+		if err := s.store.MergeUserProfileFields(ctx, email, ft); err != nil {
+			s.log.Printf("first-touch merge for %s: %v", email, err)
+		}
 	}
 	if err := s.sendCheckoutWelcomeInviteEmail(ctx, sess.ID, email); err != nil {
 		s.log.Printf("checkout welcome invite email: %v", err)

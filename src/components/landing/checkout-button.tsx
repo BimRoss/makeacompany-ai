@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { ArrowRight, Loader2 } from "lucide-react";
 import { apiBase } from "@/lib/site";
+import { firstTouchToGtagParams, readFirstTouchClient } from "@/lib/first-touch";
+import { track } from "@/lib/gtag";
 import { getStoredRef } from "@/lib/ref";
 import { DEFAULT_WAITLIST_CAP, WAITLIST_REFRESH_EVENT } from "@/lib/waitlist";
 
@@ -84,12 +86,17 @@ export function CheckoutButton({ label, className }: CheckoutButtonProps) {
     }
     setLoading(true);
     setError(null);
+    const firstTouch = readFirstTouchClient();
+    track("install_click", { cta_label: label, ...firstTouchToGtagParams(firstTouch) });
     try {
       const ref = getStoredRef();
+      const body: Record<string, unknown> = {};
+      if (ref) body.ref = ref;
+      if (firstTouch) body.first_touch = firstTouch;
       const res = await fetch(`${apiBase()}/v1/billing/checkout`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(ref ? { ref } : {}),
+        body: JSON.stringify(body),
       });
       const data = (await res.json()) as { url?: string; error?: string };
       if (!res.ok) {
