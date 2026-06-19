@@ -43,10 +43,12 @@ type SlackActivityDay struct {
 const (
 	slackConversationsListURL    = "https://slack.com/api/users.conversations"
 	slackConversationsHistoryURL = "https://slack.com/api/conversations.history"
+	slackConversationsRepliesURL = "https://slack.com/api/conversations.replies"
 	slackActivityPageLimit       = 200
 	slackActivityHistoryLimit    = 200
 	slackActivityMaxChanPages    = 20
 	slackActivityMaxHistPages    = 25
+	slackActivityMaxThreadPages  = 10
 	slackActivityPagePause       = 350 * time.Millisecond
 	slackActivityHTTPTimeout     = 90 * time.Second
 )
@@ -74,11 +76,13 @@ type slackConversationsHistoryResponse struct {
 	Error    string `json:"error"`
 	HasMore  bool   `json:"has_more"`
 	Messages []struct {
-		Type    string `json:"type"`
-		Subtype string `json:"subtype"`
-		User    string `json:"user"`
-		BotID   string `json:"bot_id"`
-		Ts      string `json:"ts"`
+		Type       string `json:"type"`
+		Subtype    string `json:"subtype"`
+		User       string `json:"user"`
+		BotID      string `json:"bot_id"`
+		Ts         string `json:"ts"`
+		ThreadTs   string `json:"thread_ts"`
+		ReplyCount int    `json:"reply_count"`
 	} `json:"messages"`
 	ResponseMetadata struct {
 		NextCursor string `json:"next_cursor"`
@@ -304,6 +308,223 @@ func fetchSlackChannelDayCounts(ctx context.Context, client *http.Client, botTok
 		}
 	}
 	return res, nil
+}
+
+// FetchSlackUserMessagesDay walks every conversation the bot is a member of and emits one
+// fingerprint per countable human message — including thread replies via conversations.replies for
+// any parent with reply_count > 0. Caller dedups fingerprints across (channel, ts) by writing them
+// into a Redis Set. See [[BackfillUserMessagesDay]] for the storage side. Tier-3 pacing is applied
+// between every history page and every thread fetch to stay well under the per-method ceilings.
+func FetchSlackUserMessagesDay(ctx context.Context, botToken, day string) ([]BackfillUserMessagesEvent, error) {
+	botToken = strings.TrimSpace(botToken)
+	if botToken == "" {
+		return nil, errors.New("missing slack bot token")
+	}
+	day = strings.TrimSpace(day)
+	if day == "" {
+		day = time.Now().UTC().Add(-24 * time.Hour).Format("2006-01-02")
+	}
+	dayStart, err := time.ParseInLocation("2006-01-02", day, time.UTC)
+	if err != nil {
+		return nil, fmt.Errorf("parse day %q: %w", day, err)
+	}
+	oldest := dayStart.Unix()
+	latest := dayStart.Add(24 * time.Hour).Unix()
+
+	client := upstream.WrapClient("slack", &http.Client{Timeout: slackActivityHTTPTimeout})
+	channels, err := fetchSlackBotConversations(ctx, client, botToken)
+	if err != nil {
+		return nil, err
+	}
+	var out []BackfillUserMessagesEvent
+	for _, c := range channels {
+		if c.IsArchived {
+			continue
+		}
+		events, hErr := fetchSlackChannelDayFingerprints(ctx, client, botToken, c.ID, day, oldest, latest)
+		if hErr != nil {
+			// One bad channel doesn't fail the day; the marker still
+			// records "tried" so we don't loop on a permanent error.
+			continue
+		}
+		out = append(out, events...)
+	}
+	return out, nil
+}
+
+func fetchSlackChannelDayFingerprints(ctx context.Context, client *http.Client, botToken, channelID, day string, oldest, latest int64) ([]BackfillUserMessagesEvent, error) {
+	var out []BackfillUserMessagesEvent
+	cursor := ""
+	for page := 0; page < slackActivityMaxHistPages; page++ {
+		if err := ctx.Err(); err != nil {
+			return out, err
+		}
+		form := url.Values{}
+		form.Set("channel", channelID)
+		form.Set("oldest", strconv.FormatInt(oldest, 10))
+		form.Set("latest", strconv.FormatInt(latest, 10))
+		form.Set("inclusive", "false")
+		form.Set("limit", strconv.Itoa(slackActivityHistoryLimit))
+		if cursor != "" {
+			form.Set("cursor", cursor)
+		}
+		req, err := http.NewRequestWithContext(upstream.WithOperation(ctx, "conversations.history"), http.MethodPost, slackConversationsHistoryURL, strings.NewReader(form.Encode()))
+		if err != nil {
+			return out, err
+		}
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		req.Header.Set("Authorization", "Bearer "+botToken)
+		resp, err := client.Do(req)
+		if err != nil {
+			return out, err
+		}
+		body, err := io.ReadAll(io.LimitReader(resp.Body, 8<<20))
+		_ = resp.Body.Close()
+		if err != nil {
+			return out, err
+		}
+		if resp.StatusCode != http.StatusOK {
+			observeSlackUpstreamStatus("slack conversations.history", resp.StatusCode)
+			return out, &UpstreamHTTPError{
+				Source:      "slack conversations.history",
+				StatusCode:  resp.StatusCode,
+				RetryAfter:  strings.TrimSpace(resp.Header.Get("Retry-After")),
+				BodySnippet: strings.TrimSpace(string(snippetBytes(body, 300))),
+			}
+		}
+		var parsed slackConversationsHistoryResponse
+		if err := json.Unmarshal(body, &parsed); err != nil {
+			return out, fmt.Errorf("slack conversations.history json: %w", err)
+		}
+		if !parsed.OK {
+			if parsed.Error != "" {
+				return out, fmt.Errorf("slack conversations.history: %s", parsed.Error)
+			}
+			return out, errors.New("slack conversations.history: not ok")
+		}
+		for _, m := range parsed.Messages {
+			if isCountableSlackMessage(m.Type, m.Subtype, m.User, m.BotID) {
+				out = append(out, BackfillUserMessagesEvent{
+					SlackUserID: strings.TrimSpace(m.User),
+					ChannelID:   channelID,
+					MessageTS:   strings.TrimSpace(m.Ts),
+				})
+			}
+			// Walk thread if the parent has any replies, regardless of
+			// whether the parent itself was countable. The reply walk
+			// re-filters per message.
+			if m.ReplyCount > 0 && strings.TrimSpace(m.ThreadTs) != "" {
+				replies, rErr := fetchSlackThreadFingerprints(ctx, client, botToken, channelID, m.ThreadTs, oldest, latest)
+				if rErr == nil {
+					out = append(out, replies...)
+				}
+				select {
+				case <-ctx.Done():
+					return out, ctx.Err()
+				case <-time.After(slackActivityPagePause):
+				}
+			}
+		}
+		cursor = strings.TrimSpace(parsed.ResponseMetadata.NextCursor)
+		if !parsed.HasMore || cursor == "" {
+			break
+		}
+		select {
+		case <-ctx.Done():
+			return out, ctx.Err()
+		case <-time.After(slackActivityPagePause):
+		}
+	}
+	return out, nil
+}
+
+// fetchSlackThreadFingerprints pulls every reply in one thread and emits a fingerprint per
+// countable message whose ts falls in [oldest, latest). The parent is dropped here because the
+// history walk already captured it; otherwise a parent inside the window would double-count.
+func fetchSlackThreadFingerprints(ctx context.Context, client *http.Client, botToken, channelID, threadTs string, oldest, latest int64) ([]BackfillUserMessagesEvent, error) {
+	var out []BackfillUserMessagesEvent
+	cursor := ""
+	for page := 0; page < slackActivityMaxThreadPages; page++ {
+		if err := ctx.Err(); err != nil {
+			return out, err
+		}
+		form := url.Values{}
+		form.Set("channel", channelID)
+		form.Set("ts", threadTs)
+		form.Set("limit", strconv.Itoa(slackActivityHistoryLimit))
+		if cursor != "" {
+			form.Set("cursor", cursor)
+		}
+		req, err := http.NewRequestWithContext(upstream.WithOperation(ctx, "conversations.replies"), http.MethodPost, slackConversationsRepliesURL, strings.NewReader(form.Encode()))
+		if err != nil {
+			return out, err
+		}
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		req.Header.Set("Authorization", "Bearer "+botToken)
+		resp, err := client.Do(req)
+		if err != nil {
+			return out, err
+		}
+		body, err := io.ReadAll(io.LimitReader(resp.Body, 8<<20))
+		_ = resp.Body.Close()
+		if err != nil {
+			return out, err
+		}
+		if resp.StatusCode != http.StatusOK {
+			observeSlackUpstreamStatus("slack conversations.replies", resp.StatusCode)
+			return out, &UpstreamHTTPError{
+				Source:      "slack conversations.replies",
+				StatusCode:  resp.StatusCode,
+				RetryAfter:  strings.TrimSpace(resp.Header.Get("Retry-After")),
+				BodySnippet: strings.TrimSpace(string(snippetBytes(body, 300))),
+			}
+		}
+		var parsed slackConversationsHistoryResponse
+		if err := json.Unmarshal(body, &parsed); err != nil {
+			return out, fmt.Errorf("slack conversations.replies json: %w", err)
+		}
+		if !parsed.OK {
+			if parsed.Error != "" {
+				return out, fmt.Errorf("slack conversations.replies: %s", parsed.Error)
+			}
+			return out, errors.New("slack conversations.replies: not ok")
+		}
+		for _, m := range parsed.Messages {
+			ts := strings.TrimSpace(m.Ts)
+			if ts == threadTs {
+				continue // parent — handled by the history walk
+			}
+			if !isCountableSlackMessage(m.Type, m.Subtype, m.User, m.BotID) {
+				continue
+			}
+			// Filter to the requested UTC day. Replies can post days
+			// after the parent and we don't want them attributed to
+			// the parent's day.
+			tsFloat, err := strconv.ParseFloat(ts, 64)
+			if err != nil {
+				continue
+			}
+			tsInt := int64(tsFloat)
+			if tsInt < oldest || tsInt >= latest {
+				continue
+			}
+			out = append(out, BackfillUserMessagesEvent{
+				SlackUserID: strings.TrimSpace(m.User),
+				ChannelID:   channelID,
+				MessageTS:   ts,
+			})
+		}
+		cursor = strings.TrimSpace(parsed.ResponseMetadata.NextCursor)
+		if !parsed.HasMore || cursor == "" {
+			break
+		}
+		select {
+		case <-ctx.Done():
+			return out, ctx.Err()
+		case <-time.After(slackActivityPagePause):
+		}
+	}
+	return out, nil
 }
 
 // isCountableSlackMessage drops bot posts, channel join/leave noise, and edits. A countable message

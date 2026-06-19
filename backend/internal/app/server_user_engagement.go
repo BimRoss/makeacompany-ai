@@ -82,8 +82,13 @@ func (s *Server) handleInternalIngestUserEngagement(w http.ResponseWriter, r *ht
 			MentionsBot: ev.MentionsBot,
 		})
 	}
+	// Legacy per-bot counters (kept for one release for safety, reads
+	// no longer use them). Real path is the dedup store below.
 	if err := s.store.IngestUserEngagementBatch(r.Context(), bot, ingest); err != nil {
-		s.log.Printf("ingest user engagement: %v", err)
+		s.log.Printf("ingest user engagement (legacy): %v", err)
+	}
+	if err := s.store.IngestUserMessagesBatch(r.Context(), ingest); err != nil {
+		s.log.Printf("ingest user messages: %v", err)
 		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": "store error"})
 		return
 	}
@@ -111,9 +116,9 @@ func (s *Server) handleAdminUserEngagement(w http.ResponseWriter, r *http.Reques
 		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "slackUserId required"})
 		return
 	}
-	summary, err := s.store.LoadUserEngagement(r.Context(), slackUserID)
+	summary, err := s.store.LoadUserMessages(r.Context(), slackUserID)
 	if err != nil {
-		s.log.Printf("load user engagement %s: %v", slackUserID, err)
+		s.log.Printf("load user messages %s: %v", slackUserID, err)
 		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": "store error"})
 		return
 	}
@@ -143,9 +148,9 @@ func (s *Server) handleAdminUserEngagementTop(w http.ResponseWriter, r *http.Req
 			limit = n
 		}
 	}
-	top, err := s.store.TopUsersByEngagement(r.Context(), limit)
+	top, err := s.store.TopUsersByMessages(r.Context(), limit)
 	if err != nil {
-		s.log.Printf("top users by engagement: %v", err)
+		s.log.Printf("top users by messages: %v", err)
 		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": "store error"})
 		return
 	}
