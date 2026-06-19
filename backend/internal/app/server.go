@@ -273,6 +273,7 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 	s.mux.HandleFunc("/v1/admin/channels", s.handleAdminChannels)
 	s.mux.HandleFunc("/v1/admin/channel-members", s.handleAdminChannelMembers)
 	s.mux.HandleFunc("/v1/admin/user-profiles", s.handleAdminUserProfiles)
+	s.mux.HandleFunc("/v1/admin/user-profile/free-lifetime", s.handleAdminUserFreeLifetime)
 	s.mux.HandleFunc("/v1/admin/ga4-summary", s.handleAdminGA4Summary)
 	s.mux.HandleFunc("/v1/admin/gsc-summary", s.handleAdminGSCSummary)
 	s.mux.HandleFunc("GET /v1/admin/agents/status", s.handleAdminAgentsStatus)

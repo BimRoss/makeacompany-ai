@@ -89,6 +89,13 @@ func (s *Store) UpsertUserProfileFreeTrialInvite(ctx context.Context, email, att
 // (see scripts/backfill-free-lifetime.sh) and by any future signup path that decides at write time the user
 // falls under the cliff.
 func (s *Store) MarkProfileFreeLifetime(ctx context.Context, email string) error {
+	return s.SetProfileFreeLifetime(ctx, email, true)
+}
+
+// SetProfileFreeLifetime sets (or clears) free_lifetime on the profile hash. Clearing writes "false"
+// rather than deleting the field so EffectiveStatus reads it unambiguously and the change is auditable.
+// Powers the /admin Slack-users status control (admin can mark a user free-for-life or revert it).
+func (s *Store) SetProfileFreeLifetime(ctx context.Context, email string, freeLifetime bool) error {
 	email = normalizeProfileEmail(email)
 	if email == "" {
 		return fmt.Errorf("missing email")
@@ -96,7 +103,7 @@ func (s *Store) MarkProfileFreeLifetime(ctx context.Context, email string) error
 	now := time.Now().UTC().Format(time.RFC3339)
 	return s.rdb.HSet(ctx, userProfileRedisKey(email), map[string]any{
 		"email":              email,
-		"free_lifetime":      "true",
+		"free_lifetime":      strconv.FormatBool(freeLifetime),
 		"profile_updated_at": now,
 	}).Err()
 }
@@ -727,6 +734,7 @@ func (s *Store) EnrichSlackWorkspaceUsersWithProfileTerms(ctx context.Context, u
 		}
 		status := EffectiveStatus(row, now, basePlanProductID)
 		users[p.userIdx].Status = string(status)
+		users[p.userIdx].FreeLifetime = row.FreeLifetime
 		users[p.userIdx].StripeCustomerID = row.StripeCustomerID
 		if status == LifecycleTrialing && row.TrialExpiresAt > 0 {
 			users[p.userIdx].TrialExpiresAt = row.TrialExpiresAt
