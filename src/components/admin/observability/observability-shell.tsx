@@ -12,7 +12,7 @@ import { GoldenPath } from "./golden-path";
 import { KpiScorecard } from "./kpi-scorecard";
 import { MetricPanel } from "./metric-panel";
 import { OAuthPoolPanel } from "@/components/admin/oauth-pool-panel";
-import { CLUSTER_PANELS, JOBS_PANELS, LIFECYCLE_PANELS, WEB_PANELS } from "./panels";
+import { CLUSTER_PANELS, FUNNEL_PANELS, JOBS_PANELS, LIFECYCLE_PANELS, WEB_PANELS } from "./panels";
 import { SearchDeviceStrip, SearchHostsPanel, SearchPagesPanel, SearchQueriesPanel } from "./search-panel";
 import { SearchTimeseriesPanels } from "./search-timeseries";
 import { ObservabilitySection } from "./section";
@@ -108,6 +108,18 @@ function ObservabilityBody() {
       >
         <div className={PANEL_GRID}>
           {LIFECYCLE_PANELS.map((def) => (
+            <MetricPanel key={def.id} def={def} from={from} />
+          ))}
+        </div>
+      </ObservabilitySection>
+
+      <ObservabilitySection
+        id="funnel"
+        title="Conversion funnel"
+        description="Stage-by-stage daily volume from install click through trial start. Series only appear once a stage has fired."
+      >
+        <div className={PANEL_GRID}>
+          {FUNNEL_PANELS.map((def) => (
             <MetricPanel key={def.id} def={def} from={from} />
           ))}
         </div>
