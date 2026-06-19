@@ -7,6 +7,7 @@ import { Footer } from "@/components/landing/footer";
 import { HarnessVsAgent } from "@/components/landing/harness-vs-agent";
 import { Header } from "@/components/landing/header";
 import { HeroSection } from "@/components/landing/hero-section";
+import { PersonaPageView } from "@/components/landing/persona-page-view";
 import { PersonaProvider } from "@/components/landing/persona-context";
 import { faqStructuredData, SeoFaqSection } from "@/components/landing/seo-faq";
 import { TestimonialsCarousel } from "@/components/landing/testimonials-carousel";
@@ -96,6 +97,7 @@ export default async function PersonaLandingPage({
       <CheckoutReturnToast />
       <Header />
       <PersonaProvider initialPersona={persona} initialFromUrl>
+        <PersonaPageView persona={persona} slug={slug} />
         <HeroSection />
         <ValueStack />
         <HarnessVsAgent />
