@@ -263,8 +263,6 @@ func (s *Store) BackfillUserMessagesDay(ctx context.Context, day string, events 
 		dayKey := userMessagesDailyKey(ev.SlackUserID, day)
 		pipe.SAdd(ctx, dayKey, fingerprint)
 		pipe.Expire(ctx, dayKey, userMessagesDailyTTL)
-		metaKey := userMessagesMetaKey(ev.SlackUserID)
-		pipe.HSetNX(ctx, metaKey, "first_seen_at", dayStartRFC)
 		seenUsers[ev.SlackUserID] = true
 	}
 	if _, err := pipe.Exec(ctx); err != nil {
@@ -279,10 +277,18 @@ func (s *Store) BackfillUserMessagesDay(ctx context.Context, day string, events 
 	if _, err := zPipe.Exec(ctx); err != nil {
 		return false, fmt.Errorf("backfill sorted-set pipeline: %w", err)
 	}
+	// first_seen_at and last_seen_at: roll forward / backward only.
+	// HSETNX inside the pipeline used to lose to the live-ingest path when
+	// a new pod warm-started before backfill ran, freezing first_seen_at to
+	// the deploy time instead of the earliest historical day.
 	for u := range seenUsers {
 		metaKey := userMessagesMetaKey(u)
-		existing, _ := s.rdb.HGet(ctx, metaKey, "last_seen_at").Result()
-		if existing == "" || existing < dayStartRFC {
+		first, _ := s.rdb.HGet(ctx, metaKey, "first_seen_at").Result()
+		if first == "" || first > dayStartRFC {
+			_ = s.rdb.HSet(ctx, metaKey, "first_seen_at", dayStartRFC).Err()
+		}
+		last, _ := s.rdb.HGet(ctx, metaKey, "last_seen_at").Result()
+		if last == "" || last < dayStartRFC {
 			_ = s.rdb.HSet(ctx, metaKey, "last_seen_at", dayStartRFC).Err()
 		}
 	}

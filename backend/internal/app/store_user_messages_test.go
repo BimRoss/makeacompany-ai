@@ -122,6 +122,40 @@ func TestBackfillUserMessagesDay_Idempotent(t *testing.T) {
 	}
 }
 
+// TestBackfillUserMessagesDay_FirstSeenRollsBack guards against the
+// HSETNX-loses-to-live-ingest race: if live ingest already stamped
+// first_seen_at to today and backfill then runs against a much earlier
+// historical day, first_seen_at must roll *backward* to the earlier day.
+func TestBackfillUserMessagesDay_FirstSeenRollsBack(t *testing.T) {
+	s, _ := newMessagesStore(t)
+	ctx := context.Background()
+	// Simulate live ingest having stamped first_seen_at to today.
+	today := time.Now().UTC()
+	_ = s.IngestUserMessagesBatch(ctx, []IngestEvent{{
+		SlackUserID: "U1",
+		ChannelID:   "C1",
+		MessageTS:   "now.1",
+		OccurredAt:  today,
+	}})
+	historical := today.AddDate(0, 0, -45).Format("2006-01-02")
+	_, err := s.BackfillUserMessagesDay(ctx, historical, []BackfillUserMessagesEvent{
+		{SlackUserID: "U1", ChannelID: "C1", MessageTS: "0.5"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	summary, _ := s.LoadUserMessages(ctx, "U1")
+	historicalRFC, _ := time.Parse("2006-01-02", historical)
+	want := historicalRFC.UTC().Format(time.RFC3339)
+	if summary.FirstSeenAt != want {
+		t.Errorf("first_seen_at=%q want %q (must roll back to backfill day)", summary.FirstSeenAt, want)
+	}
+	// last_seen_at must stay on today; backfill must NOT roll it back.
+	if summary.LastSeenAt == want {
+		t.Errorf("last_seen_at=%q rolled back to historical day (should stay on live)", summary.LastSeenAt)
+	}
+}
+
 func TestBackfillUserMessagesDay_SparklineRollup(t *testing.T) {
 	s, _ := newMessagesStore(t)
 	ctx := context.Background()
