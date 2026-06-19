@@ -45,6 +45,7 @@ export default async function PersonaOpenGraphImage({
           width: "100%",
           display: "flex",
           flexDirection: "column",
+          justifyContent: "space-between",
           padding: "52px 80px 60px",
           background: "#ffffff",
           color: "#0a0a0a",
@@ -52,101 +53,81 @@ export default async function PersonaOpenGraphImage({
             "ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif",
         }}
       >
-        {/* TOP ROW: wordmark (left) + url (right) */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-          }}
-        >
+        {/* TOP GROUP: wordmark + slug + persona pill row */}
+        <div style={{ display: "flex", flexDirection: "column" }}>
           <div
             style={{
               display: "flex",
-              fontSize: 26,
-              fontWeight: 800,
-              letterSpacing: "-0.02em",
-              color: "#0a0a0a",
+              alignItems: "center",
+              justifyContent: "space-between",
             }}
           >
-            makeacompany.ai
+            <div
+              style={{
+                display: "flex",
+                fontSize: 26,
+                fontWeight: 800,
+                letterSpacing: "-0.02em",
+                color: "#0a0a0a",
+              }}
+            >
+              makeacompany.ai
+            </div>
+            <div
+              style={{
+                display: "flex",
+                fontSize: 18,
+                fontWeight: 600,
+                color: "#737373",
+              }}
+            >
+              /for/{slug}
+            </div>
           </div>
+
+          {/* 4-pill persona tab row (active = filled black) */}
           <div
             style={{
               display: "flex",
-              fontSize: 18,
-              fontWeight: 600,
-              color: "#737373",
+              alignSelf: "center",
+              marginTop: "20px",
+              border: "1px solid #e5e5e5",
+              borderRadius: "9999px",
+              padding: "5px",
+              background: "#ffffff",
             }}
           >
-            /for/{slug}
+            {PERSONAS.map((p: Persona) => {
+              const active = p === persona;
+              return (
+                <div
+                  key={p}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    padding: "9px 26px",
+                    borderRadius: "9999px",
+                    background: active ? "#0a0a0a" : "transparent",
+                    color: active ? "#ffffff" : "#737373",
+                    fontSize: 18,
+                    fontWeight: 600,
+                  }}
+                >
+                  {PERSONA_LABELS[p]}
+                </div>
+              );
+            })}
           </div>
         </div>
 
-        {/* Scarcity pill — centered, single line */}
-        <div
-          style={{
-            display: "flex",
-            alignSelf: "center",
-            alignItems: "center",
-            marginTop: "32px",
-            border: "1px solid #e5e5e5",
-            borderRadius: "9999px",
-            padding: "10px 22px",
-            fontSize: 17,
-            color: "#404040",
-            background: "#ffffff",
-          }}
-        >
-          <span style={{ fontWeight: 600, color: "#0a0a0a" }}>20 of 100</span>
-          <span style={{ marginLeft: 6 }}>
-            free for life seats claimed. After: first week free, then $99/mo.
-          </span>
-        </div>
-
-        {/* 4-pill persona tab row (active = filled black) */}
-        <div
-          style={{
-            display: "flex",
-            alignSelf: "center",
-            marginTop: "20px",
-            border: "1px solid #e5e5e5",
-            borderRadius: "9999px",
-            padding: "5px",
-            background: "#ffffff",
-          }}
-        >
-          {PERSONAS.map((p: Persona) => {
-            const active = p === persona;
-            return (
-              <div
-                key={p}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  padding: "9px 26px",
-                  borderRadius: "9999px",
-                  background: active ? "#0a0a0a" : "transparent",
-                  color: active ? "#ffffff" : "#737373",
-                  fontSize: 18,
-                  fontWeight: 600,
-                }}
-              >
-                {PERSONA_LABELS[p]}
-              </div>
-            );
-          })}
-        </div>
-
-        {/* HEADLINE — big, bold, black */}
+        {/* HEADLINE — vertically centered between top group and CTA */}
         <div
           style={{
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
             textAlign: "center",
-            marginTop: "44px",
           }}
         >
           <div
@@ -176,12 +157,11 @@ export default async function PersonaOpenGraphImage({
           </div>
         </div>
 
-        {/* CTA — single black pill, centered, pushed to bottom */}
+        {/* CTA — single black pill, centered at bottom */}
         <div
           style={{
             display: "flex",
             justifyContent: "center",
-            marginTop: "auto",
           }}
         >
           <div
