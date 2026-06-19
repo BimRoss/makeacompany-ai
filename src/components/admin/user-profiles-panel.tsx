@@ -644,7 +644,7 @@ export function AdminSlackUsersTable() {
         setSortDir((d) => (d === "asc" ? "desc" : "asc"));
         return prev;
       }
-      setSortDir("asc");
+      setSortDir("desc");
       return key;
     });
   }, []);
@@ -934,7 +934,7 @@ export function AdminSlackUsersTable() {
                 onChange={(e) => {
                   const v = e.target.value;
                   setSortKey(v === "" ? null : (v as SlackSortKey));
-                  if (v !== "") setSortDir("asc");
+                  if (v !== "") setSortDir("desc");
                 }}
                 className="w-full rounded-md border border-border bg-card px-2 py-1 text-xs text-foreground"
                 aria-label="Sort Slack users by"
