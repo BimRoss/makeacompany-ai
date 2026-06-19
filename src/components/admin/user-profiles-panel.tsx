@@ -65,6 +65,18 @@ const STATUS_FILTER_LABELS: Record<StatusFilter, string> = {
   trialing_lt_48h: "Trialing <48h",
 };
 
+const SLACK_SORT_OPTIONS: Array<{ key: SlackSortKey; label: string }> = [
+  { key: "email", label: "Email" },
+  { key: "name", label: "Name" },
+  { key: "status", label: "Status" },
+  { key: "trialEnds", label: "Trial ends" },
+  { key: "messages", label: "Messages" },
+  { key: "username", label: "Username" },
+  { key: "slackId", label: "Slack ID" },
+  { key: "team", label: "Team" },
+  { key: "bot", label: "Bot" },
+];
+
 const STATUS_PILL_CLASSES: Record<LifecycleStatus, string> = {
   free_lifetime: "bg-muted text-muted-foreground ring-1 ring-border",
   trialing: "bg-blue-500/15 text-blue-700 ring-1 ring-blue-500/30 dark:text-blue-300",
@@ -845,6 +857,39 @@ export function AdminSlackUsersTable() {
             <span className="font-mono">.env.prod</span> there; legacy{" "}
             <span className="font-mono">SLACK_BOT_TOKEN</span> still accepted). This page load only reads Redis.
           </p>
+        ) : null}
+        {visibleSlackUsers.length > 0 ? (
+          <div className="flex items-center gap-2 sm:hidden">
+            <label className="inline-flex flex-1 items-center gap-1.5 text-xs text-muted-foreground select-none">
+              <span className="sr-only">Sort Slack users by</span>
+              <select
+                value={sortKey ?? ""}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setSortKey(v === "" ? null : (v as SlackSortKey));
+                  if (v !== "") setSortDir("asc");
+                }}
+                className="w-full rounded-md border border-border bg-card px-2 py-1 text-xs text-foreground"
+                aria-label="Sort Slack users by"
+              >
+                <option value="">Sort: default</option>
+                {SLACK_SORT_OPTIONS.map((o) => (
+                  <option key={o.key} value={o.key}>
+                    Sort: {o.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button
+              type="button"
+              disabled={sortKey === null}
+              onClick={() => setSortDir((d) => (d === "asc" ? "desc" : "asc"))}
+              className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg border border-border bg-card text-foreground hover:bg-muted/60 disabled:opacity-50"
+              aria-label={sortDir === "asc" ? "Sort ascending, tap to flip to descending" : "Sort descending, tap to flip to ascending"}
+            >
+              {sortDir === "asc" ? <ChevronUp className="size-4" aria-hidden /> : <ChevronDown className="size-4" aria-hidden />}
+            </button>
+          </div>
         ) : null}
         {visibleSlackUsers.length > 0 ? (
           <ul className="grid gap-2 sm:hidden" aria-label="Slack users (mobile)">
