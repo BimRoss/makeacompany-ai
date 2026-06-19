@@ -684,20 +684,10 @@ function ConnectionsFooter({
     <footer className="border-t border-border/60">
       {!editOpen ? (
         <div className="flex flex-col gap-3 px-4 py-4 sm:flex-row sm:flex-nowrap sm:items-center sm:gap-3 sm:px-5">
-          <div className="flex items-center justify-between gap-2 sm:flex-none sm:justify-start">
+          <div className="flex items-center gap-2 sm:flex-none">
             <p className="inline-flex h-9 items-center text-xs font-medium uppercase tracking-wide text-muted-foreground">
               Connections
             </p>
-            {showEdit ? (
-              <button
-                type="button"
-                onClick={onEdit}
-                className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-border bg-background px-3.5 text-xs font-medium text-foreground transition hover:border-foreground/30 hover:bg-muted/50 sm:hidden dark:bg-zinc-950 dark:hover:bg-zinc-900"
-              >
-                <PenIcon />
-                Edit
-              </button>
-            ) : null}
           </div>
           <div className="flex flex-wrap items-center gap-2 sm:min-w-0 sm:flex-1 sm:flex-nowrap sm:overflow-x-auto">
             <ConnectChip label="GitHub" icon={<GitHubGlyph />} onClick={announce} />
@@ -714,7 +704,7 @@ function ConnectionsFooter({
             <button
               type="button"
               onClick={onEdit}
-              className="ml-auto hidden h-9 shrink-0 items-center gap-1.5 rounded-full border border-border bg-background px-3.5 text-xs font-medium text-foreground transition hover:border-foreground/30 hover:bg-muted/50 sm:inline-flex dark:bg-zinc-950 dark:hover:bg-zinc-900"
+              className="inline-flex h-11 w-full items-center justify-center gap-1.5 rounded-full border border-border bg-background px-3.5 text-sm font-medium text-foreground transition hover:border-foreground/30 hover:bg-muted/50 sm:ml-auto sm:h-9 sm:w-auto sm:shrink-0 sm:text-xs dark:bg-zinc-950 dark:hover:bg-zinc-900"
             >
               <PenIcon />
               Edit
