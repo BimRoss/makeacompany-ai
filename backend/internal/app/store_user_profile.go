@@ -85,6 +85,27 @@ func (s *Store) UpsertUserProfileFreeTrialInvite(ctx context.Context, email, att
 	return s.rdb.HSet(ctx, userProfileRedisKey(email), fields).Err()
 }
 
+// MergeUserProfileFields HSets caller-supplied fields onto the profile hash without touching any other keys.
+// Skips the write when fields is empty. Stamps profile_updated_at and email so the row remains queryable.
+// Used by the funnel-tracking path to layer first_touch_* attribution onto the existing waitlist profile
+// without forcing every prior caller of UpsertUserProfileAfterWaitlist to thread a new arg through.
+func (s *Store) MergeUserProfileFields(ctx context.Context, email string, fields map[string]any) error {
+	email = normalizeProfileEmail(email)
+	if email == "" {
+		return fmt.Errorf("missing email")
+	}
+	if len(fields) == 0 {
+		return nil
+	}
+	out := make(map[string]any, len(fields)+2)
+	for k, v := range fields {
+		out[k] = v
+	}
+	out["email"] = email
+	out["profile_updated_at"] = time.Now().UTC().Format(time.RFC3339)
+	return s.rdb.HSet(ctx, userProfileRedisKey(email), out).Err()
+}
+
 // MarkProfileFreeLifetime stamps free_lifetime=true on the profile hash. Used by the first-100-users backfill
 // (see scripts/backfill-free-lifetime.sh) and by any future signup path that decides at write time the user
 // falls under the cliff.
