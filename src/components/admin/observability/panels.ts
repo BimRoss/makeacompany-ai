@@ -71,6 +71,10 @@ const REAPER_SCANNED = "makeacompany_trial_expiry_reaper_scanned_total";
 const REAPER_ENQUEUED = "makeacompany_trial_expiry_reaper_enqueued_total";
 const CRONJOB = "makeacompany_cronjob_duration_seconds_count";
 const LIFECYCLE = "makeacompany_lifecycle_users";
+const INSTALL_CLICK = "makeacompany_install_click_total";
+const OAUTH_CALLBACK = "makeacompany_oauth_callback_total";
+const FIRST_MESSAGE = "makeacompany_first_message_total";
+const TRIAL_START = "makeacompany_trial_start_total";
 
 const statusTone = (cls: string): ChartTone =>
   cls.startsWith("2") ? "pos" : cls.startsWith("5") ? "neg" : cls.startsWith("4") ? "accent" : "muted";
@@ -321,6 +325,74 @@ export const LIFECYCLE_PANELS: PanelDef[] = [
     area: true,
     zeroBaseline: true,
     span: 2,
+  },
+];
+
+const oauthOutcomeTone = (outcome: string): ChartTone =>
+  outcome === "success" ? "pos" : outcome === "denied" ? "muted" : "neg";
+
+const botTone = (bot: string): ChartTone => (bot === "ross" ? "ink" : "accent");
+
+export const FUNNEL_PANELS: PanelDef[] = [
+  {
+    id: "funnel-install-clicks",
+    title: "Install clicks /day",
+    subtitle: "CheckoutButton submissions, split by first-touch source",
+    queries: [`sum by (source) (increase(${INSTALL_CLICK}[1d]))`],
+    toSeries: splitByLabel(
+      `sum by (source) (increase(${INSTALL_CLICK}[1d]))`,
+      "source",
+      (s) => (s === "" ? "muted" : "ink"),
+      (s) => (s === "" ? "direct/unknown" : s),
+    ),
+    format: formatCompact,
+    area: true,
+    zeroBaseline: true,
+    span: 2,
+    hideWhenEmpty: true,
+  },
+  {
+    id: "funnel-oauth-callbacks",
+    title: "OAuth installs /day",
+    subtitle: "Personal-agent install-complete outcomes",
+    queries: [`sum by (outcome) (increase(${OAUTH_CALLBACK}[1d]))`],
+    toSeries: splitByLabel(
+      `sum by (outcome) (increase(${OAUTH_CALLBACK}[1d]))`,
+      "outcome",
+      oauthOutcomeTone,
+    ),
+    format: formatCompact,
+    zeroBaseline: true,
+    hideWhenEmpty: true,
+  },
+  {
+    id: "funnel-first-messages",
+    title: "First messages /day",
+    subtitle: "Users whose first ingested message landed, by bot",
+    queries: [`sum by (bot) (increase(${FIRST_MESSAGE}[1d]))`],
+    toSeries: splitByLabel(
+      `sum by (bot) (increase(${FIRST_MESSAGE}[1d]))`,
+      "bot",
+      botTone,
+    ),
+    format: formatCompact,
+    zeroBaseline: true,
+    hideWhenEmpty: true,
+  },
+  {
+    id: "funnel-trial-starts",
+    title: "Trial starts /day",
+    subtitle: "Profiles flipped into trialing past the seat cap, by attribution",
+    queries: [`sum by (attributed_to) (increase(${TRIAL_START}[1d]))`],
+    toSeries: splitByLabel(
+      `sum by (attributed_to) (increase(${TRIAL_START}[1d]))`,
+      "attributed_to",
+      (s) => (s === "" ? "muted" : "accent"),
+      (s) => (s === "" ? "direct/unknown" : s),
+    ),
+    format: formatCompact,
+    zeroBaseline: true,
+    hideWhenEmpty: true,
   },
 ];
 
