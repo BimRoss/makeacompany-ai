@@ -30,6 +30,7 @@ type reconcileAgentImagesResult struct {
 	Restarted     int      `json:"restarted"`
 	InitContainer int      `json:"initContainerPatched"`
 	EnvReconciled int      `json:"envReconciled"`
+	ResReconciled int      `json:"resourceReconciled"`
 	Errors        []string `json:"errors,omitempty"`
 }
 
@@ -64,6 +65,11 @@ func (s *Server) reconcilePersonalAgentImages(ctx context.Context, force bool) r
 		"PERSONAL_AGENT_LOOP_MODEL":     personalAgentLoopModel(),
 		"PERSONAL_AGENT_LOOP_EFFORT":    personalAgentLoopEffort(),
 	}
+	// Desired pod resources (the 2026-06-20 right-sizing). Converged onto live
+	// agents the same way as spawn env: the image-bump patch never touches
+	// resources, so without this a backend-side request/limit change only lands
+	// on freshly provisioned pods and the existing fleet stays over-reserved.
+	desiredResources := personalAgentResources()
 
 	for i := range deps.Items {
 		dep := &deps.Items[i]
@@ -76,8 +82,9 @@ func (s *Server) reconcilePersonalAgentImages(ctx context.Context, force bool) r
 		// env drift only needs an explicit patch on the non-retrofit path.
 		driftEnv := spawnEnvDrift(dep, desiredSpawnEnv)
 		needsEnvReconcile := len(driftEnv) > 0
+		needsResReconcile := resourceDrift(dep, desiredResources)
 
-		if !needsImagePatch && !needsRestart && !needsInitContainer && !needsEnvReconcile {
+		if !needsImagePatch && !needsRestart && !needsInitContainer && !needsEnvReconcile && !needsResReconcile {
 			continue
 		}
 
@@ -130,7 +137,7 @@ func (s *Server) reconcilePersonalAgentImages(ctx context.Context, force bool) r
 		}
 
 		templateSpec := map[string]any{}
-		if needsImagePatch || needsEnvReconcile {
+		if needsImagePatch || needsEnvReconcile || needsResReconcile {
 			container := map[string]any{"name": "personal-agent"}
 			if needsImagePatch {
 				container["image"] = desired
@@ -139,6 +146,12 @@ func (s *Server) reconcilePersonalAgentImages(ctx context.Context, force bool) r
 				// env has patchMergeKey "name", so a strategic-merge patch adds
 				// or updates only the drifted vars and leaves the rest intact.
 				container["env"] = driftEnv
+			}
+			if needsResReconcile {
+				// resources is a plain struct (no merge key), so patching the
+				// full desired requests+limits authoritatively overwrites the
+				// four cpu/memory quantities on the live container.
+				container["resources"] = desiredResources
 			}
 			templateSpec["containers"] = []any{container}
 		}
@@ -178,6 +191,13 @@ func (s *Server) reconcilePersonalAgentImages(ctx context.Context, force bool) r
 				names = append(names, e.Name)
 			}
 			s.log.Printf("personal-agent reconciler converged spawn env on %s/%s: %s", ns, dep.Name, strings.Join(names, ","))
+		}
+		if needsResReconcile {
+			result.ResReconciled++
+			s.log.Printf("personal-agent reconciler converged resources on %s/%s -> req %s/%s lim %s/%s",
+				ns, dep.Name,
+				desiredResources.Requests.Cpu(), desiredResources.Requests.Memory(),
+				desiredResources.Limits.Cpu(), desiredResources.Limits.Memory())
 		}
 		if needsInitContainer {
 			result.InitContainer++
@@ -236,6 +256,54 @@ func spawnEnvDrift(dep interface{}, desired map[string]string) []corev1.EnvVar {
 		}
 	}
 	return drift
+}
+
+// resourceDrift reports whether dep's first container has resource requests or
+// limits that differ from desired. Like spawnEnvDrift, this lets the reconciler
+// converge live agents onto a backend-side resource change (the 2026-06-20
+// right-sizing) rather than only stamping it on freshly provisioned pods — the
+// image-bump patch never touches resources. Fail-closed: a marshal/parse error
+// or a container with no resources block returns false so we never churn the
+// fleet on a read glitch. Compares the four cpu/memory request+limit quantities
+// by value (resource.Quantity.Cmp), so "1" vs "1000m" is correctly equal.
+func resourceDrift(dep interface{}, desired corev1.ResourceRequirements) bool {
+	buf, err := json.Marshal(dep)
+	if err != nil {
+		return false
+	}
+	var s struct {
+		Spec struct {
+			Template struct {
+				Spec struct {
+					Containers []corev1.Container `json:"containers"`
+				} `json:"spec"`
+			} `json:"template"`
+		} `json:"spec"`
+	}
+	if err := json.Unmarshal(buf, &s); err != nil {
+		return false
+	}
+	if len(s.Spec.Template.Spec.Containers) == 0 {
+		return false
+	}
+	cur := s.Spec.Template.Spec.Containers[0].Resources
+	checks := []struct {
+		want, have corev1.ResourceList
+		key        corev1.ResourceName
+	}{
+		{desired.Requests, cur.Requests, corev1.ResourceCPU},
+		{desired.Requests, cur.Requests, corev1.ResourceMemory},
+		{desired.Limits, cur.Limits, corev1.ResourceCPU},
+		{desired.Limits, cur.Limits, corev1.ResourceMemory},
+	}
+	for _, c := range checks {
+		want := c.want[c.key]
+		have, ok := c.have[c.key]
+		if !ok || want.Cmp(have) != 0 {
+			return true
+		}
+	}
+	return false
 }
 
 // hasPersonalAgentInitContainer reports whether dep already carries the
@@ -373,8 +441,8 @@ func (s *Server) StartPersonalAgentReconciler(ctx context.Context) {
 		case <-time.After(30 * time.Second):
 		}
 		r := s.reconcilePersonalAgentImages(ctx, false)
-		s.log.Printf("personal-agent reconciler boot pass: inspected=%d image_bumped=%d restarted=%d init_container=%d errors=%d",
-			r.Inspected, r.ImageBumped, r.Restarted, r.InitContainer, len(r.Errors))
+		s.log.Printf("personal-agent reconciler boot pass: inspected=%d image_bumped=%d restarted=%d init_container=%d res_reconciled=%d errors=%d",
+			r.Inspected, r.ImageBumped, r.Restarted, r.InitContainer, r.ResReconciled, len(r.Errors))
 		if p := s.reconcilePersonalAgentLiveness(ctx, deadStreak); p.Pruned > 0 || len(p.Errors) > 0 {
 			s.log.Printf("personal-agent liveness boot pass: checked=%d dead_observed=%d pruned=%d errors=%d",
 				p.Checked, p.DeadObserved, p.Pruned, len(p.Errors))
@@ -388,9 +456,9 @@ func (s *Server) StartPersonalAgentReconciler(ctx context.Context) {
 				return
 			case <-t.C:
 				r := s.reconcilePersonalAgentImages(ctx, false)
-				if r.ImageBumped > 0 || r.InitContainer > 0 || len(r.Errors) > 0 {
-					s.log.Printf("personal-agent reconciler tick: inspected=%d image_bumped=%d restarted=%d init_container=%d errors=%d",
-						r.Inspected, r.ImageBumped, r.Restarted, r.InitContainer, len(r.Errors))
+				if r.ImageBumped > 0 || r.InitContainer > 0 || r.ResReconciled > 0 || len(r.Errors) > 0 {
+					s.log.Printf("personal-agent reconciler tick: inspected=%d image_bumped=%d restarted=%d init_container=%d res_reconciled=%d errors=%d",
+						r.Inspected, r.ImageBumped, r.Restarted, r.InitContainer, r.ResReconciled, len(r.Errors))
 				}
 				if p := s.reconcilePersonalAgentLiveness(ctx, deadStreak); p.Pruned > 0 || len(p.Errors) > 0 {
 					s.log.Printf("personal-agent liveness tick: checked=%d dead_observed=%d pruned=%d errors=%d",

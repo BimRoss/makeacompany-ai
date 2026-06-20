@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"strings"
 
@@ -58,6 +59,47 @@ func personalAgentLoopModel() string {
 
 func personalAgentLoopEffort() string {
 	return strings.TrimSpace(os.Getenv("PERSONAL_AGENT_LOOP_EFFORT"))
+}
+
+// personalAgentResources sizes every generated PA pod. Defaults come from the
+// 2026-06-20 cluster CPU audit: idle agents sit at ~1m CPU / ~9Mi and even an
+// active Claude session bursts to only ~50m / well under 1Gi, yet each pod was
+// reserving 250m / 512Mi — a ~250x CPU over-reservation that, multiplied across
+// the fleet, ate roughly half the worker CPU the scheduler could hand out.
+//
+// Requests now track the realistic active floor (the scheduler packs by these,
+// so low requests = tighter bin-packing without touching burst headroom); the
+// limits stay as the burst ceiling. CPU is compressible, so its request is the
+// big lever — over-requesting only strands schedulable capacity. Memory is
+// incompressible, so its request stays generous enough that an active agent is
+// not first in line for eviction, and the limit is the real OOM guard.
+//
+// Every value is overridable fleet-wide via backend env without an image
+// rebuild, mirroring personalAgentDefaultModel et al. A typo'd override falls
+// back to the baked default (logged) rather than panicking the provisioner.
+func personalAgentResources() corev1.ResourceRequirements {
+	return corev1.ResourceRequirements{
+		Requests: corev1.ResourceList{
+			corev1.ResourceCPU:    personalAgentQuantity("PERSONAL_AGENT_CPU_REQUEST", "50m"),
+			corev1.ResourceMemory: personalAgentQuantity("PERSONAL_AGENT_MEM_REQUEST", "384Mi"),
+		},
+		Limits: corev1.ResourceList{
+			corev1.ResourceCPU:    personalAgentQuantity("PERSONAL_AGENT_CPU_LIMIT", "1"),
+			corev1.ResourceMemory: personalAgentQuantity("PERSONAL_AGENT_MEM_LIMIT", "1Gi"),
+		},
+	}
+}
+
+// personalAgentQuantity reads a resource.Quantity from env, falling back to def
+// on empty or unparseable input so a bad override can never crash provisioning.
+func personalAgentQuantity(env, def string) resource.Quantity {
+	if v := strings.TrimSpace(os.Getenv(env)); v != "" {
+		if q, err := resource.ParseQuantity(v); err == nil {
+			return q
+		}
+		log.Printf("personal-agent: invalid %s=%q, using default %q", env, v, def)
+	}
+	return resource.MustParse(def)
 }
 
 // PersonalAgentDeploymentRequest carries everything WriteAgentDeployment
@@ -196,19 +238,7 @@ func (w *PersonalAgentWriter) WriteAgentDeployment(ctx context.Context, req Pers
 						},
 						LivenessProbe:  httpProbeOnHealthz(),
 						ReadinessProbe: httpProbeOnHealthz(),
-						Resources: corev1.ResourceRequirements{
-							Requests: corev1.ResourceList{
-								corev1.ResourceCPU:    resource.MustParse("250m"),
-								corev1.ResourceMemory: resource.MustParse("512Mi"),
-							},
-							Limits: corev1.ResourceList{
-								corev1.ResourceCPU:    resource.MustParse("1"),
-								corev1.ResourceMemory: resource.MustParse("1Gi"),
-							},
-							// Per-agent workspace survives pod restarts. SubPath
-							// keys on the deterministic resource name so the data
-							// follows the agent even if the pod template changes.
-						},
+						Resources:      personalAgentResources(),
 						VolumeMounts: []corev1.VolumeMount{{
 							Name: "data",
 							// Mount directly at the workspace base the image
