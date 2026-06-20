@@ -4,7 +4,7 @@ import { Sparkles } from "lucide-react";
 import { useEffect, useState } from "react";
 
 const MESSAGE =
-  "Click the button and you're in our Slack. Ross and I will be waiting. Cancel anytime.";
+  "Click the button and you're in our Slack. Ross and I will be waiting.";
 
 const ATTRIBUTION = "Joanne, Chief of Staff";
 
