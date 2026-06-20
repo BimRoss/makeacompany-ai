@@ -65,7 +65,7 @@ export function HeroJoanneInviteCard() {
         <div className="flex w-full min-w-0 items-start gap-2.5 sm:gap-3">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src="/headshots/joanne.png"
+            src="/headshots/joanne.webp"
             alt="Joanne"
             className="h-9 w-9 shrink-0 rounded-full border border-border object-cover sm:h-10 sm:w-10"
           />
