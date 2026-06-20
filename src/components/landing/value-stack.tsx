@@ -20,7 +20,7 @@ const PILLARS = [
   {
     icon: Users,
     title: "A curated room of builders and operators.",
-    body: "It's a room, not a CLI. Free for the first 100 users. After that: first week free, then $99/mo.",
+    body: "It's a room, not a CLI. 10 days free, then $99/mo. No card to start.",
   },
 ];
 
