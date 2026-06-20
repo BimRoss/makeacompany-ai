@@ -10,6 +10,8 @@ import { PersonaProvider } from "@/components/landing/persona-context";
 import { faqStructuredData, SeoFaqSection } from "@/components/landing/seo-faq";
 import { TestimonialsCarousel } from "@/components/landing/testimonials-carousel";
 import { ValueStack } from "@/components/landing/value-stack";
+import { FeaturedProductsCarousel } from "@/components/landing/featured-products-carousel";
+import { getFeaturedProducts } from "@/lib/featured-products";
 import { fetchLanderSlackSeats } from "@/lib/lander-slack-seats";
 import { fetchLanderTestimonials } from "@/lib/lander-testimonials";
 import { DEFAULT_PERSONA, PERSONA_SLUGS, parsePersonaParam } from "@/lib/personas";
@@ -86,6 +88,7 @@ export default async function HomePage({
         <HarnessVsAgent />
         <BuiltFromInside />
         <TestimonialsCarousel testimonials={testimonials} />
+        <FeaturedProductsCarousel products={getFeaturedProducts()} />
         <CtaSection />
       </PersonaProvider>
       <SeoFaqSection seats={initialSeats} viewAllHref="/faq" askCardsPosition="bottom" />
