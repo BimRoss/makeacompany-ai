@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { HeroBuildQuoteRotator } from "@/components/landing/hero-build-quote-rotator";
 import { HeroJoanneInviteCard } from "@/components/landing/hero-joanne-invite-card";
-import { HeroSubheadRewrite } from "@/components/landing/hero-subhead-rewrite";
 import { JoinSlackCta } from "@/components/landing/join-slack-cta";
 import { PersonaSelector } from "@/components/landing/persona-selector";
 import { PricingCliffLine } from "@/components/landing/pricing-cliff-line";
@@ -27,11 +26,9 @@ export function HeroSection() {
   const [displayLine1, setDisplayLine1] = useState(personaDefault.line1);
   const [displayLine2, setDisplayLine2] = useState(personaDefault.line2);
   const [typing, setTyping] = useState(false);
-  const [forcedAgent, setForcedAgent] = useState<"joanne" | "ross" | null>(null);
   const l1Ref = useRef(personaDefault.line1);
   const l2Ref = useRef(personaDefault.line2);
   const cancelRef = useRef<(() => void) | null>(null);
-  const forcedAgentRef = useRef<"joanne" | "ross" | null>(null);
   const hoverAgentRef = useRef<"joanne" | "ross" | null>(null);
   const firstLoadRef = useRef(true);
 
@@ -109,7 +106,7 @@ export function HeroSection() {
   const onHoverChange = useCallback(
     (agent: "joanne" | "ross" | null) => {
       hoverAgentRef.current = agent;
-      const effective = agent ?? forcedAgentRef.current;
+      const effective = agent;
       const target = effective
         ? AGENT_LINES[effective]
         : { line1: heroLine1, line2: heroLine2 };
@@ -118,19 +115,10 @@ export function HeroSection() {
     [animateTo, heroLine1, heroLine2],
   );
 
-  const onRewriteAgentChange = useCallback(
-    (agent: "joanne" | "ross" | null) => {
-      forcedAgentRef.current = agent;
-      setForcedAgent(agent);
-      onHoverChange(agent);
-    },
-    [onHoverChange],
-  );
-
   // Retarget the H1 when the selected persona changes (only when no
-  // joanne/ross override is active — those win over the persona default).
+  // joanne/ross hover is active — that wins over the persona default).
   useEffect(() => {
-    if (hoverAgentRef.current || forcedAgentRef.current) return;
+    if (hoverAgentRef.current) return;
     if (firstLoadRef.current) {
       firstLoadRef.current = false;
       // SSR rendered the full lines; clear back to blank so the first
@@ -176,10 +164,8 @@ export function HeroSection() {
         <HeroBuildQuoteRotator />
 
         <div className="mb-6 flex w-full justify-center sm:mb-10">
-          <TaoSlackSignalBadges onHoverChange={onHoverChange} forcedActive={forcedAgent} />
+          <TaoSlackSignalBadges onHoverChange={onHoverChange} />
         </div>
-
-        <HeroSubheadRewrite onAgentChange={onRewriteAgentChange} />
 
         <JoinSlackCta label={copy.ctaButtonLabel} />
 
