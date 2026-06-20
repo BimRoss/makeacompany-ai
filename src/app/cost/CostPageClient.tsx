@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { EmailCaptureForm } from "@/components/landing/email-capture-form";
+import { JoinSlackCta } from "@/components/landing/join-slack-cta";
 
 const COST_BREAKDOWN = [
   { label: "Base salary", value: 145_000, opacity: 1.0 },
@@ -369,7 +369,7 @@ export default function CostPageClient() {
               is waiting inside.
             </p>
             <div className="mx-auto mt-6 max-w-md sm:mt-8">
-              <EmailCaptureForm submitLabel="Start your company" />
+              <JoinSlackCta label="Start your company" />
             </div>
             <p className="mt-4 text-xs text-muted-foreground/80 sm:text-sm">
               $99/mo · no taxes · no turnover

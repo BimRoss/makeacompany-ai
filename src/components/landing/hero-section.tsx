@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { HeroBuildQuoteRotator } from "@/components/landing/hero-build-quote-rotator";
 import { HeroJoanneInviteCard } from "@/components/landing/hero-joanne-invite-card";
 import { HeroSubheadRewrite } from "@/components/landing/hero-subhead-rewrite";
-import { EmailCaptureForm } from "@/components/landing/email-capture-form";
+import { JoinSlackCta } from "@/components/landing/join-slack-cta";
 import { PersonaSelector } from "@/components/landing/persona-selector";
 import { PricingCliffLine } from "@/components/landing/pricing-cliff-line";
 import { usePersona } from "@/components/landing/persona-context";
@@ -181,7 +181,7 @@ export function HeroSection() {
 
         <HeroSubheadRewrite onAgentChange={onRewriteAgentChange} />
 
-        <EmailCaptureForm submitLabel={copy.ctaButtonLabel} />
+        <JoinSlackCta label={copy.ctaButtonLabel} />
 
         <HeroJoanneInviteCard />
       </div>

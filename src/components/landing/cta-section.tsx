@@ -1,7 +1,7 @@
 "use client";
 
 import { CheckCircle } from "lucide-react";
-import { EmailCaptureForm } from "@/components/landing/email-capture-form";
+import { JoinSlackCta } from "@/components/landing/join-slack-cta";
 import { usePersona } from "@/components/landing/persona-context";
 
 export function CtaSection() {
@@ -35,7 +35,7 @@ export function CtaSection() {
                 <span>Upgrade anytime</span>
               </div>
             </div>
-            <EmailCaptureForm submitLabel={copy.ctaButtonLabel} />
+            <JoinSlackCta label={copy.ctaButtonLabel} />
             <p className="mt-6 text-pretty text-sm text-muted-foreground">
               This site, the Slack bot, the onboarding, all built inside the product.
             </p>

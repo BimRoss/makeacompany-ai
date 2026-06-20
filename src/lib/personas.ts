@@ -31,7 +31,7 @@ export const PERSONA_COPY: Record<Persona, PersonaCopy> = {
       "Joanne runs ops. Ross ships code. You make the calls only a founder can — for what one Claude seat costs.",
     ctaH2: "Start your company.",
     ctaParagraph:
-      "Drop your email. Joanne sends you a Slack invite and your AI team is in there waiting.",
+      "One click and you're in our Slack. Joanne and Ross will be waiting.",
     ctaButtonLabel: "Start your company",
   },
   engineer: {
@@ -41,7 +41,7 @@ export const PERSONA_COPY: Record<Persona, PersonaCopy> = {
       "Push PRs from your phone. Watch deploys finish while you're at lunch. The same Claude Code you run locally, except it lives in a pod with GitHub, Slack, and your repos already wired up. $99/month, one Claude seat.",
     ctaH2: "Get a hosted Claude.",
     ctaParagraph:
-      "Drop your email. We'll spin up a Slack workspace with your own Claude Code agent ready to clone repos and open PRs.",
+      "Click through to our Slack. Your Claude Code agent is waiting, ready to clone repos and open PRs.",
     ctaButtonLabel: "Get hosted Claude",
   },
   team: {
@@ -51,7 +51,7 @@ export const PERSONA_COPY: Record<Persona, PersonaCopy> = {
       "Joanne triages your #support channel, runs standups, drafts customer replies, syncs Google Workspace. Ross merges PRs, watches deploys, files tickets from threads. Both live in the Slack channels you already use — no new dashboard, no SSO setup. $99/month for the pair, live in five minutes.",
     ctaH2: "Add them to your Slack.",
     ctaParagraph:
-      "Drop your work email. We'll provision a Slack workspace with Joanne and Ross already in your channels and ready to pick up tasks.",
+      "Click through to our Slack. Joanne and Ross are in the channels, ready to pick up tasks.",
     ctaButtonLabel: "Add to your Slack",
   },
   contractor: {
@@ -61,7 +61,7 @@ export const PERSONA_COPY: Record<Persona, PersonaCopy> = {
       "Ross pairs with you in Slack — pushes branches, opens PRs, watches deploys. Joanne handles client comms and invoicing. Senior-team output, no headcount to manage.",
     ctaH2: "Get the unfair advantage.",
     ctaParagraph:
-      "Drop your email. We'll get you into a Slack workspace with Ross and Joanne ready to ship.",
+      "Click through to our Slack. Ross and Joanne are ready to ship.",
     ctaButtonLabel: "Start your free week",
   },
 };
