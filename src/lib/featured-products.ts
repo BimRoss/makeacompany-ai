@@ -106,6 +106,25 @@ const PRODUCTS: FeaturedProduct[] = [
     logo: null,
     approvedAt: "2026-06-20",
   },
+  {
+    slug: "makeacompany",
+    name: "MakeaCompany",
+    eyebrow: "The platform itself",
+    tagline: "The harness behind every card above.",
+    description:
+      "$99/mo for a hosted Claude seat plus a role-based AI team in Slack. Ross ships code, Joanne runs ops, you ship the company.",
+    url: "https://makeacompany.ai/claude-in-slack",
+    cta: "How it works",
+    brand: {
+      bg: "#000000",
+      fg: "#ffffff",
+      mutedFg: "#a1a1aa",
+      accent: "#00CCFF",
+      accentFg: "#000000",
+    },
+    logo: null,
+    approvedAt: "2026-06-20",
+  },
 ];
 
 export function getFeaturedProducts(): FeaturedProduct[] {
