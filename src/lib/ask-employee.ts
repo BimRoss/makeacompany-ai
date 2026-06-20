@@ -9,7 +9,7 @@ const MAX_TURNS = 12;
 const MAX_USER_CHARS = 1500;
 const MAX_TOTAL_CHARS = 9000;
 const MAX_TOKENS = 768;
-const MODEL = "claude-sonnet-4-6";
+const MODEL = "claude-haiku-4-5-20251001";
 
 // Hosts allowed to call the ask endpoints. A browser sends Origin on every
 // same-origin POST, so legit chat traffic always carries one of these; curl /
