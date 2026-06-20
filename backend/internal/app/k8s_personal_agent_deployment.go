@@ -152,13 +152,13 @@ func (w *PersonalAgentWriter) WriteAgentDeployment(ctx context.Context, req Pers
 							// Shared Claude OAuth token pool, reflected into the
 							// personal-agents namespace from cluster-bootstrap
 							// (see rancher-admin admin/apps/cluster-bootstrap).
-							// Listed AFTER the per-agent Secret so the pool's
-							// CLAUDE_CODE_OAUTH_TOKEN[_2] win on collision — this
-							// is what lets a pool rotation reach every agent
-							// without rewriting per-agent Secrets. Optional so a
-							// pod still boots if the mirror is briefly absent;
-							// the per-agent copy written by WriteAgentRuntimeSecret
-							// remains as the fallback during migration.
+							// This is the SINGLE SOURCE OF TRUTH for the OAuth
+							// tokens — WriteAgentRuntimeSecret deliberately does
+							// not write per-agent copies, so a pool rotation
+							// reaches every agent without rewriting per-agent
+							// Secrets. Optional so a pod still boots if the mirror
+							// is briefly absent (it would then have no token until
+							// the mirror reconciles — acceptable, transient).
 							{
 								SecretRef: &corev1.SecretEnvSource{
 									LocalObjectReference: corev1.LocalObjectReference{Name: personalAgentOAuthPoolSecretName},
