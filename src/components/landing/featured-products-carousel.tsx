@@ -68,7 +68,7 @@ export function FeaturedProductsCarousel({ products }: { products: FeaturedProdu
         <div className="relative mx-2 sm:mx-4">
           <div
             ref={scrollRef}
-            className="-mx-4 flex gap-4 overflow-x-auto overscroll-x-contain px-4 py-6 sm:-mx-2 sm:px-2 snap-x snap-mandatory scroll-smooth"
+            className="-mx-4 flex gap-4 overflow-x-auto overscroll-x-contain px-4 py-12 sm:-mx-2 sm:px-2 snap-x snap-mandatory scroll-smooth"
             style={{ touchAction: "pan-x" }}
             role="region"
             aria-label="Featured products built on makeacompany.ai"
@@ -85,7 +85,7 @@ export function FeaturedProductsCarousel({ products }: { products: FeaturedProdu
                   backgroundColor: product.brand.bg,
                   color: product.brand.fg,
                 }}
-                className="group/card flex shrink-0 snap-start w-[85%] max-w-[360px] sm:w-[340px] lg:w-[360px] min-h-[360px] flex-col rounded-xl border border-black/5 p-5 sm:p-6 shadow-sm transition hover:-translate-y-0.5 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/25"
+                className="group/card flex shrink-0 snap-start w-[85%] max-w-[360px] sm:w-[340px] lg:w-[360px] min-h-[360px] flex-col rounded-xl border border-black/5 p-5 sm:p-6 shadow-sm transition-all duration-300 ease-out will-change-transform hover:-translate-y-1.5 hover:scale-[1.025] hover:shadow-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/25"
               >
                 <p
                   className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em]"
@@ -124,7 +124,7 @@ export function FeaturedProductsCarousel({ products }: { products: FeaturedProdu
                       backgroundColor: product.brand.accent,
                       color: product.brand.accentFg,
                     }}
-                    className="inline-flex w-fit items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold whitespace-nowrap transition group-hover/card:gap-2.5"
+                    className="inline-flex w-fit items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold whitespace-nowrap transition-all duration-300 ease-out group-hover/card:gap-2.5"
                   >
                     {product.cta}
                     <span aria-hidden>→</span>
