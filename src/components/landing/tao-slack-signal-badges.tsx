@@ -56,12 +56,13 @@ export function TaoSlackSignalBadges({ onHoverChange, forcedActive }: Props) {
           }}
         >
           <Image
-            src="/headshots/joanne.png"
+            src="/headshots/joanne.webp"
             alt="Joanne"
-            width={1024}
-            height={1024}
+            width={512}
+            height={512}
+            sizes="(max-width: 640px) 140px, 200px"
             className="tao-slack-signal-image"
-            priority={false}
+            priority
           />
         </button>
         <button
@@ -79,12 +80,13 @@ export function TaoSlackSignalBadges({ onHoverChange, forcedActive }: Props) {
           }}
         >
           <Image
-            src="/headshots/ross.png"
+            src="/headshots/ross.webp"
             alt="Ross"
-            width={1024}
-            height={1024}
+            width={512}
+            height={512}
+            sizes="(max-width: 640px) 140px, 200px"
             className="tao-slack-signal-image"
-            priority={false}
+            priority
           />
         </button>
       </div>

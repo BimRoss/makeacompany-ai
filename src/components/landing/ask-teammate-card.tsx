@@ -500,7 +500,7 @@ export const ROSS_PERSONA: TeammatePersona = {
   slug: "ross",
   name: "Ross",
   role: "AI Software Developer",
-  headshot: "/headshots/ross.png",
+  headshot: "/headshots/ross.webp",
   channelName: "ask-ross",
   endpoint: "/api/ask-ross",
   blurb:
@@ -518,7 +518,7 @@ export const JOANNE_PERSONA: TeammatePersona = {
   slug: "joanne",
   name: "Joanne",
   role: "AI Chief of Staff",
-  headshot: "/headshots/joanne.png",
+  headshot: "/headshots/joanne.webp",
   channelName: "ask-joanne",
   endpoint: "/api/ask-joanne",
   blurb:
