@@ -225,17 +225,23 @@ type BackfillUserMessagesEvent struct {
 }
 
 // BackfillUserMessagesDay applies a batch of historical fingerprints for
-// one UTC day. Idempotent via a SETNX day-marker key — re-running the same
-// day is a no-op. last_seen_at is rolled forward only if the backfilled
-// day is more recent than what's already stored.
-func (s *Store) BackfillUserMessagesDay(ctx context.Context, day string, events []BackfillUserMessagesEvent) (applied bool, _ error) {
+// one UTC day. Idempotent via a SETNX day-marker key keyed per observing
+// bot, so each bot can independently mark its own Slack history walk done
+// without blocking the other bot's walk on the same day. Dedup at the
+// fingerprint level (channel_id:message_ts) still prevents double-counting
+// when both bots saw the same message. last_seen_at rolls forward only if
+// the backfilled day is more recent than what's already stored.
+func (s *Store) BackfillUserMessagesDay(ctx context.Context, bot, day string, events []BackfillUserMessagesEvent) (applied bool, _ error) {
 	if s == nil {
 		return false, errors.New("nil store")
+	}
+	if bot != "ross" && bot != "joanne" {
+		return false, fmt.Errorf("user_messages: unknown bot %q", bot)
 	}
 	if _, err := time.Parse("2006-01-02", day); err != nil {
 		return false, fmt.Errorf("bad day %q: %w", day, err)
 	}
-	markerKey := userMessagesBackfillMarkerKey(day)
+	markerKey := userMessagesBackfillMarkerKey(bot, day)
 	ok, err := s.rdb.SetNX(ctx, markerKey, "1", 90*24*time.Hour).Result()
 	if err != nil {
 		return false, fmt.Errorf("setnx marker: %w", err)
@@ -297,6 +303,6 @@ func (s *Store) BackfillUserMessagesDay(ctx context.Context, day string, events 
 
 const userMessagesBackfillMarkerKeyPrefix = keyPrefix + ":user_messages_backfill:"
 
-func userMessagesBackfillMarkerKey(day string) string {
-	return userMessagesBackfillMarkerKeyPrefix + day
+func userMessagesBackfillMarkerKey(bot, day string) string {
+	return userMessagesBackfillMarkerKeyPrefix + bot + ":" + day
 }
