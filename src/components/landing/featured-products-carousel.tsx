@@ -45,7 +45,9 @@ export function FeaturedProductsCarousel({ products }: { products: FeaturedProdu
     const card = el.querySelector<HTMLElement>("[data-featured-card]");
     const gap = 16;
     const step = (card?.offsetWidth ?? el.clientWidth * 0.8) + gap;
-    el.scrollBy({ left: dir * step, behavior: "smooth" });
+    const maxScroll = el.scrollWidth - el.clientWidth;
+    const target = Math.max(0, Math.min(el.scrollLeft + dir * step, maxScroll));
+    el.scrollTo({ left: target, behavior: "smooth" });
   };
 
   if (products.length === 0) return null;
@@ -65,10 +67,10 @@ export function FeaturedProductsCarousel({ products }: { products: FeaturedProdu
           </p>
         </div>
 
-        <div className="relative mx-2 sm:mx-4">
+        <div className="relative mx-2 sm:mx-4 md:mx-14">
           <div
             ref={scrollRef}
-            className="-mx-4 flex gap-4 overflow-x-auto overscroll-x-contain px-4 py-12 sm:-mx-2 sm:px-2 snap-x snap-mandatory scroll-smooth"
+            className="-mx-4 flex gap-4 overflow-x-auto overscroll-x-contain px-4 py-12 sm:-mx-2 sm:px-2 md:mx-0 md:px-0 snap-x snap-proximity scroll-smooth [&>a:last-child]:snap-end"
             style={{ touchAction: "pan-x" }}
             role="region"
             aria-label="Featured products built on makeacompany.ai"
@@ -145,7 +147,7 @@ export function FeaturedProductsCarousel({ products }: { products: FeaturedProdu
             aria-label="Scroll featured products left"
             onClick={() => scrollByDirection(-1)}
             disabled={!canScrollLeft || !hasScrolledRight}
-            className="z-20 hidden md:flex absolute left-0 top-1/2 -translate-x-1/2 -translate-y-1/2 h-12 w-12 items-center justify-center rounded-full border-2 border-foreground/30 bg-background text-foreground shadow-xl ring-1 ring-black/5 transition hover:scale-105 hover:border-foreground hover:bg-foreground hover:text-background disabled:pointer-events-none disabled:opacity-0"
+            className="z-20 hidden md:flex absolute left-0 top-1/2 -translate-x-full -translate-y-1/2 h-12 w-12 items-center justify-center rounded-full border-2 border-foreground/30 bg-background text-foreground shadow-xl ring-1 ring-black/5 transition hover:scale-105 hover:border-foreground hover:bg-foreground hover:text-background disabled:pointer-events-none disabled:opacity-0"
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
               <path d="M15 6l-6 6 6 6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -156,7 +158,7 @@ export function FeaturedProductsCarousel({ products }: { products: FeaturedProdu
             aria-label="Scroll featured products right"
             onClick={() => scrollByDirection(1)}
             disabled={!canScrollRight}
-            className="z-20 hidden md:flex absolute right-0 top-1/2 translate-x-1/2 -translate-y-1/2 h-12 w-12 items-center justify-center rounded-full border-2 border-foreground/30 bg-background text-foreground shadow-xl ring-1 ring-black/5 transition hover:scale-105 hover:border-foreground hover:bg-foreground hover:text-background disabled:pointer-events-none disabled:opacity-0"
+            className="z-20 hidden md:flex absolute right-0 top-1/2 translate-x-full -translate-y-1/2 h-12 w-12 items-center justify-center rounded-full border-2 border-foreground/30 bg-background text-foreground shadow-xl ring-1 ring-black/5 transition hover:scale-105 hover:border-foreground hover:bg-foreground hover:text-background disabled:pointer-events-none disabled:opacity-0"
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
               <path d="M9 6l6 6-6 6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
