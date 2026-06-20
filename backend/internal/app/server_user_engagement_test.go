@@ -109,6 +109,64 @@ func TestIngestUserEngagement_BadBot(t *testing.T) {
 	}
 }
 
+func TestAdminUserEngagement_InternalServiceBearer(t *testing.T) {
+	s, _ := newEngagementTestServer(t)
+	now := time.Now().UTC().Format(time.RFC3339)
+	postBatch(t, s, "ross", []map[string]any{
+		{"workspace_id": "T1", "slack_user_id": "U1", "channel_id": "C1", "occurred_at": now},
+		{"workspace_id": "T1", "slack_user_id": "U1", "channel_id": "C1", "occurred_at": now},
+	})
+
+	topReq := httptest.NewRequest(http.MethodGet, "/v1/admin/user-engagement/top", nil)
+	topReq.Header.Set("Authorization", "Bearer secret")
+	topRR := httptest.NewRecorder()
+	s.handleAdminUserEngagementTop(topRR, topReq)
+	if topRR.Code != http.StatusOK {
+		t.Fatalf("top status=%d body=%s", topRR.Code, topRR.Body.String())
+	}
+
+	oneReq := httptest.NewRequest(http.MethodGet, "/v1/admin/user-engagement/U1", nil)
+	oneReq.SetPathValue("slackUserId", "U1")
+	oneReq.Header.Set("Authorization", "Bearer secret")
+	oneRR := httptest.NewRecorder()
+	s.handleAdminUserEngagement(oneRR, oneReq)
+	if oneRR.Code != http.StatusOK {
+		t.Fatalf("single status=%d body=%s", oneRR.Code, oneRR.Body.String())
+	}
+}
+
+func TestAdminUserEngagement_RejectsMissingAuth(t *testing.T) {
+	// Test config has no admin allowlist (so adminAuthEnabled is false), so a
+	// no-auth call hits the service-unavailable branch rather than 401. Either
+	// is a rejection from Ross's perspective; what matters is that the wrong
+	// path can't read engagement data.
+	s, _ := newEngagementTestServer(t)
+	topReq := httptest.NewRequest(http.MethodGet, "/v1/admin/user-engagement/top", nil)
+	topRR := httptest.NewRecorder()
+	s.handleAdminUserEngagementTop(topRR, topReq)
+	if topRR.Code == http.StatusOK {
+		t.Fatalf("top status=200 with no auth, want rejection")
+	}
+	oneReq := httptest.NewRequest(http.MethodGet, "/v1/admin/user-engagement/U1", nil)
+	oneReq.SetPathValue("slackUserId", "U1")
+	oneRR := httptest.NewRecorder()
+	s.handleAdminUserEngagement(oneRR, oneReq)
+	if oneRR.Code == http.StatusOK {
+		t.Fatalf("single status=200 with no auth, want rejection")
+	}
+}
+
+func TestAdminUserEngagement_RejectsWrongBearer(t *testing.T) {
+	s, _ := newEngagementTestServer(t)
+	topReq := httptest.NewRequest(http.MethodGet, "/v1/admin/user-engagement/top", nil)
+	topReq.Header.Set("Authorization", "Bearer wrong")
+	topRR := httptest.NewRecorder()
+	s.handleAdminUserEngagementTop(topRR, topReq)
+	if topRR.Code == http.StatusOK {
+		t.Fatalf("top status=200 with wrong bearer, want rejection")
+	}
+}
+
 func TestIngestUserEngagement_AuthRequired(t *testing.T) {
 	s, _ := newEngagementTestServer(t)
 	body, _ := json.Marshal(map[string]any{"bot": "ross", "events": []map[string]any{}})

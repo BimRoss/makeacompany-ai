@@ -102,7 +102,7 @@ func (s *Server) handleAdminUserEngagement(w http.ResponseWriter, r *http.Reques
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	ok, unavailable := s.adminReadAuthorized(r)
+	ok, unavailable := s.adminReadOrInternalServiceAuthorized(r)
 	if !ok {
 		if unavailable {
 			http.Error(w, "service unavailable", http.StatusServiceUnavailable)
@@ -133,7 +133,7 @@ func (s *Server) handleAdminUserEngagementTop(w http.ResponseWriter, r *http.Req
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	ok, unavailable := s.adminReadAuthorized(r)
+	ok, unavailable := s.adminReadOrInternalServiceAuthorized(r)
 	if !ok {
 		if unavailable {
 			http.Error(w, "service unavailable", http.StatusServiceUnavailable)
