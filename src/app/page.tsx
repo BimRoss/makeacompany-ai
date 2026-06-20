@@ -84,12 +84,12 @@ export default async function HomePage({
         initialSelected={urlPersona !== null}
       >
         <HeroSection />
+        <FeaturedProductsCarousel products={getFeaturedProducts()} />
         <ValueStack />
         <HarnessVsAgent />
         <BuiltFromInside />
         <TestimonialsCarousel testimonials={testimonials} />
         <CtaSection />
-        <FeaturedProductsCarousel products={getFeaturedProducts()} />
       </PersonaProvider>
       <SeoFaqSection seats={initialSeats} viewAllHref="/faq" askCardsPosition="bottom" />
       <Footer />
