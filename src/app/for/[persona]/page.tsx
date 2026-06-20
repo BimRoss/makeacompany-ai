@@ -9,6 +9,7 @@ import { Header } from "@/components/landing/header";
 import { HeroSection } from "@/components/landing/hero-section";
 import { PersonaPageView } from "@/components/landing/persona-page-view";
 import { PersonaProvider } from "@/components/landing/persona-context";
+import { PricingTiers } from "@/components/landing/pricing-tiers";
 import { faqStructuredData, SeoFaqSection } from "@/components/landing/seo-faq";
 import { TestimonialsCarousel } from "@/components/landing/testimonials-carousel";
 import { ValueStack } from "@/components/landing/value-stack";
@@ -102,6 +103,7 @@ export default async function PersonaLandingPage({
         <ValueStack />
         <HarnessVsAgent />
         <BuiltFromInside />
+        <PricingTiers />
         <TestimonialsCarousel testimonials={testimonials} />
         <CtaSection />
       </PersonaProvider>
