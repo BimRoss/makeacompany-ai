@@ -10,7 +10,9 @@ import { PersonaProvider } from "@/components/landing/persona-context";
 import { faqStructuredData, SeoFaqSection } from "@/components/landing/seo-faq";
 import { TestimonialsCarousel } from "@/components/landing/testimonials-carousel";
 import { ValueStack } from "@/components/landing/value-stack";
+import { FeaturedPosts } from "@/components/landing/featured-posts";
 import { FeaturedProductsCarousel } from "@/components/landing/featured-products-carousel";
+import { getFeaturedPosts } from "@/lib/featured-posts";
 import { getFeaturedProducts } from "@/lib/featured-products";
 import { fetchLanderSlackSeats } from "@/lib/lander-slack-seats";
 import { fetchLanderTestimonials } from "@/lib/lander-testimonials";
@@ -88,6 +90,7 @@ export default async function HomePage({
         <ValueStack />
         <HarnessVsAgent />
         <BuiltFromInside />
+        <FeaturedPosts posts={getFeaturedPosts()} />
         <TestimonialsCarousel testimonials={testimonials} />
         <CtaSection />
       </PersonaProvider>
