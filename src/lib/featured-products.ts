@@ -87,6 +87,25 @@ const PRODUCTS: FeaturedProduct[] = [
     logo: null,
     approvedAt: "2026-06-20",
   },
+  {
+    slug: "nexus-ats",
+    name: "Nexus",
+    eyebrow: "Applicant tracking · two-sided",
+    tagline: "Hiring, from both sides.",
+    description:
+      "Stop bleeding good candidates between stages. Two real portals — one for your hiring team, one for your candidates — with scorecards and notes kept fully separate from anything the candidate sees.",
+    url: "https://nexus-ats.app",
+    cta: "Try Nexus",
+    brand: {
+      bg: "#131720",
+      fg: "#ffffff",
+      mutedFg: "#9ca3af",
+      accent: "#eb7855",
+      accentFg: "#131720",
+    },
+    logo: null,
+    approvedAt: "2026-06-20",
+  },
 ];
 
 export function getFeaturedProducts(): FeaturedProduct[] {
