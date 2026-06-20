@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { FeaturedProduct } from "@/lib/featured-products";
@@ -92,9 +93,22 @@ export function FeaturedProductsCarousel({ products }: { products: FeaturedProdu
                 >
                   {product.eyebrow}
                 </p>
-                <h3 className="mb-3 text-2xl font-bold leading-tight tracking-tight">
-                  {product.name}
-                </h3>
+                {product.logo ? (
+                  <div className="mb-3 flex items-center">
+                    <Image
+                      src={product.logo.src}
+                      alt={`${product.name} logo`}
+                      width={product.logo.width}
+                      height={product.logo.height}
+                      className="h-8 w-auto"
+                      priority={false}
+                    />
+                  </div>
+                ) : (
+                  <h3 className="mb-3 text-2xl font-bold leading-tight tracking-tight">
+                    {product.name}
+                  </h3>
+                )}
                 <p className="mb-4 text-base font-semibold leading-snug">
                   {product.tagline}
                 </p>

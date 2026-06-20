@@ -6,6 +6,12 @@ export type FeaturedProductBrand = {
   accentFg: string;
 };
 
+export type FeaturedProductLogo = {
+  src: string;
+  width: number;
+  height: number;
+};
+
 export type FeaturedProduct = {
   slug: string;
   name: string;
@@ -15,6 +21,7 @@ export type FeaturedProduct = {
   url: string;
   cta: string;
   brand: FeaturedProductBrand;
+  logo: FeaturedProductLogo | null;
   approvedAt: string | null;
 };
 
@@ -35,6 +42,11 @@ const PRODUCTS: FeaturedProduct[] = [
       accent: "#00CCFF",
       accentFg: "#0b1224",
     },
+    logo: {
+      src: "/featured-products/brandlete-logo.png",
+      width: 2000,
+      height: 500,
+    },
     approvedAt: "2026-06-20",
   },
   {
@@ -53,6 +65,7 @@ const PRODUCTS: FeaturedProduct[] = [
       accent: "#fbbf24",
       accentFg: "#064e3b",
     },
+    logo: null,
     approvedAt: "2026-06-20",
   },
   {
@@ -71,6 +84,7 @@ const PRODUCTS: FeaturedProduct[] = [
       accent: "#f97316",
       accentFg: "#0b0b0c",
     },
+    logo: null,
     approvedAt: "2026-06-20",
   },
 ];
