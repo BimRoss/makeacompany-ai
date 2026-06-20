@@ -181,7 +181,11 @@ async function discoverPersonalAgents(): Promise<AgentTarget[]> {
 
       const deployList = (await deploysResp.json()) as {
         items: Array<{
-          metadata: { name: string; labels?: Record<string, string> };
+          metadata: {
+            name: string;
+            labels?: Record<string, string>;
+            annotations?: Record<string, string>;
+          };
         }>;
       };
 
@@ -234,7 +238,16 @@ async function discoverPersonalAgents(): Promise<AgentTarget[]> {
       for (const dep of deployList.items) {
         const resourceName = dep.metadata.name;
         const agentID = dep.metadata.labels?.[PERSONAL_AGENT_AGENT_ID_LABEL] ?? "";
-        const slackID = slackIDByAgentID.get(agentID) ?? "";
+        // Resolve the Slack user ID so the GET handler can enrich the label
+        // with the agent's real app name (via the workspace users table).
+        // Prefer the deployment's own annotation — the per-agent Secret carries
+        // the same annotation but NOT the agent-id label the secret-keyed map
+        // below joins on, so that map is empty in practice. The annotation is
+        // written on every PA deployment, so this is the reliable source.
+        const slackID =
+          dep.metadata.annotations?.[PERSONAL_AGENT_SLACK_USER_ANNO] ??
+          slackIDByAgentID.get(agentID) ??
+          "";
         const friendly = slackID ? personalAgentDisplayLabelFromEnv(slackID) : null;
         const label = friendly ?? (slackID || (agentID ? agentID.slice(0, 8) : resourceName));
         const podIp = podIPByResourceName.get(resourceName);
