@@ -171,7 +171,14 @@ function rollup(agent: AgentResult): AgentRollup {
 }
 
 function PoolCard({ agents }: { agents: AgentResult[] }) {
-  const rollups = agents.map(rollup);
+  // Order the stacked bar + legend by draws-this-window descending so the
+  // heaviest pool consumers read first (left-to-right in the bar, front of the
+  // legend). Color is index-based and the bar + legend map over this same
+  // sorted array, so they stay in lockstep. Ties break by agent name for a
+  // stable order among the zero-draw agents.
+  const rollups = agents
+    .map(rollup)
+    .sort((a, b) => b.spawnsInWindow - a.spawnsInWindow || a.agent.localeCompare(b.agent));
   const poolUsed = rollups.reduce((acc, r) => acc + r.spawnsInWindow, 0);
   const poolCap =
     rollups.reduce((acc, r) => Math.max(acc, r.agentCap), 0) ||
