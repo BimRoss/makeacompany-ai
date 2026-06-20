@@ -83,7 +83,7 @@ func TestAssignInitialLifecycleTier_atCapStampsTrialing(t *testing.T) {
 	if row.TrialExpiresAt == 0 {
 		t.Fatal("expected trial_expires_at set")
 	}
-	// Deadline is 7 days out, within a 5-second jitter window.
+	// Deadline is 10 days out, within a 5-second jitter window.
 	want := before + int64(FreeTrialDuration/time.Second)
 	if row.TrialExpiresAt < want-5 || row.TrialExpiresAt > want+5 {
 		t.Fatalf("trial_expires_at = %d, want ~%d (±5s)", row.TrialExpiresAt, want)
