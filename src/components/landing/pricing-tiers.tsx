@@ -18,6 +18,7 @@ type Tier = {
   features: string[];
   cta: { label: string } & CtaKind;
   emphasized?: boolean;
+  dimmed?: boolean;
 };
 
 const TIERS: Tier[] = [
@@ -35,6 +36,7 @@ const TIERS: Tier[] = [
       "Currently gated to creator-only while we validate in the wild",
     ],
     cta: { kind: "soon", label: "Get on the early access list" },
+    dimmed: true,
   },
   {
     name: "Starter",
@@ -66,6 +68,7 @@ const TIERS: Tier[] = [
       "Direct line to the team building it",
     ],
     cta: { kind: "soon", label: "Talk to us" },
+    dimmed: true,
   },
 ];
 
@@ -109,14 +112,17 @@ export function PricingTiers() {
 
         <ul className="grid gap-4 sm:grid-cols-3">
           {TIERS.map((tier) => {
-            const cardClass = tier.emphasized
+            const baseCard = tier.emphasized
               ? "relative flex flex-col rounded-2xl border-2 border-foreground bg-card p-6 shadow-lg"
               : "relative flex flex-col rounded-2xl border border-border bg-card p-6 shadow-sm";
+            const cardClass = tier.dimmed
+              ? `${baseCard} hidden sm:flex opacity-50 pointer-events-none select-none`
+              : baseCard;
             const ctaClass = tier.emphasized
               ? "inline-flex items-center justify-center rounded-lg bg-foreground px-4 py-2.5 text-sm font-semibold text-background hover:bg-foreground/90"
               : "inline-flex items-center justify-center rounded-lg border border-foreground px-4 py-2.5 text-sm font-semibold text-foreground hover:bg-foreground/5";
             return (
-              <li key={tier.name} className={cardClass}>
+              <li key={tier.name} className={cardClass} aria-disabled={tier.dimmed || undefined}>
                 <div className="mb-4 flex items-center justify-between gap-2">
                   <h3 className="text-lg font-semibold tracking-tight">{tier.name}</h3>
                   <StatusPill tone={tier.statusTone}>{tier.status}</StatusPill>
@@ -148,6 +154,7 @@ export function PricingTiers() {
                     type="button"
                     onClick={() => setToast("Coming soon")}
                     className={ctaClass}
+                    disabled={tier.dimmed}
                   >
                     {tier.cta.label}
                   </button>
