@@ -61,17 +61,18 @@ func TestWriteAgentRuntimeSecret_CreatesSecret(t *testing.T) {
 	}
 }
 
-func TestWriteAgentRuntimeSecret_IncludesClaudeOAuthPool(t *testing.T) {
+// The OAuth tokens must NEVER be written into a per-agent runtime Secret — the
+// pool (reflected claude-oauth-pool, read via envFrom) is the single source of
+// truth. This guards against a regression that re-introduces per-agent copies.
+func TestWriteAgentRuntimeSecret_NeverWritesClaudeOAuthPool(t *testing.T) {
 	cs := fake.NewSimpleClientset()
 	w := newPersonalAgentWriterWithClient(cs, "personal-agents", "", "")
 	ctx := context.Background()
 	req := PersonalAgentRuntimeSecretRequest{
-		SlackUserID:           "U0APBT3364D",
-		SlackAppID:            "A0GARTH",
-		BotToken:              "xoxb-test",
-		SigningSecret:         "sig-test",
-		ClaudeCodeOAuthToken:  "ccoauth1",
-		ClaudeCodeOAuthToken2: "ccoauth2",
+		SlackUserID:   "U0APBT3364D",
+		SlackAppID:    "A0GARTH",
+		BotToken:      "xoxb-test",
+		SigningSecret: "sig-test",
 	}
 	if err := w.WriteAgentRuntimeSecret(ctx, req); err != nil {
 		t.Fatalf("WriteAgentRuntimeSecret: %v", err)
@@ -81,30 +82,13 @@ func TestWriteAgentRuntimeSecret_IncludesClaudeOAuthPool(t *testing.T) {
 	if err != nil {
 		t.Fatalf("get: %v", err)
 	}
-	if got.StringData["CLAUDE_CODE_OAUTH_TOKEN"] != "ccoauth1" {
-		t.Errorf("CLAUDE_CODE_OAUTH_TOKEN = %q, want ccoauth1", got.StringData["CLAUDE_CODE_OAUTH_TOKEN"])
-	}
-	if got.StringData["CLAUDE_CODE_OAUTH_TOKEN_2"] != "ccoauth2" {
-		t.Errorf("CLAUDE_CODE_OAUTH_TOKEN_2 = %q, want ccoauth2", got.StringData["CLAUDE_CODE_OAUTH_TOKEN_2"])
-	}
-}
-
-func TestWriteAgentRuntimeSecret_OmitsClaudeOAuthWhenBlank(t *testing.T) {
-	cs := fake.NewSimpleClientset()
-	w := newPersonalAgentWriterWithClient(cs, "personal-agents", "", "")
-	ctx := context.Background()
-	req := PersonalAgentRuntimeSecretRequest{
-		SlackUserID:   "U1",
-		SlackAppID:    "A1",
-		BotToken:      "xoxb-test",
-		SigningSecret: "sig-test",
-	}
-	if err := w.WriteAgentRuntimeSecret(ctx, req); err != nil {
-		t.Fatalf("WriteAgentRuntimeSecret: %v", err)
-	}
-	got, _ := cs.CoreV1().Secrets("personal-agents").Get(ctx, personalAgentSecretName("U1"), metav1.GetOptions{})
-	if _, ok := got.StringData["CLAUDE_CODE_OAUTH_TOKEN"]; ok {
-		t.Errorf("CLAUDE_CODE_OAUTH_TOKEN should be omitted when blank")
+	for _, k := range []string{"CLAUDE_CODE_OAUTH_TOKEN", "CLAUDE_CODE_OAUTH_TOKEN_2"} {
+		if _, ok := got.StringData[k]; ok {
+			t.Errorf("%s must not be written to the per-agent Secret (pool is authoritative)", k)
+		}
+		if _, ok := got.Data[k]; ok {
+			t.Errorf("%s must not be written to the per-agent Secret (pool is authoritative)", k)
+		}
 	}
 }
 

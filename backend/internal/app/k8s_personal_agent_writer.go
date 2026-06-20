@@ -138,12 +138,11 @@ func personalAgentSecretData(req PersonalAgentRuntimeSecretRequest) map[string]s
 		"PERSONAL_SLACK_BOT_TOKEN":      req.BotToken,
 		"PERSONAL_SLACK_SIGNING_SECRET": req.SigningSecret,
 	}
-	if v := strings.TrimSpace(req.ClaudeCodeOAuthToken); v != "" {
-		data["CLAUDE_CODE_OAUTH_TOKEN"] = v
-	}
-	if v := strings.TrimSpace(req.ClaudeCodeOAuthToken2); v != "" {
-		data["CLAUDE_CODE_OAUTH_TOKEN_2"] = v
-	}
+	// CLAUDE_CODE_OAUTH_TOKEN[_2] are deliberately NOT written here. The pool is
+	// the single source of truth: cluster-bootstrap/claude-oauth-pool is reflected
+	// into the personal-agents namespace and the PA Deployment reads it via envFrom
+	// (see k8s_personal_agent_deployment.go). Writing per-agent copies is what let
+	// a stale token poison the fleet and made rotation an N-secret chore.
 	if v := strings.TrimSpace(req.SystemPrompt); v != "" {
 		data["PERSONAL_AGENT_SYSTEM_PROMPT"] = v
 	}
@@ -187,20 +186,15 @@ func (w *PersonalAgentWriter) ReadAgentBotToken(ctx context.Context, slackUserID
 // once the agent's Slack app has been installed and we have bot + signing
 // credentials in hand.
 //
-// ClaudeCodeOAuthToken / ClaudeCodeOAuthToken2 are the shared Claude-Code
-// OAuth-token pool used by Ross + Joanne + every personal agent. The pool is
-// centralized in makeacompany-ai-runtime-secrets and propagated into each
-// per-agent runtime Secret here so the spawned `claude` CLI authenticates
-// out of the box. Per-user OAuth (so each personal agent has its own pool +
-// rate budget) is a follow-up.
+// Claude-Code OAuth tokens are intentionally absent: they live only in the
+// reflected claude-oauth-pool Secret, consumed by the PA pod via envFrom. Per-user
+// OAuth (so each personal agent has its own pool + rate budget) is a follow-up.
 type PersonalAgentRuntimeSecretRequest struct {
-	SlackUserID            string
-	SlackAppID             string
-	BotToken               string // xoxb-
-	SigningSecret          string // from apps.manifest.create credentials
-	ClaudeCodeOAuthToken   string // from runtime-secrets, optional but recommended
-	ClaudeCodeOAuthToken2  string // second token in the shared pool
-	SystemPrompt           string // user-defined persona text for instructions.md
+	SlackUserID   string
+	SlackAppID    string
+	BotToken      string // xoxb-
+	SigningSecret string // from apps.manifest.create credentials
+	SystemPrompt  string // user-defined persona text for instructions.md
 }
 
 // WriteAgentRuntimeSecret upserts the per-agent runtime Secret. The personal

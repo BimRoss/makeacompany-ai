@@ -119,16 +119,6 @@ type Config struct {
 	// installs into. When set, we append ?team=<id> so Slack skips the workspace
 	// picker for users not currently signed in.
 	MakeacompanySlackTeamID string
-	// ClaudeCodeOAuthToken / ClaudeCodeOAuthToken2 are the shared Claude
-	// Code OAuth-token pool. Backed by the same two values Ross + Joanne use
-	// (centralized into makeacompany-ai-runtime-secrets). Mac-ai backend reads
-	// them once at boot and writes them into every per-agent runtime Secret
-	// so the spawned `claude` CLI authenticates out of the box.
-	//
-	// Long-term: per-user OAuth so each personal agent has its own pool and
-	// doesn't share rate budget with Ross/Joanne.
-	ClaudeCodeOAuthToken  string
-	ClaudeCodeOAuthToken2 string
 	// GeminiAPIKey powers Imagen-4-fast icon generation on /me agent
 	// creation (apps.icon.set). Same key Ross + Joanne use for the
 	// gemini-image skill; centralized into makeacompany-ai-runtime-secrets.
@@ -191,8 +181,6 @@ func LoadConfig() Config {
 		PersonalAgentInstallRedirectBase:    strings.TrimSpace(os.Getenv("PERSONAL_AGENT_INSTALL_REDIRECT_BASE")),
 		PersonalAgentImage:                  envString("PERSONAL_AGENT_IMAGE", "docker.io/geeemoney/claude-code-personal-agent:latest"),
 		MakeacompanySlackTeamID:             strings.TrimSpace(os.Getenv("MAKEACOMPANY_SLACK_TEAM_ID")),
-		ClaudeCodeOAuthToken:                strings.TrimSpace(os.Getenv("CLAUDE_CODE_OAUTH_TOKEN")),
-		ClaudeCodeOAuthToken2:               strings.TrimSpace(os.Getenv("CLAUDE_CODE_OAUTH_TOKEN_2")),
 		GeminiAPIKey:                        strings.TrimSpace(os.Getenv("GEMINI_API_KEY")),
 	}
 }
