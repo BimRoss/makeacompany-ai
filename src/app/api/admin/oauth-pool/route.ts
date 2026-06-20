@@ -64,6 +64,12 @@ type AgentTarget = {
   /** Upper-cased Slack user ID — used to match the target against the Slack bot table. */
   slackUserID?: string;
   /**
+   * Personal-agent id (bimross.com/agent-id label). Used to join against the
+   * backend personal-agents list so the row can render the agent's real app
+   * name ("Jonai") instead of an id hash. Undefined for Ross/Joanne.
+   */
+  agentID?: string;
+  /**
    * Set when the target is known to be unreachable before we even attempt a
    * fetch (e.g. a personal-agent Deployment scaled to 0 with no Pod). The
    * row still renders in the legend so the agent stays visible; fetchAgent
@@ -238,24 +244,24 @@ async function discoverPersonalAgents(): Promise<AgentTarget[]> {
       for (const dep of deployList.items) {
         const resourceName = dep.metadata.name;
         const agentID = dep.metadata.labels?.[PERSONAL_AGENT_AGENT_ID_LABEL] ?? "";
-        // Resolve the Slack user ID so the GET handler can enrich the label
-        // with the agent's real app name (via the workspace users table).
-        // Prefer the deployment's own annotation — the per-agent Secret carries
-        // the same annotation but NOT the agent-id label the secret-keyed map
-        // below joins on, so that map is empty in practice. The annotation is
-        // written on every PA deployment, so this is the reliable source.
-        const slackID =
+        // The Slack id on the deployment/secret is the *owner* (a human), not
+        // the agent's bot — useful only as a dedup key. The real app name is
+        // resolved in GET by joining agentID against the backend personal-agents
+        // list (see fetchPersonalAgentNames); this label is just the fallback
+        // shown if that lookup misses.
+        const ownerSlackID =
           dep.metadata.annotations?.[PERSONAL_AGENT_SLACK_USER_ANNO] ??
           slackIDByAgentID.get(agentID) ??
           "";
-        const friendly = slackID ? personalAgentDisplayLabelFromEnv(slackID) : null;
-        const label = friendly ?? (slackID || (agentID ? agentID.slice(0, 8) : resourceName));
+        const friendly = ownerSlackID ? personalAgentDisplayLabelFromEnv(ownerSlackID) : null;
+        const label = friendly ?? (agentID ? agentID.slice(0, 8) : resourceName);
         const podIp = podIPByResourceName.get(resourceName);
         targets.push({
           agent: label,
           url: podIp ? `http://${podIp}:8092` : undefined,
           token: "", // cluster-internal; personal agents skip auth
-          slackUserID: slackID ? slackID.toUpperCase() : undefined,
+          agentID: agentID || undefined,
+          slackUserID: ownerSlackID ? ownerSlackID.toUpperCase() : undefined,
           preFailReason: podIp ? undefined : "scaled to 0",
         });
       }
@@ -335,6 +341,40 @@ async function fetchSlackBots(): Promise<SlackBot[] | null> {
   }
 }
 
+// fetchPersonalAgentNames pulls the backend's personal-agents summary and
+// returns agentId → app display name (e.g. "dddad820…" → "Jonai"). This is the
+// authoritative source for a PA's app name — K8s only carries the agent id and
+// the owner's Slack id, not the name the user chose. Non-2xx is logged (fail-open
+// gate-fetcher convention) and treated as "no names", so rows fall back to the
+// id hash rather than going blank.
+async function fetchPersonalAgentNames(): Promise<Map<string, string>> {
+  const byAgentID = new Map<string, string>();
+  try {
+    const backend = `${resolveBackendBaseURL().replace(/\/$/, "")}/v1/admin/personal-agents`;
+    const response = await fetch(backend, {
+      headers: await backendProxyAuthHeaders(),
+      cache: "no-store",
+      signal: AbortSignal.timeout(4000),
+    });
+    if (!response.ok) {
+      console.warn(`oauth-pool: personal-agents non-200: HTTP ${response.status}`);
+      return byAgentID;
+    }
+    const body = (await response.json()) as {
+      agents?: Array<{ agentId?: string; displayName?: string }>;
+    };
+    for (const a of body.agents ?? []) {
+      const id = (a.agentId ?? "").trim();
+      const name = (a.displayName ?? "").trim();
+      if (id && name) byAgentID.set(id, name);
+    }
+    return byAgentID;
+  } catch (error) {
+    console.warn("oauth-pool: failed to fetch personal-agents", error);
+    return byAgentID;
+  }
+}
+
 async function fetchAgent({ agent, url, token, preFailReason }: AgentTarget): Promise<AgentResult> {
   const endpoint = `${(url ?? "").replace(/\/$/, "")}/admin/oauth-pool`;
   if (preFailReason) {
@@ -378,9 +418,10 @@ export async function GET() {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  const [agentTargets, slackBots] = await Promise.all([
+  const [agentTargets, slackBots, paNameByAgentID] = await Promise.all([
     getAgentTargets(),
     fetchSlackBots(),
+    fetchPersonalAgentNames(),
   ]);
 
   // Targets are the source of truth for *which* rows to render — only
@@ -409,7 +450,12 @@ export async function GET() {
       if (seenURLs.has(t.url)) continue;
       seenURLs.add(t.url);
     }
-    const displayName = (t.slackUserID && nameBySlackID.get(t.slackUserID)) || t.agent;
+    // Prefer the personal-agent's real app name (joined by agentID), then the
+    // Slack workspace bot name (Ross/Joanne), then the discovery fallback.
+    const displayName =
+      (t.agentID && paNameByAgentID.get(t.agentID)) ||
+      (t.slackUserID && nameBySlackID.get(t.slackUserID)) ||
+      t.agent;
     deduped.push({ ...t, agent: displayName });
   }
 

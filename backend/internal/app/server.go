@@ -268,6 +268,7 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 	s.mux.HandleFunc("/v1/admin/waitlist", s.handleAdminWaitlist)
 	s.mux.HandleFunc("/v1/admin/stripe-waitlist-purchasers", s.handleAdminStripeWaitlistPurchasers)
 	s.mux.HandleFunc("/v1/admin/slack-workspace-users", s.handleAdminSlackWorkspaceUsers)
+	s.mux.HandleFunc("/v1/admin/personal-agents", s.handleAdminPersonalAgents)
 	s.mux.HandleFunc("/v1/admin/slack-bot-author-profiles", s.handleAdminSlackBotAuthorProfiles)
 	s.mux.HandleFunc("/v1/admin/slack-activity-daily", s.handleAdminSlackActivityDaily)
 	s.mux.HandleFunc("/v1/admin/channels", s.handleAdminChannels)
