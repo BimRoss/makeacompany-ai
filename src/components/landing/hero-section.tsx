@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { HeroBuildQuoteRotator } from "@/components/landing/hero-build-quote-rotator";
 import { HeroJoanneInviteCard } from "@/components/landing/hero-joanne-invite-card";
 import { HeroSubheadRewrite } from "@/components/landing/hero-subhead-rewrite";
 import { EmailCaptureForm } from "@/components/landing/email-capture-form";
@@ -171,6 +172,8 @@ export function HeroSection() {
             ) : null}
           </span>
         </h1>
+
+        <HeroBuildQuoteRotator />
 
         <div className="mb-6 flex w-full justify-center sm:mb-10">
           <TaoSlackSignalBadges onHoverChange={onHoverChange} forcedActive={forcedAgent} />
