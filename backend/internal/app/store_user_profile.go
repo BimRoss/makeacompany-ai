@@ -285,7 +285,7 @@ type UserProfileRow struct {
 	// FreeLifetime is true for users who landed pre-100-cliff. Backfilled by scripts/backfill-free-lifetime.sh
 	// and respected by EffectiveStatus so they never flip to expired regardless of Stripe state.
 	FreeLifetime bool `json:"freeLifetime,omitempty"`
-	// TrialExpiresAt is the unix-second deadline for the post-cliff 7-day trial. 0 when not trialing.
+	// TrialExpiresAt is the unix-second deadline for the post-cliff 10-day trial. 0 when not trialing.
 	TrialExpiresAt int64 `json:"trialExpiresAt,omitempty"`
 	// ExpiryDMEnqueuedAt is the RFC3339 timestamp the trial-expiry reaper pushed the Joanne-side DM job
 	// for this user. Non-empty means the reaper has already queued; #244 uses this as the idempotency

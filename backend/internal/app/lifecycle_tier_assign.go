@@ -13,7 +13,7 @@ const FreeLifetimeSeatCap = 100
 
 // FreeTrialDuration is how long a post-cliff signup gets full access before Joanne's expiry DM
 // fires (#244) and the dispatcher silence gate (#243) kicks in.
-const FreeTrialDuration = 7 * 24 * time.Hour
+const FreeTrialDuration = 10 * 24 * time.Hour
 
 // LifecycleAssignment is the outcome of AssignInitialLifecycleTier.
 type LifecycleAssignment string

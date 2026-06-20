@@ -11,7 +11,7 @@ const LanderSeatCap = FreeLifetimeSeatCap
 
 // handleLanderSlackSeats returns the live count of profiles with free_lifetime=true plus the
 // seat cap, so the public pricing pill on the lander shows the *exact* number that decides
-// whether the next signup gets free-for-life or a 7-day trial (#325 trigger). Previously this
+// whether the next signup gets free-for-life or a 10-day trial (#325 trigger). Previously this
 // counted Slack workspace members from the snapshot, which (a) included bots and (b) drifted
 // from the cutoff source.
 func (s *Server) handleLanderSlackSeats(w http.ResponseWriter, r *http.Request) {
