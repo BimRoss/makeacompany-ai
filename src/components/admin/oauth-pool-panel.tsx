@@ -209,12 +209,31 @@ function PoolCard({ agents }: { agents: AgentResult[] }) {
   );
 }
 
-// Two ramps so the two agent segments stay visually distinct in both the
-// stacked pool bar and the per-agent rows. Both ride the foreground color
-// so the card stays in the same grey palette the rest of /admin uses.
-function agentShade(index: number, pct: number): string {
-  const base = index === 0 ? 35 : 20;
-  return `color-mix(in oklab, var(--foreground) ${Math.round(base + pct * 55)}%, transparent)`;
+// Categorical palette so each agent gets a stable, distinct color in the
+// stacked pool bar + legend. The old 2-ramp grey was tuned for exactly
+// ross+joanne; with the consolidated pool (ross, joanne, and every personal
+// agent) drawing the same tokens, the bar now carries ~9 segments and needs
+// real hue separation to read. Colors are picked to stay legible on both the
+// light and dark /admin themes; index wraps the palette if we ever exceed it.
+const AGENT_PALETTE = [
+  "#6366f1", // indigo
+  "#ec4899", // pink
+  "#14b8a6", // teal
+  "#f59e0b", // amber
+  "#8b5cf6", // violet
+  "#22c55e", // green
+  "#0ea5e9", // sky
+  "#ef4444", // red
+  "#a855f7", // purple
+  "#eab308", // yellow
+  "#f97316", // orange
+  "#06b6d4", // cyan
+];
+
+// Categorical: color is purely a function of the agent's index. The segment
+// width already encodes each agent's draw, so usage no longer modulates hue.
+function agentShade(index: number): string {
+  return AGENT_PALETTE[((index % AGENT_PALETTE.length) + AGENT_PALETTE.length) % AGENT_PALETTE.length];
 }
 
 function PoolStackedBar({
@@ -225,7 +244,6 @@ function PoolStackedBar({
   poolCap: number;
 }) {
   const totalUsed = rollups.reduce((acc, r) => acc + r.spawnsInWindow, 0);
-  const usedFraction = poolCap > 0 ? Math.min(1, totalUsed / poolCap) : 0;
 
   return (
     <div>
@@ -245,7 +263,7 @@ function PoolStackedBar({
               className="h-full transition-all duration-300"
               style={{
                 width: `${segPct * 100}%`,
-                backgroundColor: agentShade(i, usedFraction),
+                backgroundColor: agentShade(i),
               }}
               title={`${r.agent}: ${r.spawnsInWindow} / ${poolCap}`}
             />
@@ -258,7 +276,7 @@ function PoolStackedBar({
             <span
               aria-hidden="true"
               className="inline-block h-2 w-2 rounded-full"
-              style={{ backgroundColor: agentShade(i, usedFraction) }}
+              style={{ backgroundColor: agentShade(i) }}
             />
             <span className="font-mono lowercase text-foreground/80">{r.agent}</span>
             <span className="tabular-nums">{r.spawnsInWindow}</span>
@@ -280,7 +298,7 @@ function AgentBar({
 }) {
   const pct = poolCap > 0 ? Math.min(1, r.spawnsInWindow / poolCap) : 0;
   const ownPct = r.agentCap > 0 ? Math.min(1, r.spawnsInWindow / r.agentCap) : 0;
-  const fillColor = agentShade(index, ownPct);
+  const fillColor = agentShade(index);
 
   return (
     <div>
