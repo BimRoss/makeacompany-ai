@@ -7,6 +7,7 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 )
@@ -263,6 +264,93 @@ func TestReconcilePersonalAgentImages_ConvergesSpawnEnvDrift(t *testing.T) {
 	// Idempotent: second pass finds no drift.
 	if r2 := srv.reconcilePersonalAgentImages(context.Background(), false); r2.EnvReconciled != 0 {
 		t.Errorf("second pass EnvReconciled = %d, want 0 (already converged)", r2.EnvReconciled)
+	}
+}
+
+func TestResourceDrift(t *testing.T) {
+	desired := personalAgentResources()
+	mkDep := func(r corev1.ResourceRequirements) *appsv1.Deployment {
+		return &appsv1.Deployment{Spec: appsv1.DeploymentSpec{Template: corev1.PodTemplateSpec{
+			Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: "personal-agent", Resources: r}}},
+		}}}
+	}
+	// No resources block at all → drift (this is the pre-right-sizing state).
+	if !resourceDrift(mkDep(corev1.ResourceRequirements{}), desired) {
+		t.Error("empty resources should drift against the desired template")
+	}
+	// Exactly desired → no drift.
+	if resourceDrift(mkDep(desired), desired) {
+		t.Error("desired resources should not drift")
+	}
+	// The old 250m/512Mi footprint → drift.
+	old := corev1.ResourceRequirements{
+		Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("250m"), corev1.ResourceMemory: resource.MustParse("512Mi")},
+		Limits:   corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("1"), corev1.ResourceMemory: resource.MustParse("1Gi")},
+	}
+	if !resourceDrift(mkDep(old), desired) {
+		t.Error("pre-audit 250m/512Mi should drift against the new template")
+	}
+	// Quantities compared by value: "1000m" must equal the desired "1" CPU limit,
+	// so an equivalent-but-differently-written limit is NOT spurious drift.
+	equiv := *desired.DeepCopy()
+	equiv.Limits[corev1.ResourceCPU] = resource.MustParse("1000m")
+	if resourceDrift(mkDep(equiv), desired) {
+		t.Error(`"1000m" CPU limit should equal desired "1" — no drift`)
+	}
+}
+
+// A live agent with the init container, desired image, and converged env but the
+// old (or absent) resources block must get its requests/limits converged in via
+// the resource-reconcile path — this is how the existing fleet sheds the
+// over-reservation without a full re-provision.
+func TestReconcilePersonalAgentImages_ConvergesResourceDrift(t *testing.T) {
+	name := personalAgentResourceName("UD")
+	dep := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name, Namespace: "personal-agents",
+			Labels: map[string]string{
+				"app.kubernetes.io/managed-by": personalAgentManagedByLabelValue,
+				"bimross.com/agent-id":         "agent-UD",
+			},
+			Annotations: map[string]string{personalAgentAnnoSlackUserID: "UD"},
+		},
+		Spec: appsv1.DeploymentSpec{Template: corev1.PodTemplateSpec{Spec: corev1.PodSpec{
+			InitContainers: []corev1.Container{{Name: personalAgentInitContainerName}},
+			Containers: []corev1.Container{{
+				Name: "personal-agent", Image: "img:new",
+				Env: []corev1.EnvVar{
+					{Name: "PERSONAL_AGENT_DEFAULT_MODEL", Value: personalAgentDefaultModel()},
+					{Name: "PERSONAL_AGENT_DEFAULT_EFFORT", Value: personalAgentDefaultEffort()},
+					{Name: "PERSONAL_AGENT_LOOP_MODEL", Value: personalAgentLoopModel()},
+				},
+				// Old over-reserved footprint.
+				Resources: corev1.ResourceRequirements{
+					Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("250m"), corev1.ResourceMemory: resource.MustParse("512Mi")},
+					Limits:   corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("1"), corev1.ResourceMemory: resource.MustParse("1Gi")},
+				},
+			}},
+		}}},
+	}
+	cs := fake.NewSimpleClientset(dep)
+	w := newPersonalAgentWriterWithClient(cs, "personal-agents", "", "")
+	srv := &Server{log: log.Default(), personalAgent: w, cfg: Config{PersonalAgentImage: "img:new"}}
+
+	result := srv.reconcilePersonalAgentImages(context.Background(), false)
+	if result.ResReconciled != 1 {
+		t.Fatalf("ResReconciled = %d, want 1", result.ResReconciled)
+	}
+	if result.ImageBumped != 0 || result.InitContainer != 0 || result.EnvReconciled != 0 {
+		t.Errorf("unexpected other work: %+v", result)
+	}
+	got, _ := cs.AppsV1().Deployments("personal-agents").Get(context.Background(), name, metav1.GetOptions{})
+	res := got.Spec.Template.Spec.Containers[0].Resources
+	want := personalAgentResources()
+	if res.Requests.Cpu().Cmp(*want.Requests.Cpu()) != 0 || res.Requests.Memory().Cmp(*want.Requests.Memory()) != 0 {
+		t.Errorf("requests after reconcile = %v, want %v", res.Requests, want.Requests)
+	}
+	// Idempotent: second pass finds no drift.
+	if r2 := srv.reconcilePersonalAgentImages(context.Background(), false); r2.ResReconciled != 0 {
+		t.Errorf("second pass ResReconciled = %d, want 0 (already converged)", r2.ResReconciled)
 	}
 }
 
