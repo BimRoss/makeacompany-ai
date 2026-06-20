@@ -88,8 +88,8 @@ export default async function HomePage({
         <HarnessVsAgent />
         <BuiltFromInside />
         <TestimonialsCarousel testimonials={testimonials} />
-        <FeaturedProductsCarousel products={getFeaturedProducts()} />
         <CtaSection />
+        <FeaturedProductsCarousel products={getFeaturedProducts()} />
       </PersonaProvider>
       <SeoFaqSection seats={initialSeats} viewAllHref="/faq" askCardsPosition="bottom" />
       <Footer />
