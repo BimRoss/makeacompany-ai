@@ -47,7 +47,7 @@ const TIERS: Tier[] = [
     pitch: "Joanne and Ross in your Slack, paid month-to-month.",
     features: [
       "Joanne (Chief of Staff) and Ross (Software Developer) in your channel",
-      "Persistent workspace per channel, baked-in skills, GitOps and intake wired up",
+      "Remembers your company, comes with your tools, ships code on its own",
       "10 days free, no card to start",
       "Cancel anytime",
     ],
