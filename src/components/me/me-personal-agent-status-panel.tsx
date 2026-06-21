@@ -10,9 +10,7 @@ import {
 } from "@/components/me/me-personal-agent-icon-picker";
 import {
   MePersonalAgentYouTubeIngest,
-  composeYouTubeIntelPrompt,
-  parseYouTubeIntelSources,
-  stripYouTubeIntelFence,
+  type YtSource,
 } from "@/components/me/me-personal-agent-youtube-ingest";
 import { readCachedAgentIcon, writeCachedAgentIcon } from "@/lib/personal-agent-icon-cache";
 
@@ -23,6 +21,7 @@ type AgentStatus = {
   description?: string;
   longDescription?: string;
   systemPrompt?: string;
+  youtubeSources?: YtSource[];
   slackAppId?: string;
   status?: string;
   installUrl?: string;
@@ -51,9 +50,7 @@ export function MePersonalAgentStatusPanel({
   const [name, setName] = useState(initial.displayName ?? "");
   const [description, setDescription] = useState(initial.description ?? "");
   const [longDescription, setLongDescription] = useState(initial.longDescription ?? "");
-  const [systemPrompt, setSystemPrompt] = useState(
-    stripYouTubeIntelFence(initial.systemPrompt ?? ""),
-  );
+  const [systemPrompt, setSystemPrompt] = useState(initial.systemPrompt ?? "");
   const [icon, setIcon] = useState<IconPickerValue | null>(null);
   const [iconPickerOpen, setIconPickerOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -165,9 +162,7 @@ export function MePersonalAgentStatusPanel({
     setName(agent.displayName ?? "");
     setDescription(agent.description ?? "");
     setLongDescription(agent.longDescription ?? "");
-    // Edit only the persona — the YouTube intel fence is preserved
-    // separately and re-attached on save.
-    setSystemPrompt(stripYouTubeIntelFence(agent.systemPrompt ?? ""));
+    setSystemPrompt(agent.systemPrompt ?? "");
     setFeedback(null);
     setIconPickerOpen(false);
     setEditOpen(true);
@@ -224,11 +219,6 @@ export function MePersonalAgentStatusPanel({
     setSubmitting(true);
     setFeedback(null);
     try {
-      // Re-attach the preserved YouTube intel fence so editing the persona
-      // doesn't blow away ingested sources.
-      const ytSources = parseYouTubeIntelSources(agent.systemPrompt ?? "");
-      const nextFullPrompt = composeYouTubeIntelPrompt(systemPrompt.trim(), ytSources);
-
       const res = await fetch("/api/me/personal-agents/edit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -236,7 +226,7 @@ export function MePersonalAgentStatusPanel({
           displayName: name.trim(),
           description: description.trim(),
           longDescription: longDescription.trim() || undefined,
-          systemPrompt: nextFullPrompt.trim() || undefined,
+          systemPrompt: systemPrompt.trim() || undefined,
         }),
       });
       const body = (await res.json().catch(() => ({}))) as {
@@ -281,7 +271,7 @@ export function MePersonalAgentStatusPanel({
         displayName: body.displayName ?? name.trim(),
         description: body.description ?? description.trim(),
         longDescription: longDescription.trim(),
-        systemPrompt: body.systemPrompt ?? nextFullPrompt,
+        systemPrompt: body.systemPrompt ?? systemPrompt.trim(),
       }));
       exitEdit();
       setSavedToast(icon ? "Saved & synced to Slack" : "Saved");
@@ -319,7 +309,7 @@ export function MePersonalAgentStatusPanel({
   const displayName = (agent.displayName ?? "").trim() || "Not set";
   // Personality row + preview should show only the user-typed persona, not
   // the appended "Learned from videos" fence (rendered by the YT panel).
-  const personaOnly = stripYouTubeIntelFence((agent.systemPrompt ?? "").trim());
+  const personaOnly = (agent.systemPrompt ?? "").trim();
   const previewDescription =
     (agent.description ?? "").trim() ||
     (agent.longDescription ?? "").trim() ||
@@ -478,9 +468,9 @@ export function MePersonalAgentStatusPanel({
 
       {status === "installed" && !editOpen ? (
         <MePersonalAgentYouTubeIngest
-          systemPrompt={agent.systemPrompt ?? ""}
-          onPromptChange={(nextPrompt) =>
-            setAgent((a) => ({ ...a, systemPrompt: nextPrompt }))
+          sources={agent.youtubeSources ?? []}
+          onSourcesChange={(nextSources) =>
+            setAgent((a) => ({ ...a, youtubeSources: nextSources }))
           }
         />
       ) : null}
