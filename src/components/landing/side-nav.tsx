@@ -1,7 +1,7 @@
 "use client";
 
 import { Menu, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 
 type Anchor = { href: string; label: string };
 
@@ -15,8 +15,48 @@ const ANCHORS: Anchor[] = [
   { href: "#testimonials", label: "Testimonials" },
 ];
 
-export function SideNav() {
+type SideNavCtx = { open: boolean; setOpen: (v: boolean) => void };
+
+const SideNavContext = createContext<SideNavCtx | null>(null);
+
+export function SideNavProvider({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
+  const value = useMemo(() => ({ open, setOpen }), [open]);
+  return <SideNavContext.Provider value={value}>{children}</SideNavContext.Provider>;
+}
+
+function useSideNavCtx(): SideNavCtx | null {
+  return useContext(SideNavContext);
+}
+
+export function useSideNav(): SideNavCtx | null {
+  return useSideNavCtx();
+}
+
+export function SideNavTrigger({ className = "" }: { className?: string }) {
+  const ctx = useSideNavCtx();
+  if (!ctx) return null;
+  const { open, setOpen } = ctx;
+  return (
+    <button
+      type="button"
+      aria-label={open ? "Close navigation" : "Open navigation"}
+      aria-expanded={open}
+      onClick={() => setOpen(!open)}
+      className={
+        "relative inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-full text-foreground/70 motion-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/25 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent active:scale-[0.97] " +
+        className
+      }
+    >
+      {open ? <X className="h-[1.125rem] w-[1.125rem]" aria-hidden /> : <Menu className="h-[1.125rem] w-[1.125rem]" aria-hidden />}
+    </button>
+  );
+}
+
+export function SideNav() {
+  const ctx = useSideNavCtx();
+  const open = ctx?.open ?? false;
+  const setOpen = ctx?.setOpen ?? (() => {});
 
   useEffect(() => {
     if (!open) return;
@@ -25,20 +65,10 @@ export function SideNav() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open]);
+  }, [open, setOpen]);
 
   return (
     <>
-      <button
-        type="button"
-        aria-label={open ? "Close navigation" : "Open navigation"}
-        aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
-        className="fixed left-3 top-[4.25rem] z-[60] flex h-10 w-10 items-center justify-center rounded-full border border-border bg-background/85 text-foreground shadow-md backdrop-blur-md transition hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/30 sm:left-5 sm:top-[4.5rem] sm:h-11 sm:w-11"
-      >
-        {open ? <X className="h-5 w-5" aria-hidden /> : <Menu className="h-5 w-5" aria-hidden />}
-      </button>
-
       <div
         aria-hidden={!open}
         onClick={() => setOpen(false)}
@@ -50,8 +80,8 @@ export function SideNav() {
       <aside
         aria-label="Section navigation"
         aria-hidden={!open}
-        className={`fixed left-0 top-0 z-[56] h-full w-72 max-w-[85vw] border-r border-border bg-background shadow-2xl transition-transform ${
-          open ? "translate-x-0" : "-translate-x-full"
+        className={`fixed right-0 top-0 z-[56] h-full w-72 max-w-[85vw] border-l border-border bg-background shadow-2xl transition-transform ${
+          open ? "translate-x-0" : "translate-x-full"
         }`}
       >
         <div className="flex h-14 items-center justify-between border-b border-border px-5">
