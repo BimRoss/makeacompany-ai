@@ -143,8 +143,16 @@ export function HeroSection() {
       // paint animates in from empty rather than no-opping.
       setL1("");
       setL2("");
+      animateTo({ line1: heroLine1, line2: heroLine2 });
+      return;
     }
-    animateTo({ line1: heroLine1, line2: heroLine2 });
+    // Persona switch: snap to the new text. The typewriter erase+retype
+    // races with mid-animation taps and visibly flickers the final chars
+    // (seen as "harne → harness" on Engineers).
+    cancelRef.current?.();
+    setCaretAt(null);
+    setL1(heroLine1);
+    setL2(heroLine2);
   }, [animateTo, heroLine1, heroLine2, setL1, setL2]);
 
   useEffect(() => () => cancelRef.current?.(), []);
