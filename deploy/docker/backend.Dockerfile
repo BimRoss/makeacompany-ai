@@ -3,12 +3,16 @@ FROM golang:1.26-alpine AS builder
 WORKDIR /src/backend
 
 COPY backend/go.mod backend/go.sum ./
-RUN go mod download
+RUN --mount=type=cache,target=/go/pkg/mod,id=go-mod \
+    --mount=type=cache,target=/root/.cache/go-build,id=go-build \
+    go mod download
 
 COPY backend ./
 
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /out/makeacompany-ai-backend ./cmd/makeacompany-ai-backend
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /out/backfill-user-engagement ./cmd/backfill-user-engagement
+RUN --mount=type=cache,target=/go/pkg/mod,id=go-mod \
+    --mount=type=cache,target=/root/.cache/go-build,id=go-build \
+    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o /out/makeacompany-ai-backend ./cmd/makeacompany-ai-backend && \
+    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o /out/backfill-user-engagement ./cmd/backfill-user-engagement
 
 FROM alpine:3.21
 
