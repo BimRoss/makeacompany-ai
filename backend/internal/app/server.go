@@ -260,6 +260,10 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 	s.mux.HandleFunc("/v1/billing/waitlist-stats", s.handleWaitlistStats)
 	s.mux.HandleFunc("/v1/lander/slack-seats", s.handleLanderSlackSeats)
 	s.mux.HandleFunc("/v1/lander/testimonials", s.handleLanderTestimonials)
+	// Public tier-waitlist signups (Personal Agent / Enterprise interest).
+	// Stores to Redis and (best-effort) fires a Resend notification to John.
+	s.mux.HandleFunc("/v1/marketing/tier-waitlist", s.handleTierWaitlist)
+	s.mux.HandleFunc("/v1/admin/tier-waitlist", s.handleAdminTierWaitlist)
 	s.mux.HandleFunc("/v1/admin/testimonials", s.handleAdminTestimonials)
 	s.mux.HandleFunc("/v1/admin/testimonials/", s.handleAdminTestimonials)
 	// Marketing UTM registry (issue #303). Gated by the admin session cookie

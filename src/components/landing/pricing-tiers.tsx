@@ -1,12 +1,16 @@
 "use client";
 
 import { Check } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 const SLACK_INVITE_URL =
   "https://join.slack.com/t/makeacompany/shared_invite/zt-3w432kf90-5B7IwfX2DNGfxLB1VGp6zA";
+const ENTERPRISE_CONTACT_EMAIL = "John@makeacompany.ai";
 
-type CtaKind = { kind: "link"; href: string } | { kind: "soon" };
+type CtaKind =
+  | { kind: "link"; href: string }
+  | { kind: "mailto"; email: string; subject?: string }
+  | { kind: "waitlist"; tier: string };
 
 type Tier = {
   name: string;
@@ -35,7 +39,7 @@ const TIERS: Tier[] = [
       "Acts on your email, calendar, docs, and Slack when you ask",
       "Currently gated to creator-only while we validate in the wild",
     ],
-    cta: { kind: "soon", label: "Get on the early access list" },
+    cta: { kind: "waitlist", label: "Get on the early access list", tier: "personal-agent" },
     dimmed: true,
   },
   {
@@ -67,7 +71,12 @@ const TIERS: Tier[] = [
       "Data residency and compliance posture",
       "Direct line to the team building it",
     ],
-    cta: { kind: "soon", label: "Talk to us" },
+    cta: {
+      kind: "mailto",
+      email: ENTERPRISE_CONTACT_EMAIL,
+      subject: "Enterprise tier — interested",
+      label: "Talk to us",
+    },
     dimmed: true,
   },
 ];
@@ -86,15 +95,74 @@ function StatusPill({ tone, children }: { tone: Tier["statusTone"]; children: st
   );
 }
 
+type WaitlistState = { status: "idle" } | { status: "sending" } | { status: "ok" } | { status: "error"; message: string };
+
+function WaitlistForm({ tier, ctaLabel, ctaClass }: { tier: string; ctaLabel: string; ctaClass: string }) {
+  const [email, setEmail] = useState("");
+  const [state, setState] = useState<WaitlistState>({ status: "idle" });
+
+  const onSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = email.trim();
+    if (!trimmed || !trimmed.includes("@")) {
+      setState({ status: "error", message: "Enter a valid email." });
+      return;
+    }
+    setState({ status: "sending" });
+    try {
+      const r = await fetch("/api/waitlist", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tier, email: trimmed }),
+      });
+      if (!r.ok) {
+        const body = await r.json().catch(() => ({}) as { error?: string });
+        setState({ status: "error", message: body.error || `Server returned ${r.status}.` });
+        return;
+      }
+      setState({ status: "ok" });
+    } catch (err) {
+      setState({ status: "error", message: err instanceof Error ? err.message : "Network error." });
+    }
+  };
+
+  if (state.status === "ok") {
+    return (
+      <p className="rounded-lg border border-foreground/30 bg-background px-3 py-2.5 text-center text-sm text-foreground">
+        You&apos;re on the list. We&apos;ll be in touch.
+      </p>
+    );
+  }
+
+  return (
+    <form onSubmit={onSubmit} className="flex flex-col gap-2">
+      <div className="flex flex-col gap-2 sm:flex-row">
+        <input
+          type="email"
+          required
+          autoComplete="email"
+          placeholder="you@work.com"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          disabled={state.status === "sending"}
+          className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-foreground/60 disabled:opacity-60"
+        />
+        <button
+          type="submit"
+          disabled={state.status === "sending"}
+          className={`${ctaClass} sm:flex-none`}
+        >
+          {state.status === "sending" ? "Adding…" : ctaLabel}
+        </button>
+      </div>
+      {state.status === "error" ? (
+        <p className="text-xs text-red-600 dark:text-red-400">{state.message}</p>
+      ) : null}
+    </form>
+  );
+}
+
 export function PricingTiers() {
-  const [toast, setToast] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!toast) return;
-    const t = setTimeout(() => setToast(null), 2200);
-    return () => clearTimeout(t);
-  }, [toast]);
-
   return (
     <section className="border-y border-border bg-muted/20 py-20" id="pricing">
       <div className="mx-auto w-full max-w-5xl px-6">
@@ -118,50 +186,56 @@ export function PricingTiers() {
             const mobileOrder = tier.emphasized
               ? "order-first sm:order-none"
               : "order-last sm:order-none";
-            const cardClass = tier.dimmed
-              ? `${baseCard} ${mobileOrder} opacity-50 pointer-events-none select-none`
-              : `${baseCard} ${mobileOrder}`;
+            // Dimmed cards now keep their CTA interactive — only the rest of the
+            // card body is visually dimmed. We split the dimming so the form/link
+            // stays clickable.
+            const cardClass = `${baseCard} ${mobileOrder}`;
+            const bodyDimClass = tier.dimmed ? "opacity-60" : "";
             const ctaClass = tier.emphasized
-              ? "inline-flex items-center justify-center rounded-lg bg-foreground px-4 py-2.5 text-sm font-semibold text-background hover:bg-foreground/90"
-              : "inline-flex items-center justify-center rounded-lg border border-foreground px-4 py-2.5 text-sm font-semibold text-foreground hover:bg-foreground/5";
+              ? "inline-flex items-center justify-center rounded-lg bg-foreground px-4 py-2.5 text-sm font-semibold text-background hover:bg-foreground/90 disabled:cursor-not-allowed disabled:opacity-60"
+              : "inline-flex items-center justify-center rounded-lg border border-foreground px-4 py-2.5 text-sm font-semibold text-foreground hover:bg-foreground/5 disabled:cursor-not-allowed disabled:opacity-60";
             return (
               <li key={tier.name} className={cardClass} aria-disabled={tier.dimmed || undefined}>
-                <div className="mb-4 flex items-center justify-between gap-2">
-                  <h3 className="text-lg font-semibold tracking-tight">{tier.name}</h3>
-                  <StatusPill tone={tier.statusTone}>{tier.status}</StatusPill>
+                <div className={bodyDimClass}>
+                  <div className="mb-4 flex items-center justify-between gap-2">
+                    <h3 className="text-lg font-semibold tracking-tight">{tier.name}</h3>
+                    <StatusPill tone={tier.statusTone}>{tier.status}</StatusPill>
+                  </div>
+                  <div className="mb-3 flex items-baseline gap-1">
+                    <span className="text-4xl font-bold tracking-tight">{tier.price}</span>
+                    <span className="text-sm text-muted-foreground">{tier.cadence}</span>
+                  </div>
+                  <p className="mb-5 text-pretty text-sm text-muted-foreground">{tier.pitch}</p>
+                  <ul className="mb-6 space-y-2">
+                    {tier.features.map((f) => (
+                      <li key={f} className="flex items-start gap-2 text-sm">
+                        <Check className="mt-0.5 h-4 w-4 shrink-0 text-foreground" aria-hidden="true" />
+                        <span className="text-pretty text-foreground/80">{f}</span>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
-                <div className="mb-3 flex items-baseline gap-1">
-                  <span className="text-4xl font-bold tracking-tight">{tier.price}</span>
-                  <span className="text-sm text-muted-foreground">{tier.cadence}</span>
+                <div className="mt-auto">
+                  {tier.cta.kind === "link" ? (
+                    <a
+                      href={tier.cta.href}
+                      target="_blank"
+                      rel="noopener"
+                      className={ctaClass}
+                    >
+                      {tier.cta.label}
+                    </a>
+                  ) : tier.cta.kind === "mailto" ? (
+                    <a
+                      href={`mailto:${tier.cta.email}${tier.cta.subject ? `?subject=${encodeURIComponent(tier.cta.subject)}` : ""}`}
+                      className={ctaClass}
+                    >
+                      {tier.cta.label}
+                    </a>
+                  ) : (
+                    <WaitlistForm tier={tier.cta.tier} ctaLabel={tier.cta.label} ctaClass={ctaClass} />
+                  )}
                 </div>
-                <p className="mb-5 text-pretty text-sm text-muted-foreground">{tier.pitch}</p>
-                <ul className="mb-6 flex-1 space-y-2">
-                  {tier.features.map((f) => (
-                    <li key={f} className="flex items-start gap-2 text-sm">
-                      <Check className="mt-0.5 h-4 w-4 shrink-0 text-foreground" aria-hidden="true" />
-                      <span className="text-pretty text-foreground/80">{f}</span>
-                    </li>
-                  ))}
-                </ul>
-                {tier.cta.kind === "link" ? (
-                  <a
-                    href={tier.cta.href}
-                    target="_blank"
-                    rel="noopener"
-                    className={ctaClass}
-                  >
-                    {tier.cta.label}
-                  </a>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setToast("Coming soon")}
-                    className={ctaClass}
-                    disabled={tier.dimmed}
-                  >
-                    {tier.cta.label}
-                  </button>
-                )}
               </li>
             );
           })}
@@ -171,17 +245,6 @@ export function PricingTiers() {
           First 100 seats are free for life. After that, the Starter trial is 10 days, no card required.
         </p>
       </div>
-
-      {toast ? (
-        <div className="pointer-events-none fixed inset-x-0 bottom-6 z-[70] flex justify-center px-4">
-          <p
-            role="status"
-            className="pointer-events-auto rounded-full border border-foreground bg-background px-5 py-2 text-sm font-medium text-foreground shadow-lg"
-          >
-            {toast}
-          </p>
-        </div>
-      ) : null}
     </section>
   );
 }
