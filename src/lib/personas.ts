@@ -25,18 +25,18 @@ export interface PersonaCopy {
 
 export const PERSONA_COPY: Record<Persona, PersonaCopy> = {
   founder: {
-    heroLine1: "Two hires cost $300k/yr.",
-    heroLine2: "These are $99/mo.",
+    heroLine1: "Stop being the bottleneck.",
+    heroLine2: "Two hires for $99/mo.",
     subhead:
-      "Joanne runs ops. Ross ships code. You make the calls only a founder can — for what one Claude seat costs.",
+      "Joanne runs ops. Ross ships code. You make the calls only a founder can, for what one Claude seat costs.",
     ctaH2: "Start your company.",
     ctaParagraph:
       "One click and you're in our Slack. Joanne and Ross will be waiting.",
     ctaButtonLabel: "Start your company",
   },
   engineer: {
-    heroLine1: "AI raised the bar.",
-    heroLine2: "Here's your harness.",
+    heroLine1: "Ship without the meetings.",
+    heroLine2: "Hosted Claude, in our Slack.",
     subhead:
       "Push PRs from your phone. Watch deploys finish while you're at lunch. The same Claude Code you run locally, except it lives in a pod with GitHub, Slack, and your repos already wired up. $99/month, one Claude seat.",
     ctaH2: "Get a hosted Claude.",
@@ -45,20 +45,20 @@ export const PERSONA_COPY: Record<Persona, PersonaCopy> = {
     ctaButtonLabel: "Get hosted Claude",
   },
   team: {
-    heroLine1: "AI teammates,",
-    heroLine2: "Where you already work.",
+    heroLine1: "This is how teams",
+    heroLine2: "coordinate now.",
     subhead:
-      "Joanne triages your #support channel, runs standups, drafts customer replies, syncs Google Workspace. Ross merges PRs, watches deploys, files tickets from threads. Both live in the Slack channels you already use — no new dashboard, no SSO setup. $99/month for the pair, live in five minutes.",
+      "Joanne triages your #support channel, runs standups, drafts customer replies, syncs Google Workspace. Ross merges PRs, watches deploys, files tickets from threads. Both live in the Slack channels you already use, no new dashboard, no SSO setup. $99/month for the pair, live in five minutes.",
     ctaH2: "Add them to your Slack.",
     ctaParagraph:
       "Click through to our Slack. Joanne and Ross are in the channels, ready to pick up tasks.",
     ctaButtonLabel: "Add to your Slack",
   },
   contractor: {
-    heroLine1: "Agencies charge $5k/mo.",
-    heroLine2: "We charge $99.",
+    heroLine1: "Land more gigs.",
+    heroLine2: "Run them solo.",
     subhead:
-      "Ross pairs with you in Slack — pushes branches, opens PRs, watches deploys. Joanne handles client comms and invoicing. Senior-team output, no headcount to manage.",
+      "Ross pairs with you in Slack, pushes branches, opens PRs, watches deploys. Joanne handles client comms and invoicing. Senior-team output, no headcount to manage. Agencies charge $5k/mo. We're $99.",
     ctaH2: "Get the unfair advantage.",
     ctaParagraph:
       "Click through to our Slack. Ross and Joanne are ready to ship.",

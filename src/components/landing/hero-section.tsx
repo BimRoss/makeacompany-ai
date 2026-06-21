@@ -19,8 +19,8 @@ const TYPE_MS = 42;
 
 export function HeroSection() {
   const { copy, selected } = usePersona();
-  const heroLine1 = selected ? copy.heroLine1 : "The future of work.";
-  const heroLine2 = selected ? copy.heroLine2 : "Where it already happens.";
+  const heroLine1 = selected ? copy.heroLine1 : "An AI team that runs";
+  const heroLine2 = selected ? copy.heroLine2 : "your company in Slack.";
   const personaDefault = { line1: heroLine1, line2: heroLine2 };
 
   // Caret position is the only piece of typing state React needs to track.
@@ -164,7 +164,7 @@ export function HeroSection() {
       </div>
 
       <div className="relative mx-auto w-full max-w-6xl text-center">
-        <div className="mb-4 flex justify-center sm:mb-6">
+        <div className="mb-8 flex justify-center sm:mb-12">
           <PricingCliffLine />
         </div>
 
@@ -172,7 +172,11 @@ export function HeroSection() {
           <PersonaSelector />
         </div>
 
-        <h1 className="mx-auto mb-6 flex min-h-[4.5rem] max-w-none flex-col items-center justify-center text-balance text-3xl font-bold leading-[1.1] tracking-tight text-foreground sm:mb-10 sm:min-h-[7rem] xl:whitespace-nowrap sm:text-5xl sm:leading-[1.06] md:min-h-[8rem] md:text-6xl lg:min-h-[10rem] lg:text-7xl">
+        <p className="mx-auto mb-3 max-w-2xl text-balance text-xs italic text-muted-foreground sm:mb-4 sm:text-sm">
+          The future of work, where it already happens.
+        </p>
+
+        <h1 className="mx-auto mb-4 flex min-h-[4.5rem] max-w-none flex-col items-center justify-center text-balance text-3xl font-bold leading-[1.1] tracking-tight text-foreground sm:mb-6 sm:min-h-[7rem] xl:whitespace-nowrap sm:text-5xl sm:leading-[1.06] md:min-h-[8rem] md:text-6xl lg:min-h-[10rem] lg:text-7xl">
           <span className="block xl:whitespace-nowrap">
             <span ref={l1ElRef}>{initialL1.current || " "}</span>
             {caretAt === 1 ? (
@@ -186,6 +190,10 @@ export function HeroSection() {
             ) : null}
           </span>
         </h1>
+
+        <p className="mx-auto mb-6 max-w-xl text-balance text-sm text-foreground sm:mb-10 sm:text-base">
+          Click the button. You&apos;ll be in our Slack with Ross and Joanne in 60 seconds.
+        </p>
 
         <HeroBuildQuoteRotator />
 
