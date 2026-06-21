@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { usePersona } from "@/components/landing/persona-context";
 import { BUILD_QUOTES, NEUTRAL_BUILD_QUOTES } from "@/lib/persona-build-quotes";
 
-const ROTATE_MS = 2200;
+const ROTATE_MS = 3300;
 const FADE_MS = 220;
 
 export function HeroBuildQuoteRotator() {
