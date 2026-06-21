@@ -26,7 +26,7 @@ const PILLARS = [
 
 export function ValueStack() {
   return (
-    <section id="why" className="py-20">
+    <section id="why" className="py-14 sm:py-20">
       <div className="mx-auto w-full max-w-5xl px-6">
         <div className="mb-12 text-center">
           <h2 className="text-balance text-3xl font-bold tracking-tight sm:text-4xl">
@@ -39,9 +39,9 @@ export function ValueStack() {
 
         <div className="mb-12 grid grid-cols-3 divide-x divide-border rounded-2xl border border-border bg-card">
           {STATS.map(({ value, label }) => (
-            <div key={label} className="flex flex-col items-center px-4 py-6 text-center sm:px-8">
-              <span className="text-2xl font-bold tracking-tight sm:text-3xl">{value}</span>
-              <span className="mt-1 text-xs text-muted-foreground sm:text-sm">{label}</span>
+            <div key={label} className="flex flex-col items-center justify-center px-2 py-5 text-center sm:px-8 sm:py-6">
+              <span className="text-lg font-bold tracking-tight sm:text-3xl">{value}</span>
+              <span className="mt-1 text-[11px] leading-snug text-muted-foreground sm:text-sm">{label}</span>
             </div>
           ))}
         </div>

@@ -164,7 +164,7 @@ function WaitlistForm({ tier, ctaLabel, ctaClass }: { tier: string; ctaLabel: st
 
 export function PricingTiers() {
   return (
-    <section className="border-y border-border bg-muted/20 py-20" id="pricing">
+    <section className="border-y border-border bg-muted/20 py-14 sm:py-20" id="pricing">
       <div className="mx-auto w-full max-w-5xl px-6">
         <div className="mb-12 text-center">
           <p className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
@@ -192,8 +192,8 @@ export function PricingTiers() {
             const cardClass = `${baseCard} ${mobileOrder}`;
             const bodyDimClass = tier.dimmed ? "opacity-60" : "";
             const ctaClass = tier.emphasized
-              ? "inline-flex items-center justify-center rounded-lg bg-foreground px-4 py-2.5 text-sm font-semibold text-background hover:bg-foreground/90 disabled:cursor-not-allowed disabled:opacity-60"
-              : "inline-flex items-center justify-center rounded-lg border border-foreground px-4 py-2.5 text-sm font-semibold text-foreground hover:bg-foreground/5 disabled:cursor-not-allowed disabled:opacity-60";
+              ? "inline-flex w-full items-center justify-center rounded-lg bg-foreground px-4 py-2.5 text-sm font-semibold text-background hover:bg-foreground/90 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+              : "inline-flex w-full items-center justify-center rounded-lg border border-foreground px-4 py-2.5 text-sm font-semibold text-foreground hover:bg-foreground/5 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto";
             return (
               <li key={tier.name} className={cardClass} aria-disabled={tier.dimmed || undefined}>
                 <div className={bodyDimClass}>

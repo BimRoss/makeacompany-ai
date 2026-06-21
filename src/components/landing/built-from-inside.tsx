@@ -186,7 +186,7 @@ function ReactionPill({ emoji, count }: Reaction) {
 
 export function BuiltFromInside() {
   return (
-    <section id="built" className="py-20">
+    <section id="built" className="py-14 sm:py-20">
       <div className="mx-auto w-full max-w-5xl px-6">
         <div className="mb-10 text-center">
           <p className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
