@@ -39,8 +39,9 @@ func stripYouTubeIntelFence(prompt string) string {
 
 // MaxPersonalityChars caps the user-typed persona that drives every spawn.
 // Personality is small-and-always-on; harvested intelligence belongs in a
-// lazy-loaded tool, not the system prompt (see #605).
-const MaxPersonalityChars = 600
+// lazy-loaded tool, not the system prompt (see #605). Bumped 600 → 1500 after
+// the first real operator persona blew the original cap.
+const MaxPersonalityChars = 1500
 
 // renderPersonalAgentRuntimePrompt returns the value the per-agent K8s Secret
 // should carry under PERSONAL_AGENT_SYSTEM_PROMPT. It is the user-typed
