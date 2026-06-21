@@ -454,8 +454,8 @@ export function MePersonalAgentStatusPanel({
             onSuggest={() => suggest("systemPrompt")}
             suggesting={suggesting === "systemPrompt"}
             disabled={submitting}
-            maxLength={2000}
-            placeholder='Defines how your agent behaves in Slack. Saved takes effect on the next message.'
+            maxLength={600}
+            placeholder='A few sentences on how your agent behaves. Knowledge (videos, docs) goes below.'
           />
         ) : personaOnly ? (
           <Row label="Personality" value={personaOnly.replace(/\s+/g, " ")} />
