@@ -12,7 +12,7 @@ import { GoldenPath } from "./golden-path";
 import { KpiScorecard } from "./kpi-scorecard";
 import { MetricPanel } from "./metric-panel";
 import { OAuthPoolPanel } from "@/components/admin/oauth-pool-panel";
-import { CLUSTER_PANELS, FUNNEL_PANELS, JOBS_PANELS, LIFECYCLE_PANELS, WEB_PANELS } from "./panels";
+import { CLUSTER_PANELS, FUNNEL_PANELS, JOBS_PANELS, LIFECYCLE_PANELS, TTFV_PANELS, WEB_PANELS } from "./panels";
 import { SearchDeviceStrip, SearchHostsPanel, SearchPagesPanel, SearchQueriesPanel } from "./search-panel";
 import { SearchTimeseriesPanels } from "./search-timeseries";
 import { ObservabilitySection } from "./section";
@@ -120,6 +120,18 @@ function ObservabilityBody() {
       >
         <div className={PANEL_GRID}>
           {FUNNEL_PANELS.map((def) => (
+            <MetricPanel key={def.id} def={def} from={from} />
+          ))}
+        </div>
+      </ObservabilitySection>
+
+      <ObservabilitySection
+        id="ttfv"
+        title="Time to first value"
+        description="How long after signup users send their first ingested message. Floor, not truth: signup_at is backfilled for pre-#581 profiles and excludes anyone with no first_seen_at yet."
+      >
+        <div className={PANEL_GRID}>
+          {TTFV_PANELS.map((def) => (
             <MetricPanel key={def.id} def={def} from={from} />
           ))}
         </div>
