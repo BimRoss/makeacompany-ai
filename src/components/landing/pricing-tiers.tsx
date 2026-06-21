@@ -5,11 +5,9 @@ import { useState } from "react";
 
 const SLACK_INVITE_URL =
   "https://join.slack.com/t/makeacompany/shared_invite/zt-3w432kf90-5B7IwfX2DNGfxLB1VGp6zA";
-const ENTERPRISE_CONTACT_EMAIL = "John@makeacompany.ai";
 
 type CtaKind =
   | { kind: "link"; href: string }
-  | { kind: "mailto"; email: string; subject?: string }
   | { kind: "waitlist"; tier: string };
 
 type Tier = {
@@ -60,8 +58,8 @@ const TIERS: Tier[] = [
   },
   {
     name: "Enterprise",
-    price: "$999",
-    cadence: "/mo",
+    price: "Flexible",
+    cadence: "",
     status: "August 2026",
     statusTone: "future",
     pitch: "Isolated infrastructure for accounts that need it.",
@@ -71,12 +69,7 @@ const TIERS: Tier[] = [
       "Data residency and compliance posture",
       "Direct line to the team building it",
     ],
-    cta: {
-      kind: "mailto",
-      email: ENTERPRISE_CONTACT_EMAIL,
-      subject: "Enterprise tier — interested",
-      label: "Talk to us",
-    },
+    cta: { kind: "waitlist", label: "Talk to us", tier: "enterprise" },
     dimmed: true,
   },
 ];
@@ -219,13 +212,6 @@ export function PricingTiers() {
                       href={tier.cta.href}
                       target="_blank"
                       rel="noopener"
-                      className={ctaClass}
-                    >
-                      {tier.cta.label}
-                    </a>
-                  ) : tier.cta.kind === "mailto" ? (
-                    <a
-                      href={`mailto:${tier.cta.email}${tier.cta.subject ? `?subject=${encodeURIComponent(tier.cta.subject)}` : ""}`}
                       className={ctaClass}
                     >
                       {tier.cta.label}

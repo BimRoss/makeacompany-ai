@@ -247,15 +247,6 @@ export function MePersonalAgentYouTubeIngest({ systemPrompt, onPromptChange }: P
                       <span className="text-[11px] text-muted-foreground">{insightLabel}</span>
                     </span>
                   </button>
-                  <a
-                    href={s.url}
-                    target="_blank"
-                    rel="noreferrer noopener"
-                    className="text-[11px] font-medium text-muted-foreground transition hover:text-foreground"
-                    title="Open on YouTube"
-                  >
-                    Open
-                  </a>
                   <button
                     type="button"
                     onClick={() => void deleteSource(s.url)}
@@ -312,12 +303,12 @@ export function MePersonalAgentYouTubeIngest({ systemPrompt, onPromptChange }: P
           onChange={(e) => setUrl(e.target.value)}
           placeholder="https://youtube.com/watch?v=…"
           disabled={busy}
-          className="h-14 flex-1 rounded-lg border border-border bg-background px-4 text-base text-foreground placeholder:text-muted-foreground focus:border-foreground/40 focus:outline-none disabled:opacity-60 sm:h-10 sm:text-sm sm:px-3"
+          className="h-11 flex-1 rounded-lg border border-border bg-background px-3 text-base text-foreground placeholder:text-muted-foreground focus:border-foreground/40 focus:outline-none disabled:opacity-60 sm:h-10 sm:text-sm"
         />
         <button
           type="submit"
           disabled={busy || !url.trim()}
-          className="inline-flex h-14 items-center justify-center gap-1.5 rounded-lg bg-foreground px-4 text-base font-semibold text-background transition hover:bg-foreground/90 disabled:opacity-50 sm:h-10 sm:text-sm"
+          className="inline-flex h-11 items-center justify-center gap-1.5 rounded-lg bg-foreground px-4 text-sm font-semibold text-background transition hover:bg-foreground/90 disabled:opacity-50 sm:h-10"
         >
           {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : null}
           <span>{busy ? STAGE_LABEL[stage] : "Add"}</span>
