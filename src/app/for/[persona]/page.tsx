@@ -98,7 +98,16 @@ export default async function PersonaLandingPage({
           dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
         />
         <CheckoutReturnToast />
-        <SideNav />
+        <SideNav
+          anchors={[
+            { href: "#start", label: "Start" },
+            { href: "#why", label: "Why this" },
+            { href: "#how", label: "How it works" },
+            { href: "#built", label: "Built from inside" },
+            { href: "#pricing", label: "Pricing" },
+            { href: "#testimonials", label: "Testimonials" },
+          ]}
+        />
         <Header />
         <PersonaProvider initialPersona={persona} initialFromUrl>
           <PersonaPageView persona={persona} slug={slug} />
