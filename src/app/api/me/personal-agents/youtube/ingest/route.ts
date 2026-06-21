@@ -11,86 +11,21 @@ export const dynamic = "force-dynamic";
 //   stage: fetching          (we accepted the URL, asking the transcribe svc)
 //   stage: transcribing      (transcribe call resolved; harvest about to start)
 //   stage: harvesting        (LLM call in flight)
-//   stage: done              (bullets persisted onto SystemPrompt)
+//   stage: done              (bullets persisted onto the agent record)
 //   stage: error             (terminal; payload.message has the reason)
 //
-// Persistence: we read the current SystemPrompt off the agent record, splice
-// in the harvested bullets between marker fences (`<!-- yt-intel-start -->`
-// ... `<!-- yt-intel-end -->`), and POST the full new value back to the
-// existing /v1/me/personal-agents/edit. That sidesteps a Go schema change at
-// the cost of growing SystemPrompt as videos accumulate. The /me UI strips
-// the fenced block before rendering the Personality row.
+// Persistence: harvested bullets POST straight to the backend's structured
+// /v1/me/personal-agents/youtube-sources/add endpoint, which stores them on
+// PersonalAgentRecord.YouTubeSources (separate from the typed personality).
+// The agent fetches them at runtime via the lazy-load /knowledge endpoint
+// (#607), not via the system prompt. See #605 / #608.
 
 const TRANSCRIBE_BASE_URL = (process.env.TRANSCRIBE_BASE_URL ?? "http://transcribe:8080").replace(
   /\/$/,
   "",
 );
 
-const FENCE_START = "<!-- yt-intel-start -->";
-const FENCE_END = "<!-- yt-intel-end -->";
-
 type YtSource = { url: string; title: string; bullets: string[]; ingestedAt: string };
-
-function stripFenced(prompt: string): string {
-  const startIdx = prompt.indexOf(FENCE_START);
-  const endIdx = prompt.indexOf(FENCE_END);
-  if (startIdx === -1 || endIdx === -1 || endIdx < startIdx) return prompt;
-  // Also eat any leading whitespace before the start fence — the renderer
-  // adds "\n\n" before it, and we don't want trailing blanks in the persona.
-  const before = prompt.slice(0, startIdx).replace(/\s+$/, "");
-  const after = prompt.slice(endIdx + FENCE_END.length).replace(/^\s+/, "");
-  return [before, after].filter(Boolean).join("\n\n");
-}
-
-function parseFencedSources(prompt: string): YtSource[] {
-  const startIdx = prompt.indexOf(FENCE_START);
-  const endIdx = prompt.indexOf(FENCE_END);
-  if (startIdx === -1 || endIdx === -1 || endIdx < startIdx) return [];
-  const block = prompt.slice(startIdx + FENCE_START.length, endIdx).trim();
-  if (!block) return [];
-  // JSON-encoded array sits immediately inside the fence — parsing markdown
-  // bullets back into structured form would lose the URL anchor we need for
-  // per-source delete.
-  try {
-    const parsed = JSON.parse(block) as YtSource[];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
-function renderFenced(sources: YtSource[]): string {
-  if (sources.length === 0) return "";
-  // The fence wraps the JSON; outside the fence we also emit human-readable
-  // markdown so the agent's instructions.md (which sees the WHOLE prompt
-  // verbatim) still gets prose to chew on, not just JSON. The strip step
-  // above only runs in the UI; the backend's K8s Secret carries the full
-  // value including both prose and JSON.
-  const prose = sources
-    .map((s) => {
-      const title = s.title?.trim() || s.url;
-      const lines = [`### ${title}`, ...s.bullets.map((b) => `- ${b}`)];
-      return lines.join("\n");
-    })
-    .join("\n\n");
-  return [
-    "## Learned from videos",
-    "",
-    prose,
-    "",
-    FENCE_START,
-    JSON.stringify(sources),
-    FENCE_END,
-  ].join("\n");
-}
-
-function composePrompt(persona: string, sources: YtSource[]): string {
-  const cleanPersona = persona.replace(/\s+$/, "");
-  const fenced = renderFenced(sources);
-  if (!fenced) return cleanPersona;
-  if (!cleanPersona) return fenced;
-  return `${cleanPersona}\n\n${fenced}`;
-}
 
 function sse(event: string, payload: Record<string, unknown>): string {
   return `event: ${event}\ndata: ${JSON.stringify(payload)}\n\n`;
@@ -165,40 +100,30 @@ export async function POST(request: Request) {
           return;
         }
 
-        // --- read current agent record + splice fenced block ---
-        const mineRes = await fetch(`${backend}/v1/me/personal-agents/mine`, {
-          headers: authHeader,
-          cache: "no-store",
-        });
-        if (!mineRes.ok) {
-          fail(`could not read current agent (${mineRes.status})`);
-          return;
-        }
-        const mine = (await mineRes.json()) as { systemPrompt?: string };
-        const currentPrompt = (mine.systemPrompt ?? "").trim();
-        const persona = stripFenced(currentPrompt);
-        const existingSources = parseFencedSources(currentPrompt);
-        const filtered = existingSources.filter((s) => s.url !== url);
+        // --- persist via structured YouTube-sources endpoint ---
         const newSource: YtSource = {
           url,
           title: tr.title || url,
           bullets: hv.bullets,
           ingestedAt: new Date().toISOString(),
         };
-        const nextSources = [...filtered, newSource];
-        const nextPrompt = composePrompt(persona, nextSources);
-
-        // --- persist via existing /edit endpoint ---
-        const editRes = await fetch(`${backend}/v1/me/personal-agents/edit`, {
-          method: "POST",
-          headers: { ...authHeader, "Content-Type": "application/json" },
-          body: JSON.stringify({ systemPrompt: nextPrompt }),
-        });
-        if (!editRes.ok) {
-          const detail = await editRes.text().catch(() => "");
-          fail(`persist failed (${editRes.status}): ${detail.slice(0, 200)}`);
+        const addRes = await fetch(
+          `${backend}/v1/me/personal-agents/youtube-sources/add`,
+          {
+            method: "POST",
+            headers: { ...authHeader, "Content-Type": "application/json" },
+            body: JSON.stringify({ url, title: newSource.title, bullets: hv.bullets }),
+          },
+        );
+        if (!addRes.ok) {
+          const detail = await addRes.text().catch(() => "");
+          fail(`persist failed (${addRes.status}): ${detail.slice(0, 200)}`);
           return;
         }
+        const addBody = (await addRes.json().catch(() => ({}))) as {
+          youtubeSources?: YtSource[];
+        };
+        const nextSources = addBody.youtubeSources ?? [newSource];
 
         send("done", {
           stage: "done",

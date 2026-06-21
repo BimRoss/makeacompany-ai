@@ -44,6 +44,43 @@ func (w *PersonalAgentWriter) PatchAgentSystemPrompt(ctx context.Context, slackU
 	return nil
 }
 
+// PatchAgentKnowledgeEnv writes the three knowledge-related env vars
+// (PERSONAL_AGENT_ID, PERSONAL_AGENT_KNOWLEDGE_TOKEN, MAKEACOMPANY_API_BASE)
+// onto an existing per-agent runtime Secret without disturbing the bot token
+// or signing secret. Used to backfill agents minted before #607.
+func (w *PersonalAgentWriter) PatchAgentKnowledgeEnv(ctx context.Context, slackUserID, agentID, token, backendBaseURL string) error {
+	if w.Disabled() {
+		return ErrPersonalAgentWriterDisabled
+	}
+	if strings.TrimSpace(slackUserID) == "" {
+		return errors.New("PatchAgentKnowledgeEnv: slack user id empty")
+	}
+	if strings.TrimSpace(agentID) == "" || strings.TrimSpace(token) == "" {
+		return errors.New("PatchAgentKnowledgeEnv: agent id + token required")
+	}
+	name := personalAgentSecretName(slackUserID)
+	stringData := map[string]any{
+		"PERSONAL_AGENT_ID":              agentID,
+		"PERSONAL_AGENT_KNOWLEDGE_TOKEN": token,
+	}
+	if v := strings.TrimSpace(backendBaseURL); v != "" {
+		stringData["MAKEACOMPANY_API_BASE"] = v
+	}
+	patchObj := map[string]any{"stringData": stringData}
+	patchBytes, err := json.Marshal(patchObj)
+	if err != nil {
+		return err
+	}
+	_, err = w.cs.CoreV1().Secrets(w.agentNamespace).Patch(ctx, name, types.StrategicMergePatchType, patchBytes, metav1.PatchOptions{})
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return errors.New("agent runtime secret not found")
+		}
+		return fmt.Errorf("patch knowledge env: %w", err)
+	}
+	return nil
+}
+
 // RestartAgentDeployment forces a rolling restart of the per-agent
 // Deployment by bumping a template annotation. The dispatcher pod stops,
 // envFrom re-reads the Secret, and the next inbound Slack message sees the

@@ -3,43 +3,12 @@
 import { useCallback, useEffect, useState } from "react";
 import { ChevronDown, Loader2, Trash2, Youtube } from "lucide-react";
 
-// Fence markers MUST stay in sync with the orchestrator routes:
-//   src/app/api/me/personal-agents/youtube/ingest/route.ts
-//   src/app/api/me/personal-agents/youtube/delete/route.ts
-// They wrap a JSON-encoded array of YtSource that we parse back out here
-// to render the "Learned from videos" list with per-source delete.
-const FENCE_START = "<!-- yt-intel-start -->";
-const FENCE_END = "<!-- yt-intel-end -->";
-
 export type YtSource = {
   url: string;
   title: string;
   bullets: string[];
   ingestedAt: string;
 };
-
-export function stripYouTubeIntelFence(prompt: string): string {
-  const startIdx = prompt.indexOf(FENCE_START);
-  const endIdx = prompt.indexOf(FENCE_END);
-  if (startIdx === -1 || endIdx === -1 || endIdx < startIdx) return prompt;
-  const before = prompt.slice(0, startIdx).replace(/\s+$/, "");
-  const after = prompt.slice(endIdx + FENCE_END.length).replace(/^\s+/, "");
-  return [before, after].filter(Boolean).join("\n\n");
-}
-
-export function parseYouTubeIntelSources(prompt: string): YtSource[] {
-  const startIdx = prompt.indexOf(FENCE_START);
-  const endIdx = prompt.indexOf(FENCE_END);
-  if (startIdx === -1 || endIdx === -1 || endIdx < startIdx) return [];
-  const block = prompt.slice(startIdx + FENCE_START.length, endIdx).trim();
-  if (!block) return [];
-  try {
-    const parsed = JSON.parse(block) as YtSource[];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
 
 type Stage = "idle" | "fetching" | "transcribing" | "harvesting" | "done" | "error";
 
@@ -53,21 +22,22 @@ const STAGE_LABEL: Record<Stage, string> = {
 };
 
 type Props = {
-  systemPrompt: string;
-  onPromptChange: (nextPrompt: string) => void;
+  sources: YtSource[];
+  onSourcesChange: (next: YtSource[]) => void;
 };
 
 /**
- * Drops a YouTube URL into the personal agent's persona. The flow:
+ * Drops a YouTube URL into the personal agent's knowledge. The flow:
  *   1. POST /api/me/personal-agents/youtube/ingest with the URL.
  *   2. SSE events tick: fetching → transcribing → harvesting → done.
- *   3. On done, the parent's systemPrompt prop updates (via onPromptChange)
- *      and the list re-renders with the new source — no extra fetch.
+ *   3. On done, the parent's sources prop updates (via onSourcesChange).
  *   4. The previous input collapses into the list and a fresh empty input
  *      appears below, matching the "infinite ingest" UX Grant sketched.
+ *
+ * The harvested bullets live separately from the personality (#605/#608) —
+ * the agent reaches them via a lazy-load skill (#607), not via system prompt.
  */
-export function MePersonalAgentYouTubeIngest({ systemPrompt, onPromptChange }: Props) {
-  const sources = parseYouTubeIntelSources(systemPrompt);
+export function MePersonalAgentYouTubeIngest({ sources, onSourcesChange }: Props) {
   const [url, setUrl] = useState("");
   const [stage, setStage] = useState<Stage>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -157,13 +127,7 @@ export function MePersonalAgentYouTubeIngest({ systemPrompt, onPromptChange }: P
         }
 
         if (lastDoneEvent?.sources) {
-          // Reflect the new sources into the parent's systemPrompt so the
-          // Personality row stays in lockstep and the list re-renders.
-          // We rebuild the prompt the same way the orchestrator does — see
-          // composePrompt in ingest/route.ts.
-          const persona = stripYouTubeIntelFence(systemPrompt);
-          const nextPrompt = composeYouTubeIntelPrompt(persona, lastDoneEvent.sources);
-          onPromptChange(nextPrompt);
+          onSourcesChange(lastDoneEvent.sources);
           setUrl(""); // Fresh input for the next URL.
           setToast("Added. Garth will reference this on his next reply.");
         }
@@ -172,7 +136,7 @@ export function MePersonalAgentYouTubeIngest({ systemPrompt, onPromptChange }: P
         setErrorMessage(err instanceof Error ? err.message : "ingest failed");
       }
     },
-    [url, stage, systemPrompt, onPromptChange],
+    [url, stage, onSourcesChange],
   );
 
   const deleteSource = useCallback(
@@ -191,9 +155,7 @@ export function MePersonalAgentYouTubeIngest({ systemPrompt, onPromptChange }: P
         }
         const payload = (await res.json()) as { sources?: YtSource[] };
         if (payload.sources) {
-          const persona = stripYouTubeIntelFence(systemPrompt);
-          const nextPrompt = composeYouTubeIntelPrompt(persona, payload.sources);
-          onPromptChange(nextPrompt);
+          onSourcesChange(payload.sources);
         }
       } catch (err) {
         setErrorMessage(err instanceof Error ? err.message : "delete failed");
@@ -201,7 +163,7 @@ export function MePersonalAgentYouTubeIngest({ systemPrompt, onPromptChange }: P
         setPendingDeleteUrl(null);
       }
     },
-    [systemPrompt, onPromptChange],
+    [onSourcesChange],
   );
 
   const busy = stage === "fetching" || stage === "transcribing" || stage === "harvesting";
@@ -333,30 +295,3 @@ export function MePersonalAgentYouTubeIngest({ systemPrompt, onPromptChange }: P
   );
 }
 
-// Mirror of composePrompt in ingest/route.ts. Lives here so the optimistic
-// client-side update doesn't require a second round-trip after the SSE
-// "done" event, AND so the edit form can re-attach the fenced sources block
-// after the user finishes editing their persona. Keep in sync with the
-// server-side renderer.
-export function composeYouTubeIntelPrompt(persona: string, sources: YtSource[]): string {
-  const cleanPersona = persona.replace(/\s+$/, "");
-  if (sources.length === 0) return cleanPersona;
-  const prose = sources
-    .map((s) => {
-      const title = s.title?.trim() || s.url;
-      const lines = [`### ${title}`, ...s.bullets.map((b) => `- ${b}`)];
-      return lines.join("\n");
-    })
-    .join("\n\n");
-  const fenced = [
-    "## Learned from videos",
-    "",
-    prose,
-    "",
-    FENCE_START,
-    JSON.stringify(sources),
-    FENCE_END,
-  ].join("\n");
-  if (!cleanPersona) return fenced;
-  return `${cleanPersona}\n\n${fenced}`;
-}
