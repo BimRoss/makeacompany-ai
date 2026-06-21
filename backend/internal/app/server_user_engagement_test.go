@@ -94,6 +94,34 @@ func TestIngestUserEngagement_JoanneSeparateCounter(t *testing.T) {
 	}
 }
 
+func TestIngestUserEngagement_PersonalAgent(t *testing.T) {
+	s, _ := newEngagementTestServer(t)
+	// A personal agent reports its own DM: its own replies (UPA) and the
+	// owner's inbound (UOWNER). Both land in the real per-user dedup store.
+	postBatch(t, s, "personal-agent", []map[string]any{
+		{"workspace_id": "T1", "slack_user_id": "UPA", "channel_id": "D1", "message_ts": "1.1", "occurred_at": time.Now().UTC().Format(time.RFC3339)},
+		{"workspace_id": "T1", "slack_user_id": "UPA", "channel_id": "D1", "message_ts": "1.2", "occurred_at": time.Now().UTC().Format(time.RFC3339)},
+		{"workspace_id": "T1", "slack_user_id": "UOWNER", "channel_id": "D1", "message_ts": "1.3", "occurred_at": time.Now().UTC().Format(time.RFC3339)},
+	})
+	// The /admin Messages column reads the deduped per-user store
+	// (TopUsersByMessages / LoadUserMessages), which is the path personal-agent
+	// feeds. Both the PA's own row and the owner's row light up.
+	pa, _ := s.store.LoadUserMessages(context.Background(), "UPA")
+	if pa.TotalMessages != 2 {
+		t.Errorf("UPA total=%d want 2", pa.TotalMessages)
+	}
+	owner, _ := s.store.LoadUserMessages(context.Background(), "UOWNER")
+	if owner.TotalMessages != 1 {
+		t.Errorf("UOWNER total=%d want 1", owner.TotalMessages)
+	}
+	// Legacy per-bot counters are skipped for personal-agent (no sprawl of
+	// unread keys), so the canonical ross/joanne breakdown stays zero.
+	legacy, _ := s.store.LoadUserEngagement(context.Background(), "UPA")
+	if legacy.RossMessages != 0 || legacy.JoanneMessages != 0 {
+		t.Errorf("UPA legacy counters ross=%d joanne=%d want 0/0", legacy.RossMessages, legacy.JoanneMessages)
+	}
+}
+
 func TestIngestUserEngagement_BadBot(t *testing.T) {
 	s, _ := newEngagementTestServer(t)
 	body, _ := json.Marshal(map[string]any{

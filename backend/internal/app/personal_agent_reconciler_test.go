@@ -322,6 +322,9 @@ func TestReconcilePersonalAgentImages_ConvergesResourceDrift(t *testing.T) {
 					{Name: "PERSONAL_AGENT_DEFAULT_MODEL", Value: personalAgentDefaultModel()},
 					{Name: "PERSONAL_AGENT_DEFAULT_EFFORT", Value: personalAgentDefaultEffort()},
 					{Name: "PERSONAL_AGENT_LOOP_MODEL", Value: personalAgentLoopModel()},
+					// MAC_BACKEND_URL has a non-empty default, so it converges on
+					// any pod missing it — stamp it here to isolate resource drift.
+					{Name: "MAC_BACKEND_URL", Value: personalAgentMacBackendURL()},
 				},
 				// Old over-reserved footprint.
 				Resources: corev1.ResourceRequirements{

@@ -44,8 +44,12 @@ func (s *Server) handleInternalIngestUserEngagement(w http.ResponseWriter, r *ht
 		return
 	}
 	bot := strings.ToLower(strings.TrimSpace(req.Bot))
-	if bot != "ross" && bot != "joanne" {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "bot must be ross or joanne"})
+	// ross/joanne observe shared channels; "personal-agent" pods report their
+	// own DM traffic (own replies + owner inbound). Per-user attribution is by
+	// SlackUserID below, so `bot` only labels the source and drives the legacy
+	// per-bot counter (canonical agents only).
+	if bot != "ross" && bot != "joanne" && bot != "personal-agent" {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "bot must be ross, joanne, or personal-agent"})
 		return
 	}
 	if len(req.Events) == 0 {
@@ -83,9 +87,12 @@ func (s *Server) handleInternalIngestUserEngagement(w http.ResponseWriter, r *ht
 		})
 	}
 	// Legacy per-bot counters (kept for one release for safety, reads
-	// no longer use them). Real path is the dedup store below.
-	if err := s.store.IngestUserEngagementBatch(r.Context(), bot, ingest); err != nil {
-		s.log.Printf("ingest user engagement (legacy): %v", err)
+	// no longer use them). Only the two canonical agents — personal-agent
+	// traffic would just sprawl unread keys. Real path is the dedup store below.
+	if bot == "ross" || bot == "joanne" {
+		if err := s.store.IngestUserEngagementBatch(r.Context(), bot, ingest); err != nil {
+			s.log.Printf("ingest user engagement (legacy): %v", err)
+		}
 	}
 	if err := s.store.IngestUserMessagesBatch(r.Context(), ingest); err != nil {
 		s.log.Printf("ingest user messages: %v", err)
