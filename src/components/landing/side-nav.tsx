@@ -72,16 +72,16 @@ export function SideNav() {
       <div
         aria-hidden={!open}
         onClick={() => setOpen(false)}
-        className={`fixed inset-0 z-[55] bg-foreground/30 backdrop-blur-sm transition-opacity ${
-          open ? "opacity-100" : "pointer-events-none opacity-0"
+        className={`fixed inset-0 z-[55] bg-foreground/30 transition-opacity duration-200 ease-out ${
+          open ? "opacity-100 backdrop-blur-sm" : "pointer-events-none opacity-0"
         }`}
       />
 
       <aside
         aria-label="Section navigation"
         aria-hidden={!open}
-        className={`fixed right-0 top-0 z-[56] h-full w-72 max-w-[85vw] border-l border-border bg-background shadow-2xl transition-transform ${
-          open ? "translate-x-0" : "translate-x-full"
+        className={`fixed right-0 top-0 z-[56] h-full w-72 max-w-[85vw] border-l border-border bg-background shadow-2xl transition-[transform,opacity] duration-[240ms] ease-out ${
+          open ? "translate-x-0 opacity-100" : "pointer-events-none translate-x-4 opacity-0"
         }`}
       >
         <div className="flex h-14 items-center justify-between border-b border-border px-5">
