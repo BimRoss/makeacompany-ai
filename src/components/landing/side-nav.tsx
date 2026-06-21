@@ -34,7 +34,7 @@ export function SideNav() {
         aria-label={open ? "Close navigation" : "Open navigation"}
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className="fixed left-3 top-1/2 z-[60] flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-background/85 text-foreground shadow-lg backdrop-blur-md transition hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/30 sm:left-4"
+        className="fixed left-3 top-[4.25rem] z-[60] flex h-10 w-10 items-center justify-center rounded-full border border-border bg-background/85 text-foreground shadow-md backdrop-blur-md transition hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/30 sm:left-5 sm:top-[4.5rem] sm:h-11 sm:w-11"
       >
         {open ? <X className="h-5 w-5" aria-hidden /> : <Menu className="h-5 w-5" aria-hidden />}
       </button>
