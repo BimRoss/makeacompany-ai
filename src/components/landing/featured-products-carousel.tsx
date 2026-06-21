@@ -53,7 +53,7 @@ export function FeaturedProductsCarousel({ products }: { products: FeaturedProdu
   if (products.length === 0) return null;
 
   return (
-    <section className="py-20">
+    <section id="products" className="py-20">
       <div className="mx-auto max-w-6xl px-6">
         <div className="mb-12 text-center">
           <p className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
