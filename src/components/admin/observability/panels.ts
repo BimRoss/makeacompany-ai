@@ -5,6 +5,7 @@ import {
   formatCompact,
   formatCores,
   formatDuration,
+  formatDurationDays,
   formatMs,
   formatPercent,
   formatPerMin,
@@ -75,6 +76,8 @@ const INSTALL_CLICK = "makeacompany_install_click_total";
 const OAUTH_CALLBACK = "makeacompany_oauth_callback_total";
 const FIRST_MESSAGE = "makeacompany_first_message_total";
 const TRIAL_START = "makeacompany_trial_start_total";
+const TTFV_QUANT = "makeacompany_ttfv_quantile_seconds";
+const TTFV_BUCKET = "makeacompany_ttfv_bucket_users";
 
 const statusTone = (cls: string): ChartTone =>
   cls.startsWith("2") ? "pos" : cls.startsWith("5") ? "neg" : cls.startsWith("4") ? "accent" : "muted";
@@ -392,6 +395,105 @@ export const FUNNEL_PANELS: PanelDef[] = [
     ),
     format: formatCompact,
     zeroBaseline: true,
+    hideWhenEmpty: true,
+  },
+];
+
+// TTFV bucket ordering follows the sweeper's seconds-upper-bound order so the
+// stacked chart reads same-day at the bottom and "longer" at the top.
+const TTFV_BUCKET_ORDER = ["same_day", "week", "two_weeks", "month", "quarter", "longer"];
+const TTFV_BUCKET_LABELS: Record<string, string> = {
+  same_day: "same day",
+  week: "1–7 days",
+  two_weeks: "8–14 days",
+  month: "15–30 days",
+  quarter: "31–90 days",
+  longer: "90+ days",
+};
+
+const ttfvBucketLabel = (bucket: string): string => TTFV_BUCKET_LABELS[bucket] ?? bucket;
+
+const ttfvBucketTone = (bucket: string): ChartTone => {
+  switch (bucket) {
+    case "same_day":
+      return "pos";
+    case "week":
+      return "ink";
+    case "two_weeks":
+      return "accent";
+    case "month":
+    case "quarter":
+      return "muted";
+    case "longer":
+    default:
+      return "neg";
+  }
+};
+
+const ttfvBucketSort = (a: string, b: string): number => {
+  const ai = TTFV_BUCKET_ORDER.indexOf(a);
+  const bi = TTFV_BUCKET_ORDER.indexOf(b);
+  if (ai === -1 && bi === -1) return a.localeCompare(b);
+  if (ai === -1) return 1;
+  if (bi === -1) return -1;
+  return ai - bi;
+};
+
+// splitByLabel sorts alphabetically by default, which puts "longer" next to
+// "month" and "same_day" between "quarter" and "two_weeks" -- meaningless to
+// a reader. We want the buckets in TTFV order.
+function splitByLabelOrdered(
+  query: string,
+  labelKey: string,
+  tone: (v: string) => ChartTone,
+  label: (v: string) => string,
+  sort: (a: string, b: string) => number,
+) {
+  return (raw: RangeSeries[]): ChartSeries[] =>
+    raw
+      .filter((s) => s.query === query && s.labels[labelKey])
+      .sort((a, b) => sort(a.labels[labelKey], b.labels[labelKey]))
+      .map((s) => ({
+        key: `${query}-${s.labels[labelKey]}`,
+        label: label(s.labels[labelKey]),
+        tone: tone(s.labels[labelKey]),
+        points: s.points,
+      }));
+}
+
+export const TTFV_PANELS: PanelDef[] = [
+  {
+    id: "ttfv-quantiles",
+    title: "Time to first value",
+    subtitle: "Signup → first ingested message, last 30 days of signups (#579)",
+    queries: [
+      `${TTFV_QUANT}{cohort="last30d", quantile="0.5"}`,
+      `${TTFV_QUANT}{cohort="last30d", quantile="0.9"}`,
+    ],
+    toSeries: perQuery([
+      { query: `${TTFV_QUANT}{cohort="last30d", quantile="0.5"}`, label: "p50", tone: "ink" },
+      { query: `${TTFV_QUANT}{cohort="last30d", quantile="0.9"}`, label: "p90", tone: "accent" },
+    ]),
+    format: formatDurationDays,
+    span: 2,
+    hideWhenEmpty: true,
+  },
+  {
+    id: "ttfv-distribution",
+    title: "TTFV distribution",
+    subtitle: "Users per bucket, last 30 days of signups. Same-day at top means onboarding is sticking.",
+    queries: [`${TTFV_BUCKET}{cohort="last30d"}`],
+    toSeries: splitByLabelOrdered(
+      `${TTFV_BUCKET}{cohort="last30d"}`,
+      "bucket",
+      ttfvBucketTone,
+      ttfvBucketLabel,
+      ttfvBucketSort,
+    ),
+    format: formatCompact,
+    area: true,
+    zeroBaseline: true,
+    span: 2,
     hideWhenEmpty: true,
   },
 ];

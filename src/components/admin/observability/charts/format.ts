@@ -31,6 +31,16 @@ export function formatDuration(seconds: number): string {
   return `${(seconds / 3600).toFixed(1)}h`;
 }
 
+/** Days-scale duration used by the TTFV panel. Falls back to hours/minutes
+ * under a day so a same-day TTFV reads as "8h" rather than "0.3d". */
+export function formatDurationDays(seconds: number): string {
+  if (!Number.isFinite(seconds)) return "—";
+  if (seconds <= 0) return "0";
+  if (seconds < 3600) return `${(seconds / 60).toFixed(0)}m`;
+  if (seconds < 86400) return `${(seconds / 3600).toFixed(1)}h`;
+  return `${(seconds / 86400).toFixed(1)}d`;
+}
+
 export function formatBytes(n: number): string {
   if (!Number.isFinite(n)) return "—";
   const abs = Math.abs(n);
