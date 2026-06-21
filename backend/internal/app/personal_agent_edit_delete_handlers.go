@@ -53,7 +53,12 @@ func (s *Server) handleEditPersonalAgent(w http.ResponseWriter, r *http.Request)
 	// intelligence belongs in lazy-loaded knowledge, not the system prompt.
 	newSystemPrompt := strings.TrimSpace(stripYouTubeIntelFence(req.SystemPrompt))
 	if n := len([]rune(newSystemPrompt)); n > MaxPersonalityChars {
-		http.Error(w, fmt.Sprintf("personality too long: %d chars (max %d)", n, MaxPersonalityChars), http.StatusBadRequest)
+		writeJSON(w, http.StatusBadRequest, map[string]any{
+			"error": fmt.Sprintf("Personality is %d characters; the limit is %d. Trim it down and try again.", n, MaxPersonalityChars),
+			"code":  "personality_too_long",
+			"chars": n,
+			"max":   MaxPersonalityChars,
+		})
 		return
 	}
 	s.log.Printf("edit personal agent %s: name=%d desc=%d longDesc=%d systemPrompt=%d",

@@ -444,7 +444,7 @@ export function MePersonalAgentStatusPanel({
             onSuggest={() => suggest("systemPrompt")}
             suggesting={suggesting === "systemPrompt"}
             disabled={submitting}
-            maxLength={600}
+            maxLength={1500}
             placeholder='A few sentences on how your agent behaves. Knowledge (videos, docs) goes below.'
           />
         ) : personaOnly ? (
