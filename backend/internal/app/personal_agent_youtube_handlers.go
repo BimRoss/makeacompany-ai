@@ -8,44 +8,48 @@ import (
 	"time"
 )
 
+// Fence markers used by the legacy frontend ingest flow to bake harvested
+// YouTube bullets into rec.SystemPrompt as a JSON-encoded block. Kept in sync
+// with src/components/me/me-personal-agent-youtube-ingest.tsx — the Go side
+// strips them so harvested content cannot reach the agent's system prompt
+// even when stored data still carries the fence from before #605.
+const (
+	youtubeIntelFenceStart = "<!-- yt-intel-start -->"
+	youtubeIntelFenceEnd   = "<!-- yt-intel-end -->"
+)
+
+// stripYouTubeIntelFence returns the input with any yt-intel fenced block
+// removed. Idempotent and safe on input with no fence.
+func stripYouTubeIntelFence(prompt string) string {
+	start := strings.Index(prompt, youtubeIntelFenceStart)
+	end := strings.Index(prompt, youtubeIntelFenceEnd)
+	if start < 0 || end < 0 || end < start {
+		return prompt
+	}
+	before := strings.TrimRight(prompt[:start], " \t\r\n")
+	after := strings.TrimLeft(prompt[end+len(youtubeIntelFenceEnd):], " \t\r\n")
+	if before == "" {
+		return after
+	}
+	if after == "" {
+		return before
+	}
+	return before + "\n\n" + after
+}
+
+// MaxPersonalityChars caps the user-typed persona that drives every spawn.
+// Personality is small-and-always-on; harvested intelligence belongs in a
+// lazy-loaded tool, not the system prompt (see #605).
+const MaxPersonalityChars = 600
+
 // renderPersonalAgentRuntimePrompt returns the value the per-agent K8s Secret
-// should carry under PERSONAL_AGENT_SYSTEM_PROMPT. It combines the user-typed
-// persona (rec.SystemPrompt — the source of truth for "who is this agent")
-// with the YouTube-harvested intelligence blocks (additive). The /me UI only
-// ever shows the raw SystemPrompt; this rendered value is runtime-only.
-//
-// Deterministic ordering: sources render in record order (append-newest), so
-// removing a source cleanly removes its block on the next render.
+// should carry under PERSONAL_AGENT_SYSTEM_PROMPT. It is the user-typed
+// persona, stripped of any legacy yt-intel fenced bullets. Harvested
+// YouTubeSources are no longer rendered into the prompt; the agent fetches
+// them on demand via a lazy-load tool so transcript content can't bind as
+// system instructions.
 func renderPersonalAgentRuntimePrompt(rec PersonalAgentRecord) string {
-	raw := strings.TrimSpace(rec.SystemPrompt)
-	if len(rec.YouTubeSources) == 0 {
-		return raw
-	}
-	var b strings.Builder
-	if raw != "" {
-		b.WriteString(raw)
-		b.WriteString("\n\n")
-	}
-	b.WriteString("## Learned from videos\n")
-	for _, src := range rec.YouTubeSources {
-		title := strings.TrimSpace(src.Title)
-		if title == "" {
-			title = src.URL
-		}
-		b.WriteString("\n### ")
-		b.WriteString(title)
-		b.WriteString("\n")
-		for _, bullet := range src.Bullets {
-			bullet = strings.TrimSpace(bullet)
-			if bullet == "" {
-				continue
-			}
-			b.WriteString("- ")
-			b.WriteString(bullet)
-			b.WriteString("\n")
-		}
-	}
-	return strings.TrimRight(b.String(), "\n")
+	return strings.TrimSpace(stripYouTubeIntelFence(rec.SystemPrompt))
 }
 
 type addPersonalAgentYouTubeSourceRequest struct {

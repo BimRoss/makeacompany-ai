@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -46,7 +47,15 @@ func (s *Server) handleEditPersonalAgent(w http.ResponseWriter, r *http.Request)
 	}
 	newName := strings.TrimSpace(req.DisplayName)
 	newDesc := strings.TrimSpace(req.Description)
-	newSystemPrompt := strings.TrimSpace(req.SystemPrompt)
+	// Strip any yt-intel fenced bullets the legacy frontend may have baked in
+	// before measuring against MaxPersonalityChars — the cap applies to the
+	// operator's own typed personality, not transcript content. Harvested
+	// intelligence belongs in lazy-loaded knowledge, not the system prompt.
+	newSystemPrompt := strings.TrimSpace(stripYouTubeIntelFence(req.SystemPrompt))
+	if n := len([]rune(newSystemPrompt)); n > MaxPersonalityChars {
+		http.Error(w, fmt.Sprintf("personality too long: %d chars (max %d)", n, MaxPersonalityChars), http.StatusBadRequest)
+		return
+	}
 	s.log.Printf("edit personal agent %s: name=%d desc=%d longDesc=%d systemPrompt=%d",
 		rec.ID, len(newName), len(newDesc), len(strings.TrimSpace(req.LongDescription)), len(newSystemPrompt))
 	if newName == "" && newDesc == "" && strings.TrimSpace(req.LongDescription) == "" && newSystemPrompt == "" {
