@@ -23,23 +23,30 @@ export function HeroSection() {
   const heroLine2 = selected ? copy.heroLine2 : "Where it already happens.";
   const personaDefault = { line1: heroLine1, line2: heroLine2 };
 
-  const [displayLine1, setDisplayLine1] = useState(personaDefault.line1);
-  const [displayLine2, setDisplayLine2] = useState(personaDefault.line2);
-  const [typing, setTyping] = useState(false);
+  // Caret position is the only piece of typing state React needs to track.
+  // The displayed text is written directly to the DOM via refs below — that
+  // bypasses ~40 React re-renders per typed word, which was the real cost.
+  const [caretAt, setCaretAt] = useState<1 | 2 | null>(null);
   const l1Ref = useRef(personaDefault.line1);
   const l2Ref = useRef(personaDefault.line2);
+  const l1ElRef = useRef<HTMLSpanElement | null>(null);
+  const l2ElRef = useRef<HTMLSpanElement | null>(null);
+  // Frozen on first render so React never reconciles the text spans after
+  // mount. Subsequent text changes go through textContent writes only.
+  const initialL1 = useRef(personaDefault.line1);
+  const initialL2 = useRef(personaDefault.line2);
   const cancelRef = useRef<(() => void) | null>(null);
   const hoverAgentRef = useRef<"joanne" | "ross" | null>(null);
   const firstLoadRef = useRef(true);
 
   const setL1 = useCallback((v: string) => {
     l1Ref.current = v;
-    setDisplayLine1(v);
+    if (l1ElRef.current) l1ElRef.current.textContent = v || " ";
   }, []);
 
   const setL2 = useCallback((v: string) => {
     l2Ref.current = v;
-    setDisplayLine2(v);
+    if (l2ElRef.current) l2ElRef.current.textContent = v || " ";
   }, []);
 
   const animateTo = useCallback(
@@ -50,6 +57,7 @@ export function HeroSection() {
       if (mq.matches) {
         setL1(target.line1);
         setL2(target.line2);
+        setCaretAt(null);
         return;
       }
 
@@ -58,7 +66,7 @@ export function HeroSection() {
       cancelRef.current = () => {
         cancelled = true;
         timers.forEach(clearTimeout);
-        setTyping(false);
+        setCaretAt(null);
       };
 
       function tick(fn: () => void, delay: number) {
@@ -72,6 +80,7 @@ export function HeroSection() {
         setter: (v: string) => void,
         current: string,
         next: string,
+        onFirstType?: () => void,
       ): number {
         let prefix = 0;
         while (
@@ -87,18 +96,27 @@ export function HeroSection() {
           tick(() => setter(val), delay);
           delay += ERASE_MS;
         }
+        let firedFirst = false;
         for (let i = prefix + 1; i <= next.length; i++) {
           const val = next.slice(0, i);
-          tick(() => setter(val), delay);
+          tick(() => {
+            setter(val);
+            if (!firedFirst) {
+              firedFirst = true;
+              onFirstType?.();
+            }
+          }, delay);
           delay += TYPE_MS;
         }
         return delay;
       }
 
-      setTyping(true);
+      setCaretAt(1);
       const dur1 = animateLine(setL1, l1Ref.current, target.line1);
-      const dur2 = animateLine(setL2, l2Ref.current, target.line2);
-      tick(() => setTyping(false), Math.max(dur1, dur2));
+      const dur2 = animateLine(setL2, l2Ref.current, target.line2, () => {
+        setCaretAt(2);
+      });
+      tick(() => setCaretAt(null), Math.max(dur1, dur2));
     },
     [setL1, setL2],
   );
@@ -148,14 +166,14 @@ export function HeroSection() {
 
         <h1 className="mx-auto mb-6 flex min-h-[4.5rem] max-w-none flex-col items-center justify-center text-balance text-3xl font-bold leading-[1.1] tracking-tight text-foreground sm:mb-10 sm:min-h-[7rem] xl:whitespace-nowrap sm:text-5xl sm:leading-[1.06] md:min-h-[8rem] md:text-6xl lg:min-h-[10rem] lg:text-7xl">
           <span className="block xl:whitespace-nowrap">
-            {displayLine1 || " "}
-            {typing && l2Ref.current === "" ? (
+            <span ref={l1ElRef}>{initialL1.current || " "}</span>
+            {caretAt === 1 ? (
               <span className="ml-0.5 inline-block animate-pulse font-normal text-muted-foreground" aria-hidden>|</span>
             ) : null}
           </span>
           <span className="block xl:whitespace-nowrap">
-            {displayLine2 || " "}
-            {typing && l2Ref.current !== "" ? (
+            <span ref={l2ElRef}>{initialL2.current || " "}</span>
+            {caretAt === 2 ? (
               <span className="ml-0.5 inline-block animate-pulse font-normal text-muted-foreground" aria-hidden>|</span>
             ) : null}
           </span>
