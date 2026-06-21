@@ -4,8 +4,6 @@ import {
   formatBytes,
   formatCompact,
   formatCores,
-  formatDuration,
-  formatDurationDays,
   formatMs,
   formatPercent,
   formatPerMin,
@@ -65,35 +63,11 @@ function splitByLabel(
 
 const REQ = "makeacompany_http_requests_total";
 const DUR = "makeacompany_http_request_duration_seconds_bucket";
-const REFRESH = "makeacompany_slack_refresh_runs_total";
-const UPSTREAM = "makeacompany_slack_refresh_upstream_http_status_total";
-const UPSTREAM_ALL = "makeacompany_slack_upstream_http_status_total";
-const REAPER_SCANNED = "makeacompany_trial_expiry_reaper_scanned_total";
-const REAPER_ENQUEUED = "makeacompany_trial_expiry_reaper_enqueued_total";
-const CRONJOB = "makeacompany_cronjob_duration_seconds_count";
 const LIFECYCLE = "makeacompany_lifecycle_users";
-const INSTALL_CLICK = "makeacompany_install_click_total";
-const OAUTH_CALLBACK = "makeacompany_oauth_callback_total";
-const FIRST_MESSAGE = "makeacompany_first_message_total";
-const TRIAL_START = "makeacompany_trial_start_total";
-const TTFV_QUANT = "makeacompany_ttfv_quantile_seconds";
 const TTFV_BUCKET = "makeacompany_ttfv_bucket_users";
 
 const statusTone = (cls: string): ChartTone =>
   cls.startsWith("2") ? "pos" : cls.startsWith("5") ? "neg" : cls.startsWith("4") ? "accent" : "muted";
-
-// 429 surfaces separately from generic 4xx since rate-limits are the actionable signal.
-const statusCodeTone = (code: string): ChartTone => {
-  if (code === "429") return "neg";
-  if (code.startsWith("5")) return "ink";
-  if (code.startsWith("4")) return "accent";
-  if (code.startsWith("2")) return "pos";
-  return "muted";
-};
-
-const SOURCE_PALETTE: ChartTone[] = ["neg", "accent", "ink", "muted", "pos"];
-
-const resultTone = (r: string): ChartTone => (r === "success" ? "pos" : "neg");
 
 export const WEB_PANELS: PanelDef[] = [
   {
@@ -176,129 +150,6 @@ export const WEB_PANELS: PanelDef[] = [
   },
 ];
 
-export const JOBS_PANELS: PanelDef[] = [
-  {
-    id: "snapshot-refresh",
-    title: "Snapshot refreshes",
-    subtitle: "Runs per minute by result",
-    queries: [`sum by (result) (rate(${REFRESH}[5m])) * 60`],
-    toSeries: splitByLabel(`sum by (result) (rate(${REFRESH}[5m])) * 60`, "result", resultTone),
-    format: formatPerMin,
-  },
-  {
-    id: "snapshot-success-rate",
-    title: "Snapshot success rate",
-    subtitle: "Success ratio over 3h, by snapshot",
-    queries: [
-      `sum by (snapshot) (rate(${REFRESH}{result="success"}[3h])) / clamp_min(sum by (snapshot) (rate(${REFRESH}[3h])), 0.0001)`,
-    ],
-    toSeries: splitByLabel(
-      `sum by (snapshot) (rate(${REFRESH}{result="success"}[3h])) / clamp_min(sum by (snapshot) (rate(${REFRESH}[3h])), 0.0001)`,
-      "snapshot",
-      (v) => (v.includes("slack") ? "accent" : "ink")
-    ),
-    format: formatPercent,
-    zeroBaseline: true,
-  },
-  {
-    id: "upstream-429",
-    title: "Slack upstream 429s",
-    subtitle: "Rate-limit responses per minute (refresh path)",
-    queries: [`sum(rate(${UPSTREAM}{status_code="429"}[5m])) * 60`],
-    toSeries: single(`sum(rate(${UPSTREAM}{status_code="429"}[5m])) * 60`, "429/min", "neg"),
-    format: formatPerMin,
-    area: true,
-    zeroBaseline: true,
-    hideWhenEmpty: true,
-  },
-  {
-    id: "slack-upstream-status",
-    title: "Slack API status mix",
-    subtitle: "All upstream Slack calls /min, split by status",
-    queries: [`sum by (status_code) (rate(${UPSTREAM_ALL}[5m])) * 60`],
-    toSeries: splitByLabel(
-      `sum by (status_code) (rate(${UPSTREAM_ALL}[5m])) * 60`,
-      "status_code",
-      statusCodeTone
-    ),
-    format: formatPerMin,
-    area: true,
-    zeroBaseline: true,
-    hideWhenEmpty: true,
-    span: 2,
-  },
-  {
-    id: "slack-upstream-429-by-source",
-    title: "Slack 429s by call-site",
-    subtitle: "Which upstream operation is getting throttled",
-    queries: [
-      `sum by (source) (rate(${UPSTREAM_ALL}{status_code="429"}[5m])) * 60`,
-    ],
-    toSeries: (raw) =>
-      raw
-        .filter(
-          (s) =>
-            s.query === `sum by (source) (rate(${UPSTREAM_ALL}{status_code="429"}[5m])) * 60` &&
-            s.labels.source
-        )
-        .sort((a, b) => {
-          const lastA = a.points.at(-1)?.[1] ?? 0;
-          const lastB = b.points.at(-1)?.[1] ?? 0;
-          return lastB - lastA;
-        })
-        .map((s, i) => ({
-          key: `source-${s.labels.source}`,
-          label: s.labels.source,
-          tone: SOURCE_PALETTE[i % SOURCE_PALETTE.length],
-          points: s.points,
-        })),
-    format: formatPerMin,
-    zeroBaseline: true,
-    hideWhenEmpty: true,
-  },
-  {
-    id: "cron-staleness",
-    title: "Time since last schedule",
-    subtitle: "Oldest CronJob in namespace",
-    queries: [
-      `max(time() - kube_cronjob_status_last_schedule_time{namespace="makeacompany-ai"})`,
-    ],
-    toSeries: single(
-      `max(time() - kube_cronjob_status_last_schedule_time{namespace="makeacompany-ai"})`,
-      "staleness",
-      "accent"
-    ),
-    format: formatDuration,
-  },
-  {
-    id: "trial-expiry-reaper-runs",
-    title: "Trial-expiry reaper runs",
-    subtitle: "Success vs error /hour (cron fires every 10m)",
-    queries: [`sum by (result) (increase(${CRONJOB}{job="trial-expiry-reaper"}[1h]))`],
-    toSeries: splitByLabel(
-      `sum by (result) (increase(${CRONJOB}{job="trial-expiry-reaper"}[1h]))`,
-      "result",
-      resultTone
-    ),
-    format: formatCompact,
-  },
-  {
-    id: "trial-expiry-reaper-flow",
-    title: "Trial-expiry reaper flow",
-    subtitle: "Profiles scanned vs DMs enqueued /hour",
-    queries: [
-      `increase(${REAPER_SCANNED}[1h])`,
-      `increase(${REAPER_ENQUEUED}[1h])`,
-    ],
-    toSeries: perQuery([
-      { query: `increase(${REAPER_SCANNED}[1h])`, label: "scanned", tone: "muted" },
-      { query: `increase(${REAPER_ENQUEUED}[1h])`, label: "enqueued", tone: "accent" },
-    ]),
-    format: formatCompact,
-    hideWhenEmpty: true,
-  },
-];
-
 const lifecycleTone = (status: string): ChartTone => {
   switch (status) {
     case "trialing":
@@ -328,74 +179,6 @@ export const LIFECYCLE_PANELS: PanelDef[] = [
     area: true,
     zeroBaseline: true,
     span: 2,
-  },
-];
-
-const oauthOutcomeTone = (outcome: string): ChartTone =>
-  outcome === "success" ? "pos" : outcome === "denied" ? "muted" : "neg";
-
-const botTone = (bot: string): ChartTone => (bot === "ross" ? "ink" : "accent");
-
-export const FUNNEL_PANELS: PanelDef[] = [
-  {
-    id: "funnel-install-clicks",
-    title: "Install clicks /day",
-    subtitle: "CheckoutButton submissions, split by first-touch source",
-    queries: [`sum by (source) (increase(${INSTALL_CLICK}[1d]))`],
-    toSeries: splitByLabel(
-      `sum by (source) (increase(${INSTALL_CLICK}[1d]))`,
-      "source",
-      (s) => (s === "" ? "muted" : "ink"),
-      (s) => (s === "" ? "direct/unknown" : s),
-    ),
-    format: formatCompact,
-    area: true,
-    zeroBaseline: true,
-    span: 2,
-    hideWhenEmpty: true,
-  },
-  {
-    id: "funnel-oauth-callbacks",
-    title: "OAuth installs /day",
-    subtitle: "Personal-agent install-complete outcomes",
-    queries: [`sum by (outcome) (increase(${OAUTH_CALLBACK}[1d]))`],
-    toSeries: splitByLabel(
-      `sum by (outcome) (increase(${OAUTH_CALLBACK}[1d]))`,
-      "outcome",
-      oauthOutcomeTone,
-    ),
-    format: formatCompact,
-    zeroBaseline: true,
-    hideWhenEmpty: true,
-  },
-  {
-    id: "funnel-first-messages",
-    title: "First messages /day",
-    subtitle: "Users whose first ingested message landed, by bot",
-    queries: [`sum by (bot) (increase(${FIRST_MESSAGE}[1d]))`],
-    toSeries: splitByLabel(
-      `sum by (bot) (increase(${FIRST_MESSAGE}[1d]))`,
-      "bot",
-      botTone,
-    ),
-    format: formatCompact,
-    zeroBaseline: true,
-    hideWhenEmpty: true,
-  },
-  {
-    id: "funnel-trial-starts",
-    title: "Trial starts /day",
-    subtitle: "Profiles flipped into trialing past the seat cap, by attribution",
-    queries: [`sum by (attributed_to) (increase(${TRIAL_START}[1d]))`],
-    toSeries: splitByLabel(
-      `sum by (attributed_to) (increase(${TRIAL_START}[1d]))`,
-      "attributed_to",
-      (s) => (s === "" ? "muted" : "accent"),
-      (s) => (s === "" ? "direct/unknown" : s),
-    ),
-    format: formatCompact,
-    zeroBaseline: true,
-    hideWhenEmpty: true,
   },
 ];
 
@@ -462,22 +245,6 @@ function splitByLabelOrdered(
 }
 
 export const TTFV_PANELS: PanelDef[] = [
-  {
-    id: "ttfv-quantiles",
-    title: "Time to first value",
-    subtitle: "Signup → first ingested message, last 30 days of signups (#579)",
-    queries: [
-      `${TTFV_QUANT}{cohort="last30d", quantile="0.5"}`,
-      `${TTFV_QUANT}{cohort="last30d", quantile="0.9"}`,
-    ],
-    toSeries: perQuery([
-      { query: `${TTFV_QUANT}{cohort="last30d", quantile="0.5"}`, label: "p50", tone: "ink" },
-      { query: `${TTFV_QUANT}{cohort="last30d", quantile="0.9"}`, label: "p90", tone: "accent" },
-    ]),
-    format: formatDurationDays,
-    span: 2,
-    hideWhenEmpty: true,
-  },
   {
     id: "ttfv-distribution",
     title: "TTFV distribution",

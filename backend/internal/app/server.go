@@ -563,11 +563,9 @@ func (s *Server) handleCheckout(w http.ResponseWriter, r *http.Request) {
 	if ref != "" {
 		metadata["ref"] = ref
 	}
-	ftSource := ""
 	if reqBody.FirstTouch != nil {
-		ftSource = reqBody.FirstTouch.applyToCheckoutMetadata(metadata)
+		reqBody.FirstTouch.applyToCheckoutMetadata(metadata)
 	}
-	installClickTotal.WithLabelValues(ftSource).Inc()
 	params := &stripe.CheckoutSessionParams{
 		Params:     stripe.Params{Context: upstream.WithOperation(r.Context(), "checkout.session.create")},
 		Mode:       stripe.String(string(stripe.CheckoutSessionModeSubscription)),

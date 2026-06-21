@@ -106,12 +106,6 @@ func (s *Store) IngestUserEngagementBatch(ctx context.Context, botName string, e
 		return nil
 	}
 	pipe := s.rdb.Pipeline()
-	// firstSeenCmds holds the HSetNX BoolCmd for the FIRST event we see per
-	// slack_user_id in this batch. If the BoolCmd returns true after Exec,
-	// that means we just stamped first_seen_at — which is the funnel's
-	// "first message ever" signal. Subsequent events for the same user in
-	// the same batch are no-ops on first_seen_at and don't need tracking.
-	firstSeenCmds := make(map[string]*redis.BoolCmd, len(events))
 	for _, ev := range events {
 		if ev.SlackUserID == "" {
 			continue
@@ -130,10 +124,7 @@ func (s *Store) IngestUserEngagementBatch(ctx context.Context, botName string, e
 		}
 		// HSetNX so first_seen_at sticks; last_seen_at is overwritten
 		// every event but cheap.
-		firstSeenCmd := pipe.HSetNX(ctx, k, "first_seen_at", when.UTC().Format(time.RFC3339))
-		if _, dup := firstSeenCmds[ev.SlackUserID]; !dup {
-			firstSeenCmds[ev.SlackUserID] = firstSeenCmd
-		}
+		pipe.HSetNX(ctx, k, "first_seen_at", when.UTC().Format(time.RFC3339))
 		pipe.HSet(ctx, k, "last_seen_at", when.UTC().Format(time.RFC3339))
 
 		pipe.HIncrBy(ctx, dayKey, "messages", 1)
@@ -147,11 +138,6 @@ func (s *Store) IngestUserEngagementBatch(ctx context.Context, botName string, e
 	_, err := pipe.Exec(ctx)
 	if err != nil {
 		return fmt.Errorf("ingest pipeline: %w", err)
-	}
-	for _, cmd := range firstSeenCmds {
-		if flipped, cmdErr := cmd.Result(); cmdErr == nil && flipped {
-			firstMessageTotal.WithLabelValues(botName).Inc()
-		}
 	}
 	return nil
 }
