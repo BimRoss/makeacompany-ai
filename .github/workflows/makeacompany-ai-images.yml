@@ -3,6 +3,12 @@ name: Build makeacompany-ai images
 permissions:
   contents: read
 
+concurrency:
+  # Cancel in-flight runs only for PR iterations. Pushes to main/master
+  # and tag pushes never cancel — releases must complete.
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 on:
   push:
     branches:
