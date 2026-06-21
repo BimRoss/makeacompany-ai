@@ -531,7 +531,7 @@ button:disabled {
   overflow: hidden;
   transform: translate3d(0, -50%, 0) scale(1);
   transition-property: transform, box-shadow, filter, opacity;
-  transition-duration: 800ms;
+  transition-duration: 360ms;
   transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
   box-shadow:
     0 14px 34px -16px rgba(0, 0, 0, 0.42),
@@ -581,6 +581,10 @@ button:disabled {
 }
 
 @media (hover: hover) and (pointer: fine) {
+  .tao-slack-signal-button {
+    transition-duration: 800ms;
+  }
+
   .tao-slack-signal-stack:hover .tao-slack-signal-button {
     filter: saturate(1.02);
   }

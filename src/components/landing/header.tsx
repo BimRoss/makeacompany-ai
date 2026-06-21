@@ -25,7 +25,7 @@ export function Header({ endSlot }: HeaderProps = {}) {
 
   return (
     <header className="sticky top-0 z-50 px-3 pt-2 motion-all sm:px-5">
-      <div className="group relative mx-auto flex h-14 w-full max-w-6xl items-center justify-between overflow-hidden rounded-3xl bg-white/62 pl-4 pr-2 shadow-[0_18px_52px_rgba(0,0,0,0.14),0_2px_8px_rgba(255,255,255,0.25)_inset] backdrop-blur-2xl motion-all dark:bg-black/58 dark:shadow-[0_0_0_1px_rgba(255,255,255,0.1),0_22px_64px_-12px_rgba(255,255,255,0.1),0_8px_28px_-8px_rgba(255,255,255,0.06),0_2px_10px_rgba(255,255,255,0.14)_inset] sm:pl-8 sm:pr-6">
+      <div className="group relative mx-auto flex h-14 w-full max-w-6xl items-center justify-between overflow-hidden rounded-3xl bg-white/85 pl-4 pr-2 shadow-[0_18px_52px_rgba(0,0,0,0.14),0_2px_8px_rgba(255,255,255,0.25)_inset] backdrop-blur-md motion-all dark:bg-black/80 dark:shadow-[0_0_0_1px_rgba(255,255,255,0.1),0_22px_64px_-12px_rgba(255,255,255,0.1),0_8px_28px_-8px_rgba(255,255,255,0.06),0_2px_10px_rgba(255,255,255,0.14)_inset] sm:bg-white/62 sm:pl-8 sm:pr-6 sm:backdrop-blur-2xl dark:sm:bg-black/58">
         <div className="pointer-events-none absolute inset-0">
           <div className="absolute -left-1/3 top-0 h-full w-1/3 -skew-x-12 bg-gradient-to-r from-transparent via-white/45 to-transparent opacity-0 motion-all group-hover:translate-x-[360%] group-hover:opacity-100 dark:via-white/20" />
         </div>
