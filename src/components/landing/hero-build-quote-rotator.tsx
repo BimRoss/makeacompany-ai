@@ -2,14 +2,14 @@
 
 import { useEffect, useRef, useState } from "react";
 import { usePersona } from "@/components/landing/persona-context";
-import { BUILD_QUOTES } from "@/lib/persona-build-quotes";
+import { BUILD_QUOTES, NEUTRAL_BUILD_QUOTES } from "@/lib/persona-build-quotes";
 
 const ROTATE_MS = 2200;
 const FADE_MS = 220;
 
 export function HeroBuildQuoteRotator() {
-  const { persona } = usePersona();
-  const quotes = BUILD_QUOTES[persona];
+  const { persona, selected } = usePersona();
+  const quotes = selected ? BUILD_QUOTES[persona] : NEUTRAL_BUILD_QUOTES;
 
   const [index, setIndex] = useState(0);
   const [visible, setVisible] = useState(true);
@@ -31,7 +31,7 @@ export function HeroBuildQuoteRotator() {
   useEffect(() => {
     setIndex(0);
     setVisible(true);
-  }, [persona]);
+  }, [persona, selected]);
 
   useEffect(() => {
     if (reducedMotion || paused) return;
@@ -70,6 +70,9 @@ export function HeroBuildQuoteRotator() {
         }}
         aria-live="polite"
       >
+        <span className="mr-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground/70">
+          Built with us:
+        </span>
         <span className="text-foreground">&ldquo;{current.text}&rdquo;</span>
         {current.productName ? (
           <>
