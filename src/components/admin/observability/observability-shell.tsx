@@ -12,7 +12,7 @@ import { GoldenPath } from "./golden-path";
 import { KpiScorecard } from "./kpi-scorecard";
 import { MetricPanel } from "./metric-panel";
 import { OAuthPoolPanel } from "@/components/admin/oauth-pool-panel";
-import { CLUSTER_PANELS, FUNNEL_PANELS, JOBS_PANELS, LIFECYCLE_PANELS, TTFV_PANELS, WEB_PANELS } from "./panels";
+import { CLUSTER_PANELS, LIFECYCLE_PANELS, TTFV_PANELS, WEB_PANELS } from "./panels";
 import { SearchDeviceStrip, SearchHostsPanel, SearchPagesPanel, SearchQueriesPanel } from "./search-panel";
 import { SearchTimeseriesPanels } from "./search-timeseries";
 import { ObservabilitySection } from "./section";
@@ -70,7 +70,7 @@ const PANEL_GRID = "grid gap-3 grid-cols-[repeat(auto-fit,minmax(320px,1fr))]";
 
 function ObservabilityBody() {
   useAlertCountInTitle();
-  const { loading, lastUpdatedAt, adminDashboardUrl, cronjobDashboardUrl, clusterDashboardUrl } =
+  const { loading, lastUpdatedAt, adminDashboardUrl, clusterDashboardUrl } =
     useObservabilityData();
   const { from } = useTimeRange();
   const cloudflare = useCloudflareSummary();
@@ -90,7 +90,6 @@ function ObservabilityBody() {
   const showCloudflare = !cloudflare.errored && (cloudflare.loading || cloudflareHasData);
 
   const adminDeep = adminDashboardUrl ? appendRange(adminDashboardUrl, from) : null;
-  const cronDeep = cronjobDashboardUrl ? appendRange(cronjobDashboardUrl, from) : null;
   const clusterDeep = clusterDashboardUrl ? appendRange(clusterDashboardUrl, from) : null;
 
   return (
@@ -101,41 +100,27 @@ function ObservabilityBody() {
 
       <OAuthPoolPanel />
 
-      <ObservabilitySection
-        id="lifecycle"
-        title="Lifecycle cohorts"
-        description="Free-for-life, trialing, active, and expired user counts over time. Sweeper updates every 5 minutes."
-      >
-        <div className={PANEL_GRID}>
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <ObservabilitySection
+          id="lifecycle"
+          title="Lifecycle cohorts"
+          description="Free-for-life, trialing, active, and expired user counts over time. Sweeper updates every 5 minutes."
+        >
           {LIFECYCLE_PANELS.map((def) => (
-            <MetricPanel key={def.id} def={def} from={from} />
+            <MetricPanel key={def.id} def={def} from={from} prominent />
           ))}
-        </div>
-      </ObservabilitySection>
+        </ObservabilitySection>
 
-      <ObservabilitySection
-        id="funnel"
-        title="Conversion funnel"
-        description="Stage-by-stage daily volume from install click through trial start. Series only appear once a stage has fired."
-      >
-        <div className={PANEL_GRID}>
-          {FUNNEL_PANELS.map((def) => (
-            <MetricPanel key={def.id} def={def} from={from} />
-          ))}
-        </div>
-      </ObservabilitySection>
-
-      <ObservabilitySection
-        id="ttfv"
-        title="Time to first value"
-        description="How long after signup users send their first ingested message. Floor, not truth: signup_at is backfilled for pre-#581 profiles and excludes anyone with no first_seen_at yet."
-      >
-        <div className={PANEL_GRID}>
+        <ObservabilitySection
+          id="ttfv"
+          title="Time to first value"
+          description="How long after signup users send their first ingested message. Floor, not truth: signup_at is backfilled for pre-#581 profiles and excludes anyone with no first_seen_at yet."
+        >
           {TTFV_PANELS.map((def) => (
-            <MetricPanel key={def.id} def={def} from={from} />
+            <MetricPanel key={def.id} def={def} from={from} prominent />
           ))}
-        </div>
-      </ObservabilitySection>
+        </ObservabilitySection>
+      </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
         <div className="lg:col-span-12">
@@ -209,24 +194,6 @@ function ObservabilityBody() {
             <SearchPagesPanel />
           </div>
           <SearchHostsPanel />
-        </div>
-      </ObservabilitySection>
-
-      <ObservabilitySection
-        id="background-jobs"
-        title="Background jobs"
-        description="Snapshot scrapers and K8s CronJob cadence."
-        endSlot={
-          <div className="flex items-center gap-2">
-            <AnomalyBadge component="jobs" />
-            <DashboardLink href={cronDeep} label="Open in Grafana" />
-          </div>
-        }
-      >
-        <div className={PANEL_GRID}>
-          {JOBS_PANELS.map((def) => (
-            <MetricPanel key={def.id} def={def} from={from} />
-          ))}
         </div>
       </ObservabilitySection>
 

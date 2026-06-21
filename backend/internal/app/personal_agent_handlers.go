@@ -271,7 +271,6 @@ func (s *Server) handlePersonalAgentInstallComplete(w http.ResponseWriter, r *ht
 
 	code := strings.TrimSpace(r.URL.Query().Get("code"))
 	if errCode := strings.TrimSpace(r.URL.Query().Get("error")); errCode != "" {
-		oauthCallbackTotal.WithLabelValues("denied").Inc()
 		_ = s.store.UpdatePersonalAgentStatus(r.Context(), agentID, PersonalAgentStatusFailed)
 		http.Redirect(w, r, "/me?personal_agent_install=failed&reason="+url.QueryEscape(errCode), http.StatusFound)
 		return
@@ -286,7 +285,6 @@ func (s *Server) handlePersonalAgentInstallComplete(w http.ResponseWriter, r *ht
 	oauthCtx := context.WithValue(r.Context(), personalAgentOAuthResultKey, oauthOut)
 	botToken, err := s.exchangePersonalAgentOAuthCode(oauthCtx, rec, code, redirectURI)
 	if err != nil {
-		oauthCallbackTotal.WithLabelValues("exchange_failed").Inc()
 		s.log.Printf("personal agent oauth exchange: %v", err)
 		_ = s.store.UpdatePersonalAgentStatus(r.Context(), agentID, PersonalAgentStatusFailed)
 		http.Redirect(w, r, "/me?personal_agent_install=failed&reason=exchange", http.StatusFound)
@@ -300,7 +298,6 @@ func (s *Server) handlePersonalAgentInstallComplete(w http.ResponseWriter, r *ht
 		SigningSecret: rec.SlackSigningSecret,
 		SystemPrompt:  rec.SystemPrompt,
 	}); err != nil {
-		oauthCallbackTotal.WithLabelValues("secret_failed").Inc()
 		s.log.Printf("personal agent secret write: %v", err)
 		_ = s.store.UpdatePersonalAgentStatus(r.Context(), agentID, PersonalAgentStatusFailed)
 		http.Redirect(w, r, "/me?personal_agent_install=failed&reason=secret", http.StatusFound)
@@ -312,7 +309,6 @@ func (s *Server) handlePersonalAgentInstallComplete(w http.ResponseWriter, r *ht
 	// stable name to forward to), then Deployment (which produces the
 	// endpoints behind the Service).
 	if err := s.personalAgent.WriteAgentService(r.Context(), rec.OwnerSlackUserID); err != nil {
-		oauthCallbackTotal.WithLabelValues("service_failed").Inc()
 		s.log.Printf("personal agent service write: %v", err)
 		_ = s.store.UpdatePersonalAgentStatus(r.Context(), agentID, PersonalAgentStatusFailed)
 		http.Redirect(w, r, "/me?personal_agent_install=failed&reason=service", http.StatusFound)
@@ -325,7 +321,6 @@ func (s *Server) handlePersonalAgentInstallComplete(w http.ResponseWriter, r *ht
 		AgentID:          rec.ID,
 		Image:            s.cfg.PersonalAgentImage,
 	}); err != nil {
-		oauthCallbackTotal.WithLabelValues("deployment_failed").Inc()
 		s.log.Printf("personal agent deployment write: %v", err)
 		_ = s.store.UpdatePersonalAgentStatus(r.Context(), agentID, PersonalAgentStatusFailed)
 		http.Redirect(w, r, "/me?personal_agent_install=failed&reason=deployment", http.StatusFound)
@@ -347,7 +342,6 @@ func (s *Server) handlePersonalAgentInstallComplete(w http.ResponseWriter, r *ht
 			s.log.Printf("set personal agent bot_user_id: %v", err)
 		}
 	}
-	oauthCallbackTotal.WithLabelValues("success").Inc()
 	http.Redirect(w, r, "/me?personal_agent_install=ok", http.StatusFound)
 }
 
