@@ -115,9 +115,12 @@ export function PricingTiers() {
             const baseCard = tier.emphasized
               ? "relative flex flex-col rounded-2xl border-2 border-foreground bg-card p-6 shadow-lg"
               : "relative flex flex-col rounded-2xl border border-border bg-card p-6 shadow-sm";
+            const mobileOrder = tier.emphasized
+              ? "order-first sm:order-none"
+              : "order-last sm:order-none";
             const cardClass = tier.dimmed
-              ? `${baseCard} opacity-50 pointer-events-none select-none`
-              : baseCard;
+              ? `${baseCard} ${mobileOrder} opacity-50 pointer-events-none select-none`
+              : `${baseCard} ${mobileOrder}`;
             const ctaClass = tier.emphasized
               ? "inline-flex items-center justify-center rounded-lg bg-foreground px-4 py-2.5 text-sm font-semibold text-background hover:bg-foreground/90"
               : "inline-flex items-center justify-center rounded-lg border border-foreground px-4 py-2.5 text-sm font-semibold text-foreground hover:bg-foreground/5";
