@@ -7,6 +7,30 @@ export interface BuildQuote {
   productName?: string;
 }
 
+/**
+ * Shown when the visitor has not picked a persona yet — paired with the
+ * neutral "future of work" H1. Pulls one example from each persona so cold
+ * visitors see the range of what's been built without us guessing wrong.
+ */
+export const NEUTRAL_BUILD_QUOTES: ReadonlyArray<BuildQuote> = [
+  {
+    text: "Turn an athlete-development program into a system any coach can run.",
+    productName: "Brandlete",
+  },
+  {
+    text: "Ship an applicant tracking system with separate hiring and candidate portals.",
+    productName: "Nexus",
+  },
+  {
+    text: "Stand up a live-scores app for a global tournament in a weekend.",
+    productName: "World Cup 2026",
+  },
+  {
+    text: "Build an agent-to-agent protocol over plain HTTPS.",
+    productName: "Dating Venue",
+  },
+];
+
 export const BUILD_QUOTES: Record<Persona, ReadonlyArray<BuildQuote>> = {
   engineer: [
     {

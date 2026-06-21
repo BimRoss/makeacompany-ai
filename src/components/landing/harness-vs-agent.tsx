@@ -3,28 +3,28 @@ import { Box, GitBranch, Globe, Repeat, Wrench } from "lucide-react";
 const ROWS: { icon: typeof Wrench; title: string; body: string }[] = [
   {
     icon: Box,
-    title: "Persistent workspace per channel",
+    title: "Remembers your company.",
     body: "Files, memory, and decisions live on disk across every message — not stuffed into a 200K-token context window.",
   },
   {
     icon: Wrench,
-    title: "Baked-in skills",
+    title: "Comes with the tools your team already uses.",
     body: "Deploys, DNS, GA4, Search Console, ship-it, verify, SVG render — pre-wired with scoped credentials. Not \"install this MCP and configure it yourself.\"",
   },
   {
     icon: GitBranch,
-    title: "GitOps + intake automation",
+    title: "Ships code on its own.",
     body: "Tag a release and the rollout watches itself: image build → gitops PR → ArgoCD → confirmation. New channels onboard via a structured intake flow.",
   },
   {
     icon: Repeat,
-    title: "Recurring loops",
+    title: "Runs your standing tasks on a schedule.",
     body: "Scheduler lives outside the spawn, so loops survive pod restarts. Daily inbox cleanup, hourly health checks, on-call nudges — all just JSON.",
   },
   {
     icon: Globe,
-    title: "Slack-native, not a CLI",
-    body: "Your team already lives here. No new tool to learn, no new terminal to keep open, no context switch.",
+    title: "Lives in Slack, where your team already works.",
+    body: "No new tool to learn, no new terminal to keep open, no context switch.",
   },
 ];
 
