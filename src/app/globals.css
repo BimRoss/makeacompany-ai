@@ -250,6 +250,9 @@ button:disabled {
 }
 
 .motion-all {
+  /* Narrow list: backdrop-filter/filter/width/height/padding/margin are
+     expensive to transition (forced layout or full compositor re-raster)
+     and no current consumer needs them animated. */
   transition-property:
     color,
     background-color,
@@ -259,13 +262,7 @@ button:disabled {
     stroke,
     box-shadow,
     opacity,
-    transform,
-    filter,
-    backdrop-filter,
-    width,
-    height,
-    padding,
-    margin;
+    transform;
   transition-duration: var(--motion-duration);
   transition-timing-function: var(--motion-ease);
 }
