@@ -5,7 +5,6 @@ import { HeroBuildQuoteRotator } from "@/components/landing/hero-build-quote-rot
 import { HeroJoanneInviteCard } from "@/components/landing/hero-joanne-invite-card";
 import { JoinSlackCta } from "@/components/landing/join-slack-cta";
 import { PersonaSelector } from "@/components/landing/persona-selector";
-import { PricingCliffLine } from "@/components/landing/pricing-cliff-line";
 import { usePersona } from "@/components/landing/persona-context";
 import { TaoSlackSignalBadges } from "@/components/landing/tao-slack-signal-badges";
 
@@ -164,10 +163,6 @@ export function HeroSection() {
       </div>
 
       <div className="relative mx-auto w-full max-w-6xl text-center">
-        <div className="mb-8 flex justify-center sm:mb-12">
-          <PricingCliffLine />
-        </div>
-
         <div className="mb-6 flex justify-center sm:mb-8">
           <PersonaSelector />
         </div>
@@ -176,14 +171,14 @@ export function HeroSection() {
           The future of work, where it already happens.
         </p>
 
-        <h1 className="mx-auto mb-4 flex min-h-[4.5rem] max-w-none flex-col items-center justify-center text-balance text-3xl font-bold leading-[1.1] tracking-tight text-foreground sm:mb-6 sm:min-h-[7rem] xl:whitespace-nowrap sm:text-5xl sm:leading-[1.06] md:min-h-[8rem] md:text-6xl lg:min-h-[10rem] lg:text-7xl">
-          <span className="block xl:whitespace-nowrap">
+        <h1 className="mx-auto mb-4 flex min-h-[3.5rem] max-w-none flex-col items-center justify-center whitespace-nowrap text-balance text-[1.375rem] font-bold leading-[1.1] tracking-tight text-foreground sm:mb-6 sm:min-h-[7rem] sm:text-5xl sm:leading-[1.06] md:min-h-[8rem] md:text-6xl lg:min-h-[10rem] lg:text-7xl">
+          <span className="block">
             <span ref={l1ElRef}>{initialL1.current || " "}</span>
             {caretAt === 1 ? (
               <span className="ml-0.5 inline-block animate-pulse font-normal text-muted-foreground" aria-hidden>|</span>
             ) : null}
           </span>
-          <span className="block xl:whitespace-nowrap">
+          <span className="block">
             <span ref={l2ElRef}>{initialL2.current || " "}</span>
             {caretAt === 2 ? (
               <span className="ml-0.5 inline-block animate-pulse font-normal text-muted-foreground" aria-hidden>|</span>
