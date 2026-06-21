@@ -136,25 +136,23 @@ function WaitlistForm({ tier, ctaLabel, ctaClass }: { tier: string; ctaLabel: st
 
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-2">
-      <div className="flex flex-col gap-2 sm:flex-row">
-        <input
-          type="email"
-          required
-          autoComplete="email"
-          placeholder="you@work.com"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          disabled={state.status === "sending"}
-          className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-foreground/60 disabled:opacity-60"
-        />
-        <button
-          type="submit"
-          disabled={state.status === "sending"}
-          className={`${ctaClass} sm:flex-none`}
-        >
-          {state.status === "sending" ? "Adding…" : ctaLabel}
-        </button>
-      </div>
+      <input
+        type="email"
+        required
+        autoComplete="email"
+        placeholder="you@work.com"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        disabled={state.status === "sending"}
+        className="w-full min-w-0 rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-foreground/60 disabled:opacity-60"
+      />
+      <button
+        type="submit"
+        disabled={state.status === "sending"}
+        className={ctaClass}
+      >
+        {state.status === "sending" ? "Adding…" : ctaLabel}
+      </button>
       {state.status === "error" ? (
         <p className="text-xs text-red-600 dark:text-red-400">{state.message}</p>
       ) : null}
@@ -192,8 +190,8 @@ export function PricingTiers() {
             const cardClass = `${baseCard} ${mobileOrder}`;
             const bodyDimClass = tier.dimmed ? "opacity-60" : "";
             const ctaClass = tier.emphasized
-              ? "inline-flex w-full items-center justify-center rounded-lg bg-foreground px-4 py-2.5 text-sm font-semibold text-background hover:bg-foreground/90 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
-              : "inline-flex w-full items-center justify-center rounded-lg border border-foreground px-4 py-2.5 text-sm font-semibold text-foreground hover:bg-foreground/5 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto";
+              ? "inline-flex w-full items-center justify-center rounded-lg bg-foreground px-4 py-2.5 text-sm font-semibold text-background hover:bg-foreground/90 disabled:cursor-not-allowed disabled:opacity-60"
+              : "inline-flex w-full items-center justify-center rounded-lg border border-foreground px-4 py-2.5 text-sm font-semibold text-foreground hover:bg-foreground/5 disabled:cursor-not-allowed disabled:opacity-60";
             return (
               <li key={tier.name} className={cardClass} aria-disabled={tier.dimmed || undefined}>
                 <div className={bodyDimClass}>
