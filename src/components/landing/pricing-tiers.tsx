@@ -1,7 +1,7 @@
 "use client";
 
 import { Check } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 const SLACK_INVITE_URL =
   "https://join.slack.com/t/makeacompany/shared_invite/zt-3w432kf90-5B7IwfX2DNGfxLB1VGp6zA";
@@ -129,7 +129,7 @@ function WaitlistForm({ tier, ctaLabel, ctaClass }: { tier: string; ctaLabel: st
   if (state.status === "ok") {
     return (
       <p className="rounded-lg border border-foreground/30 bg-background px-3 py-2.5 text-center text-sm text-foreground">
-        You're on the list. We'll be in touch.
+        You&apos;re on the list. We&apos;ll be in touch.
       </p>
     );
   }
