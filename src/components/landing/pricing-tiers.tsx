@@ -28,7 +28,7 @@ const TIERS: Tier[] = [
     cadence: "/mo",
     status: "In development",
     statusTone: "soon",
-    pitch: "Your own agent that takes action on your behalf, not just the room's.",
+    pitch: "Your own agent that takes action on your behalf, not just the channel's.",
     features: [
       "Everything in Starter",
       "A personal agent bound to you, with its own Google identity and tools",
