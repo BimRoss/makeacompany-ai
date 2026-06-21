@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -109,6 +110,28 @@ func (s *Server) sweepTTFVOnce(ctx context.Context) {
 		return
 	}
 
+	// Profiles that predate the signup_at write path (#581) have no signup
+	// anchor on disk. Derive one in-place so the sweeper doesn't need a
+	// separate prod backfill step. HSetNX means an already-stamped row wins
+	// and a misderived value here never clobbers the truth on a later upsert.
+	backfilled := 0
+	for i := range rows {
+		if rows[i].SignupAt != "" || rows[i].Email == "" {
+			continue
+		}
+		derived := deriveSignupAt(rows[i])
+		if derived == "" {
+			continue
+		}
+		if err := s.store.rdb.HSetNX(ctx, userProfileRedisKey(rows[i].Email), "signup_at", derived).Err(); err != nil {
+			s.log.Printf("ttfv sweeper: backfill signup_at for %s: %v", rows[i].Email, err)
+			continue
+		}
+		rows[i].SignupAt = derived
+		backfilled++
+	}
+	ttfvSkippedProfiles.WithLabelValues("self_backfilled").Set(float64(backfilled))
+
 	// Round-trip every first_seen_at lookup in a single pipeline so a workspace
 	// with thousands of profiles doesn't N+1 the sweep into oblivion.
 	keys := make([]string, 0, len(rows))
@@ -184,6 +207,22 @@ func (s *Server) sweepTTFVOnce(ctx context.Context) {
 	ttfvSkippedProfiles.WithLabelValues("no_slack_user_id").Set(float64(skippedNoSlack))
 	ttfvSkippedProfiles.WithLabelValues("no_first_seen_at").Set(float64(skippedNoFirstSeen))
 	ttfvSkippedProfiles.WithLabelValues("unparseable_timestamp").Set(float64(skippedUnparseable))
+}
+
+// deriveSignupAt picks a best-effort signup anchor for a profile that
+// predates #581's HSetNX write path. Trialers get trial_expires_at minus the
+// 10-day FreeTrialDuration; everyone else gets profile_updated_at. Returns
+// "" when neither anchor is available, in which case the row stays
+// unbackfilled and the sweeper counts it under no_signup_at.
+func deriveSignupAt(row UserProfileRow) string {
+	if row.TrialExpiresAt > 0 {
+		t := time.Unix(row.TrialExpiresAt, 0).UTC().Add(-FreeTrialDuration)
+		return t.Format(time.RFC3339)
+	}
+	if s := strings.TrimSpace(row.ProfileUpdatedAt); s != "" {
+		return s
+	}
+	return ""
 }
 
 func publishTTFVCohort(cohort string, sample []time.Duration) {

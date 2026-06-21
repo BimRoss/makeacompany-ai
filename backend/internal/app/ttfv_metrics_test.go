@@ -119,6 +119,83 @@ func TestSweepTTFVOnce_clampsNegativeTTFV(t *testing.T) {
 	}
 }
 
+// TestSweepTTFVOnce_selfBackfillsHistoricalProfiles: a profile that predates
+// #581's HSetNX write path should get its signup_at derived in-place rather
+// than waiting on a separate bash script. Trial-expires anchor wins for
+// trialers; profile_updated_at carries the rest.
+func TestSweepTTFVOnce_selfBackfillsHistoricalProfiles(t *testing.T) {
+	s, _ := newReaperTestServer(t)
+	ctx := context.Background()
+
+	ttfvSkippedProfiles.Reset()
+	ttfvSampleSize.Reset()
+
+	// Historical trialer: signup_at missing, trial_expires_at set. Derives to expires - 10d.
+	expiresAt := time.Now().Add(72 * time.Hour).Unix()
+	if err := s.store.UpsertUserProfileFreeTrialInvite(ctx, "histtrial@example.com", "", expiresAt); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.store.UpsertUserProfileSlackID(ctx, "histtrial@example.com", "UHT"); err != nil {
+		t.Fatal(err)
+	}
+	// Clear signup_at to simulate a pre-#581 row, since the upsert helpers now stamp it.
+	if err := s.store.rdb.HDel(ctx, userProfileRedisKey("histtrial@example.com"), "signup_at").Err(); err != nil {
+		t.Fatal(err)
+	}
+	// Stamp first_seen_at so we land in a bucket after backfill.
+	firstSeen := time.Now().Add(-1 * time.Hour).UTC().Format(time.RFC3339)
+	if err := s.store.rdb.HSet(ctx, userEngagementKey("UHT"), "first_seen_at", firstSeen).Err(); err != nil {
+		t.Fatal(err)
+	}
+
+	// Historical free-lifetime row: only profile_updated_at to anchor on.
+	if err := s.store.MarkProfileFreeLifetime(ctx, "histfree@example.com"); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.store.UpsertUserProfileSlackID(ctx, "histfree@example.com", "UHF"); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.store.rdb.HDel(ctx, userProfileRedisKey("histfree@example.com"), "signup_at").Err(); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.store.rdb.HSet(ctx, userEngagementKey("UHF"), "first_seen_at", firstSeen).Err(); err != nil {
+		t.Fatal(err)
+	}
+
+	s.sweepTTFVOnce(ctx)
+
+	// Both profiles should now have a signup_at.
+	for _, email := range []string{"histtrial@example.com", "histfree@example.com"} {
+		got, err := s.store.rdb.HGet(ctx, userProfileRedisKey(email), "signup_at").Result()
+		if err != nil {
+			t.Fatalf("HGET signup_at %s: %v", email, err)
+		}
+		if got == "" {
+			t.Errorf("%s: signup_at not derived", email)
+		}
+	}
+
+	// And both should have landed in the sample.
+	if n := testutil.ToFloat64(ttfvSampleSize.WithLabelValues("all")); n != 2 {
+		t.Errorf("expected 2 backfilled profiles in sample, got %v", n)
+	}
+	if n := testutil.ToFloat64(ttfvSkippedProfiles.WithLabelValues("self_backfilled")); n != 2 {
+		t.Errorf("self_backfilled counter: got %v want 2", n)
+	}
+
+	// Re-sweep is a no-op: HSetNX shouldn't move the timestamp, sample stays at 2.
+	preTrial, _ := s.store.rdb.HGet(ctx, userProfileRedisKey("histtrial@example.com"), "signup_at").Result()
+	s.sweepTTFVOnce(ctx)
+	postTrial, _ := s.store.rdb.HGet(ctx, userProfileRedisKey("histtrial@example.com"), "signup_at").Result()
+	if preTrial != postTrial {
+		t.Errorf("second sweep moved signup_at: pre=%q post=%q", preTrial, postTrial)
+	}
+	// On the second sweep, nothing is newly backfilled (the gauge tracks per-sweep counts).
+	if n := testutil.ToFloat64(ttfvSkippedProfiles.WithLabelValues("self_backfilled")); n != 0 {
+		t.Errorf("second sweep self_backfilled counter: got %v want 0", n)
+	}
+}
+
 // seedTTFV stamps a profile with signup_at, links it to a slack id, and
 // writes a first_seen_at on the engagement hash at signup + ttfv. Letting
 // callers set signupAt and ttfv directly keeps the cohort math obvious in
