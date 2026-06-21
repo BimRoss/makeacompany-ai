@@ -357,6 +357,58 @@ func TestReconcilePersonalAgentImages_ConvergesResourceDrift(t *testing.T) {
 	}
 }
 
+// A live agent provisioned by the pre-scoped-token reconciler carries the master
+// MAC_INTERNAL_SERVICE_TOKEN in its env. The reconcile must actively delete it
+// (not just stop managing it) so the master token stops being readable in the
+// owner's pod env. Asserts the env key is gone after one pass and the pass is
+// counted as an env reconcile.
+func TestReconcilePersonalAgentImages_ScrubsMasterToken(t *testing.T) {
+	name := personalAgentResourceName("UE")
+	dep := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name, Namespace: "personal-agents",
+			Labels: map[string]string{
+				"app.kubernetes.io/managed-by": personalAgentManagedByLabelValue,
+				"bimross.com/agent-id":         "agent-UE",
+			},
+			Annotations: map[string]string{personalAgentAnnoSlackUserID: "UE"},
+		},
+		Spec: appsv1.DeploymentSpec{Template: corev1.PodTemplateSpec{Spec: corev1.PodSpec{
+			InitContainers: []corev1.Container{{Name: personalAgentInitContainerName}},
+			Containers: []corev1.Container{{
+				Name: "personal-agent", Image: "img:new",
+				Env: []corev1.EnvVar{
+					{Name: "PERSONAL_AGENT_DEFAULT_MODEL", Value: personalAgentDefaultModel()},
+					{Name: "PERSONAL_AGENT_DEFAULT_EFFORT", Value: personalAgentDefaultEffort()},
+					{Name: "PERSONAL_AGENT_LOOP_MODEL", Value: personalAgentLoopModel()},
+					{Name: "MAC_BACKEND_URL", Value: personalAgentMacBackendURL()},
+					// The exposure: the legacy master token, injected by the old reconciler.
+					{Name: "MAC_INTERNAL_SERVICE_TOKEN", Value: "the-master-token"},
+				},
+				Resources: personalAgentResources(),
+			}},
+		}}},
+	}
+	cs := fake.NewSimpleClientset(dep)
+	w := newPersonalAgentWriterWithClient(cs, "personal-agents", "", "")
+	srv := &Server{log: log.Default(), personalAgent: w, cfg: Config{PersonalAgentImage: "img:new"}}
+
+	result := srv.reconcilePersonalAgentImages(context.Background(), false)
+	if result.EnvReconciled != 1 {
+		t.Fatalf("EnvReconciled = %d, want 1", result.EnvReconciled)
+	}
+	got, _ := cs.AppsV1().Deployments("personal-agents").Get(context.Background(), name, metav1.GetOptions{})
+	for _, e := range got.Spec.Template.Spec.Containers[0].Env {
+		if e.Name == "MAC_INTERNAL_SERVICE_TOKEN" {
+			t.Fatalf("MAC_INTERNAL_SERVICE_TOKEN still present after reconcile (value=%q)", e.Value)
+		}
+	}
+	// Idempotent: a second pass finds nothing to scrub.
+	if r2 := srv.reconcilePersonalAgentImages(context.Background(), false); r2.EnvReconciled != 0 {
+		t.Errorf("second pass EnvReconciled = %d, want 0 (already scrubbed)", r2.EnvReconciled)
+	}
+}
+
 func TestReconcilePersonalAgentImages_NoopOnDisabledWriter(t *testing.T) {
 	srv := &Server{log: log.Default(), personalAgent: nil, cfg: Config{PersonalAgentImage: "img:new"}}
 	r := srv.reconcilePersonalAgentImages(context.Background(), true)

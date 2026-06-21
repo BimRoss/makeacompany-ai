@@ -42,6 +42,28 @@ func (s *Server) internalServiceBearerAuthorized(r *http.Request) bool {
 	return got != "" && constantTimeEqual(got, want)
 }
 
+// paEngagementAuthorized gates POST /v1/internal/ingest-user-engagement. It
+// accepts the scoped PA_ENGAGEMENT_TOKEN (carried by per-user personal-agent
+// pods) OR the master internal token (Ross/Joanne and in-cluster jobs, which
+// already hold it). The scoped token is deliberately the only credential we
+// hand to PA pods: it authorizes appending engagement counters and nothing
+// else, so a PA owner who reads their pod's env cannot reach shopify-token,
+// admin-read PII, the trial reaper, or PA rollout. Constant-time compare on
+// both; empty values never match.
+func (s *Server) paEngagementAuthorized(r *http.Request) bool {
+	got := strings.TrimSpace(tokenFromAuthHeader(r))
+	if got == "" {
+		return false
+	}
+	if pa := strings.TrimSpace(s.cfg.PAEngagementToken); pa != "" && constantTimeEqual(got, pa) {
+		return true
+	}
+	if master := strings.TrimSpace(s.cfg.BackendInternalServiceToken); master != "" && constantTimeEqual(got, master) {
+		return true
+	}
+	return false
+}
+
 // internalRefreshAuthorized gates POST /v1/internal/* snapshot refresh routes.
 // Prefer Authorization: Bearer BACKEND_INTERNAL_SERVICE_TOKEN (Kubernetes CronJobs, compose one-shots).
 // If BACKEND_INTERNAL_SERVICE_TOKEN is unset, the same routes accept an authenticated admin session

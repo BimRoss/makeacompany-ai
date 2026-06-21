@@ -70,8 +70,14 @@ func (s *Server) reconcilePersonalAgentImages(ctx context.Context, force bool) r
 		// provision — so the existing fleet picks it up on the next reconcile.
 		// An empty token (dev) is skipped by spawnEnvDrift, leaving the
 		// recorder nil and reporting off.
-		"MAC_BACKEND_URL":            personalAgentMacBackendURL(),
-		"MAC_INTERNAL_SERVICE_TOKEN": strings.TrimSpace(s.cfg.BackendInternalServiceToken),
+		//
+		// PA_ENGAGEMENT_TOKEN — NOT the master BackendInternalServiceToken — is
+		// the only credential we inject here: a PA owner can read their pod's
+		// env, and the scoped token authorizes only the engagement ingest
+		// endpoint (paEngagementAuthorized), so it can't reach shopify-token,
+		// admin-read PII, the trial reaper, or PA rollout.
+		"MAC_BACKEND_URL":     personalAgentMacBackendURL(),
+		"PA_ENGAGEMENT_TOKEN": strings.TrimSpace(s.cfg.PAEngagementToken),
 	}
 	// Desired pod resources (the 2026-06-20 right-sizing). Converged onto live
 	// agents the same way as spawn env: the image-bump patch never touches
@@ -89,7 +95,13 @@ func (s *Server) reconcilePersonalAgentImages(ctx context.Context, force bool) r
 		// WriteAgentDeployment, which already stamps the current spawn env, so
 		// env drift only needs an explicit patch on the non-retrofit path.
 		driftEnv := spawnEnvDrift(dep, desiredSpawnEnv)
-		needsEnvReconcile := len(driftEnv) > 0
+		// Stale env we actively delete from live pods (not just stop managing) —
+		// chiefly the legacy MAC_INTERNAL_SERVICE_TOKEN (the master internal
+		// token the pre-scoped-token recorder carried). Leaving it on existing
+		// pods would keep that token readable in every PA owner's env, so the
+		// reconcile must emit a $patch:delete for any pod that still has it.
+		staleEnv := spawnEnvStale(dep, personalAgentStaleEnvKeys)
+		needsEnvReconcile := len(driftEnv) > 0 || len(staleEnv) > 0
 		needsResReconcile := resourceDrift(dep, desiredResources)
 
 		if !needsImagePatch && !needsRestart && !needsInitContainer && !needsEnvReconcile && !needsResReconcile {
@@ -153,7 +165,17 @@ func (s *Server) reconcilePersonalAgentImages(ctx context.Context, force bool) r
 			if needsEnvReconcile {
 				// env has patchMergeKey "name", so a strategic-merge patch adds
 				// or updates only the drifted vars and leaves the rest intact.
-				container["env"] = driftEnv
+				// Stale keys are removed in the same patch via the $patch:delete
+				// directive (a typed EnvVar would only set the value empty, which
+				// for the master token is not good enough — it must be gone).
+				envPatch := make([]any, 0, len(driftEnv)+len(staleEnv))
+				for _, e := range driftEnv {
+					envPatch = append(envPatch, e)
+				}
+				for _, name := range staleEnv {
+					envPatch = append(envPatch, map[string]any{"name": name, "$patch": "delete"})
+				}
+				container["env"] = envPatch
 			}
 			if needsResReconcile {
 				// resources is a plain struct (no merge key), so patching the
@@ -198,7 +220,8 @@ func (s *Server) reconcilePersonalAgentImages(ctx context.Context, force bool) r
 			for _, e := range driftEnv {
 				names = append(names, e.Name)
 			}
-			s.log.Printf("personal-agent reconciler converged spawn env on %s/%s: %s", ns, dep.Name, strings.Join(names, ","))
+			s.log.Printf("personal-agent reconciler converged spawn env on %s/%s: set=[%s] removed=[%s]",
+				ns, dep.Name, strings.Join(names, ","), strings.Join(staleEnv, ","))
 		}
 		if needsResReconcile {
 			result.ResReconciled++
@@ -255,7 +278,7 @@ func spawnEnvDrift(dep interface{}, desired map[string]string) []corev1.EnvVar {
 		"PERSONAL_AGENT_LOOP_MODEL",
 		"PERSONAL_AGENT_LOOP_EFFORT",
 		"MAC_BACKEND_URL",
-		"MAC_INTERNAL_SERVICE_TOKEN",
+		"PA_ENGAGEMENT_TOKEN",
 	} {
 		want := desired[k]
 		if want == "" {
@@ -266,6 +289,52 @@ func spawnEnvDrift(dep interface{}, desired map[string]string) []corev1.EnvVar {
 		}
 	}
 	return drift
+}
+
+// personalAgentStaleEnvKeys are env vars the reconciler actively REMOVES from
+// live PA pods (via $patch:delete), not merely stops managing. The migration
+// from the master internal token to the scoped PA_ENGAGEMENT_TOKEN left
+// MAC_INTERNAL_SERVICE_TOKEN — equal to BACKEND_INTERNAL_SERVICE_TOKEN — sitting
+// in every existing pod's env, where the agent's owner can read it. Stopping
+// injection isn't enough: the value persists across image bumps (which roll the
+// image without resetting env), so it must be explicitly deleted.
+var personalAgentStaleEnvKeys = []string{"MAC_INTERNAL_SERVICE_TOKEN"}
+
+// spawnEnvStale returns the subset of keys that are actually present on dep's
+// first container, so the reconciler only emits a delete (and the pod restart
+// it triggers) for pods that still carry a stale var. Fail-closed: a marshal or
+// parse error returns nil so a read glitch never churns the fleet.
+func spawnEnvStale(dep interface{}, keys []string) []string {
+	buf, err := json.Marshal(dep)
+	if err != nil {
+		return nil
+	}
+	var s struct {
+		Spec struct {
+			Template struct {
+				Spec struct {
+					Containers []corev1.Container `json:"containers"`
+				} `json:"spec"`
+			} `json:"template"`
+		} `json:"spec"`
+	}
+	if err := json.Unmarshal(buf, &s); err != nil {
+		return nil
+	}
+	if len(s.Spec.Template.Spec.Containers) == 0 {
+		return nil
+	}
+	present := map[string]bool{}
+	for _, e := range s.Spec.Template.Spec.Containers[0].Env {
+		present[e.Name] = true
+	}
+	var out []string
+	for _, k := range keys {
+		if present[k] {
+			out = append(out, k)
+		}
+	}
+	return out
 }
 
 // resourceDrift reports whether dep's first container has resource requests or
