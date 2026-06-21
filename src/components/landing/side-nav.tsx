@@ -69,10 +69,12 @@ export function SideNav() {
 
   return (
     <>
+      {/* Desktop-only backdrop. Mobile panel is full-screen, so the
+          backdrop would be hidden behind it — skip the wasted blur. */}
       <div
         aria-hidden={!open}
         onClick={() => setOpen(false)}
-        className={`fixed inset-0 z-[55] bg-foreground/30 transition-opacity duration-200 ease-out ${
+        className={`fixed inset-0 z-[55] hidden bg-foreground/30 transition-opacity duration-200 ease-out sm:block ${
           open ? "opacity-100 backdrop-blur-sm" : "pointer-events-none opacity-0"
         }`}
       />
@@ -80,9 +82,19 @@ export function SideNav() {
       <aside
         aria-label="Section navigation"
         aria-hidden={!open}
-        className={`fixed right-0 top-0 z-[56] h-full w-72 max-w-[85vw] border-l border-border bg-background shadow-2xl transition-[transform,opacity] duration-[240ms] ease-out ${
-          open ? "translate-x-0 opacity-100" : "pointer-events-none translate-x-4 opacity-0"
-        }`}
+        className={[
+          // Base
+          "fixed z-[56] bg-background shadow-2xl transition-[transform,opacity] duration-[260ms] ease-out",
+          // Mobile: full-screen overlay
+          "inset-0 h-full w-full max-w-none",
+          // Desktop: right-side drawer
+          "sm:left-auto sm:right-0 sm:top-0 sm:inset-y-0 sm:h-full sm:w-80 sm:max-w-[85vw] sm:border-l sm:border-border",
+          open
+            ? "translate-x-0 translate-y-0 opacity-100"
+            : // Closed — mobile: slide up off-screen (fades down on open).
+              // Desktop: slide back to the right.
+              "pointer-events-none -translate-y-full opacity-0 sm:translate-y-0 sm:translate-x-full",
+        ].join(" ")}
       >
         <div className="flex h-14 items-center justify-between border-b border-border px-5">
           <span className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
@@ -92,7 +104,7 @@ export function SideNav() {
             type="button"
             aria-label="Close navigation"
             onClick={() => setOpen(false)}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-full text-foreground/70 hover:text-foreground"
+            className="inline-flex h-11 w-11 items-center justify-center rounded-full text-foreground/70 hover:text-foreground"
           >
             <X className="h-5 w-5" aria-hidden />
           </button>

@@ -10,6 +10,7 @@ import { HeroSection } from "@/components/landing/hero-section";
 import { PersonaPageView } from "@/components/landing/persona-page-view";
 import { PersonaProvider } from "@/components/landing/persona-context";
 import { PricingTiers } from "@/components/landing/pricing-tiers";
+import { SideNav, SideNavProvider } from "@/components/landing/side-nav";
 import { faqStructuredData, SeoFaqSection } from "@/components/landing/seo-faq";
 import { TestimonialsCarousel } from "@/components/landing/testimonials-carousel";
 import { ValueStack } from "@/components/landing/value-stack";
@@ -86,29 +87,32 @@ export default async function PersonaLandingPage({
   ]);
 
   return (
-    <main className="flex min-h-screen flex-col bg-background">
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
-      />
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
-      />
-      <CheckoutReturnToast />
-      <Header />
-      <PersonaProvider initialPersona={persona} initialFromUrl>
-        <PersonaPageView persona={persona} slug={slug} />
-        <HeroSection />
-        <ValueStack />
-        <HarnessVsAgent />
-        <BuiltFromInside />
-        <PricingTiers />
-        <TestimonialsCarousel testimonials={testimonials} />
-        <CtaSection />
-      </PersonaProvider>
-      <SeoFaqSection askCardsPosition="bottom" viewAllHref="/faq" />
-      <Footer />
-    </main>
+    <SideNavProvider>
+      <main className="flex min-h-screen flex-col bg-background">
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
+        />
+        <CheckoutReturnToast />
+        <SideNav />
+        <Header />
+        <PersonaProvider initialPersona={persona} initialFromUrl>
+          <PersonaPageView persona={persona} slug={slug} />
+          <HeroSection />
+          <ValueStack />
+          <HarnessVsAgent />
+          <BuiltFromInside />
+          <PricingTiers />
+          <TestimonialsCarousel testimonials={testimonials} />
+          <CtaSection />
+        </PersonaProvider>
+        <SeoFaqSection askCardsPosition="bottom" viewAllHref="/faq" />
+        <Footer />
+      </main>
+    </SideNavProvider>
   );
 }
