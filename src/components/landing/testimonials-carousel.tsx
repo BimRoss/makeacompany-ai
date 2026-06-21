@@ -172,7 +172,7 @@ export function TestimonialsCarousel({ testimonials }: { testimonials: LanderTes
           <div
             ref={scrollRef}
             className="-mx-4 flex gap-4 overflow-x-auto overscroll-x-contain px-4 py-6 sm:-mx-2 sm:px-2 snap-x snap-mandatory scroll-smooth"
-            style={{ touchAction: "pan-x" }}
+            style={{ touchAction: "pan-x pan-y" }}
             role="region"
             aria-label="Testimonials"
           >
