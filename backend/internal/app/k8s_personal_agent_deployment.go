@@ -65,7 +65,9 @@ func personalAgentLoopEffort() string {
 // engagement recorder POSTs observed messages to (mac-ai#498). Overridable via
 // env for non-prod; defaults to the prod Service DNS — the same value
 // MAC_BACKEND_URL carries on the Ross/Joanne pods. Paired with the converged
-// MAC_INTERNAL_SERVICE_TOKEN, which the recorder needs to authorize the POST.
+// PA_ENGAGEMENT_TOKEN — a scoped credential (NOT the master internal token)
+// that authorizes only the engagement ingest endpoint, so a PA owner who reads
+// their pod's env can't reach the rest of the /v1/internal/* surface.
 func personalAgentMacBackendURL() string {
 	if v := strings.TrimSpace(os.Getenv("PERSONAL_AGENT_MAC_BACKEND_URL")); v != "" {
 		return v

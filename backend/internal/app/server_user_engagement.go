@@ -9,9 +9,14 @@ import (
 )
 
 // handleInternalIngestUserEngagement accepts batched Slack message events
-// from Ross / Joanne pods and writes per-(user, day) engagement counters.
-// Auth via internalServiceBearer; admin-session fallback is intentionally
-// NOT allowed because this endpoint mutates aggregate counters.
+// from Ross / Joanne / personal-agent pods and writes per-(user, day)
+// engagement counters. Auth via paEngagementAuthorized — the scoped
+// PA_ENGAGEMENT_TOKEN (carried by per-user PA pods) or the master internal
+// token (Ross/Joanne, in-cluster jobs). The master token is NOT injected into
+// PA pods: it unlocks the whole /v1/internal/* + admin-read surface, and a PA
+// owner can read their pod's env, so the scoped token bounds the blast radius
+// of this one endpoint to "append engagement counts." Admin-session fallback
+// is intentionally NOT allowed because this endpoint mutates aggregate counters.
 //
 // Wire shape mirrors claude-code-core/engagement.wireBatch.
 type ingestUserEngagementRequest struct {
@@ -34,7 +39,7 @@ func (s *Server) handleInternalIngestUserEngagement(w http.ResponseWriter, r *ht
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	if !s.internalServiceBearerAuthorized(r) {
+	if !s.paEngagementAuthorized(r) {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}

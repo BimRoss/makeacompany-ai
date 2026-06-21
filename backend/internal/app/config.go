@@ -16,6 +16,13 @@ type Config struct {
 	AppEnv string
 	// BackendInternalServiceToken gates /v1/internal/* maintenance endpoints only.
 	BackendInternalServiceToken string
+	// PAEngagementToken is a narrowly-scoped credential that authorizes ONLY the
+	// personal-agent engagement ingest endpoint. It is injected into every
+	// per-user PA pod, so it must not be the master BackendInternalServiceToken —
+	// a PA owner can read their pod's env, and that token unlocks the whole
+	// /v1/internal/* + admin-read surface (shopify-token, PII, reaper, rollout).
+	// Empty disables PA engagement reporting (dev), same as an empty master token.
+	PAEngagementToken string
 	// AdminSignInAllowlist contains normalized emails that may complete /admin sign-in flows.
 	AdminSignInAllowlist []string
 	AdminSessionTTLSec   int
@@ -150,6 +157,7 @@ func LoadConfig() Config {
 		AppBaseURL:                          strings.TrimRight(envString("APP_BASE_URL", "http://localhost:3000"), "/"),
 		AppEnv:                              strings.ToLower(strings.TrimSpace(envString("APP_ENV", "development"))),
 		BackendInternalServiceToken:         strings.TrimSpace(os.Getenv("BACKEND_INTERNAL_SERVICE_TOKEN")),
+		PAEngagementToken:                   strings.TrimSpace(os.Getenv("PA_ENGAGEMENT_TOKEN")),
 		AdminSignInAllowlist:                envCSV("ADMIN_SIGN_IN_ALLOWLIST"),
 		AdminSessionTTLSec:                  envInt("ADMIN_SESSION_TTL_SEC", 259200),
 		MarketingAllowlist:                  envCSVDefault("MARKETING_ALLOWLIST", []string{"grant@bimross.com", "johnosberg@gmail.com"}),

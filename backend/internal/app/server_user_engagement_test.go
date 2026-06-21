@@ -206,6 +206,36 @@ func TestIngestUserEngagement_AuthRequired(t *testing.T) {
 	}
 }
 
+// The scoped PA_ENGAGEMENT_TOKEN authorizes the ingest endpoint — this is the
+// only credential PA pods carry, so it must work — while the master token keeps
+// working for Ross/Joanne and an unrelated bearer is still rejected.
+func TestIngestUserEngagement_ScopedPATokenAuth(t *testing.T) {
+	s, _ := newEngagementTestServer(t)
+	s.cfg.PAEngagementToken = "pa-scoped" // master stays "secret" from the helper
+	body, _ := json.Marshal(map[string]any{
+		"bot":    "personal-agent",
+		"events": []map[string]any{{"workspace_id": "T1", "slack_user_id": "UPA", "channel_id": "D1", "occurred_at": time.Now().UTC().Format(time.RFC3339)}},
+	})
+	post := func(token string) int {
+		req := httptest.NewRequest(http.MethodPost, "/v1/internal/ingest-user-engagement", bytes.NewReader(body))
+		if token != "" {
+			req.Header.Set("Authorization", "Bearer "+token)
+		}
+		rr := httptest.NewRecorder()
+		s.handleInternalIngestUserEngagement(rr, req)
+		return rr.Code
+	}
+	if code := post("pa-scoped"); code != http.StatusOK {
+		t.Errorf("scoped PA token status=%d want 200", code)
+	}
+	if code := post("secret"); code != http.StatusOK {
+		t.Errorf("master token status=%d want 200", code)
+	}
+	if code := post("nope"); code != http.StatusUnauthorized {
+		t.Errorf("wrong token status=%d want 401", code)
+	}
+}
+
 func TestTopUsersByEngagement(t *testing.T) {
 	s, _ := newEngagementTestServer(t)
 	now := time.Now().UTC().Format(time.RFC3339)
