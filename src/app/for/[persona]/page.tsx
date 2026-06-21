@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { BuiltFromInside } from "@/components/landing/built-from-inside";
 import { CheckoutReturnToast } from "@/components/landing/checkout-return-toast";
 import { CtaSection } from "@/components/landing/cta-section";
+import { FeaturedProductsCarousel } from "@/components/landing/featured-products-carousel";
 import { Footer } from "@/components/landing/footer";
 import { HarnessVsAgent } from "@/components/landing/harness-vs-agent";
 import { Header } from "@/components/landing/header";
@@ -15,6 +16,7 @@ import { faqStructuredData, SeoFaqSection } from "@/components/landing/seo-faq";
 import { TestimonialsCarousel } from "@/components/landing/testimonials-carousel";
 import { ValueStack } from "@/components/landing/value-stack";
 import { breadcrumbStructuredData } from "@/lib/breadcrumbs";
+import { getFeaturedProducts } from "@/lib/featured-products";
 import { fetchLanderSlackSeats } from "@/lib/lander-slack-seats";
 import { fetchLanderTestimonials } from "@/lib/lander-testimonials";
 import {
@@ -98,20 +100,12 @@ export default async function PersonaLandingPage({
           dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
         />
         <CheckoutReturnToast />
-        <SideNav
-          anchors={[
-            { href: "#start", label: "Start" },
-            { href: "#why", label: "Why this" },
-            { href: "#how", label: "How it works" },
-            { href: "#built", label: "Built from inside" },
-            { href: "#pricing", label: "Pricing" },
-            { href: "#testimonials", label: "Testimonials" },
-          ]}
-        />
+        <SideNav />
         <Header />
         <PersonaProvider initialPersona={persona} initialFromUrl>
           <PersonaPageView persona={persona} slug={slug} />
           <HeroSection />
+          <FeaturedProductsCarousel products={getFeaturedProducts()} />
           <ValueStack />
           <HarnessVsAgent />
           <BuiltFromInside />
