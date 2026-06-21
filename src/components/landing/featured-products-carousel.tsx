@@ -71,7 +71,7 @@ export function FeaturedProductsCarousel({ products }: { products: FeaturedProdu
           <div
             ref={scrollRef}
             className="-mx-4 flex gap-4 overflow-x-auto overscroll-x-contain px-4 py-12 sm:-mx-2 sm:px-2 md:mx-0 md:px-0 snap-x snap-proximity scroll-smooth [&>a:last-child]:snap-end"
-            style={{ touchAction: "pan-x" }}
+            style={{ touchAction: "pan-x pan-y" }}
             role="region"
             aria-label="Featured products built on makeacompany.ai"
           >
