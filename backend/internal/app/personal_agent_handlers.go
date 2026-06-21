@@ -318,7 +318,7 @@ func (s *Server) handlePersonalAgentInstallComplete(w http.ResponseWriter, r *ht
 		SystemPrompt:   rec.SystemPrompt,
 		AgentID:        rec.ID,
 		KnowledgeToken: knowledgeToken,
-		BackendBaseURL: s.cfg.AppBaseURL,
+		BackendBaseURL: s.personalAgentAPIBase(),
 	}); err != nil {
 		s.log.Printf("personal agent secret write: %v", err)
 		_ = s.store.UpdatePersonalAgentStatus(r.Context(), agentID, PersonalAgentStatusFailed)

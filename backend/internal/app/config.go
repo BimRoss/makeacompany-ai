@@ -11,6 +11,12 @@ type Config struct {
 	Port       int
 	RedisURL   string
 	AppBaseURL string
+	// InternalAPIBase is the cluster-internal URL personal-agent pods use to
+	// reach this backend (e.g. http://makeacompany-ai-backend.makeacompany-ai.svc.cluster.local:8080).
+	// Set in prod via the backend Deployment env so PA pods don't traverse the
+	// public ingress for /v1/personal-agents/knowledge (#613). Falls back to
+	// AppBaseURL when unset (local dev, where there's no cluster).
+	InternalAPIBase string
 	// AppEnv is the deployment environment label (e.g. "production", "development").
 	// Used to gate prod-only behavior such as strict CORS and startup secret validation.
 	AppEnv string
@@ -155,6 +161,7 @@ func LoadConfig() Config {
 		Port:                                envInt("PORT", 8080),
 		RedisURL:                            envString("REDIS_URL", "redis://localhost:6379/0"),
 		AppBaseURL:                          strings.TrimRight(envString("APP_BASE_URL", "http://localhost:3000"), "/"),
+		InternalAPIBase:                     strings.TrimRight(envString("BACKEND_INTERNAL_API_BASE", ""), "/"),
 		AppEnv:                              strings.ToLower(strings.TrimSpace(envString("APP_ENV", "development"))),
 		BackendInternalServiceToken:         strings.TrimSpace(os.Getenv("BACKEND_INTERNAL_SERVICE_TOKEN")),
 		PAEngagementToken:                   strings.TrimSpace(os.Getenv("PA_ENGAGEMENT_TOKEN")),
