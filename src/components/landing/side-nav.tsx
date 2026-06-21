@@ -3,9 +3,9 @@
 import { Menu, X } from "lucide-react";
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 
-type Anchor = { href: string; label: string };
+export type SideNavAnchor = { href: string; label: string };
 
-const ANCHORS: Anchor[] = [
+const DEFAULT_ANCHORS: SideNavAnchor[] = [
   { href: "#start", label: "Start" },
   { href: "#products", label: "Products" },
   { href: "#why", label: "Why this" },
@@ -53,7 +53,7 @@ export function SideNavTrigger({ className = "" }: { className?: string }) {
   );
 }
 
-export function SideNav() {
+export function SideNav({ anchors = DEFAULT_ANCHORS }: { anchors?: SideNavAnchor[] } = {}) {
   const ctx = useSideNavCtx();
   const open = ctx?.open ?? false;
   const setOpen = ctx?.setOpen ?? (() => {});
@@ -110,7 +110,7 @@ export function SideNav() {
           </button>
         </div>
         <nav className="flex flex-col p-3">
-          {ANCHORS.map((a) => (
+          {anchors.map((a) => (
             <a
               key={a.href}
               href={a.href}

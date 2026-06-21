@@ -127,6 +127,15 @@ html {
   background-color: var(--background);
   /* Kill rubber-band overscroll past the footer on iOS Safari and macOS trackpads. */
   overscroll-behavior-y: none;
+  /* Anchor links land below the sticky header (h-14 + top-2 ≈ 4rem; add a
+     little breathing room above the section title). */
+  scroll-padding-top: 5rem;
+}
+
+/* Belt-and-suspenders for browsers that don't honor scroll-padding-top on
+   programmatic scrolls — applied to every section that exposes an id. */
+section[id] {
+  scroll-margin-top: 5rem;
 }
 
 body {
