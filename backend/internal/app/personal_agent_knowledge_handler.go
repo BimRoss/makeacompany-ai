@@ -91,7 +91,7 @@ func (s *Server) handleBackfillPersonalAgentKnowledgeTokens(w http.ResponseWrite
 			k8sSkipped++
 			continue
 		}
-		if err := s.personalAgent.PatchAgentKnowledgeEnv(ctx, rec.OwnerSlackUserID, rec.ID, token, s.cfg.AppBaseURL); err != nil {
+		if err := s.personalAgent.PatchAgentKnowledgeEnv(ctx, rec.OwnerSlackUserID, rec.ID, token, s.personalAgentAPIBase()); err != nil {
 			s.log.Printf("patch knowledge env for %s: %v", rec.ID, err)
 			k8sFailed++
 			continue
@@ -107,4 +107,16 @@ func (s *Server) handleBackfillPersonalAgentKnowledgeTokens(w http.ResponseWrite
 		"k8sSkipped": k8sSkipped,
 		"k8sFailed":  k8sFailed,
 	})
+}
+
+// personalAgentAPIBase returns the URL PA pods should call to reach this
+// backend. Prefers InternalAPIBase (cluster-internal Service DNS, set in
+// prod) so traffic stays inside the cluster and the public-ingress
+// allowance on the backend NetworkPolicy can be tightened over time.
+// Falls back to AppBaseURL for local dev where there's no cluster.
+func (s *Server) personalAgentAPIBase() string {
+	if v := strings.TrimSpace(s.cfg.InternalAPIBase); v != "" {
+		return v
+	}
+	return s.cfg.AppBaseURL
 }
