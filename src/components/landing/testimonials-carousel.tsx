@@ -157,7 +157,7 @@ export function TestimonialsCarousel({ testimonials }: { testimonials: LanderTes
   if (testimonials.length === 0) return null;
 
   return (
-    <section className="bg-muted/30 py-20">
+    <section id="testimonials" className="bg-muted/30 py-20">
       <div className="mx-auto max-w-6xl px-6">
         <div className="mb-12 text-center">
           <h2 className="mb-4 text-3xl font-bold tracking-tight sm:text-4xl">
