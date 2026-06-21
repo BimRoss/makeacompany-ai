@@ -47,6 +47,7 @@ func main() {
 	srv.StartSyntheticProbe()
 	srv.StartPersonalAgentReconciler(context.Background())
 	srv.StartLifecycleSweeper(context.Background())
+	srv.StartTTFVSweeper(context.Background())
 
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
