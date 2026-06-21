@@ -7,6 +7,7 @@ import { useTheme } from "next-themes";
 import { useEffect, useState, type ReactNode } from "react";
 
 import { HeaderAccountSlot } from "@/components/landing/header-account-slot";
+import { SideNavTrigger } from "@/components/landing/side-nav";
 import { useWorkspaceNavbarTrail } from "@/components/workspace-navbar-trail-provider";
 
 type HeaderProps = {
@@ -95,6 +96,7 @@ export function Header({ endSlot }: HeaderProps = {}) {
               surfaces, HeaderAccountSlot client-detects auth and renders the
               right control. */}
           {endSlot ?? <HeaderAccountSlot />}
+          <SideNavTrigger />
         </div>
       </div>
     </header>
