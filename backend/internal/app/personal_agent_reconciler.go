@@ -64,6 +64,14 @@ func (s *Server) reconcilePersonalAgentImages(ctx context.Context, force bool) r
 		"PERSONAL_AGENT_DEFAULT_EFFORT": personalAgentDefaultEffort(),
 		"PERSONAL_AGENT_LOOP_MODEL":     personalAgentLoopModel(),
 		"PERSONAL_AGENT_LOOP_EFFORT":    personalAgentLoopEffort(),
+		// Engagement reporting (parity with Ross/Joanne, mac-ai#498): the PA
+		// recorder POSTs observed DM messages to mac-ai so /admin lights up
+		// per-bot + owner message counts. Converged here — not just stamped at
+		// provision — so the existing fleet picks it up on the next reconcile.
+		// An empty token (dev) is skipped by spawnEnvDrift, leaving the
+		// recorder nil and reporting off.
+		"MAC_BACKEND_URL":            personalAgentMacBackendURL(),
+		"MAC_INTERNAL_SERVICE_TOKEN": strings.TrimSpace(s.cfg.BackendInternalServiceToken),
 	}
 	// Desired pod resources (the 2026-06-20 right-sizing). Converged onto live
 	// agents the same way as spawn env: the image-bump patch never touches
@@ -246,6 +254,8 @@ func spawnEnvDrift(dep interface{}, desired map[string]string) []corev1.EnvVar {
 		"PERSONAL_AGENT_DEFAULT_EFFORT",
 		"PERSONAL_AGENT_LOOP_MODEL",
 		"PERSONAL_AGENT_LOOP_EFFORT",
+		"MAC_BACKEND_URL",
+		"MAC_INTERNAL_SERVICE_TOKEN",
 	} {
 		want := desired[k]
 		if want == "" {

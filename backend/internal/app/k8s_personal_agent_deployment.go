@@ -61,6 +61,18 @@ func personalAgentLoopEffort() string {
 	return strings.TrimSpace(os.Getenv("PERSONAL_AGENT_LOOP_EFFORT"))
 }
 
+// personalAgentMacBackendURL is the in-cluster mac-ai backend base URL the PA
+// engagement recorder POSTs observed messages to (mac-ai#498). Overridable via
+// env for non-prod; defaults to the prod Service DNS — the same value
+// MAC_BACKEND_URL carries on the Ross/Joanne pods. Paired with the converged
+// MAC_INTERNAL_SERVICE_TOKEN, which the recorder needs to authorize the POST.
+func personalAgentMacBackendURL() string {
+	if v := strings.TrimSpace(os.Getenv("PERSONAL_AGENT_MAC_BACKEND_URL")); v != "" {
+		return v
+	}
+	return "http://makeacompany-ai-backend.makeacompany-ai.svc.cluster.local:8080"
+}
+
 // personalAgentResources sizes every generated PA pod. Defaults come from the
 // 2026-06-20 cluster CPU audit: idle agents sit at ~1m CPU / ~9Mi and even an
 // active Claude session bursts to only ~50m / well under 1Gi, yet each pod was
