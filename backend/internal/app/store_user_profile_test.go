@@ -638,3 +638,97 @@ func TestEnrichSlackWorkspaceUsersWithProfileTerms_Status(t *testing.T) {
 		}
 	}
 }
+
+// TestSignupAt_StickyAcrossWritePaths verifies that signup_at is stamped on the
+// first profile-creation write and is not overwritten by later upserts via any
+// of the three creation paths. This is the load-bearing invariant for TTFV
+// (#579) -- if signup_at can move forward, every TTFV reading collapses to 0.
+func TestSignupAt_StickyAcrossWritePaths(t *testing.T) {
+	srv, err := miniredis.Run()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer srv.Close()
+	rdb := redis.NewClient(&redis.Options{Addr: srv.Addr()})
+	defer rdb.Close()
+	ctx := context.Background()
+	st := &Store{rdb: rdb}
+
+	cases := []struct {
+		name    string
+		first   func(t *testing.T, email string)
+		second  func(t *testing.T, email string)
+	}{
+		{
+			name: "waitlist then waitlist",
+			first: func(t *testing.T, email string) {
+				if err := st.UpsertUserProfileAfterWaitlist(ctx, email, "cus_1", "cs_1", "paid", "prod_x", ""); err != nil {
+					t.Fatal(err)
+				}
+			},
+			second: func(t *testing.T, email string) {
+				if err := st.UpsertUserProfileAfterWaitlist(ctx, email, "cus_1", "cs_1", "paid", "prod_x", ""); err != nil {
+					t.Fatal(err)
+				}
+			},
+		},
+		{
+			name: "free-trial-invite then waitlist",
+			first: func(t *testing.T, email string) {
+				if err := st.UpsertUserProfileFreeTrialInvite(ctx, email, "", 0); err != nil {
+					t.Fatal(err)
+				}
+			},
+			second: func(t *testing.T, email string) {
+				if err := st.UpsertUserProfileAfterWaitlist(ctx, email, "cus_1", "cs_1", "paid", "prod_x", ""); err != nil {
+					t.Fatal(err)
+				}
+			},
+		},
+		{
+			name: "free-lifetime mark then free-trial-invite",
+			first: func(t *testing.T, email string) {
+				if err := st.MarkProfileFreeLifetime(ctx, email); err != nil {
+					t.Fatal(err)
+				}
+			},
+			second: func(t *testing.T, email string) {
+				if err := st.UpsertUserProfileFreeTrialInvite(ctx, email, "ref", 0); err != nil {
+					t.Fatal(err)
+				}
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			email := strings.ToLower(strings.ReplaceAll(tc.name, " ", "_")) + "@example.com"
+			tc.first(t, email)
+			first, err := rdb.HGet(ctx, userProfileRedisKey(email), "signup_at").Result()
+			if err != nil {
+				t.Fatalf("HGET signup_at after first write: %v", err)
+			}
+			if first == "" {
+				t.Fatal("signup_at not stamped on first write")
+			}
+			// Force a clock gap so a second-write overwrite would actually look different.
+			time.Sleep(10 * time.Millisecond)
+			tc.second(t, email)
+			second, err := rdb.HGet(ctx, userProfileRedisKey(email), "signup_at").Result()
+			if err != nil {
+				t.Fatalf("HGET signup_at after second write: %v", err)
+			}
+			if second != first {
+				t.Fatalf("signup_at clobbered by second write: first=%q second=%q", first, second)
+			}
+
+			row, err := st.UserProfileRowByEmail(ctx, email)
+			if err != nil {
+				t.Fatalf("UserProfileRowByEmail: %v", err)
+			}
+			if row.SignupAt != first {
+				t.Fatalf("SignupAt on row: got %q want %q", row.SignupAt, first)
+			}
+		})
+	}
+}

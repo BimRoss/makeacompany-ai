@@ -53,7 +53,7 @@ func (s *Store) UpsertUserProfileAfterWaitlist(ctx context.Context, email, strip
 	if ref := strings.TrimSpace(attributedTo); ref != "" {
 		fields["attributed_to"] = ref
 	}
-	return s.rdb.HSet(ctx, userProfileRedisKey(email), fields).Err()
+	return stampSignupAtAndHSet(ctx, s.rdb, userProfileRedisKey(email), now, fields)
 }
 
 // UpsertUserProfileFreeTrialInvite records a free-trial invite request on the profile hash without
@@ -82,7 +82,7 @@ func (s *Store) UpsertUserProfileFreeTrialInvite(ctx context.Context, email, att
 		fields["stripe_subscription_status"] = "trialing"
 		fields["trial_expires_at"] = strconv.FormatInt(trialExpiresAtUnix, 10)
 	}
-	return s.rdb.HSet(ctx, userProfileRedisKey(email), fields).Err()
+	return stampSignupAtAndHSet(ctx, s.rdb, userProfileRedisKey(email), now, fields)
 }
 
 // MergeUserProfileFields HSets caller-supplied fields onto the profile hash without touching any other keys.
@@ -122,11 +122,22 @@ func (s *Store) SetProfileFreeLifetime(ctx context.Context, email string, freeLi
 		return fmt.Errorf("missing email")
 	}
 	now := time.Now().UTC().Format(time.RFC3339)
-	return s.rdb.HSet(ctx, userProfileRedisKey(email), map[string]any{
+	return stampSignupAtAndHSet(ctx, s.rdb, userProfileRedisKey(email), now, map[string]any{
 		"email":              email,
 		"free_lifetime":      strconv.FormatBool(freeLifetime),
 		"profile_updated_at": now,
-	}).Err()
+	})
+}
+
+// stampSignupAtAndHSet writes the per-profile fields and, in the same pipeline,
+// HSetNX-stamps signup_at on first write so it sticks forever. signup_at is the
+// signup anchor for TTFV (issue #579); we never let a later upsert clobber it.
+func stampSignupAtAndHSet(ctx context.Context, rdb *redis.Client, key, nowRFC3339 string, fields map[string]any) error {
+	pipe := rdb.TxPipeline()
+	pipe.HSetNX(ctx, key, "signup_at", nowRFC3339)
+	pipe.HSet(ctx, key, fields)
+	_, err := pipe.Exec(ctx)
+	return err
 }
 
 // UpsertUserProfileStripeSubscription updates subscription-derived fields on the profile hash.
@@ -270,6 +281,11 @@ type UserProfileRow struct {
 	Tier                                string `json:"tier"`
 	SlackUserID                         string `json:"slackUserId"`
 	WaitlistPaymentStatus               string `json:"waitlistPaymentStatus"`
+	// SignupAt is the RFC3339 stamp of the user's first profile-creation write
+	// (waitlist purchase, free-trial invite, or free-lifetime mark). Written
+	// once via HSetNX so later upserts cannot move it forward. Anchor for TTFV
+	// (#579).
+	SignupAt                            string `json:"signupAt,omitempty"`
 	ProfileUpdatedAt                    string `json:"profileUpdatedAt"`
 	SlackProfileUpdatedAt               string `json:"slackProfileUpdatedAt"`
 	StripeSubscriptionUpdatedAt         string `json:"stripeSubscriptionUpdatedAt"`
@@ -332,6 +348,7 @@ func userProfileRowFromHash(email string, vals map[string]string) UserProfileRow
 		Tier:                                strings.TrimSpace(vals["tier"]),
 		SlackUserID:                         slackID,
 		WaitlistPaymentStatus:               strings.TrimSpace(vals["waitlist_payment_status"]),
+		SignupAt:                            strings.TrimSpace(vals["signup_at"]),
 		ProfileUpdatedAt:                    strings.TrimSpace(vals["profile_updated_at"]),
 		SlackProfileUpdatedAt:               strings.TrimSpace(vals["slack_profile_updated_at"]),
 		StripeSubscriptionUpdatedAt:         strings.TrimSpace(vals["stripe_subscription_updated_at"]),
