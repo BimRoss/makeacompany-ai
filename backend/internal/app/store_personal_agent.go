@@ -2,6 +2,8 @@ package app
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -12,9 +14,10 @@ import (
 )
 
 const (
-	personalAgentKeyPrefix      = keyPrefix + ":personal_agent:"
-	personalAgentByOwnerPrefix  = keyPrefix + ":personal_agent_by_owner:"
-	personalAgentByAppIDPrefix  = keyPrefix + ":personal_agent_by_app:"
+	personalAgentKeyPrefix              = keyPrefix + ":personal_agent:"
+	personalAgentByOwnerPrefix          = keyPrefix + ":personal_agent_by_owner:"
+	personalAgentByAppIDPrefix          = keyPrefix + ":personal_agent_by_app:"
+	personalAgentByKnowledgeTokenPrefix = keyPrefix + ":personal_agent_by_knowledge_token:"
 
 	PersonalAgentStatusPendingInstall = "pending_install"
 	PersonalAgentStatusInstalled      = "installed"
@@ -63,9 +66,15 @@ type PersonalAgentRecord struct {
 	// stays the source of truth for the typed persona; bullets are
 	// additive.
 	YouTubeSources   []PersonalAgentYouTubeSource `json:"youtubeSources,omitempty"`
-	Status           string `json:"status"`
-	CreatedAt        string `json:"createdAt"`
-	UpdatedAt        string `json:"updatedAt"`
+	// KnowledgeToken is the per-agent bearer the in-cluster personal-agent pod
+	// presents to GET /v1/personal-agents/knowledge so it can lazy-load
+	// harvested intelligence (see #607). Random hex, minted at provision; the
+	// only path back to the agent id is via the by-knowledge-token index.
+	// Never returned by the /me handler.
+	KnowledgeToken    string `json:"-"`
+	Status            string `json:"status"`
+	CreatedAt         string `json:"createdAt"`
+	UpdatedAt         string `json:"updatedAt"`
 }
 
 // PersonalAgentYouTubeSource is one harvested-from-YouTube intelligence
@@ -85,6 +94,9 @@ func personalAgentByOwnerRedisKey(slackUserID string) string {
 }
 func personalAgentByAppRedisKey(appID string) string {
 	return personalAgentByAppIDPrefix + strings.TrimSpace(appID)
+}
+func personalAgentByKnowledgeTokenRedisKey(token string) string {
+	return personalAgentByKnowledgeTokenPrefix + strings.TrimSpace(token)
 }
 
 // ErrPersonalAgentExists is returned by CreatePersonalAgent when the owner
@@ -285,6 +297,9 @@ func (s *Store) DeletePersonalAgent(ctx context.Context, rec PersonalAgentRecord
 	if rec.SlackAppID != "" {
 		pipe.Del(ctx, personalAgentByAppRedisKey(rec.SlackAppID))
 	}
+	if rec.KnowledgeToken != "" {
+		pipe.Del(ctx, personalAgentByKnowledgeTokenRedisKey(rec.KnowledgeToken))
+	}
 	_, err := pipe.Exec(ctx)
 	return err
 }
@@ -337,6 +352,7 @@ func recordToHash(r PersonalAgentRecord) map[string]any {
 		"service_port":        r.ServicePort,
 		"bot_user_id":         r.BotUserID,
 		"youtube_sources":     marshalYouTubeSources(r.YouTubeSources),
+		"knowledge_token":     r.KnowledgeToken,
 		"status":              r.Status,
 		"created_at":          r.CreatedAt,
 		"updated_at":          r.UpdatedAt,
@@ -389,10 +405,74 @@ func hashToRecord(vals map[string]string) PersonalAgentRecord {
 		ServicePort:       port,
 		BotUserID:         vals["bot_user_id"],
 		YouTubeSources:    unmarshalYouTubeSources(vals["youtube_sources"]),
+		KnowledgeToken:    vals["knowledge_token"],
 		Status:            vals["status"],
 		CreatedAt:         vals["created_at"],
 		UpdatedAt:         vals["updated_at"],
 	}
+}
+
+// EnsurePersonalAgentKnowledgeToken returns the existing per-agent bearer
+// token, minting a fresh one on first call. The token is what the in-cluster
+// personal-agent pod uses to authenticate against /v1/personal-agents/knowledge
+// (see #607). Idempotent: callers can invoke at provision OR lazily on read
+// without worrying about double-minting — the index write is a no-op when the
+// record already has a token.
+//
+// The returned token is also written to a by-token index for O(1) auth lookup.
+func (s *Store) EnsurePersonalAgentKnowledgeToken(ctx context.Context, agentID string) (string, error) {
+	rec, err := s.GetPersonalAgent(ctx, agentID)
+	if err != nil {
+		return "", err
+	}
+	if token := strings.TrimSpace(rec.KnowledgeToken); token != "" {
+		// Index may be missing for older records minted before the index landed;
+		// re-set defensively. SET is idempotent.
+		if err := s.rdb.Set(ctx, personalAgentByKnowledgeTokenRedisKey(token), agentID, 0).Err(); err != nil {
+			return "", fmt.Errorf("backfill knowledge token index: %w", err)
+		}
+		return token, nil
+	}
+	token, err := mintPersonalAgentKnowledgeToken()
+	if err != nil {
+		return "", err
+	}
+	pipe := s.rdb.TxPipeline()
+	pipe.HSet(ctx, personalAgentRedisKey(agentID), map[string]any{
+		"knowledge_token": token,
+		"updated_at":      time.Now().UTC().Format(time.RFC3339),
+	})
+	pipe.Set(ctx, personalAgentByKnowledgeTokenRedisKey(token), agentID, 0)
+	if _, err := pipe.Exec(ctx); err != nil {
+		return "", fmt.Errorf("persist knowledge token: %w", err)
+	}
+	return token, nil
+}
+
+// GetPersonalAgentByKnowledgeToken is the auth lookup for the lazy-load
+// knowledge endpoint. Returns redis.Nil when the token doesn't index any
+// agent — caller maps that to 401 (don't leak which agent would have matched).
+func (s *Store) GetPersonalAgentByKnowledgeToken(ctx context.Context, token string) (PersonalAgentRecord, error) {
+	token = strings.TrimSpace(token)
+	if token == "" {
+		return PersonalAgentRecord{}, redis.Nil
+	}
+	id, err := s.rdb.Get(ctx, personalAgentByKnowledgeTokenRedisKey(token)).Result()
+	if err != nil {
+		return PersonalAgentRecord{}, err
+	}
+	return s.GetPersonalAgent(ctx, id)
+}
+
+// mintPersonalAgentKnowledgeToken returns a fresh 32-hex-char bearer. The
+// `pak_` prefix (personal agent knowledge) makes it grep-able in logs without
+// being secret-revealing on its own.
+func mintPersonalAgentKnowledgeToken() (string, error) {
+	var buf [16]byte
+	if _, err := rand.Read(buf[:]); err != nil {
+		return "", fmt.Errorf("mint knowledge token: %w", err)
+	}
+	return "pak_" + hex.EncodeToString(buf[:]), nil
 }
 
 // ListPersonalAgents returns every personal-agent record. It SCANs the main

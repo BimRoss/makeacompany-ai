@@ -146,6 +146,15 @@ func personalAgentSecretData(req PersonalAgentRuntimeSecretRequest) map[string]s
 	if v := strings.TrimSpace(req.SystemPrompt); v != "" {
 		data["PERSONAL_AGENT_SYSTEM_PROMPT"] = v
 	}
+	if v := strings.TrimSpace(req.AgentID); v != "" {
+		data["PERSONAL_AGENT_ID"] = v
+	}
+	if v := strings.TrimSpace(req.KnowledgeToken); v != "" {
+		data["PERSONAL_AGENT_KNOWLEDGE_TOKEN"] = v
+	}
+	if v := strings.TrimSpace(req.BackendBaseURL); v != "" {
+		data["MAKEACOMPANY_API_BASE"] = v
+	}
 	return data
 }
 
@@ -190,11 +199,14 @@ func (w *PersonalAgentWriter) ReadAgentBotToken(ctx context.Context, slackUserID
 // reflected claude-oauth-pool Secret, consumed by the PA pod via envFrom. Per-user
 // OAuth (so each personal agent has its own pool + rate budget) is a follow-up.
 type PersonalAgentRuntimeSecretRequest struct {
-	SlackUserID   string
-	SlackAppID    string
-	BotToken      string // xoxb-
-	SigningSecret string // from apps.manifest.create credentials
-	SystemPrompt  string // user-defined persona text for instructions.md
+	SlackUserID    string
+	SlackAppID     string
+	BotToken       string // xoxb-
+	SigningSecret  string // from apps.manifest.create credentials
+	SystemPrompt   string // user-defined persona text for instructions.md
+	AgentID        string // makeacompany agent id, exposed to the pod for self-aware HTTP calls
+	KnowledgeToken string // bearer for GET /v1/personal-agents/knowledge (lazy-loaded intel, #607)
+	BackendBaseURL string // base URL of the makeacompany-ai backend the pod calls (e.g. https://makeacompany.ai)
 }
 
 // WriteAgentRuntimeSecret upserts the per-agent runtime Secret. The personal

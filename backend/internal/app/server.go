@@ -318,6 +318,14 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 	s.mux.HandleFunc("POST /v1/internal/personal-agents/rollout-all", s.handlePersonalAgentRolloutAll)
 	s.mux.HandleFunc("POST /v1/internal/personal-agents/backfill-manifest", s.handlePersonalAgentBackfillManifest)
 	s.mux.HandleFunc("GET /v1/personal-agents/{id}/install-complete", s.handlePersonalAgentInstallComplete)
+	// Per-agent bearer-authed lazy-load endpoint for harvested intelligence
+	// (#607). Called from the agent-knowledge skill in claude-code-personal-agent.
+	s.mux.HandleFunc("GET /v1/personal-agents/knowledge", s.handleGetPersonalAgentKnowledge)
+	s.mux.HandleFunc("POST /v1/internal/personal-agents/backfill-knowledge-tokens", s.handleBackfillPersonalAgentKnowledgeTokens)
+	// Structured ingest paths so the Next.js orchestrator doesn't have to bake
+	// bullets into the system-prompt blob (#608). Both gated by /me ownership.
+	s.mux.HandleFunc("POST /v1/me/personal-agents/youtube-sources/add", s.handleAddPersonalAgentYouTubeSource)
+	s.mux.HandleFunc("POST /v1/me/personal-agents/youtube-sources/remove", s.handleRemovePersonalAgentYouTubeSource)
 	// Shared Slack events gateway for ALL personal-agent apps. The manifest
 	// template ships with /slack/events as the events request_url, and Slack
 	// persists the value verbatim per app — so we expose the bare path here

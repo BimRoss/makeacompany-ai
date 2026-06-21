@@ -223,13 +223,23 @@ func (s *Server) handleGetMyPersonalAgent(w http.ResponseWriter, r *http.Request
 		http.Error(w, "lookup failed", http.StatusInternalServerError)
 		return
 	}
+	// SystemPrompt may carry a legacy yt-intel fence (frontend used to bake
+	// bullets in there). Strip on read so the textarea hydrates with just the
+	// operator's typed personality. The structured YouTubeSources field is
+	// returned alongside for the "Learn from a video" UI to consume directly.
+	cleanedPersona := strings.TrimSpace(stripYouTubeIntelFence(rec.SystemPrompt))
+	sources := rec.YouTubeSources
+	if sources == nil {
+		sources = []PersonalAgentYouTubeSource{}
+	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"hasAgent":        true,
 		"agentId":         rec.ID,
 		"displayName":     rec.DisplayName,
 		"description":     rec.Description,
 		"longDescription": rec.LongDescription,
-		"systemPrompt":    rec.SystemPrompt,
+		"systemPrompt":    cleanedPersona,
+		"youtubeSources":  sources,
 		"slackAppId":      rec.SlackAppID,
 		"status":          rec.Status,
 		// install url only useful while pending. Re-pin team= on read: records
@@ -291,12 +301,24 @@ func (s *Server) handlePersonalAgentInstallComplete(w http.ResponseWriter, r *ht
 		return
 	}
 
+	// Mint (or fetch) the per-agent knowledge token so it lands in the
+	// runtime Secret on first install rather than via a separate backfill.
+	knowledgeToken, err := s.store.EnsurePersonalAgentKnowledgeToken(r.Context(), agentID)
+	if err != nil {
+		s.log.Printf("ensure knowledge token at install: %v", err)
+		// Non-fatal — the lazy-load skill will surface a clear error if the
+		// token is missing, and the operator can retry. Install shouldn't
+		// fail because the lazy-load lane isn't wired.
+	}
 	if err := s.personalAgent.WriteAgentRuntimeSecret(r.Context(), PersonalAgentRuntimeSecretRequest{
-		SlackUserID:   rec.OwnerSlackUserID,
-		SlackAppID:    rec.SlackAppID,
-		BotToken:      botToken,
-		SigningSecret: rec.SlackSigningSecret,
-		SystemPrompt:  rec.SystemPrompt,
+		SlackUserID:    rec.OwnerSlackUserID,
+		SlackAppID:     rec.SlackAppID,
+		BotToken:       botToken,
+		SigningSecret:  rec.SlackSigningSecret,
+		SystemPrompt:   rec.SystemPrompt,
+		AgentID:        rec.ID,
+		KnowledgeToken: knowledgeToken,
+		BackendBaseURL: s.cfg.AppBaseURL,
 	}); err != nil {
 		s.log.Printf("personal agent secret write: %v", err)
 		_ = s.store.UpdatePersonalAgentStatus(r.Context(), agentID, PersonalAgentStatusFailed)
