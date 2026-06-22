@@ -151,6 +151,18 @@ func TestWriteAgentDeployment_GoogleSidecarOptIn(t *testing.T) {
 						secretEnv = e.Value
 					}
 				}
+				// The personal-agents LimitRange enforces maxLimitRequestRatio
+				// cpu=40 and injects a default cpu limit of 1 when none is set,
+				// which forbids the pod. The sidecar MUST carry an explicit cpu
+				// request + limit whose ratio is <= 40.
+				res := spec.Containers[i].Resources
+				cpuReq := res.Requests.Cpu().MilliValue()
+				cpuLim := res.Limits.Cpu().MilliValue()
+				if cpuReq == 0 || cpuLim == 0 {
+					t.Errorf("sidecar must set explicit cpu request+limit, got req=%dm lim=%dm", cpuReq, cpuLim)
+				} else if ratio := float64(cpuLim) / float64(cpuReq); ratio > 40 {
+					t.Errorf("sidecar cpu limit/request ratio %.0f exceeds LimitRange max 40 (req=%dm lim=%dm)", ratio, cpuReq, cpuLim)
+				}
 			}
 		}
 		if !sidecarFound {

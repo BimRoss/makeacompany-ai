@@ -521,13 +521,23 @@ func personalAgentGwsSidecar(slackUserID string) corev1.Container {
 		LivenessProbe:  httpProbeOnPort(personalAgentGwsSidecarPort, 15, 30),
 		ReadinessProbe: httpProbeOnPort(personalAgentGwsSidecarPort, 5, 15),
 		Resources: corev1.ResourceRequirements{
-			// Matches the Ross sidecar's tuned values: idles ~85Mi, spikes on
-			// rotate+revoke; 128Mi OOMKilled it, so 256Mi limit / 64Mi request.
+			// Memory: idles ~85Mi, spikes on rotate+revoke; 128Mi OOMKilled the
+			// Ross sidecar, so 256Mi limit / 64Mi request (ratio 4, under the
+			// personal-agents LimitRange max of 8).
+			//
+			// CPU: an EXPLICIT limit is required. The personal-agents namespace
+			// LimitRange enforces maxLimitRequestRatio cpu=40 and injects a
+			// default cpu limit of "1" when a container omits one — a 5m request
+			// with the injected 1000m limit is ratio 200 and the kubelet rejects
+			// the pod ("cpu max limit to request ratio per Container is 40").
+			// 10m request / 100m limit = ratio 10; the sidecar's CPU is near-idle
+			// except brief token-rotation spikes, so 100m is ample headroom.
 			Requests: corev1.ResourceList{
-				corev1.ResourceCPU:    resource.MustParse("5m"),
+				corev1.ResourceCPU:    resource.MustParse("10m"),
 				corev1.ResourceMemory: resource.MustParse("64Mi"),
 			},
 			Limits: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("100m"),
 				corev1.ResourceMemory: resource.MustParse("256Mi"),
 			},
 		},
