@@ -35,29 +35,41 @@ user (browser, /me)
 connect/disconnect/status + credential writer, the personal-agent runtime, the token sidecar, the
 gateway, and the Kubernetes secret/RBAC/network surface.
 
-## 3. Controls already in place (map to ASVS)
-- **Credential isolation** — refresh token in a per-user Secret; per-user ServiceAccount + Role
+## 3. Controls already in place (map to ASVS) — audited 2026-06-22
+- **Secrets at rest: ENCRYPTED** ✓ — kube-apiserver runs with
+  `--encryption-provider-config=/var/lib/rancher/rke2/server/cred/encryption-config.json` +
+  `--encryption-provider-config-automatic-reload=true` (RKE2 secrets-encryption on). K8s Secrets
+  are encrypted in etcd, not base64-only.
+- **Data store transport: TLS** ✓ — etcd over TLS (apiserver `--etcd-cafile/-certfile/-keyfile`).
+- **Credential isolation** ✓ — refresh token in a per-user Secret; per-user ServiceAccount + Role
   scoped to exactly that one Secret (no cross-tenant secret access).
-- **Token lifecycle** — short-lived (1h) access tokens, refresh rotated on every mint, revoked +
+- **Token lifecycle** ✓ — short-lived (1h) access tokens, refresh rotated on every mint, revoked +
   Secret deleted on disconnect/deprovision.
-- **Network** — default-deny NetworkPolicies; gateway reachable only from the personal-agents ns;
+- **Network** ✓ — default-deny NetworkPolicies; gateway reachable only from the personal-agents ns;
   egress allow-listed; `/mcp` not internet-exposed.
-- **Transport** — TLS on all ingress; cert-manager-issued certs.
-- **Least privilege** — minimum scopes; sidecar SA limited to get/patch on its own Secret.
-- **Tenant isolation** — one agent per owner; identity bound server-side at the gateway.
+- **Transport (app)** ✓ — TLS on all ingress; cert-manager-issued certs.
+- **Static analysis** ✓ — CodeQL active on makeacompany-ai + claude-code-personal-agent.
+- **Secret scanning** ✓ — rancher-admin `secret-scan.yml` + GitHub org secret scanning.
+- **Least privilege** ✓ — minimum scopes; sidecar SA limited to get/patch on its own Secret.
+- **Tenant isolation** ✓ — one agent per owner; identity bound server-side at the gateway.
 
-## 4. Likely gaps to remediate / document before assessment
-- [ ] **Secrets-at-rest encryption** — confirm/enable etcd encryption-at-rest (or KMS) for K8s
-      Secrets; document it. (Today secrets are base64 in etcd unless encryption-at-rest is on.)
-- [ ] **Dependency / CVE scanning** — ensure image + dependency scanning (e.g. in CI) with a
-      documented patch cadence; have results ready for the SAQ.
-- [ ] **Access logging & audit** — document who can access the cluster/secrets and how access is
-      logged; tie to the "no human reads user data" policy.
-- [ ] **Data-flow + retention doc** — this file + `google-workspace-data-handling.md` satisfy most
-      of it; keep current.
-- [ ] **Vuln management / disclosure** — a security contact + basic vuln-handling process.
-- [ ] **Branch protection / SDLC** — note CI checks, review requirements (and the `--admin` merge
-      exception used during this build-out).
+## 4. Gaps to remediate / document before assessment — audited 2026-06-22
+- [ ] **Container/image CVE scanning** — NONE today (no Trivy/Grype on the makeacompany-ai
+      backend/frontend, claude-code-personal-agent, or google-workspace-mcp images). Add a scan step
+      to the image-build workflows + a patch cadence. **Highest-priority gap.**
+- [ ] **Broaden dependency scanning** — Dependabot is on makeacompany-ai only; add to
+      claude-code-personal-agent + google-workspace-mcp (the latter pins upstream by SHA → set a
+      CVE-driven bump cadence).
+- [ ] **K8s API audit logging** — NOT configured (no `--audit-log-path`/`--audit-policy-file`).
+      Enable an RKE2 audit policy + retention so cluster/secret access is logged; ties to the "no
+      human reads user data" attestation.
+- [x] **Secrets-at-rest encryption** — CONFIRMED enabled (see §3). No action.
+- [ ] **Access logging & access-control doc** — document who can access the cluster/secrets (depends
+      on the audit-logging item).
+- [ ] **Data-flow + retention doc** — this file + `google-workspace-data-handling.md` cover it.
+- [ ] **Vuln management / disclosure** — publish a security contact + basic vuln-handling process.
+- [ ] **Branch protection / SDLC** — note CI checks + review requirements (and re-tighten the
+      `--admin` merge exception used heavily during this build-out for steady state).
 
 ## 5. Sequencing
 Brand verification (Gate 1) and sensitive-scope verification (Gate 2) do **not** require CASA and
