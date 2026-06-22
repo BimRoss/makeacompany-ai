@@ -24,6 +24,13 @@ export type PanelDef = {
   span?: 1 | 2;
   /** Hide the panel entirely when the query returns no points. */
   hideWhenEmpty?: boolean;
+  /**
+   * Force the headline number to use the series with this `key`, bypassing the
+   * default tone-based ranking (which would otherwise pick the most "alarming"
+   * line). Useful when you want the success line to drive the number even
+   * while error lines are also drawn.
+   */
+  headlineKey?: string;
 };
 
 function pointsFor(raw: RangeSeries[], query: string): Array<[number, number]> {
@@ -77,23 +84,15 @@ export const WEB_PANELS: PanelDef[] = [
   {
     id: "request-traffic",
     title: "Request traffic",
-    subtitle: "Total /min, split by status class",
-    queries: [
-      `sum(rate(${REQ}[5m])) * 60`,
-      `sum by (status_class) (rate(${REQ}[5m])) * 60`,
-    ],
+    subtitle: "Per minute, split by status class",
+    queries: [`sum by (status_class) (rate(${REQ}[5m])) * 60`],
     toSeries: (raw) => {
-      const totalQ = `sum(rate(${REQ}[5m])) * 60`;
       const splitQ = `sum by (status_class) (rate(${REQ}[5m])) * 60`;
-      const total: ChartSeries = {
-        key: "total",
-        label: "total",
-        tone: "ink",
-        points: pointsFor(raw, totalQ),
-      };
-      const split = splitByLabel(splitQ, "status_class", statusTone)(raw);
-      return [total, ...split];
+      return splitByLabel(splitQ, "status_class", statusTone)(raw).map((s) =>
+        s.label === "2xx" ? { ...s, key: "2xx" } : s,
+      );
     },
+    headlineKey: "2xx",
     format: formatPerMin,
     area: true,
     span: 2,

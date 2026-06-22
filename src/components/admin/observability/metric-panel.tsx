@@ -6,8 +6,15 @@ import { TimeSeriesChart, type ChartSeries } from "./charts/time-series-chart";
 import { useRangeQuery } from "./charts/use-range-query";
 import type { PanelDef } from "./panels";
 
-function latestOf(series: ChartSeries[]): { label: string; value: number; tone: string } | null {
-  // Prefer the most prominent (non-muted) line's latest value for the headline.
+function latestOf(
+  series: ChartSeries[],
+  preferKey?: string,
+): { label: string; value: number; tone: string } | null {
+  if (preferKey) {
+    const pinned = series.find((s) => s.key === preferKey);
+    const last = pinned?.points.at(-1);
+    if (last) return { label: pinned!.label, value: last[1], tone: pinned!.tone };
+  }
   const ranked = [...series].sort((a, b) => toneRank(b.tone) - toneRank(a.tone));
   for (const s of ranked) {
     const last = s.points.at(-1);
@@ -69,7 +76,7 @@ export function MetricPanel({
 }) {
   const { series, loading, errored } = useRangeQuery(def.queries, from);
   const chartSeries = useMemo(() => def.toSeries(series ?? []), [def, series]);
-  const headline = useMemo(() => latestOf(chartSeries), [chartSeries]);
+  const headline = useMemo(() => latestOf(chartSeries, def.headlineKey), [chartSeries, def.headlineKey]);
   const multi = chartSeries.length > 1;
   const isEmpty = chartSeries.every((s) => s.points.length === 0);
 
