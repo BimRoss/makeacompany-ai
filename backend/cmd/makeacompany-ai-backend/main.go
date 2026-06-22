@@ -48,6 +48,7 @@ func main() {
 	srv.StartPersonalAgentReconciler(context.Background())
 	srv.StartLifecycleSweeper(context.Background())
 	srv.StartTTFVSweeper(context.Background())
+	srv.StartDay7CheckinSweeper(context.Background())
 
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)

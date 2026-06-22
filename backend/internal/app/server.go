@@ -89,6 +89,18 @@ var (
 			Help: "Expiry-DM jobs enqueued onto the joanne expiry-dm queue by the reaper.",
 		},
 	)
+	day7CheckinReaperScannedTotal = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: "makeacompany_day7_checkin_reaper_scanned_total",
+			Help: "Profiles inspected by the day-7 checkin reaper (cumulative; sum across runs). See #616.",
+		},
+	)
+	day7CheckinReaperEnqueuedTotal = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: "makeacompany_day7_checkin_reaper_enqueued_total",
+			Help: "Day-7 checkin DM jobs enqueued onto the joanne day7-checkin queue by the reaper. See #616.",
+		},
+	)
 )
 
 func init() {
@@ -101,6 +113,8 @@ func init() {
 		cronjobDurationSeconds,
 		trialExpiryReaperScannedTotal,
 		trialExpiryReaperEnqueuedTotal,
+		day7CheckinReaperScannedTotal,
+		day7CheckinReaperEnqueuedTotal,
 	)
 }
 
@@ -294,6 +308,7 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 	s.mux.HandleFunc("POST /v1/internal/deploy-gate/consume", s.handleInternalDeployGateConsume)
 	s.mux.HandleFunc("GET /v1/internal/user-status", s.handleInternalUserStatus)
 	s.mux.HandleFunc("POST /v1/internal/trial-expiry-reaper", s.handleInternalTrialExpiryReaper)
+	s.mux.HandleFunc("POST /v1/internal/day7-checkin-reaper", s.handleInternalDay7CheckinReaper)
 	s.mux.HandleFunc("GET /v1/internal/cluster-health", s.handleInternalClusterHealth)
 	s.mux.HandleFunc("/v1/admin/auth/me", s.handleAdminAuthMe)
 	s.mux.HandleFunc("/v1/admin/auth/logout", s.handleAdminAuthLogout)
