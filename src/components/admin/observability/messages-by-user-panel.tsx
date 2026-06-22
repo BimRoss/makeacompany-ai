@@ -131,7 +131,7 @@ export function MessagesByUserBarChart() {
                 <span className="w-40 shrink-0 truncate text-foreground sm:w-52">{r.name}</span>
                 <span
                   className={
-                    "shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium " +
+                    "w-12 shrink-0 rounded py-0.5 text-center text-[10px] font-medium " +
                     (r.isBot
                       ? "bg-blue-500/10 text-blue-700 dark:text-blue-300"
                       : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300")
