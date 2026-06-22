@@ -135,6 +135,11 @@ func TestSweepTTFVPR_quantilesAndBuckets(t *testing.T) {
 	if gotLast7dSample != 2 {
 		t.Errorf("last7d sample size: got %v want 2 (fast + mid)", gotLast7dSample)
 	}
+	// last90d contains all three (slow signed up 20d ago, well inside 90d).
+	gotLast90dSample := testutil.ToFloat64(ttfvPRSampleSize.WithLabelValues("last90d"))
+	if gotLast90dSample != 3 {
+		t.Errorf("last90d sample size: got %v want 3 (fast + mid + slow)", gotLast90dSample)
+	}
 
 	gotNoPR := testutil.ToFloat64(ttfvPRSkippedProfiles.WithLabelValues("no_pr_merged_yet"))
 	if gotNoPR != 1 {

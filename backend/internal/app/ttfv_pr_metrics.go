@@ -116,6 +116,7 @@ func (s *Server) sweepTTFVPROnce(ctx context.Context) {
 		ttfvCohortAll:     nil,
 		ttfvCohortLast7d:  nil,
 		ttfvCohortLast30d: nil,
+		ttfvCohortLast90d: nil,
 	}
 	var (
 		skippedNoSignup   int
@@ -172,6 +173,9 @@ func (s *Server) sweepTTFVPROnce(ctx context.Context) {
 		}
 		if signupAge <= 30*24*time.Hour {
 			bySample[ttfvCohortLast30d] = append(bySample[ttfvCohortLast30d], ttfv)
+		}
+		if signupAge <= 90*24*time.Hour {
+			bySample[ttfvCohortLast90d] = append(bySample[ttfvCohortLast90d], ttfv)
 		}
 	}
 
