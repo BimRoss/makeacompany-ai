@@ -87,7 +87,12 @@ export function MessagesByUserBarChart() {
     };
   }, []);
 
-  const max = useMemo(() => Math.max(1, ...(rows ?? []).map((r) => r.messages)), [rows]);
+  const TOP_N = 10;
+  const visibleRows = useMemo(() => (rows ? rows.slice(0, TOP_N) : null), [rows]);
+  const max = useMemo(
+    () => Math.max(1, ...(visibleRows ?? []).map((r) => r.messages)),
+    [visibleRows],
+  );
 
   if (errored && (rows === null || rows.length === 0)) {
     return null;
@@ -96,8 +101,8 @@ export function MessagesByUserBarChart() {
     return null;
   }
 
-  const botCount = rows?.filter((r) => r.isBot).length ?? 0;
-  const humanCount = rows ? rows.length - botCount : 0;
+  const totalRows = rows?.length ?? 0;
+  const shownRows = visibleRows?.length ?? 0;
 
   return (
     <section
@@ -109,7 +114,7 @@ export function MessagesByUserBarChart() {
         <p className="text-xs text-muted-foreground">
           {rows === null
             ? "Loading…"
-            : `${humanCount} human${humanCount === 1 ? "" : "s"} · ${botCount} bot${botCount === 1 ? "" : "s"}, sorted by messages sent`}
+            : `Top ${shownRows} of ${totalRows}, sorted by messages sent`}
         </p>
       </div>
       {rows === null ? (
@@ -120,7 +125,7 @@ export function MessagesByUserBarChart() {
         </div>
       ) : (
         <div className="space-y-1">
-          {rows.map((r) => {
+          {(visibleRows ?? []).map((r) => {
             const pct = (r.messages / max) * 100;
             return (
               <div
@@ -131,7 +136,7 @@ export function MessagesByUserBarChart() {
                 <span className="w-40 shrink-0 truncate text-foreground sm:w-52">{r.name}</span>
                 <span
                   className={
-                    "shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium " +
+                    "w-12 shrink-0 rounded py-0.5 text-center text-[10px] font-medium " +
                     (r.isBot
                       ? "bg-blue-500/10 text-blue-700 dark:text-blue-300"
                       : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300")
