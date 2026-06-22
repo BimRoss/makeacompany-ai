@@ -10,20 +10,37 @@ export function personalAgentGoogleGatewayURL(): string {
   return v && v.length > 0 ? v.replace(/\/$/, "") : "https://google-mcp-pa.makeacompany.ai";
 }
 
-// Scopes requested at consent. First-pass set: Gmail read + Calendar, plus
-// identity. NO offline_access — it is not a Google scope (Google uses the
-// access_type=offline param) and the OAuth21 gateway rejects it with
-// "Client was not registered with scope offline_access", bouncing /authorize
-// straight back to the callback as invalid_scope. The gateway issues the
-// refresh token to our DCR client itself, so we don't request offline_access.
-// gmail.readonly is a RESTRICTED scope and drives the eventual CASA review;
-// calendar is sensitive.
+// Scopes requested at consent — the full Workspace set the gws-mcp gateway
+// supports, so a connected agent can act across Gmail, Calendar, Drive, Docs,
+// Sheets, Slides, Tasks, Contacts, Forms, and Chat.
+//
+// Tiers (govern verification, not function under the 100-user cap):
+//   - restricted (need CASA to scale past 100): gmail.modify, gmail.send, drive
+//   - sensitive  (need verification, no CASA):  calendar, documents,
+//     spreadsheets, presentations, tasks, contacts, forms.body, chat.messages
+//   - non-sensitive: openid, userinfo.email/.profile
+// Under 100 connected users all of these work today behind the "unverified
+// app → proceed" screen; CASA/verification is the gate to scale past that.
+//
+// NO offline_access — it is not a Google scope (Google uses the
+// access_type=offline param) and the OAuth21 gateway rejects it as
+// invalid_scope. The gateway issues the refresh token to our DCR client itself.
 export function googleConnectScopes(): string[] {
   return [
     "openid",
     "https://www.googleapis.com/auth/userinfo.email",
-    "https://www.googleapis.com/auth/gmail.readonly",
+    "https://www.googleapis.com/auth/userinfo.profile",
+    "https://www.googleapis.com/auth/gmail.modify",
+    "https://www.googleapis.com/auth/gmail.send",
     "https://www.googleapis.com/auth/calendar",
+    "https://www.googleapis.com/auth/drive",
+    "https://www.googleapis.com/auth/documents",
+    "https://www.googleapis.com/auth/spreadsheets",
+    "https://www.googleapis.com/auth/presentations",
+    "https://www.googleapis.com/auth/tasks",
+    "https://www.googleapis.com/auth/contacts",
+    "https://www.googleapis.com/auth/forms.body",
+    "https://www.googleapis.com/auth/chat.messages",
   ];
 }
 
