@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { TerminalSquare } from "lucide-react";
+import { Check, TerminalSquare } from "lucide-react";
 
 import {
   MePersonalAgentIconPicker,
@@ -742,7 +742,6 @@ function ConnectionsFooter({
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2 sm:min-w-0 sm:flex-1 sm:flex-nowrap sm:overflow-x-auto">
-            <ConnectChip label="GitHub" icon={<GitHubGlyph />} onClick={announce} />
             <ConnectChip
               label="Google"
               icon={<GoogleGlyph />}
@@ -750,12 +749,14 @@ function ConnectionsFooter({
               connected={google.connected}
               title={google.connected && google.email ? `Connected as ${google.email}` : undefined}
             />
-            <ConnectChip label="Shopify" icon={<ShopifyGlyph />} onClick={announce} />
-            <ConnectChip label="Cloudflare" icon={<CloudflareGlyph />} onClick={announce} />
+            <ConnectChip label="GitHub" icon={<GitHubGlyph />} onClick={announce} disabled />
+            <ConnectChip label="Shopify" icon={<ShopifyGlyph />} onClick={announce} disabled />
+            <ConnectChip label="Cloudflare" icon={<CloudflareGlyph />} onClick={announce} disabled />
             <ConnectChip
               label="SSH"
               icon={<TerminalSquare className="h-4 w-4 text-foreground/80" aria-hidden />}
               onClick={announce}
+              disabled
             />
           </div>
           {showEdit ? (
@@ -819,32 +820,38 @@ function ConnectChip({
   icon,
   onClick,
   connected = false,
+  disabled = false,
   title,
 }: {
   label: string;
   icon: React.ReactNode;
   onClick: (label: string) => void;
   connected?: boolean;
+  disabled?: boolean;
   title?: string;
 }) {
+  // Three states: connected (filled black — the "active" treatment matching
+  // the primary buttons), disabled (grayed — integration not supported yet),
+  // and default (outlined, clickable to connect).
+  const stateClasses = connected
+    ? "border-foreground bg-foreground text-background"
+    : disabled
+      ? "border-border bg-background text-muted-foreground opacity-60 hover:bg-background dark:bg-zinc-950"
+      : "border-border bg-background text-foreground hover:border-foreground/30 hover:bg-muted/50 dark:bg-zinc-950 dark:hover:bg-zinc-900";
   return (
     <button
       type="button"
-      title={title}
+      title={disabled ? `${label} — coming soon` : title}
       onClick={() => onClick(label)}
-      className={`inline-flex h-9 items-center gap-1.5 rounded-full border px-3.5 text-xs font-medium text-foreground transition hover:border-foreground/30 hover:bg-muted/50 dark:hover:bg-zinc-900 ${
-        connected
-          ? "border-emerald-500/60 bg-emerald-50 dark:bg-emerald-950/40"
-          : "border-border bg-background dark:bg-zinc-950"
-      }`}
+      className={`inline-flex h-9 items-center gap-1.5 rounded-full border px-3.5 text-xs font-medium transition ${
+        disabled ? "cursor-not-allowed" : ""
+      } ${stateClasses}`}
     >
       <span aria-hidden className="inline-flex h-4 w-4 items-center justify-center">
         {icon}
       </span>
       {label}
-      {connected ? (
-        <span aria-hidden className="ml-0.5 inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" />
-      ) : null}
+      {connected ? <Check className="ml-0.5 h-3 w-3" aria-hidden /> : null}
     </button>
   );
 }
