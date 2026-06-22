@@ -312,6 +312,15 @@ type UserProfileRow struct {
 	// subscription.updated/deleted webhooks are no-ops for the DM side. #341 uses this as the
 	// idempotency guard.
 	WinbackDMEnqueuedAt string `json:"winbackDmEnqueuedAt,omitempty"`
+	// Day7CheckinEnqueuedAt is the RFC3339 timestamp the day-7 checkin reaper pushed the Joanne
+	// DM job onto the Joanne queue for this user. Non-empty means we've already DM'd them — the
+	// reaper uses this as the idempotency guard so a flapping cron doesn't fan out duplicates.
+	// See #616.
+	Day7CheckinEnqueuedAt string `json:"day7CheckinEnqueuedAt,omitempty"`
+	// Day7CheckinResponse is whatever Joanne wrote back after the user replied to the day-7 DM
+	// (free text summary, e.g. "named Sarah at sarah@x.com, sent invite"). Empty means no
+	// reply yet or no response was salvaged. Surfaced by the daily sales briefing.
+	Day7CheckinResponse string `json:"day7CheckinResponse,omitempty"`
 }
 
 func parseUnixSecondsString(v string) int64 {
@@ -363,6 +372,8 @@ func userProfileRowFromHash(email string, vals map[string]string) UserProfileRow
 		TrialExpiresAt:                      parseUnixSecondsString(vals["trial_expires_at"]),
 		ExpiryDMEnqueuedAt:                  strings.TrimSpace(vals["expiry_dm_enqueued_at"]),
 		WinbackDMEnqueuedAt:                 strings.TrimSpace(vals["winback_dm_enqueued_at"]),
+		Day7CheckinEnqueuedAt:               strings.TrimSpace(vals["day7_checkin_enqueued_at"]),
+		Day7CheckinResponse:                 strings.TrimSpace(vals["day7_checkin_response"]),
 	}
 }
 
@@ -874,6 +885,137 @@ func (s *Store) EnqueueExpiryDMJob(ctx context.Context, email string, job Expiry
 	})
 	_, err = pipe.Exec(ctx)
 	return err
+}
+
+// JoanneDay7CheckinQueueKey is the Redis LIST drained by claude-code-joanne for the day-7
+// checkin DM (#616). Separate from JoanneExpiryDMQueueKey so the two drains can rate-limit,
+// retry, and observe independently. Each entry is a JSON object produced by EnqueueDay7CheckinJob.
+const JoanneDay7CheckinQueueKey = keyPrefix + ":joanne:day7-checkin-queue"
+
+// Day7CheckinJob is the JSON shape pushed onto JoanneDay7CheckinQueueKey. Joanne's drain loop
+// opens an IM with SlackUserID and posts the day-7 checkin copy. Reason is reserved for forward
+// compat (e.g. a future "day14" variant on the same queue); the v1 reaper sets it to "day7_signup".
+type Day7CheckinJob struct {
+	SlackUserID string `json:"slack_user_id"`
+	Email       string `json:"email"`
+	Reason      string `json:"reason,omitempty"`
+}
+
+// Day7CheckinEnqueueWindow is the open-ended slack the day-7 reaper accepts past the 7-day
+// boundary before it gives up on a user. Anchored from SignupAt: users whose anchor is
+// older than now-(7d+window) are skipped so a freshly-deployed reaper doesn't fire stale
+// pings to pre-existing accounts, and so a reaper outage longer than the window forfeits
+// any users who would have aged out during the gap rather than burning their first
+// impression on a "we were down" DM. 7 days is generous; if the reaper is down longer
+// than that, the bigger problem is that the reaper is down.
+const Day7CheckinEnqueueWindow = 7 * 24 * time.Hour
+
+// ScanDay7CheckinDue returns profiles whose SignupAt is between (now - 7d - window) and
+// (now - 7d), have a Slack ID, and have not yet been pushed onto the day-7 queue. The
+// window guards against backfill of ancient users at deploy time and bounds the
+// reaper's recovery horizon. Caller is the reaper handler; it stamps
+// day7_checkin_enqueued_at on the same hash via EnqueueDay7CheckinJob.
+func (s *Store) ScanDay7CheckinDue(ctx context.Context, now time.Time) ([]UserProfileRow, error) {
+	if s == nil {
+		return nil, fmt.Errorf("nil store")
+	}
+	dueAt := now.Add(-7 * 24 * time.Hour)
+	windowFloor := dueAt.Add(-Day7CheckinEnqueueWindow)
+	var rows []UserProfileRow
+	var cursor uint64
+	for {
+		keys, next, err := s.rdb.Scan(ctx, cursor, userProfileKeyGlob, 64).Result()
+		if err != nil {
+			return nil, err
+		}
+		for _, redisKey := range keys {
+			vals, err := s.rdb.HGetAll(ctx, redisKey).Result()
+			if err != nil {
+				return nil, err
+			}
+			if len(vals) == 0 {
+				continue
+			}
+			email := normalizeProfileEmail(vals["email"])
+			if email == "" {
+				if i := strings.LastIndex(redisKey, ":user_profile:"); i >= 0 {
+					email = normalizeProfileEmail(redisKey[i+len(":user_profile:"):])
+				}
+			}
+			row := userProfileRowFromHash(email, vals)
+			if row.Day7CheckinEnqueuedAt != "" {
+				continue
+			}
+			if strings.TrimSpace(row.SlackUserID) == "" {
+				continue
+			}
+			signup, err := time.Parse(time.RFC3339, row.SignupAt)
+			if err != nil || signup.IsZero() {
+				continue
+			}
+			if signup.After(dueAt) {
+				continue
+			}
+			if signup.Before(windowFloor) {
+				continue
+			}
+			rows = append(rows, row)
+		}
+		cursor = next
+		if cursor == 0 {
+			break
+		}
+	}
+	sort.Slice(rows, func(i, j int) bool { return rows[i].SignupAt < rows[j].SignupAt })
+	return rows, nil
+}
+
+// EnqueueDay7CheckinJob pushes one job onto JoanneDay7CheckinQueueKey and stamps
+// day7_checkin_enqueued_at on the profile hash in one pipelined transaction. Idempotency
+// is the caller's job — check Day7CheckinEnqueuedAt (or rely on ScanDay7CheckinDue's
+// filter) before calling.
+func (s *Store) EnqueueDay7CheckinJob(ctx context.Context, email string, job Day7CheckinJob) error {
+	if s == nil {
+		return fmt.Errorf("nil store")
+	}
+	email = normalizeProfileEmail(email)
+	if email == "" {
+		return fmt.Errorf("missing email")
+	}
+	if strings.TrimSpace(job.Reason) == "" {
+		job.Reason = "day7_signup"
+	}
+	payload, err := json.Marshal(job)
+	if err != nil {
+		return fmt.Errorf("marshal day7 checkin job: %w", err)
+	}
+	now := time.Now().UTC().Format(time.RFC3339)
+	pipe := s.rdb.TxPipeline()
+	pipe.RPush(ctx, JoanneDay7CheckinQueueKey, payload)
+	pipe.HSet(ctx, userProfileRedisKey(email), map[string]any{
+		"day7_checkin_enqueued_at": now,
+		"profile_updated_at":       now,
+	})
+	_, err = pipe.Exec(ctx)
+	return err
+}
+
+// SetDay7CheckinResponse writes a free-text summary back onto the profile hash. Joanne
+// calls this after parsing the user's reply to the day-7 DM. Overwrites any prior
+// response (a follow-up reply replaces, not appends).
+func (s *Store) SetDay7CheckinResponse(ctx context.Context, email, response string) error {
+	if s == nil {
+		return fmt.Errorf("nil store")
+	}
+	email = normalizeProfileEmail(email)
+	if email == "" {
+		return fmt.Errorf("missing email")
+	}
+	now := time.Now().UTC().Format(time.RFC3339)
+	return s.rdb.HSet(ctx, userProfileRedisKey(email), map[string]any{
+		"day7_checkin_response": strings.TrimSpace(response),
+		"profile_updated_at":    now,
+	}).Err()
 }
 
 // EnqueueWinbackDMJob pushes one cancel-winback job onto JoanneExpiryDMQueueKey (same queue,
