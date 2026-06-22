@@ -10,14 +10,16 @@ export function personalAgentGoogleGatewayURL(): string {
   return v && v.length > 0 ? v.replace(/\/$/, "") : "https://google-mcp-pa.makeacompany.ai";
 }
 
-// Scopes requested at consent. Kept to the first-pass set (Gmail read +
-// Calendar) plus identity + offline_access (the latter forces a refresh_token
-// from providers that gate it behind the explicit scope — see
-// dance_capture.py --scopes-offline). gmail.readonly is a RESTRICTED scope and
-// drives the eventual CASA review; calendar is sensitive.
+// Scopes requested at consent. First-pass set: Gmail read + Calendar, plus
+// identity. NO offline_access — it is not a Google scope (Google uses the
+// access_type=offline param) and the OAuth21 gateway rejects it with
+// "Client was not registered with scope offline_access", bouncing /authorize
+// straight back to the callback as invalid_scope. The gateway issues the
+// refresh token to our DCR client itself, so we don't request offline_access.
+// gmail.readonly is a RESTRICTED scope and drives the eventual CASA review;
+// calendar is sensitive.
 export function googleConnectScopes(): string[] {
   return [
-    "offline_access",
     "openid",
     "https://www.googleapis.com/auth/userinfo.email",
     "https://www.googleapis.com/auth/gmail.readonly",
