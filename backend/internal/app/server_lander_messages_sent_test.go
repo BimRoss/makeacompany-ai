@@ -34,8 +34,10 @@ func TestHandleLanderMessagesSent_returnsTotalAndDailySeries(t *testing.T) {
 	if got.Total != 3 {
 		t.Fatalf("total=%d want 3", got.Total)
 	}
-	if len(got.Daily) != landerMessagesSentDays {
-		t.Fatalf("daily len=%d want %d", len(got.Daily), landerMessagesSentDays)
+	// All-time series trims leading zero-days, so a single-day burst returns
+	// exactly one bucket (today). No padding back to the full lookback window.
+	if len(got.Daily) != 1 {
+		t.Fatalf("daily len=%d want 1 (leading zeros trimmed)", len(got.Daily))
 	}
 	last := got.Daily[len(got.Daily)-1]
 	if last.Day != now.Format("2006-01-02") {
@@ -70,13 +72,10 @@ func TestHandleLanderMessagesSent_emptyStateReturnsZeroSeries(t *testing.T) {
 	if got.Total != 0 {
 		t.Errorf("total=%d want 0", got.Total)
 	}
-	if len(got.Daily) != landerMessagesSentDays {
-		t.Errorf("daily len=%d want %d", len(got.Daily), landerMessagesSentDays)
-	}
-	for _, p := range got.Daily {
-		if p.Messages != 0 {
-			t.Errorf("day %s = %d, want 0", p.Day, p.Messages)
-		}
+	// Empty state: every bucket is a leading zero, so the whole series
+	// trims away — the frontend renders nothing rather than a flat line.
+	if len(got.Daily) != 0 {
+		t.Errorf("daily len=%d want 0 (all zeros trimmed)", len(got.Daily))
 	}
 }
 

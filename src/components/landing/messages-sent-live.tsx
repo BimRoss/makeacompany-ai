@@ -13,15 +13,9 @@ function formatTotal(n: number | null): string {
   return compactFormatter.format(n);
 }
 
-/**
- * Wide in-brand sparkline. Inherits the section colors; the line uses
- * --chart-accent (the single brand blue), the dot sits at the trailing
- * point. Pure SVG so the section can sit anywhere on the lander without
- * pulling in a chart library.
- */
 function Sparkline({ points }: { points: LanderMessagesSentPoint[] }) {
   if (points.length < 2) {
-    return <div className="mt-6 h-20 sm:h-24" aria-hidden="true" />;
+    return <div className="mt-4 h-10 sm:h-12" aria-hidden="true" />;
   }
   let yMin = Infinity;
   let yMax = -Infinity;
@@ -34,33 +28,29 @@ function Sparkline({ points }: { points: LanderMessagesSentPoint[] }) {
   const yHi = yMax + yPad;
   const yRange = yHi - yLo || 1;
   const W = 600;
-  const H = 80;
+  const H = 60;
   const projectX = (i: number) => (i / (points.length - 1)) * W;
-  const projectY = (v: number) => H - 4 - ((v - yLo) / yRange) * (H - 8);
+  const projectY = (v: number) => H - 3 - ((v - yLo) / yRange) * (H - 6);
   const path = points
     .map((p, i) => `${i === 0 ? "M" : "L"}${projectX(i).toFixed(2)},${projectY(p.messages).toFixed(2)}`)
     .join(" ");
   const fill = `${path} L${W},${H} L0,${H} Z`;
-  const last = points[points.length - 1];
-  const lastX = projectX(points.length - 1);
-  const lastY = projectY(last.messages);
   return (
     <svg
       viewBox={`0 0 ${W} ${H}`}
       preserveAspectRatio="none"
-      className="mt-6 h-20 w-full sm:h-24"
+      className="mt-4 h-10 w-full text-foreground sm:h-12"
       role="img"
-      aria-label={`Daily messages over the last ${points.length} days`}
+      aria-label={`Daily messages, all-time (${points.length} days)`}
     >
       <defs>
         <linearGradient id="lander-messages-fill" x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0%" stopColor="var(--chart-accent)" stopOpacity="0.18" />
-          <stop offset="100%" stopColor="var(--chart-accent)" stopOpacity="0" />
+          <stop offset="0%" stopColor="currentColor" stopOpacity="0.12" />
+          <stop offset="100%" stopColor="currentColor" stopOpacity="0" />
         </linearGradient>
       </defs>
       <path d={fill} fill="url(#lander-messages-fill)" />
-      <path d={path} fill="none" stroke="var(--chart-accent)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx={lastX} cy={lastY} r={4} fill="var(--chart-accent)" />
+      <path d={path} fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -105,40 +95,19 @@ export function MessagesSentLive({ initial }: { initial: LanderMessagesSent }) {
   }
 
   return (
-    <section aria-label="Real messages sent" className="pb-14 sm:pb-20">
-      <div className="mx-auto max-w-6xl px-6">
-        <div className="rounded-2xl border border-border bg-card p-6 sm:p-10">
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+    <section aria-label="Real messages sent" className="pb-10 sm:pb-14">
+      <div className="mx-auto max-w-3xl px-6">
+        <div className="rounded-xl border border-border bg-card px-5 py-4 sm:px-6 sm:py-5">
+          <div className="flex items-baseline justify-between gap-4">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
               Real messages sent
             </p>
-            <span className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
-              <span
-                className="relative inline-flex h-2 w-2"
-                aria-hidden="true"
-              >
-                <span
-                  className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-60"
-                  style={{ backgroundColor: "var(--chart-accent)" }}
-                />
-                <span
-                  className="relative inline-flex h-2 w-2 rounded-full"
-                  style={{ backgroundColor: "var(--chart-accent)" }}
-                />
-              </span>
-              Live
-            </span>
+            <p className="text-[11px] text-muted-foreground">all-time</p>
           </div>
-          <div className="mt-4 flex items-baseline gap-3">
-            <p className="font-display text-5xl font-bold tracking-tight tabular-nums sm:text-6xl">
-              {formatTotal(data.total)}
-            </p>
-            <p className="text-sm text-muted-foreground">across every channel, all-time</p>
-          </div>
-          <Sparkline points={data.daily} />
-          <p className="mt-3 text-xs text-muted-foreground">
-            Last {data.daily.length || 30} days. Counted once per Slack message, deduped across our agents.
+          <p className="mt-1 font-display text-2xl font-semibold tracking-tight tabular-nums sm:text-3xl">
+            {formatTotal(data.total)}
           </p>
+          <Sparkline points={data.daily} />
         </div>
       </div>
     </section>
