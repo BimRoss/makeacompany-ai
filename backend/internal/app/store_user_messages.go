@@ -200,6 +200,68 @@ func (s *Store) TotalMessages(ctx context.Context) (int64, error) {
 	return total, nil
 }
 
+// TotalMessagesDailySeries returns the workspace-wide deduped message
+// count for each of the last `days` UTC days, oldest first. Computed by
+// summing the per-user daily SCARDs across the top users (limit caps
+// fan-out; the histogram drops off fast enough that the tail is rounding
+// error). Mirrors what /admin computes client-side from
+// `/user-engagement/top` but does the fan-out server-side so the public
+// lander can ship one tight payload with no auth.
+func (s *Store) TotalMessagesDailySeries(ctx context.Context, days, topUsers int) ([]EngagementDayBin, error) {
+	if s == nil {
+		return nil, errors.New("nil store")
+	}
+	if days <= 0 || days > userMessagesSparklineWin {
+		days = userMessagesSparklineWin
+	}
+	if topUsers <= 0 || topUsers > 500 {
+		topUsers = 200
+	}
+	users, err := s.rdb.ZRevRange(ctx, userMessagesSortedSetKey, 0, int64(topUsers-1)).Result()
+	if err != nil && !errors.Is(err, redis.Nil) {
+		return nil, fmt.Errorf("zrevrange totals: %w", err)
+	}
+	today := time.Now().UTC()
+	labels := make([]string, days)
+	for i := 0; i < days; i++ {
+		labels[i] = today.AddDate(0, 0, -(days-1-i)).Format("2006-01-02")
+	}
+	totals := make([]int64, days)
+	if len(users) == 0 {
+		out := make([]EngagementDayBin, days)
+		for i := range labels {
+			out[i] = EngagementDayBin{Day: labels[i], Messages: 0}
+		}
+		return out, nil
+	}
+	pipe := s.rdb.Pipeline()
+	cmds := make([][]*redis.IntCmd, len(users))
+	for ui, u := range users {
+		row := make([]*redis.IntCmd, days)
+		for di, day := range labels {
+			row[di] = pipe.SCard(ctx, userMessagesDailyKey(u, day))
+		}
+		cmds[ui] = row
+	}
+	if _, err := pipe.Exec(ctx); err != nil && !errors.Is(err, redis.Nil) {
+		return nil, fmt.Errorf("pipeline scard daily: %w", err)
+	}
+	for _, row := range cmds {
+		for di, c := range row {
+			v, err := c.Result()
+			if err != nil {
+				continue
+			}
+			totals[di] += v
+		}
+	}
+	out := make([]EngagementDayBin, days)
+	for i := range labels {
+		out[i] = EngagementDayBin{Day: labels[i], Messages: totals[i]}
+	}
+	return out, nil
+}
+
 // TopUsersByMessages returns up to `limit` users ordered by total messages
 // descending. Reads the deduped sorted set, so two-bot channels don't
 // inflate ranks.
