@@ -8,8 +8,6 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"os"
-	"strconv"
 	"strings"
 	"time"
 
@@ -250,7 +248,7 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 		store:                  store,
 		mux:                    http.NewServeMux(),
 		cors:                   cfg.AppBaseURL,
-		health:                 newHealthChecker(store.rdb, os.Getenv("COOKIE_HEALTH_TOKEN")),
+		health:                 newHealthChecker(),
 		freeTrialInviteLimiter: newIPRateLimiter(5, 30),
 		workspace:              workspaceWriter,
 		shopify:                shopifyWriter,
@@ -264,8 +262,6 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 	s.mux.HandleFunc("/livez", s.handleLivez)
 	s.mux.HandleFunc("/readyz", s.handleReadiness)
 	s.mux.HandleFunc("/health", s.handleHealth)
-	s.mux.HandleFunc("/api/internal/cookie-health", s.handleCookieHealthIngest)
-	s.mux.HandleFunc("/api/internal/indexer-recent-requests", s.handleIndexerRecentRequests)
 	s.mux.Handle("/metrics", promhttp.Handler())
 	s.mux.HandleFunc("/v1/billing/checkout", s.handleCheckout)
 	s.mux.HandleFunc("/v1/billing/checkout-status", s.handleCheckoutStatus)
@@ -472,77 +468,6 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, s.health.Build(r.Context()))
 }
 
-func (s *Server) handleCookieHealthIngest(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	s.health.handleCookieHealthPush(w, r)
-}
-
-func (s *Server) handleIndexerRecentRequests(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	const defaultLimit = 100
-	const maxLimit = 5_000_000
-
-	limit := defaultLimit
-	if raw := strings.TrimSpace(r.URL.Query().Get("limit")); raw != "" {
-		parsed, err := strconv.Atoi(raw)
-		if err != nil || parsed < 0 {
-			http.Error(w, "invalid limit", http.StatusBadRequest)
-			return
-		}
-		limit = parsed
-	}
-	offset := 0
-	if raw := strings.TrimSpace(r.URL.Query().Get("offset")); raw != "" {
-		parsed, err := strconv.Atoi(raw)
-		if err != nil || parsed < 0 {
-			http.Error(w, "invalid offset", http.StatusBadRequest)
-			return
-		}
-		offset = parsed
-	}
-	if limit > maxLimit {
-		limit = maxLimit
-	}
-	if offset > maxLimit {
-		offset = maxLimit
-	}
-
-	payload, err := s.health.fetchIndexerRecentRequests(r.Context(), limit, offset)
-	if err != nil {
-		// Match buildIndexer: report a missing/unreachable upstream as degraded inside a 200 OK
-		// envelope so a known-absent dependency does not burn the backend 5xx SLO every poll.
-		writeJSON(w, http.StatusOK, map[string]any{
-			"status":   "degraded",
-			"error":    err.Error(),
-			"offset":   offset,
-			"limit":    limit,
-			"returned": 0,
-			"requests": []any{},
-		})
-		return
-	}
-
-	requests := payload.Requests
-	if requests == nil {
-		requests = []indexerRecentRequestLog{}
-	}
-
-	writeJSON(w, http.StatusOK, map[string]any{
-		"status":    "ok",
-		"offset":    offset,
-		"limit":     limit,
-		"returned":  len(requests),
-		"updatedAt": payload.UpdatedAt,
-		"requests":  requests,
-	})
-}
 
 func (s *Server) handleCheckout(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
