@@ -186,14 +186,20 @@ func (s *Server) handlePersonalAgentGoogleStatus(w http.ResponseWriter, r *http.
 		http.Error(w, err.Error(), code)
 		return
 	}
-	email, err := s.personalAgent.ReadGoogleEmail(r.Context(), rec.OwnerSlackUserID)
+	// Connected-ness is the existence of the per-owner OAuth Secret, NOT the
+	// presence of an email. The email annotation can be empty (the gateway's
+	// /token doesn't always return a Google id_token to extract it from), but
+	// the connection — and the sidecar — are live regardless. Keying off email
+	// left the /me chip white after a successful connect.
+	connected, err := s.personalAgent.HasGoogleCredentials(r.Context(), rec.OwnerSlackUserID)
 	if err != nil {
 		s.log.Printf("personal-agent google status read failed for owner=%s: %v", rec.OwnerSlackUserID, err)
 		http.Error(w, "failed", http.StatusInternalServerError)
 		return
 	}
+	email, _ := s.personalAgent.ReadGoogleEmail(r.Context(), rec.OwnerSlackUserID) // cosmetic; best-effort
 	writeJSON(w, http.StatusOK, personalAgentGoogleStatusResponse{
-		Connected: email != "",
+		Connected: connected,
 		Email:     email,
 	})
 }
