@@ -65,7 +65,7 @@ func (s *Server) resolvePersonalAgentOwner(r *http.Request) (PersonalAgentRecord
 // detach the Google sidecar. The credential Secret + RBAC must already be
 // written (connect) or this just rebuilds without the sidecar (disconnect).
 func (s *Server) redeployPersonalAgentGoogle(ctx context.Context, rec PersonalAgentRecord, connected bool, email string) error {
-	return s.personalAgent.WriteAgentDeployment(ctx, PersonalAgentDeploymentRequest{
+	if err := s.personalAgent.WriteAgentDeployment(ctx, PersonalAgentDeploymentRequest{
 		SlackUserID:              rec.OwnerSlackUserID,
 		OwnerSlackUserID:         rec.OwnerSlackUserID,
 		DisplayName:              rec.DisplayName,
@@ -73,7 +73,21 @@ func (s *Server) redeployPersonalAgentGoogle(ctx context.Context, rec PersonalAg
 		Image:                    s.cfg.PersonalAgentImage,
 		GoogleWorkspaceConnected: connected,
 		GoogleEmail:              email,
-	})
+	}); err != nil {
+		return err
+	}
+	// On connect, force a fresh pod so the sidecar reloads the just-written
+	// bootstrap token. WriteAgentDeployment is a no-op when the owner was
+	// already connected (re-consent / scope change), and the sidecar only
+	// re-reads the bootstrap Secret on a clean pod — without this, a re-consent
+	// silently keeps minting the old token. (Disconnect already rolls the pod
+	// via the spec change that removes the sidecar.)
+	if connected {
+		if err := s.personalAgent.RestartAgentDeployment(ctx, rec.OwnerSlackUserID); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // handlePersonalAgentGoogleConnectFinish receives the DCR client + refresh

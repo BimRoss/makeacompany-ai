@@ -11,6 +11,7 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 // Per-owner Google Workspace OAuth credentials + RBAC for the in-pod
@@ -223,4 +224,28 @@ func (w *PersonalAgentWriter) DeleteGoogleCredentials(ctx context.Context, slack
 		return refreshToken, fmt.Errorf("delete serviceaccount %s/%s: %w", ns, rbacName, delErr)
 	}
 	return refreshToken, nil
+}
+
+// RestartAgentDeployment bumps a pod-template annotation to force a fresh pod
+// (new ReplicaSet → clean oauth-current scratch volume). Needed on re-consent:
+// WriteGoogleCredentials rewrites the bootstrap Secret, but the sidecar prefers
+// its rotated /var/oauth token and only re-reads the bootstrap on a clean pod,
+// so a re-consent or scope change otherwise keeps minting the stale token until
+// the pod happens to be recreated.
+func (w *PersonalAgentWriter) RestartAgentDeployment(ctx context.Context, slackUserID string) error {
+	if w.Disabled() {
+		return ErrPersonalAgentWriterDisabled
+	}
+	if strings.TrimSpace(slackUserID) == "" {
+		return errors.New("RestartAgentDeployment: slack user id empty")
+	}
+	name := personalAgentResourceName(slackUserID)
+	patch := []byte(fmt.Sprintf(
+		`{"spec":{"template":{"metadata":{"annotations":{"bimross.com/google-reconsented-at":%q}}}}}`,
+		time.Now().UTC().Format(time.RFC3339Nano),
+	))
+	if _, err := w.cs.AppsV1().Deployments(w.agentNamespace).Patch(ctx, name, types.StrategicMergePatchType, patch, metav1.PatchOptions{}); err != nil {
+		return fmt.Errorf("restart deployment %s/%s: %w", w.agentNamespace, name, err)
+	}
+	return nil
 }
