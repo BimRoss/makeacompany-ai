@@ -192,6 +192,8 @@ function ObservabilityBody() {
         <ObservabilityToolbar lastUpdatedAt={lastUpdatedAt} loading={loading} />
       </div>
 
+      <AlertsStrip />
+
       <KpiScorecard />
 
       <OAuthPoolPanel />
@@ -252,8 +254,6 @@ function ObservabilityBody() {
           <GoldenPath />
         </div>
       </div>
-
-      <AlertsStrip />
 
       <ObservabilitySection
         id="audience"

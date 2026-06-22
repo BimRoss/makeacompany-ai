@@ -441,9 +441,6 @@ export function KpiScorecard() {
       aria-label="KPI scorecard"
       className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 min-[1800px]:grid-cols-9"
     >
-      {totalMessages !== null ? (
-        <InfoTile label="Messages sent · all-time" value={formatCount(totalMessages)} />
-      ) : null}
       {/* Health tiles first — threshold-colored signals you scan during an incident. */}
       {tiles.map((tile) => {
         const value =
@@ -466,6 +463,9 @@ export function KpiScorecard() {
         );
       })}
       {/* Growth tiles follow — informational, no threshold semantics. */}
+      {totalMessages !== null ? (
+        <InfoTile label="Messages sent · all-time" value={formatCount(totalMessages)} />
+      ) : null}
       {showGa4 ? (
         <>
           {typeof ga4?.realtimeUsers === "number" && ga4.realtimeUsers >= 0 ? (
