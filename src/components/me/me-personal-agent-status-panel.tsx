@@ -661,6 +661,9 @@ function ConnectionsFooter({
   deleteArmed: boolean;
 }) {
   const [toast, setToast] = useState<string | null>(null);
+  const [google, setGoogle] = useState<{ connected: boolean; email?: string }>({
+    connected: false,
+  });
 
   useEffect(() => {
     if (!toast) return;
@@ -668,7 +671,66 @@ function ConnectionsFooter({
     return () => clearTimeout(t);
   }, [toast]);
 
+  // Load Google connection status; surface the connect/disconnect redirect
+  // outcome (?google_connect=ok|error) as a toast, then strip it from the URL.
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const res = await fetch("/api/me/connections/google/status", { cache: "no-store" });
+        if (res.ok && !cancelled) setGoogle(await res.json());
+      } catch {
+        /* status is best-effort */
+      }
+    };
+    void load();
+
+    const params = new URLSearchParams(window.location.search);
+    const outcome = params.get("google_connect");
+    if (outcome === "ok") {
+      setToast("Google connected");
+    } else if (outcome === "error") {
+      setToast(`Google connect failed${params.get("reason") ? ` (${params.get("reason")})` : ""}`);
+    }
+    if (outcome) {
+      params.delete("google_connect");
+      params.delete("reason");
+      const qs = params.toString();
+      window.history.replaceState(null, "", `${window.location.pathname}${qs ? `?${qs}` : ""}`);
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const announce = (label: string) => setToast(`${label} — coming soon`);
+
+  // Top-level navigation so the OAuth redirect chain works.
+  const connectGoogle = () => {
+    window.location.href = "/api/me/connections/google/start";
+  };
+
+  const handleGoogleClick = async () => {
+    if (!google.connected) {
+      connectGoogle();
+      return;
+    }
+    const who = google.email ? ` (${google.email})` : "";
+    if (!window.confirm(`Disconnect Google${who}? Your agent will lose Gmail + Calendar access.`)) {
+      return;
+    }
+    try {
+      const res = await fetch("/api/me/connections/google/disconnect", { method: "POST" });
+      if (res.ok) {
+        setGoogle({ connected: false });
+        setToast("Google disconnected");
+      } else {
+        setToast("Disconnect failed");
+      }
+    } catch {
+      setToast("Disconnect failed");
+    }
+  };
 
   return (
     <footer className="border-t border-border/60">
@@ -681,7 +743,13 @@ function ConnectionsFooter({
           </div>
           <div className="flex flex-wrap items-center gap-2 sm:min-w-0 sm:flex-1 sm:flex-nowrap sm:overflow-x-auto">
             <ConnectChip label="GitHub" icon={<GitHubGlyph />} onClick={announce} />
-            <ConnectChip label="Google" icon={<GoogleGlyph />} onClick={announce} />
+            <ConnectChip
+              label="Google"
+              icon={<GoogleGlyph />}
+              onClick={handleGoogleClick}
+              connected={google.connected}
+              title={google.connected && google.email ? `Connected as ${google.email}` : undefined}
+            />
             <ConnectChip label="Shopify" icon={<ShopifyGlyph />} onClick={announce} />
             <ConnectChip label="Cloudflare" icon={<CloudflareGlyph />} onClick={announce} />
             <ConnectChip
@@ -750,21 +818,33 @@ function ConnectChip({
   label,
   icon,
   onClick,
+  connected = false,
+  title,
 }: {
   label: string;
   icon: React.ReactNode;
   onClick: (label: string) => void;
+  connected?: boolean;
+  title?: string;
 }) {
   return (
     <button
       type="button"
+      title={title}
       onClick={() => onClick(label)}
-      className="inline-flex h-9 items-center gap-1.5 rounded-full border border-border bg-background px-3.5 text-xs font-medium text-foreground transition hover:border-foreground/30 hover:bg-muted/50 dark:bg-zinc-950 dark:hover:bg-zinc-900"
+      className={`inline-flex h-9 items-center gap-1.5 rounded-full border px-3.5 text-xs font-medium text-foreground transition hover:border-foreground/30 hover:bg-muted/50 dark:hover:bg-zinc-900 ${
+        connected
+          ? "border-emerald-500/60 bg-emerald-50 dark:bg-emerald-950/40"
+          : "border-border bg-background dark:bg-zinc-950"
+      }`}
     >
       <span aria-hidden className="inline-flex h-4 w-4 items-center justify-center">
         {icon}
       </span>
       {label}
+      {connected ? (
+        <span aria-hidden className="ml-0.5 inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" />
+      ) : null}
     </button>
   );
 }

@@ -88,6 +88,103 @@ func TestWriteAgentDeployment_CreatesDeployment(t *testing.T) {
 	}
 }
 
+func TestWriteAgentDeployment_GoogleSidecarOptIn(t *testing.T) {
+	ctx := context.Background()
+	uid := "U0APBT3364D"
+
+	// Not connected: no sidecar, no per-owner SA, no Google env on the main
+	// container — zero cost for owners who haven't connected Google.
+	t.Run("disconnected has no sidecar", func(t *testing.T) {
+		cs := fake.NewSimpleClientset()
+		w := newPersonalAgentWriterWithClient(cs, "personal-agents", "", "")
+		if err := w.WriteAgentDeployment(ctx, PersonalAgentDeploymentRequest{
+			SlackUserID: uid, OwnerSlackUserID: uid, Image: "img:1",
+		}); err != nil {
+			t.Fatalf("WriteAgentDeployment: %v", err)
+		}
+		dep, err := cs.AppsV1().Deployments("personal-agents").Get(ctx, personalAgentResourceName(uid), metav1.GetOptions{})
+		if err != nil {
+			t.Fatalf("get deployment: %v", err)
+		}
+		spec := dep.Spec.Template.Spec
+		if len(spec.Containers) != 1 {
+			t.Fatalf("containers = %d, want 1 (no sidecar)", len(spec.Containers))
+		}
+		if spec.ServiceAccountName != "" {
+			t.Errorf("ServiceAccountName = %q, want empty when disconnected", spec.ServiceAccountName)
+		}
+		for _, e := range spec.Containers[0].Env {
+			if e.Name == "PERSONAL_AGENT_GOOGLE_MCP_URL" || e.Name == "PERSONAL_AGENT_GOOGLE_OAUTH21" {
+				t.Errorf("unexpected Google env %q when disconnected", e.Name)
+			}
+		}
+	})
+
+	// Connected: sidecar container + per-owner SA + bootstrap Secret volume +
+	// Google MCP env on the main container, all scoped to this owner's hashes.
+	t.Run("connected attaches per-owner sidecar", func(t *testing.T) {
+		cs := fake.NewSimpleClientset()
+		w := newPersonalAgentWriterWithClient(cs, "personal-agents", "", "")
+		if err := w.WriteAgentDeployment(ctx, PersonalAgentDeploymentRequest{
+			SlackUserID: uid, OwnerSlackUserID: uid, Image: "img:1",
+			GoogleWorkspaceConnected: true,
+		}); err != nil {
+			t.Fatalf("WriteAgentDeployment: %v", err)
+		}
+		dep, err := cs.AppsV1().Deployments("personal-agents").Get(ctx, personalAgentResourceName(uid), metav1.GetOptions{})
+		if err != nil {
+			t.Fatalf("get deployment: %v", err)
+		}
+		spec := dep.Spec.Template.Spec
+
+		if spec.ServiceAccountName != personalAgentGwsSidecarSAName(uid) {
+			t.Errorf("ServiceAccountName = %q, want %q", spec.ServiceAccountName, personalAgentGwsSidecarSAName(uid))
+		}
+
+		var sidecarFound bool
+		var secretEnv string
+		for i := range spec.Containers {
+			if spec.Containers[i].Name == personalAgentGwsSidecarContainerName {
+				sidecarFound = true
+				for _, e := range spec.Containers[i].Env {
+					if e.Name == "SECRET_NAME" {
+						secretEnv = e.Value
+					}
+				}
+			}
+		}
+		if !sidecarFound {
+			t.Fatalf("sidecar container %q not attached", personalAgentGwsSidecarContainerName)
+		}
+		if secretEnv != personalAgentGoogleSecretName(uid) {
+			t.Errorf("sidecar SECRET_NAME = %q, want %q", secretEnv, personalAgentGoogleSecretName(uid))
+		}
+
+		// Main container points at the in-pod sidecar.
+		gotEnv := map[string]string{}
+		for _, e := range spec.Containers[0].Env {
+			gotEnv[e.Name] = e.Value
+		}
+		if gotEnv["PERSONAL_AGENT_GOOGLE_MCP_URL"] != "http://localhost:8081/mcp" {
+			t.Errorf("PERSONAL_AGENT_GOOGLE_MCP_URL = %q", gotEnv["PERSONAL_AGENT_GOOGLE_MCP_URL"])
+		}
+		if gotEnv["PERSONAL_AGENT_GOOGLE_OAUTH21"] != "true" {
+			t.Errorf("PERSONAL_AGENT_GOOGLE_OAUTH21 = %q", gotEnv["PERSONAL_AGENT_GOOGLE_OAUTH21"])
+		}
+
+		// Bootstrap Secret volume references this owner's Secret.
+		var found bool
+		for _, v := range spec.Volumes {
+			if v.Name == "oauth-bootstrap" && v.Secret != nil && v.Secret.SecretName == personalAgentGoogleSecretName(uid) {
+				found = true
+			}
+		}
+		if !found {
+			t.Errorf("oauth-bootstrap volume missing or wrong secret; volumes=%+v", spec.Volumes)
+		}
+	})
+}
+
 func TestWriteAgentDeployment_PersistsWorkspaceViaHostPath(t *testing.T) {
 	cs := fake.NewSimpleClientset()
 	w := newPersonalAgentWriterWithClient(cs, "personal-agents", "", "")

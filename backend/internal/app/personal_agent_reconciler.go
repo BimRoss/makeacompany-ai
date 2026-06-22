@@ -446,8 +446,16 @@ func personalAgentReqFromDeployment(dep interface{}, desiredImage string) (Perso
 	if slackUserID == "" {
 		return PersonalAgentDeploymentRequest{}, fmt.Errorf("annotation %s missing", personalAgentAnnoSlackUserID)
 	}
-	var owner, display string
+	var owner, display, googleEmail string
+	googleConnected := false
 	for _, c := range d.Spec.Template.Spec.Containers {
+		// Preserve the Google sidecar across a retrofit rebuild: if the live
+		// pod already carries it, the owner is connected, so the rebuilt spec
+		// must keep it (else the reconcile would silently strip Google access).
+		// Add/remove on connect/disconnect is the credential writer's job.
+		if c.Name == personalAgentGwsSidecarContainerName {
+			googleConnected = true
+		}
 		if c.Name != "personal-agent" {
 			continue
 		}
@@ -457,15 +465,19 @@ func personalAgentReqFromDeployment(dep interface{}, desiredImage string) (Perso
 				owner = e.Value
 			case "AGENT_DISPLAY_NAME":
 				display = e.Value
+			case "AGENT_GOOGLE_EMAIL":
+				googleEmail = e.Value
 			}
 		}
 	}
 	return PersonalAgentDeploymentRequest{
-		SlackUserID:      slackUserID,
-		OwnerSlackUserID: owner,
-		DisplayName:      display,
-		AgentID:          strings.TrimSpace(d.Metadata.Labels["bimross.com/agent-id"]),
-		Image:            desiredImage,
+		SlackUserID:              slackUserID,
+		OwnerSlackUserID:         owner,
+		DisplayName:              display,
+		AgentID:                  strings.TrimSpace(d.Metadata.Labels["bimross.com/agent-id"]),
+		Image:                    desiredImage,
+		GoogleWorkspaceConnected: googleConnected,
+		GoogleEmail:              googleEmail,
 	}, nil
 }
 
