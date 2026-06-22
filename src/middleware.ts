@@ -71,13 +71,6 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  if (pathname === "/twitter" || pathname.startsWith("/twitter/")) {
-    if (!hasSession) {
-      return NextResponse.redirect(new URL("/admin/login", request.url));
-    }
-    return NextResponse.next();
-  }
-
   if (pathname.startsWith("/admin")) {
     if (!hasSession) {
       return NextResponse.redirect(new URL("/admin/login", request.url));
@@ -106,8 +99,6 @@ export const config = {
     "/admin/:path*",
     "/marketing",
     "/marketing/:path*",
-    "/twitter",
-    "/twitter/:path*",
-    "/((?!api|_next|favicon.ico|admin|marketing|twitter|privacy|terms|opengraph-image|twitter-image|robots.txt|sitemap.xml|manifest).*)",
+    "/((?!api|_next|favicon.ico|admin|marketing|privacy|terms|opengraph-image|twitter-image|robots.txt|sitemap.xml|manifest).*)",
   ],
 };

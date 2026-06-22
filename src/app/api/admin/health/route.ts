@@ -18,10 +18,9 @@ export async function GET() {
     return NextResponse.json(
       {
         status: "degraded" as const,
-        error: "Sign in to the admin to load backend health, indexer, and request metadata.",
+        error: "Sign in to the admin to load backend health.",
         checkedAt,
         ...grafana,
-        recentRequests: [] as unknown[],
       },
       { status: 200 }
     );
@@ -29,31 +28,19 @@ export async function GET() {
 
   const backendBase = resolveBackendBaseURL();
   const backendHealthURL = `${backendBase.replace(/\/$/, "")}/health`;
-  const backendIndexerRequestsURL = `${backendBase.replace(/\/$/, "")}/api/internal/indexer-recent-requests?limit=100&offset=0`;
 
   try {
-    const [response, recentRequestsResponse] = await Promise.all([
-      fetch(backendHealthURL, { cache: "no-store" }),
-      fetch(backendIndexerRequestsURL, { cache: "no-store" }),
-    ]);
+    const response = await fetch(backendHealthURL, { cache: "no-store" });
     const payload = await response.json().catch(() => ({
       status: "degraded",
       error: "invalid backend health response",
     }));
-    const recentRequestsPayload = await recentRequestsResponse
-      .json()
-      .catch(() => ({ status: "degraded", requests: [] }));
-    const recentRequests = Array.isArray(recentRequestsPayload?.requests)
-      ? recentRequestsPayload.requests
-      : [];
 
     return NextResponse.json(
       {
         ...payload,
-        recentRequests,
         checkedAt,
         backendHealthURL,
-        backendIndexerRequestsURL,
         ...grafana,
       },
       { status: response.ok ? 200 : 502 }
@@ -66,9 +53,7 @@ export async function GET() {
         error: `health proxy failed: ${message}`,
         checkedAt,
         backendHealthURL,
-        backendIndexerRequestsURL,
         ...grafana,
-        recentRequests: [] as unknown[],
       },
       { status: 502 }
     );

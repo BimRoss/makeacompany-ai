@@ -3,11 +3,10 @@ type GrafanaEmbed = {
   panelId: string;
   title: string;
   dashboardUrl: string | null;
-  source: "twitter" | "app" | "cron" | "cluster";
+  source: "app" | "cron" | "cluster";
   defaultFrom?: string;
 };
 
-const defaultTwitterPanelTitles = ["Indexer throughput", "Worker throughput"];
 const defaultAdminPanelTitles = [
   "Backend requests /min",
   "P95 latency",
@@ -165,11 +164,9 @@ export function buildGrafanaHealthEmbeds(
   requestProto: string | null
 ): {
   grafanaDashboardUrl: string | null;
-  twitterGrafanaDashboardUrl: string | null;
   agentsGrafanaDashboardUrl: string | null;
   cronjobGrafanaDashboardUrl: string | null;
   clusterGrafanaDashboardUrl: string | null;
-  grafanaEmbeds: GrafanaEmbed[];
   adminGrafanaEmbeds: GrafanaEmbed[];
   agentsGrafanaEmbeds: GrafanaEmbed[];
   cronjobGrafanaEmbeds: GrafanaEmbed[];
@@ -179,18 +176,7 @@ export function buildGrafanaHealthEmbeds(
   const grafanaDashboardUrl =
     normalizeGrafanaDashboardUrl(configuredDashboardUrl, requestHost, requestProto) ??
     buildDefaultGrafanaDashboardUrl(requestHost, requestProto);
-  const twitterDashboardUrl =
-    normalizeGrafanaDashboardUrl(
-      process.env.HEALTH_GRAFANA_TWITTER_DASHBOARD_URL?.trim() || configuredDashboardUrl,
-      requestHost,
-      requestProto
-    ) ?? grafanaDashboardUrl;
 
-  const twitterPanelIds = parseList(process.env.HEALTH_GRAFANA_TWITTER_PANEL_IDS, ["1", "3"]);
-  const twitterPanelTitles = parseList(
-    process.env.HEALTH_GRAFANA_TWITTER_PANEL_TITLES,
-    defaultTwitterPanelTitles
-  );
   const adminPanelIds = parseList(process.env.HEALTH_GRAFANA_ADMIN_PANEL_IDS, [
     "1",
     "2",
@@ -248,12 +234,6 @@ export function buildGrafanaHealthEmbeds(
     defaultClusterPanelTitles
   );
 
-  const grafanaEmbeds = buildGrafanaEmbeds(
-    twitterDashboardUrl,
-    "twitter",
-    twitterPanelIds,
-    twitterPanelTitles
-  );
   const adminGrafanaEmbeds = buildGrafanaEmbeds(
     grafanaDashboardUrl,
     "app",
@@ -283,11 +263,9 @@ export function buildGrafanaHealthEmbeds(
 
   return {
     grafanaDashboardUrl,
-    twitterGrafanaDashboardUrl: twitterDashboardUrl,
     agentsGrafanaDashboardUrl: agentsDashboardUrl,
     cronjobGrafanaDashboardUrl: cronjobDashboardUrl,
     clusterGrafanaDashboardUrl: clusterDashboardUrl,
-    grafanaEmbeds,
     adminGrafanaEmbeds,
     agentsGrafanaEmbeds,
     cronjobGrafanaEmbeds,

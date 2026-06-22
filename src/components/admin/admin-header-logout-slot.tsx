@@ -6,7 +6,6 @@ import { AdminLogoutButton } from "@/components/admin/admin-logout-button";
 
 function showAdminShellLogout(pathname: string | null): boolean {
   if (!pathname) return false;
-  if (pathname === "/twitter" || pathname.startsWith("/twitter/")) return true;
   if (pathname.startsWith("/admin/login")) return false;
   if (pathname === "/admin" || pathname.startsWith("/admin/")) return true;
   return false;
@@ -14,7 +13,7 @@ function showAdminShellLogout(pathname: string | null): boolean {
 
 /**
  * Logout in `AdminShell` only on protected surfaces: `/admin` (incl. channel detail
- * routes) and `/twitter`. Portal company routes use `PortalHeaderLogoutSlot` instead.
+ * routes). Portal company routes use `PortalHeaderLogoutSlot` instead.
  */
 export function AdminHeaderLogoutSlot() {
   const pathname = usePathname();
