@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { AlertTriangle, ArrowUpRight } from "lucide-react";
 
 import { AlertsProvider, useAlerts } from "./alerts-provider";
@@ -12,7 +12,14 @@ import { GoldenPath } from "./golden-path";
 import { KpiScorecard } from "./kpi-scorecard";
 import { MetricPanel } from "./metric-panel";
 import { OAuthPoolPanel } from "@/components/admin/oauth-pool-panel";
-import { CLUSTER_PANELS, LIFECYCLE_PANELS, TTFV_PANELS, WEB_PANELS } from "./panels";
+import {
+  CLUSTER_PANELS,
+  LIFECYCLE_PANELS,
+  TTFV_COHORTS,
+  type TtfvCohort,
+  ttfvPanels,
+  WEB_PANELS,
+} from "./panels";
 import { SearchDeviceStrip, SearchHostsPanel, SearchPagesPanel, SearchQueriesPanel } from "./search-panel";
 import { SearchTimeseriesPanels } from "./search-timeseries";
 import { ObservabilitySection } from "./section";
@@ -68,6 +75,60 @@ function AnomalyBadge({ component }: { component: string }) {
 
 const PANEL_GRID = "grid gap-3 grid-cols-[repeat(auto-fit,minmax(320px,1fr))]";
 
+function TtfvCohortToggle({
+  value,
+  onChange,
+}: {
+  value: TtfvCohort;
+  onChange: (next: TtfvCohort) => void;
+}) {
+  return (
+    <div
+      role="tablist"
+      aria-label="TTFV lookback window"
+      className="inline-flex items-center gap-1 rounded-lg border border-border bg-card p-0.5 text-[11px]"
+    >
+      {TTFV_COHORTS.map((c) => {
+        const active = c.value === value;
+        return (
+          <button
+            key={c.value}
+            type="button"
+            role="tab"
+            aria-selected={active}
+            onClick={() => onChange(c.value)}
+            className={
+              "rounded-md px-2 py-0.5 font-medium transition " +
+              (active
+                ? "bg-foreground text-background"
+                : "text-muted-foreground hover:text-foreground")
+            }
+          >
+            {c.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function TtfvSection({ from }: { from: string }) {
+  const [cohort, setCohort] = useState<TtfvCohort>("last30d");
+  const panels = ttfvPanels(cohort);
+  return (
+    <ObservabilitySection
+      id="ttfv"
+      title="Time to first value"
+      description="Signup to first PR merged on the user's site repo (the bar) plus first message (secondary signal). Both readings hidden until they have data — message-based is also a floor since signup_at is backfilled for pre-#581 profiles."
+      endSlot={<TtfvCohortToggle value={cohort} onChange={setCohort} />}
+    >
+      {panels.map((def) => (
+        <MetricPanel key={def.id} def={def} from={from} prominent />
+      ))}
+    </ObservabilitySection>
+  );
+}
+
 function ObservabilityBody() {
   useAlertCountInTitle();
   const { loading, lastUpdatedAt, adminDashboardUrl, clusterDashboardUrl } =
@@ -111,15 +172,7 @@ function ObservabilityBody() {
           ))}
         </ObservabilitySection>
 
-        <ObservabilitySection
-          id="ttfv"
-          title="Time to first value"
-          description="Signup to first PR merged on the user's site repo (the bar) plus first message (secondary signal). Both readings hidden until they have data — message-based is also a floor since signup_at is backfilled for pre-#581 profiles."
-        >
-          {TTFV_PANELS.map((def) => (
-            <MetricPanel key={def.id} def={def} from={from} prominent />
-          ))}
-        </ObservabilitySection>
+        <TtfvSection from={from} />
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">

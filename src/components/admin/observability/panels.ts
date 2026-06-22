@@ -252,74 +252,91 @@ const ttfvQuantileTone = (q: string): ChartTone => (q === "0.5" ? "muted" : "ink
 const ttfvQuantileLabel = (q: string): string =>
   q === "0.5" ? "p50" : q === "0.9" ? "p90" : `p${Math.round(parseFloat(q) * 100)}`;
 
-export const TTFV_PANELS: PanelDef[] = [
-  {
-    id: "ttfv-pr-quantile",
-    title: "TTFV p50 / p90 (first merged PR)",
-    subtitle:
-      "Signup to first PR merged on the user's site repo, last 30 days. The new TTFV bar per #621.",
-    queries: [`${TTFV_PR_QUANTILE}{cohort="last30d"}`],
-    toSeries: splitByLabel(
-      `${TTFV_PR_QUANTILE}{cohort="last30d"}`,
-      "quantile",
-      ttfvQuantileTone,
-      ttfvQuantileLabel,
-    ),
-    format: formatDurationDays,
-    hideWhenEmpty: true,
-  },
-  {
-    id: "ttfv-pr-distribution",
-    title: "TTFV distribution (first merged PR)",
-    subtitle: "Users per bucket, last 30 days of signups. Same-day at top means we shipped fast.",
-    queries: [`${TTFV_PR_BUCKET}{cohort="last30d"}`],
-    toSeries: splitByLabelOrdered(
-      `${TTFV_PR_BUCKET}{cohort="last30d"}`,
-      "bucket",
-      ttfvBucketTone,
-      ttfvBucketLabel,
-      ttfvBucketSort,
-    ),
-    format: formatCompact,
-    area: true,
-    zeroBaseline: true,
-    span: 2,
-    hideWhenEmpty: true,
-  },
-  {
-    id: "ttfv-quantile",
-    title: "TTFM p50 / p90 (first message)",
-    subtitle:
-      "Signup to first ingested message, last 30 days. Secondary signal kept alongside the PR variant during the cutover.",
-    queries: [`${TTFV_QUANTILE}{cohort="last30d"}`],
-    toSeries: splitByLabel(
-      `${TTFV_QUANTILE}{cohort="last30d"}`,
-      "quantile",
-      ttfvQuantileTone,
-      ttfvQuantileLabel,
-    ),
-    format: formatDurationDays,
-    hideWhenEmpty: true,
-  },
-  {
-    id: "ttfv-distribution",
-    title: "TTFM distribution (first message)",
-    subtitle: "Users per bucket, last 30 days of signups.",
-    queries: [`${TTFV_BUCKET}{cohort="last30d"}`],
-    toSeries: splitByLabelOrdered(
-      `${TTFV_BUCKET}{cohort="last30d"}`,
-      "bucket",
-      ttfvBucketTone,
-      ttfvBucketLabel,
-      ttfvBucketSort,
-    ),
-    format: formatCompact,
-    area: true,
-    zeroBaseline: true,
-    span: 2,
-    hideWhenEmpty: true,
-  },
+export type TtfvCohort = "last7d" | "last30d" | "last90d";
+
+export const TTFV_COHORTS: ReadonlyArray<{ value: TtfvCohort; label: string }> = [
+  { value: "last7d", label: "L7" },
+  { value: "last30d", label: "L30" },
+  { value: "last90d", label: "L90" },
 ];
+
+const cohortWindow = (cohort: TtfvCohort): string =>
+  cohort === "last7d" ? "last 7 days" : cohort === "last30d" ? "last 30 days" : "last 90 days";
+
+// ttfvPanels builds the TTFV panel set against a chosen lookback cohort.
+// The metric label set in Prometheus is fixed (last7d/last30d/last90d), so
+// we just substitute the cohort into queries and copy. /admin wraps this in
+// a section with a cohort toggle so a reader can pivot between windows
+// without a page reload.
+export function ttfvPanels(cohort: TtfvCohort): PanelDef[] {
+  const win = cohortWindow(cohort);
+  return [
+    {
+      id: `ttfv-pr-quantile-${cohort}`,
+      title: "TTFV p50 / p90 (first merged PR)",
+      subtitle: `Signup to first PR merged on the user's site repo, ${win}. The new TTFV bar per #621.`,
+      queries: [`${TTFV_PR_QUANTILE}{cohort="${cohort}"}`],
+      toSeries: splitByLabel(
+        `${TTFV_PR_QUANTILE}{cohort="${cohort}"}`,
+        "quantile",
+        ttfvQuantileTone,
+        ttfvQuantileLabel,
+      ),
+      format: formatDurationDays,
+      hideWhenEmpty: true,
+    },
+    {
+      id: `ttfv-pr-distribution-${cohort}`,
+      title: "TTFV distribution (first merged PR)",
+      subtitle: `Users per bucket, ${win} of signups. Same-day at top means we shipped fast.`,
+      queries: [`${TTFV_PR_BUCKET}{cohort="${cohort}"}`],
+      toSeries: splitByLabelOrdered(
+        `${TTFV_PR_BUCKET}{cohort="${cohort}"}`,
+        "bucket",
+        ttfvBucketTone,
+        ttfvBucketLabel,
+        ttfvBucketSort,
+      ),
+      format: formatCompact,
+      area: true,
+      zeroBaseline: true,
+      span: 2,
+      hideWhenEmpty: true,
+    },
+    {
+      id: `ttfv-quantile-${cohort}`,
+      title: "TTFM p50 / p90 (first message)",
+      subtitle: `Signup to first ingested message, ${win}. Secondary signal kept alongside the PR variant during the cutover.`,
+      queries: [`${TTFV_QUANTILE}{cohort="${cohort}"}`],
+      toSeries: splitByLabel(
+        `${TTFV_QUANTILE}{cohort="${cohort}"}`,
+        "quantile",
+        ttfvQuantileTone,
+        ttfvQuantileLabel,
+      ),
+      format: formatDurationDays,
+      hideWhenEmpty: true,
+    },
+    {
+      id: `ttfv-distribution-${cohort}`,
+      title: "TTFM distribution (first message)",
+      subtitle: `Users per bucket, ${win} of signups.`,
+      queries: [`${TTFV_BUCKET}{cohort="${cohort}"}`],
+      toSeries: splitByLabelOrdered(
+        `${TTFV_BUCKET}{cohort="${cohort}"}`,
+        "bucket",
+        ttfvBucketTone,
+        ttfvBucketLabel,
+        ttfvBucketSort,
+      ),
+      format: formatCompact,
+      area: true,
+      zeroBaseline: true,
+      span: 2,
+      hideWhenEmpty: true,
+    },
+  ];
+}
 
 const TOP_N_NAMESPACE_TONES: ChartTone[] = ["ink", "pos", "neg", "muted", "muted"];
 

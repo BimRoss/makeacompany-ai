@@ -74,6 +74,10 @@ func TestSweepTTFVOnce_quantilesAndBuckets(t *testing.T) {
 		{"last30d", "same_day", 1},
 		{"last30d", "week", 1},
 		{"last30d", "two_weeks", 1},
+		// last90d also contains all three (slow signed up 20d ago, well inside 90d).
+		{"last90d", "same_day", 1},
+		{"last90d", "week", 1},
+		{"last90d", "two_weeks", 1},
 	}
 	for _, c := range cases {
 		got := testutil.ToFloat64(ttfvBucketUsers.WithLabelValues(c.cohort, c.bucket))
@@ -88,6 +92,9 @@ func TestSweepTTFVOnce_quantilesAndBuckets(t *testing.T) {
 	}
 	if n := testutil.ToFloat64(ttfvSampleSize.WithLabelValues("last7d")); n != 2 {
 		t.Errorf("last7d sample size: got %v want 2", n)
+	}
+	if n := testutil.ToFloat64(ttfvSampleSize.WithLabelValues("last90d")); n != 3 {
+		t.Errorf("last90d sample size: got %v want 3", n)
 	}
 
 	// Skipped reasons feed the /admin "data gap" footnote.

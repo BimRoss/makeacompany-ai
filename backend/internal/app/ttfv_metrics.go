@@ -19,9 +19,10 @@ import (
 // instead of representing the *current* population. The lifecycleUsers
 // gauge follows the same pattern.
 //
-// Three cohorts (all/last7d/last30d) crossed with a small set of quantiles
-// and a fixed bucket layout. PromQL stays trivial -- no histogram_quantile()
-// dance, just `makeacompany_ttfv_quantile_seconds{cohort="last30d",quantile="0.5"}`.
+// Four cohorts (all/last7d/last30d/last90d) crossed with a small set of
+// quantiles and a fixed bucket layout. PromQL stays trivial -- no
+// histogram_quantile() dance, just
+// `makeacompany_ttfv_quantile_seconds{cohort="last30d",quantile="0.5"}`.
 var (
 	ttfvQuantileSeconds = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
@@ -63,6 +64,7 @@ const (
 	ttfvCohortAll     = "all"
 	ttfvCohortLast7d  = "last7d"
 	ttfvCohortLast30d = "last30d"
+	ttfvCohortLast90d = "last90d"
 )
 
 var ttfvQuantiles = []float64{0.5, 0.9}
@@ -163,6 +165,7 @@ func (s *Server) sweepTTFVOnce(ctx context.Context) {
 		ttfvCohortAll:     nil,
 		ttfvCohortLast7d:  nil,
 		ttfvCohortLast30d: nil,
+		ttfvCohortLast90d: nil,
 	}
 	skippedNoFirstSeen := 0
 	skippedUnparseable := 0
@@ -197,6 +200,9 @@ func (s *Server) sweepTTFVOnce(ctx context.Context) {
 		}
 		if signupAge <= 30*24*time.Hour {
 			bySample[ttfvCohortLast30d] = append(bySample[ttfvCohortLast30d], ttfv)
+		}
+		if signupAge <= 90*24*time.Hour {
+			bySample[ttfvCohortLast90d] = append(bySample[ttfvCohortLast90d], ttfv)
 		}
 	}
 
