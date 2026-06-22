@@ -188,6 +188,50 @@ export default function PrivacyPage() {
           </section>
 
           <section className="space-y-3">
+            <h2 className="text-xl font-semibold">Google Workspace data and Google API Services Limited Use</h2>
+            <p>
+              If you connect your Google account, your personal agent accesses your Google Workspace data using the
+              specific scopes you grant during Google&rsquo;s consent screen. Depending on the scopes you authorize,
+              this may include Gmail (reading, organizing, drafting and sending messages), Google Calendar, Google
+              Drive, Docs, Sheets, Slides, Tasks, Contacts, Forms and Google Chat. We access this data only to perform
+              the actions you explicitly ask your agent to take.
+            </p>
+            <p>
+              We store the OAuth credentials needed to act on your behalf as a per-user, access-scoped secret isolated
+              to your own agent; we do not retain bulk copies of your Google Workspace content beyond what is needed to
+              carry out a requested action and our operational logs. You can disconnect Google at any time from your
+              account page, or revoke access directly in your{" "}
+              <Link
+                href="https://myaccount.google.com/permissions"
+                className="underline underline-offset-4 hover:text-foreground"
+              >
+                Google Account permissions
+              </Link>
+              .
+            </p>
+            <p className="font-medium text-foreground">
+              MakeaCompany&rsquo;s use and transfer of information received from Google APIs adheres to the{" "}
+              <Link
+                href="https://developers.google.com/terms/api-services-user-data-policy"
+                className="underline underline-offset-4 hover:text-foreground"
+              >
+                Google API Services User Data Policy
+              </Link>
+              , including the Limited Use requirements.
+            </p>
+            <p>In particular, Google Workspace data obtained through these scopes is:</p>
+            <BulletList
+              items={[
+                "used only to provide or improve the user-facing features of your personal agent that you invoke, and not for any unrelated purpose;",
+                "never sold, and never transferred to others except to provide or improve those features, to comply with applicable law, or as part of a merger or acquisition with comparable protections;",
+                "never used for advertising, retargeting, personalized or interest-based advertising, or for creditworthiness or lending purposes;",
+                "never used to train, develop or improve any generalized or cross-user artificial intelligence or machine learning model — your data may only inform your own agent&rsquo;s responses to you; and",
+                "never read by humans, except with your affirmative consent for specific items, where necessary for security purposes (such as investigating abuse) or to comply with applicable law, or where the data has been aggregated and anonymized for internal operations.",
+              ]}
+            />
+          </section>
+
+          <section className="space-y-3">
             <h2 className="text-xl font-semibold">Cookies, analytics and similar technologies</h2>
             <p>
               We and our service providers may use cookies, pixels, local storage, SDKs, analytics tags and similar
