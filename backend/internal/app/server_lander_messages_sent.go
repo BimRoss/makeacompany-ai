@@ -8,9 +8,10 @@ import (
 )
 
 // landerMessagesSentDays is the sparkline window surfaced on the public
-// lander. Matches the /admin tile (30d) so the two charts tell the same
-// story.
-const landerMessagesSentDays = 30
+// lander. Sized to "all-time" within the per-day TTL window in
+// [[store_user_messages]]; the backend trims leading zero-days so the
+// chart starts at first activity, not 365 days of empty buckets.
+const landerMessagesSentDays = 365
 
 // landerMessagesSentTopUsers caps the per-user fan-out when summing the
 // workspace-wide daily series. The histogram drops off steeply enough
@@ -51,6 +52,15 @@ func (s *Server) computeLanderMessagesSent(ctx context.Context) (landerMessagesS
 	if err != nil {
 		return landerMessagesSentPayload{}, err
 	}
+	// Trim leading zero-days so the all-time sparkline starts at first
+	// activity. The TTL on per-day sets means anything older is gone, so a
+	// stretch of trailing zeros at the head is just empty buckets, not a
+	// dip in traffic.
+	start := 0
+	for start < len(bins) && bins[start].Messages == 0 {
+		start++
+	}
+	bins = bins[start:]
 	points := make([]landerMessagesSentPoint, 0, len(bins))
 	for _, b := range bins {
 		points = append(points, landerMessagesSentPoint{Day: b.Day, Messages: b.Messages})

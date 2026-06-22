@@ -42,8 +42,9 @@ const (
 	userMessagesDailyKeyPrefix = keyPrefix + ":user_messages_daily:"
 	userMessagesMetaKeyPrefix  = keyPrefix + ":user_messages_meta:"
 	userMessagesSortedSetKey   = keyPrefix + ":user_messages:totals"
-	userMessagesDailyTTL       = 60 * 24 * time.Hour
+	userMessagesDailyTTL       = 365 * 24 * time.Hour
 	userMessagesSparklineWin   = 30
+	userMessagesAllTimeMaxDays = 365
 )
 
 func userMessagesKey(slackUserID string) string {
@@ -211,8 +212,11 @@ func (s *Store) TotalMessagesDailySeries(ctx context.Context, days, topUsers int
 	if s == nil {
 		return nil, errors.New("nil store")
 	}
-	if days <= 0 || days > userMessagesSparklineWin {
+	if days <= 0 {
 		days = userMessagesSparklineWin
+	}
+	if days > userMessagesAllTimeMaxDays {
+		days = userMessagesAllTimeMaxDays
 	}
 	if topUsers <= 0 || topUsers > 500 {
 		topUsers = 200
