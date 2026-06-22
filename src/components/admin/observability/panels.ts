@@ -4,6 +4,7 @@ import {
   formatBytes,
   formatCompact,
   formatCores,
+  formatDurationDays,
   formatMs,
   formatPercent,
   formatPerMin,
@@ -65,6 +66,7 @@ const REQ = "makeacompany_http_requests_total";
 const DUR = "makeacompany_http_request_duration_seconds_bucket";
 const LIFECYCLE = "makeacompany_lifecycle_users";
 const TTFV_BUCKET = "makeacompany_ttfv_bucket_users";
+const TTFV_QUANTILE = "makeacompany_ttfv_quantile_seconds";
 
 const statusTone = (cls: string): ChartTone =>
   cls.startsWith("2") ? "pos" : cls.startsWith("5") ? "neg" : cls.startsWith("4") ? "accent" : "muted";
@@ -244,7 +246,26 @@ function splitByLabelOrdered(
       }));
 }
 
+const ttfvQuantileTone = (q: string): ChartTone => (q === "0.5" ? "muted" : "ink");
+const ttfvQuantileLabel = (q: string): string =>
+  q === "0.5" ? "p50" : q === "0.9" ? "p90" : `p${Math.round(parseFloat(q) * 100)}`;
+
 export const TTFV_PANELS: PanelDef[] = [
+  {
+    id: "ttfv-quantile",
+    title: "TTFV p50 / p90",
+    subtitle:
+      "Signup to first message, last 30 days. \"<1h\" means same-day — precision improves as new signups roll in.",
+    queries: [`${TTFV_QUANTILE}{cohort="last30d"}`],
+    toSeries: splitByLabel(
+      `${TTFV_QUANTILE}{cohort="last30d"}`,
+      "quantile",
+      ttfvQuantileTone,
+      ttfvQuantileLabel,
+    ),
+    format: formatDurationDays,
+    hideWhenEmpty: true,
+  },
   {
     id: "ttfv-distribution",
     title: "TTFV distribution",
