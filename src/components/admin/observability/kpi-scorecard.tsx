@@ -447,6 +447,8 @@ export function KpiScorecard() {
           tile.query === null
             ? tile.staticValue ?? null
             : resultByQuery.get(tile.query)?.value ?? null;
+        // The errors tile only earns its real estate when something is on fire.
+        if (tile.id === "errors" && (value === null || value <= 0)) return null;
         const formatted = value === null ? "" : tile.format(value);
         const spark = tile.query ? sparkByQuery.get(tile.query) : undefined;
         return (
@@ -500,11 +502,6 @@ export function KpiScorecard() {
             label="Clicks · 7d"
             value={formatCount(gsc?.clicks)}
             spark={dailyToSpark(gsc?.daily?.slice(-7), (r) => r.clicks)}
-          />
-          <InfoTile
-            label="CTR · 7d"
-            value={formatPercent(gsc?.ctr)}
-            spark={dailyToSpark(gsc?.daily?.slice(-7), (r) => r.ctr)}
           />
           <InfoTile
             label="Avg position · 7d"

@@ -10,6 +10,7 @@ import { Ga4CountriesPanel, Ga4DevicesPanel, Ga4SourcesPanel, Ga4TopPagesPanel }
 import { ObservabilityDataProvider, useObservabilityData } from "./data-provider";
 import { GoldenPath } from "./golden-path";
 import { KpiScorecard } from "./kpi-scorecard";
+import { MessagesByUserBarChart } from "./messages-by-user-panel";
 import { MetricPanel } from "./metric-panel";
 import { OAuthPoolPanel } from "@/components/admin/oauth-pool-panel";
 import {
@@ -195,6 +196,8 @@ function ObservabilityBody() {
       <AlertsStrip />
 
       <KpiScorecard />
+
+      <MessagesByUserBarChart />
 
       <OAuthPoolPanel />
 
