@@ -158,6 +158,10 @@ type Server struct {
 	// geminiText drives /me "write for me" copy suggestions for name +
 	// short/long descriptions. Same env var as imagen.
 	geminiText *GeminiText
+	// githubPR resolves the first PR merged on a user's site repo for the
+	// TTFV-PR sweeper (#621). Nil when GITHUB_TOKEN is unset; the sweeper
+	// no-ops in that case.
+	githubPR FirstMergedPRFinder
 }
 
 func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
@@ -242,6 +246,12 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 	if geminiText.Disabled() {
 		logger.Printf("gemini text generator disabled (GEMINI_API_KEY missing)")
 	}
+	var githubPR FirstMergedPRFinder
+	if cfg.GitHubToken != "" {
+		githubPR = newGitHubPRClient(cfg.GitHubToken)
+	} else {
+		logger.Printf("ttfv-pr github client disabled (GITHUB_TOKEN missing)")
+	}
 	s := &Server{
 		cfg:                    cfg,
 		log:                    logger,
@@ -258,6 +268,7 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 		personalAgent:          personalAgentWriter,
 		imagen:                 imagen,
 		geminiText:             geminiText,
+		githubPR:               githubPR,
 	}
 	s.mux.HandleFunc("/livez", s.handleLivez)
 	s.mux.HandleFunc("/readyz", s.handleReadiness)

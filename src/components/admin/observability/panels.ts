@@ -67,6 +67,8 @@ const DUR = "makeacompany_http_request_duration_seconds_bucket";
 const LIFECYCLE = "makeacompany_lifecycle_users";
 const TTFV_BUCKET = "makeacompany_ttfv_bucket_users";
 const TTFV_QUANTILE = "makeacompany_ttfv_quantile_seconds";
+const TTFV_PR_BUCKET = "makeacompany_ttfv_pr_bucket_users";
+const TTFV_PR_QUANTILE = "makeacompany_ttfv_pr_quantile_seconds";
 
 const statusTone = (cls: string): ChartTone =>
   cls.startsWith("2") ? "pos" : cls.startsWith("5") ? "neg" : cls.startsWith("4") ? "accent" : "muted";
@@ -252,10 +254,43 @@ const ttfvQuantileLabel = (q: string): string =>
 
 export const TTFV_PANELS: PanelDef[] = [
   {
-    id: "ttfv-quantile",
-    title: "TTFV p50 / p90",
+    id: "ttfv-pr-quantile",
+    title: "TTFV p50 / p90 (first merged PR)",
     subtitle:
-      "Signup to first message, last 30 days. \"<1h\" means same-day — precision improves as new signups roll in.",
+      "Signup to first PR merged on the user's site repo, last 30 days. The new TTFV bar per #621.",
+    queries: [`${TTFV_PR_QUANTILE}{cohort="last30d"}`],
+    toSeries: splitByLabel(
+      `${TTFV_PR_QUANTILE}{cohort="last30d"}`,
+      "quantile",
+      ttfvQuantileTone,
+      ttfvQuantileLabel,
+    ),
+    format: formatDurationDays,
+    hideWhenEmpty: true,
+  },
+  {
+    id: "ttfv-pr-distribution",
+    title: "TTFV distribution (first merged PR)",
+    subtitle: "Users per bucket, last 30 days of signups. Same-day at top means we shipped fast.",
+    queries: [`${TTFV_PR_BUCKET}{cohort="last30d"}`],
+    toSeries: splitByLabelOrdered(
+      `${TTFV_PR_BUCKET}{cohort="last30d"}`,
+      "bucket",
+      ttfvBucketTone,
+      ttfvBucketLabel,
+      ttfvBucketSort,
+    ),
+    format: formatCompact,
+    area: true,
+    zeroBaseline: true,
+    span: 2,
+    hideWhenEmpty: true,
+  },
+  {
+    id: "ttfv-quantile",
+    title: "TTFM p50 / p90 (first message)",
+    subtitle:
+      "Signup to first ingested message, last 30 days. Secondary signal kept alongside the PR variant during the cutover.",
     queries: [`${TTFV_QUANTILE}{cohort="last30d"}`],
     toSeries: splitByLabel(
       `${TTFV_QUANTILE}{cohort="last30d"}`,
@@ -268,8 +303,8 @@ export const TTFV_PANELS: PanelDef[] = [
   },
   {
     id: "ttfv-distribution",
-    title: "TTFV distribution",
-    subtitle: "Users per bucket, last 30 days of signups. Same-day at top means onboarding is sticking.",
+    title: "TTFM distribution (first message)",
+    subtitle: "Users per bucket, last 30 days of signups.",
     queries: [`${TTFV_BUCKET}{cohort="last30d"}`],
     toSeries: splitByLabelOrdered(
       `${TTFV_BUCKET}{cohort="last30d"}`,

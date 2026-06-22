@@ -136,6 +136,12 @@ type Config struct {
 	// creation (apps.icon.set). Same key Ross + Joanne use for the
 	// gemini-image skill; centralized into makeacompany-ai-runtime-secrets.
 	GeminiAPIKey string
+	// GitHubToken authenticates the TTFV-PR sweeper's reads against the
+	// GitHub REST API (closed PRs on BimRoss/<site_host>). Read-only public
+	// repo access is enough; the sweeper never writes. Empty disables the
+	// sweeper — gauges register but stay zeroed, /admin panel hides via
+	// hideWhenEmpty. See #621.
+	GitHubToken string
 }
 
 // stripePriceIDBasePlan returns STRIPE_PRICE_ID_BASE_PLAN, else legacy STRIPE_PRICE_ID_WAITLIST.
@@ -197,6 +203,7 @@ func LoadConfig() Config {
 		PersonalAgentImage:                  envString("PERSONAL_AGENT_IMAGE", "docker.io/geeemoney/claude-code-personal-agent:latest"),
 		MakeacompanySlackTeamID:             strings.TrimSpace(os.Getenv("MAKEACOMPANY_SLACK_TEAM_ID")),
 		GeminiAPIKey:                        strings.TrimSpace(os.Getenv("GEMINI_API_KEY")),
+		GitHubToken:                         strings.TrimSpace(os.Getenv("GITHUB_TOKEN")),
 	}
 }
 

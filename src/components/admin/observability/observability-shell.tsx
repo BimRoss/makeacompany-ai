@@ -114,7 +114,7 @@ function ObservabilityBody() {
         <ObservabilitySection
           id="ttfv"
           title="Time to first value"
-          description="How long after signup users send their first ingested message. Floor, not truth: signup_at is backfilled for pre-#581 profiles and excludes anyone with no first_seen_at yet."
+          description="Signup to first PR merged on the user's site repo (the bar) plus first message (secondary signal). Both readings hidden until they have data — message-based is also a floor since signup_at is backfilled for pre-#581 profiles."
         >
           {TTFV_PANELS.map((def) => (
             <MetricPanel key={def.id} def={def} from={from} prominent />
