@@ -112,15 +112,47 @@ function TtfvCohortToggle({
   );
 }
 
-function TtfvSection({ from }: { from: string }) {
-  const [cohort, setCohort] = useState<TtfvCohort>("last30d");
-  const panels = ttfvPanels(cohort);
+function TtfvQuantilesRow({
+  from,
+  cohort,
+  onChangeCohort,
+}: {
+  from: string;
+  cohort: TtfvCohort;
+  onChangeCohort: (next: TtfvCohort) => void;
+}) {
+  const panels = ttfvPanels(cohort).filter((p) => p.id.startsWith("ttfv-pr-quantile-") || p.id.startsWith("ttfv-quantile-"));
+  return (
+    <>
+      {panels.map((def, i) => (
+        <ObservabilitySection
+          key={def.id}
+          id={i === 0 ? "ttfv-pr" : "ttfv-msg"}
+          title={i === 0 ? "TTFV (first PR)" : "TTFM (first message)"}
+          description={
+            i === 0
+              ? "Signup to first PR merged on the user's site repo. The TTFV bar per #621."
+              : "Signup to first ingested message. Secondary signal kept alongside the PR variant during the cutover."
+          }
+          endSlot={i === 0 ? <TtfvCohortToggle value={cohort} onChange={onChangeCohort} /> : undefined}
+        >
+          <MetricPanel def={def} from={from} prominent />
+        </ObservabilitySection>
+      ))}
+    </>
+  );
+}
+
+function TtfvDistributionsRow({ from, cohort }: { from: string; cohort: TtfvCohort }) {
+  const panels = ttfvPanels(cohort).filter(
+    (p) => p.id.startsWith("ttfv-pr-distribution-") || p.id.startsWith("ttfv-distribution-"),
+  );
+  if (panels.length === 0) return null;
   return (
     <ObservabilitySection
-      id="ttfv"
-      title="Time to first value"
-      description="Signup to first PR merged on the user's site repo (the bar) plus first message (secondary signal). Both readings hidden until they have data — message-based is also a floor since signup_at is backfilled for pre-#581 profiles."
-      endSlot={<TtfvCohortToggle value={cohort} onChange={setCohort} />}
+      id="ttfv-distribution"
+      title="TTFV distribution"
+      description="Users per bucket on the chosen cohort. Same-day at top means we shipped fast."
     >
       {panels.map((def) => (
         <MetricPanel key={def.id} def={def} from={from} prominent />
@@ -134,6 +166,7 @@ function ObservabilityBody() {
   const { loading, lastUpdatedAt, adminDashboardUrl, clusterDashboardUrl } =
     useObservabilityData();
   const { from } = useTimeRange();
+  const [ttfvCohort, setTtfvCohort] = useState<TtfvCohort>("last30d");
   const cloudflare = useCloudflareSummary();
   const cloudflareHasData = (() => {
     const p = cloudflare.payload?.panels;
@@ -159,31 +192,11 @@ function ObservabilityBody() {
         <ObservabilityToolbar lastUpdatedAt={lastUpdatedAt} loading={loading} />
       </div>
 
-      <OAuthPoolPanel />
-
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <ObservabilitySection
-          id="lifecycle"
-          title="Lifecycle cohorts"
-          description="Free-for-life, trialing, active, and expired user counts over time. Sweeper updates every 5 minutes."
-        >
-          {LIFECYCLE_PANELS.map((def) => (
-            <MetricPanel key={def.id} def={def} from={from} prominent />
-          ))}
-        </ObservabilitySection>
-
-        <TtfvSection from={from} />
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
-        <div className="lg:col-span-12">
-          <GoldenPath />
-        </div>
-      </div>
+      <AlertsStrip />
 
       <KpiScorecard />
 
-      <AlertsStrip />
+      <OAuthPoolPanel />
 
       <ObservabilitySection
         id="web-tier"
@@ -220,6 +233,27 @@ function ObservabilityBody() {
           })()}
         </div>
       </ObservabilitySection>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <ObservabilitySection
+          id="lifecycle"
+          title="Lifecycle cohorts"
+          description="Free-for-life, trialing, active, and expired user counts over time. Sweeper updates every 5 minutes."
+        >
+          {LIFECYCLE_PANELS.map((def) => (
+            <MetricPanel key={def.id} def={def} from={from} prominent />
+          ))}
+        </ObservabilitySection>
+        <TtfvQuantilesRow from={from} cohort={ttfvCohort} onChangeCohort={setTtfvCohort} />
+      </div>
+
+      <TtfvDistributionsRow from={from} cohort={ttfvCohort} />
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
+        <div className="lg:col-span-12">
+          <GoldenPath />
+        </div>
+      </div>
 
       <ObservabilitySection
         id="audience"

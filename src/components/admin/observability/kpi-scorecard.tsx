@@ -264,6 +264,35 @@ export function useGa4Summary(): Ga4Summary | null {
   return payload;
 }
 
+type MessagesTotalPayload = { total_messages?: number };
+
+export function useTotalMessages(): number | null {
+  const [value, setValue] = useState<number | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const response = await fetch("/api/admin/user-engagement/total", { cache: "no-store" });
+        if (kickToLoginForUnauthorizedApi(response.status, "admin")) return;
+        if (!response.ok) return;
+        const json = (await response.json()) as MessagesTotalPayload;
+        if (!cancelled && typeof json?.total_messages === "number") {
+          setValue(json.total_messages);
+        }
+      } catch {
+        // Tile just stays empty on failure; the headline number isn't critical.
+      }
+    };
+    void load();
+    const id = window.setInterval(() => void load(), POLL_INTERVAL_MS);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, []);
+  return value;
+}
+
 export function useGscSummary(): GscSummary | null {
   const [payload, setPayload] = useState<GscSummary | null>(null);
   useEffect(() => {
@@ -289,6 +318,7 @@ export function useGscSummary(): GscSummary | null {
 export function KpiScorecard() {
   const ga4 = useGa4Summary();
   const gsc = useGscSummary();
+  const totalMessages = useTotalMessages();
   const { payload: cloudflarePayload } = useCloudflareSummary();
   const cacheHit = cloudflarePayload?.summary?.cacheHitRatio24h;
   const fwTotal = cloudflarePayload?.summary?.firewallEventsTotal;
@@ -433,6 +463,9 @@ export function KpiScorecard() {
         );
       })}
       {/* Growth tiles follow — informational, no threshold semantics. */}
+      {totalMessages !== null ? (
+        <InfoTile label="Messages sent · all-time" value={formatCount(totalMessages)} />
+      ) : null}
       {showGa4 ? (
         <>
           {typeof ga4?.realtimeUsers === "number" && ga4.realtimeUsers >= 0 ? (
