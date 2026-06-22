@@ -8,6 +8,7 @@ import { Footer } from "@/components/landing/footer";
 import { HarnessVsAgent } from "@/components/landing/harness-vs-agent";
 import { Header } from "@/components/landing/header";
 import { HeroSection } from "@/components/landing/hero-section";
+import { MessagesSentLive } from "@/components/landing/messages-sent-live";
 import { PersonaPageView } from "@/components/landing/persona-page-view";
 import { PersonaProvider } from "@/components/landing/persona-context";
 import { PricingTiers } from "@/components/landing/pricing-tiers";
@@ -17,6 +18,7 @@ import { TestimonialsCarousel } from "@/components/landing/testimonials-carousel
 import { ValueStack } from "@/components/landing/value-stack";
 import { breadcrumbStructuredData } from "@/lib/breadcrumbs";
 import { getFeaturedProducts } from "@/lib/featured-products";
+import { fetchLanderMessagesSent } from "@/lib/lander-messages-sent";
 import { fetchLanderSlackSeats } from "@/lib/lander-slack-seats";
 import { fetchLanderTestimonials } from "@/lib/lander-testimonials";
 import {
@@ -83,9 +85,10 @@ export default async function PersonaLandingPage({
     { name: "Home", path: "/" },
     { name: `For ${PERSONA_LABELS[persona]}`, path: `/for/${slug}` },
   ]);
-  const [initialSeats, testimonials] = await Promise.all([
+  const [initialSeats, testimonials, initialMessagesSent] = await Promise.all([
     fetchLanderSlackSeats(),
     fetchLanderTestimonials(),
+    fetchLanderMessagesSent(),
   ]);
 
   return (
@@ -106,6 +109,7 @@ export default async function PersonaLandingPage({
           <PersonaPageView persona={persona} slug={slug} />
           <HeroSection />
           <FeaturedProductsCarousel products={getFeaturedProducts()} />
+          <MessagesSentLive initial={initialMessagesSent} />
           <ValueStack />
           <HarnessVsAgent />
           <BuiltFromInside />

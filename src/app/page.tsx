@@ -13,7 +13,9 @@ import { faqStructuredData, SeoFaqSection } from "@/components/landing/seo-faq";
 import { TestimonialsCarousel } from "@/components/landing/testimonials-carousel";
 import { ValueStack } from "@/components/landing/value-stack";
 import { FeaturedProductsCarousel } from "@/components/landing/featured-products-carousel";
+import { MessagesSentLive } from "@/components/landing/messages-sent-live";
 import { getFeaturedProducts } from "@/lib/featured-products";
+import { fetchLanderMessagesSent } from "@/lib/lander-messages-sent";
 import { fetchLanderSlackSeats } from "@/lib/lander-slack-seats";
 import { fetchLanderTestimonials } from "@/lib/lander-testimonials";
 import { DEFAULT_PERSONA, PERSONA_SLUGS, parsePersonaParam } from "@/lib/personas";
@@ -66,9 +68,10 @@ export default async function HomePage({
 }) {
   const params = (await searchParams) ?? {};
   const urlPersona = parsePersonaParam(params.p);
-  const [initialSeats, testimonials] = await Promise.all([
+  const [initialSeats, testimonials, initialMessagesSent] = await Promise.all([
     fetchLanderSlackSeats(),
     fetchLanderTestimonials(),
+    fetchLanderMessagesSent(),
   ]);
   const faqJsonLd = faqStructuredData(initialSeats);
 
@@ -89,6 +92,7 @@ export default async function HomePage({
         >
           <HeroSection />
           <FeaturedProductsCarousel products={getFeaturedProducts()} />
+          <MessagesSentLive initial={initialMessagesSent} />
           <ValueStack />
           <HarnessVsAgent />
           <BuiltFromInside />
