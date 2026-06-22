@@ -736,12 +736,7 @@ function ConnectionsFooter({
     <footer className="border-t border-border/60">
       {!editOpen ? (
         <div className="flex flex-col gap-3 px-4 py-4 sm:flex-row sm:flex-nowrap sm:items-center sm:gap-3 sm:px-5">
-          <div className="flex items-center gap-2 sm:flex-none">
-            <p className="inline-flex h-9 items-center text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Connections
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2 sm:min-w-0 sm:flex-1 sm:flex-nowrap sm:overflow-x-auto">
+          <div className="flex flex-wrap items-center gap-2 sm:min-w-0 sm:flex-1">
             <ConnectChip
               label="Google"
               icon={<GoogleGlyph />}
