@@ -336,12 +336,17 @@ func (s *Server) handlePersonalAgentInstallComplete(w http.ResponseWriter, r *ht
 		http.Redirect(w, r, "/me?personal_agent_install=failed&reason=service", http.StatusFound)
 		return
 	}
+	// Almost always false at install time (Google is connected later from /me),
+	// but check so a re-provision after a connect doesn't strip the sidecar. A
+	// lookup error defaults to no sidecar — safe, the reconciler re-adds it.
+	googleConnected, _ := s.personalAgent.HasGoogleCredentials(r.Context(), rec.OwnerSlackUserID)
 	if err := s.personalAgent.WriteAgentDeployment(r.Context(), PersonalAgentDeploymentRequest{
-		SlackUserID:      rec.OwnerSlackUserID,
-		OwnerSlackUserID: rec.OwnerSlackUserID,
-		DisplayName:      rec.DisplayName,
-		AgentID:          rec.ID,
-		Image:            s.cfg.PersonalAgentImage,
+		SlackUserID:              rec.OwnerSlackUserID,
+		OwnerSlackUserID:         rec.OwnerSlackUserID,
+		DisplayName:              rec.DisplayName,
+		AgentID:                  rec.ID,
+		Image:                    s.cfg.PersonalAgentImage,
+		GoogleWorkspaceConnected: googleConnected,
 	}); err != nil {
 		s.log.Printf("personal agent deployment write: %v", err)
 		_ = s.store.UpdatePersonalAgentStatus(r.Context(), agentID, PersonalAgentStatusFailed)

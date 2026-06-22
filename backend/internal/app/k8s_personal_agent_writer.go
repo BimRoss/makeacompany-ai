@@ -104,18 +104,62 @@ func (w *PersonalAgentWriter) AgentNamespace() string {
 	return w.agentNamespace
 }
 
+// personalAgentUserHash is the deterministic per-owner suffix shared by every
+// personal-agent resource name: sha256(slack_user_id) truncated to 12 hex
+// chars — matches the shopify-conn shape.
+func personalAgentUserHash(slackUserID string) string {
+	sum := sha256.Sum256([]byte(strings.TrimSpace(slackUserID)))
+	return hex.EncodeToString(sum[:6])
+}
+
 // personalAgentResourceName is the shared base name for a personal-agent's
 // K8s resources (Deployment, Service, and the Secret which appends a suffix).
-// sha256(slack_user_id) truncated to 12 hex chars — matches the shopify-conn shape.
 func personalAgentResourceName(slackUserID string) string {
-	sum := sha256.Sum256([]byte(strings.TrimSpace(slackUserID)))
-	return personalAgentSecretNamePrefix + hex.EncodeToString(sum[:6])
+	return personalAgentSecretNamePrefix + personalAgentUserHash(slackUserID)
 }
 
 // personalAgentSecretName derives the deterministic Secret name for a Slack
 // user id.
 func personalAgentSecretName(slackUserID string) string {
 	return personalAgentResourceName(slackUserID) + personalAgentSecretNameSuffix
+}
+
+// personalAgentGoogleSecretName is the per-owner Secret holding the DCR'd
+// Google OAuth bootstrap creds (client_id/client_secret/refresh_token) the
+// gws-mcp-token-sidecar consumes. Distinct from the runtime Secret so a Google
+// connect/disconnect never rewrites the Slack credentials.
+func personalAgentGoogleSecretName(slackUserID string) string {
+	return "gws-oauth-" + personalAgentUserHash(slackUserID)
+}
+
+// personalAgentGwsSidecarSAName is the per-owner ServiceAccount the sidecar
+// runs under. Its Role is scoped to exactly personalAgentGoogleSecretName(uid)
+// (get+patch) so an owner's rotation PATCH can't read or mutate any other
+// owner's Secrets in the shared personal-agents namespace.
+func personalAgentGwsSidecarSAName(slackUserID string) string {
+	return "gws-sidecar-" + personalAgentUserHash(slackUserID)
+}
+
+// HasGoogleCredentials reports whether the per-owner Google OAuth Secret
+// exists — i.e. the owner has connected Google. The reconciler uses this to
+// decide whether to attach the gws-mcp-token-sidecar to the pod. Returns
+// false (no sidecar) on Disabled() or NotFound; surfaces other errors.
+func (w *PersonalAgentWriter) HasGoogleCredentials(ctx context.Context, slackUserID string) (bool, error) {
+	if w.Disabled() {
+		return false, nil
+	}
+	if strings.TrimSpace(slackUserID) == "" {
+		return false, errors.New("HasGoogleCredentials: slack user id empty")
+	}
+	name := personalAgentGoogleSecretName(slackUserID)
+	_, err := w.cs.CoreV1().Secrets(w.agentNamespace).Get(ctx, name, metav1.GetOptions{})
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return false, nil
+		}
+		return false, fmt.Errorf("get google secret %s/%s: %w", w.agentNamespace, name, err)
+	}
+	return true, nil
 }
 
 // PersonalAgentServicePort is the well-known port the per-agent HTTP Events

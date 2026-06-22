@@ -125,6 +125,17 @@ type PersonalAgentDeploymentRequest struct {
 	DisplayName      string // AGENT_DISPLAY_NAME
 	AgentID          string // for labelling / audit only; pods don't read it
 	Image            string // e.g. docker.io/geeemoney/claude-code-personal-agent:v0.1.2
+	// GoogleWorkspaceConnected, when true, attaches the per-owner
+	// gws-mcp-token-sidecar (+ its bootstrap Secret volume + per-owner SA) and
+	// points the PA runtime at it. Set by the provisioner from
+	// PersonalAgentWriter.HasGoogleCredentials. False (the default) ships the
+	// pod with no sidecar — zero cost for owners who haven't connected Google.
+	GoogleWorkspaceConnected bool
+	// GoogleEmail is the owner's connected Google account, stamped as
+	// AGENT_GOOGLE_EMAIL when connected. Cosmetic in OAuth21 mode (identity is
+	// bound server-side at the gateway) but makes the agent's instructions.md
+	// read "you act as <email>". Ignored when GoogleWorkspaceConnected is false.
+	GoogleEmail string
 }
 
 // WriteAgentDeployment creates (or updates) the per-agent Deployment in the
@@ -280,6 +291,25 @@ func (w *PersonalAgentWriter) WriteAgentDeployment(ctx context.Context, req Pers
 		},
 	}
 
+	// Attach the per-owner Google Workspace MCP sidecar when the owner has
+	// connected Google. Done as a post-literal mutation to keep the base pod
+	// spec (and its comments) untouched for the common no-Google case.
+	if req.GoogleWorkspaceConnected {
+		tmpl := &dep.Spec.Template.Spec
+		// The sidecar PATCHes its bootstrap Secret on every token rotation;
+		// run the pod under the per-owner SA whose Role is scoped to exactly
+		// that Secret (provisioned alongside the Secret by the credential
+		// writer). The SA token is mounted in the main container too, but it
+		// can only get+patch this owner's own OAuth Secret.
+		tmpl.ServiceAccountName = personalAgentGwsSidecarSAName(req.SlackUserID)
+		tmpl.Containers[0].Env = append(tmpl.Containers[0].Env, personalAgentGoogleEnv()...)
+		if email := strings.TrimSpace(req.GoogleEmail); email != "" {
+			tmpl.Containers[0].Env = append(tmpl.Containers[0].Env, corev1.EnvVar{Name: "AGENT_GOOGLE_EMAIL", Value: email})
+		}
+		tmpl.Containers = append(tmpl.Containers, personalAgentGwsSidecar(req.SlackUserID))
+		tmpl.Volumes = append(tmpl.Volumes, personalAgentGwsVolumes(req.SlackUserID)...)
+	}
+
 	_, err := w.cs.AppsV1().Deployments(w.agentNamespace).Create(ctx, dep, metav1.CreateOptions{})
 	if err == nil {
 		return nil
@@ -424,6 +454,122 @@ func httpProbeOnHealthz() *corev1.Probe {
 		InitialDelaySeconds: 5,
 		PeriodSeconds:       10,
 		TimeoutSeconds:      3,
+		FailureThreshold:    3,
+	}
+}
+
+// --- Google Workspace MCP sidecar (per-owner, OAuth 2.1) --------------------
+//
+// Mirrors the Ross/Joanne gws-mcp-token-sidecar (rancher-admin
+// admin/apps/claude-code-*-prod/deployment.yaml) but per-owner: SECRET_NAME +
+// the bootstrap Secret volume are scoped to one PA owner so the sidecar's
+// rotation PATCH (Google revokes the old refresh token on every mint) writes
+// back to that owner's Secret only. The PA runtime reaches it at
+// localhost:8081/mcp via PERSONAL_AGENT_GOOGLE_MCP_URL.
+
+const (
+	personalAgentGwsSidecarImage         = "geeemoney/gws-mcp-token-sidecar:0.2.1"
+	personalAgentGwsSidecarPort          = 8081
+	personalAgentGwsSidecarContainerName = "gws-mcp-token-sidecar"
+)
+
+// personalAgentGwsGatewayBase is the in-cluster ClusterIP of the personal-agent
+// OAuth 2.1 gateway (rancher-admin admin/apps/google-workspace-mcp-gateway-pa).
+// Sidecars mint/refresh tokens against this; the public host
+// google-mcp-pa.makeacompany.ai is only for the browser consent dance.
+// Overridable fleet-wide via env without an image rebuild.
+func personalAgentGwsGatewayBase() string {
+	if v := strings.TrimSpace(os.Getenv("PERSONAL_AGENT_GWS_GATEWAY_BASE")); v != "" {
+		return v
+	}
+	return "http://google-workspace-mcp-gateway-pa.google-workspace-mcp-gateway-pa.svc.cluster.local:8000"
+}
+
+// personalAgentGoogleEnv points the PA runtime at the in-pod sidecar. Only
+// stamped when the owner has connected Google; the runtime's resolveGoogleMCPURL
+// reads PERSONAL_AGENT_GOOGLE_MCP_URL + PERSONAL_AGENT_GOOGLE_OAUTH21.
+func personalAgentGoogleEnv() []corev1.EnvVar {
+	return []corev1.EnvVar{
+		{Name: "PERSONAL_AGENT_GOOGLE_MCP_URL", Value: fmt.Sprintf("http://localhost:%d/mcp", personalAgentGwsSidecarPort)},
+		{Name: "PERSONAL_AGENT_GOOGLE_OAUTH21", Value: "true"},
+	}
+}
+
+// personalAgentGwsSidecar builds the per-owner gws-mcp-token-sidecar container.
+func personalAgentGwsSidecar(slackUserID string) corev1.Container {
+	return corev1.Container{
+		Name:            personalAgentGwsSidecarContainerName,
+		Image:           personalAgentGwsSidecarImage,
+		ImagePullPolicy: corev1.PullIfNotPresent,
+		Env: []corev1.EnvVar{
+			{Name: "GATEWAY_BASE", Value: personalAgentGwsGatewayBase()},
+			{Name: "CLIENT_ID_FILE", Value: "/etc/oauth/client_id"},
+			{Name: "CLIENT_SECRET_FILE", Value: "/etc/oauth/client_secret"},
+			{Name: "REFRESH_TOKEN_BOOTSTRAP_FILE", Value: "/etc/oauth/refresh_token"},
+			{Name: "REFRESH_TOKEN_CURRENT_FILE", Value: "/var/oauth/refresh_token"},
+			{Name: "SECRET_NAME", Value: personalAgentGoogleSecretName(slackUserID)},
+		},
+		Ports: []corev1.ContainerPort{{
+			Name:          "mint",
+			ContainerPort: int32(personalAgentGwsSidecarPort),
+			Protocol:      corev1.ProtocolTCP,
+		}},
+		VolumeMounts: []corev1.VolumeMount{
+			{Name: "oauth-bootstrap", MountPath: "/etc/oauth", ReadOnly: true},
+			{Name: "oauth-current", MountPath: "/var/oauth"},
+		},
+		LivenessProbe:  httpProbeOnPort(personalAgentGwsSidecarPort, 15, 30),
+		ReadinessProbe: httpProbeOnPort(personalAgentGwsSidecarPort, 5, 15),
+		Resources: corev1.ResourceRequirements{
+			// Matches the Ross sidecar's tuned values: idles ~85Mi, spikes on
+			// rotate+revoke; 128Mi OOMKilled it, so 256Mi limit / 64Mi request.
+			Requests: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("5m"),
+				corev1.ResourceMemory: resource.MustParse("64Mi"),
+			},
+			Limits: corev1.ResourceList{
+				corev1.ResourceMemory: resource.MustParse("256Mi"),
+			},
+		},
+	}
+}
+
+// personalAgentGwsVolumes returns the sidecar's two volumes: the per-owner
+// bootstrap Secret (RO) and a small writable scratch for the rotated token
+// (preferred over bootstrap on boot; the sidecar also PATCHes the Secret as
+// cold-start backup).
+func personalAgentGwsVolumes(slackUserID string) []corev1.Volume {
+	scratchLimit := resource.MustParse("1Mi")
+	return []corev1.Volume{
+		{
+			Name: "oauth-bootstrap",
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName: personalAgentGoogleSecretName(slackUserID),
+				},
+			},
+		},
+		{
+			Name: "oauth-current",
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{SizeLimit: &scratchLimit},
+			},
+		},
+	}
+}
+
+// httpProbeOnPort is an httpGet /healthz probe on a numeric port (the sidecar
+// listens on 8081, not the main container's named "http" port).
+func httpProbeOnPort(port, initialDelay, period int) *corev1.Probe {
+	return &corev1.Probe{
+		ProbeHandler: corev1.ProbeHandler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Path: "/healthz",
+				Port: intstr.FromInt(port),
+			},
+		},
+		InitialDelaySeconds: int32(initialDelay),
+		PeriodSeconds:       int32(period),
 		FailureThreshold:    3,
 	}
 }
