@@ -45,7 +45,13 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const code = url.searchParams.get("code") ?? "";
   const state = url.searchParams.get("state") ?? "";
-  if (url.searchParams.get("error")) return fail("consent_denied");
+  // Surface the real upstream error code (e.g. invalid_scope, access_denied)
+  // rather than a blanket label, so failures are debuggable from the toast.
+  const upstreamErr = url.searchParams.get("error");
+  if (upstreamErr) {
+    console.error("google connect callback error:", upstreamErr, url.searchParams.get("error_description") ?? "");
+    return fail(encodeURIComponent(upstreamErr));
+  }
   if (!code || !state) return fail("missing_code");
 
   const cookieStore = await cookies();
