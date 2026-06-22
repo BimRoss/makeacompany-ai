@@ -266,18 +266,55 @@ export function useGa4Summary(): Ga4Summary | null {
 
 type MessagesTotalPayload = { total_messages?: number };
 
-export function useTotalMessages(): number | null {
-  const [value, setValue] = useState<number | null>(null);
+type EngagementDayBin = { day?: string; messages?: number };
+type EngagementTopUser = {
+  slack_user_id?: string;
+  total_messages?: number;
+  sparkline?: EngagementDayBin[];
+};
+type EngagementTopPayload = { users?: EngagementTopUser[] };
+
+export type TotalMessages = {
+  total: number | null;
+  /** 30-day daily totals summed across the top-N users. Indexed x keeps Sparkline format-agnostic. */
+  daily: Array<[number, number]> | undefined;
+};
+
+export function useTotalMessages(): TotalMessages {
+  const [total, setTotal] = useState<number | null>(null);
+  const [daily, setDaily] = useState<Array<[number, number]> | undefined>(undefined);
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
       try {
-        const response = await fetch("/api/admin/user-engagement/total", { cache: "no-store" });
-        if (kickToLoginForUnauthorizedApi(response.status, "admin")) return;
-        if (!response.ok) return;
-        const json = (await response.json()) as MessagesTotalPayload;
-        if (!cancelled && typeof json?.total_messages === "number") {
-          setValue(json.total_messages);
+        const [totalRes, topRes] = await Promise.all([
+          fetch("/api/admin/user-engagement/total", { cache: "no-store" }),
+          fetch("/api/admin/user-engagement/top?limit=500", { cache: "no-store" }),
+        ]);
+        if (kickToLoginForUnauthorizedApi(totalRes.status, "admin")) return;
+        if (kickToLoginForUnauthorizedApi(topRes.status, "admin")) return;
+        if (totalRes.ok) {
+          const json = (await totalRes.json()) as MessagesTotalPayload;
+          if (!cancelled && typeof json?.total_messages === "number") {
+            setTotal(json.total_messages);
+          }
+        }
+        if (topRes.ok) {
+          const json = (await topRes.json()) as EngagementTopPayload;
+          // Sum per-user 30-day sparklines into one daily total series. The
+          // top endpoint caps at 500 users — well above current cohort size,
+          // so this is the all-time total for any realistic day in window.
+          const byDay = new Map<string, number>();
+          for (const u of json?.users ?? []) {
+            for (const bin of u.sparkline ?? []) {
+              if (!bin || typeof bin.day !== "string") continue;
+              const v = typeof bin.messages === "number" ? bin.messages : 0;
+              byDay.set(bin.day, (byDay.get(bin.day) ?? 0) + v);
+            }
+          }
+          const days = Array.from(byDay.keys()).sort();
+          const points: Array<[number, number]> = days.map((d, i) => [i, byDay.get(d) ?? 0]);
+          if (!cancelled) setDaily(points.length >= 2 ? points : undefined);
         }
       } catch {
         // Tile just stays empty on failure; the headline number isn't critical.
@@ -290,7 +327,7 @@ export function useTotalMessages(): number | null {
       window.clearInterval(id);
     };
   }, []);
-  return value;
+  return { total, daily };
 }
 
 export function useGscSummary(): GscSummary | null {
@@ -447,6 +484,8 @@ export function KpiScorecard() {
           tile.query === null
             ? tile.staticValue ?? null
             : resultByQuery.get(tile.query)?.value ?? null;
+        // The errors tile only earns its real estate when something is on fire.
+        if (tile.id === "errors" && (value === null || value <= 0)) return null;
         const formatted = value === null ? "" : tile.format(value);
         const spark = tile.query ? sparkByQuery.get(tile.query) : undefined;
         return (
@@ -463,8 +502,12 @@ export function KpiScorecard() {
         );
       })}
       {/* Growth tiles follow — informational, no threshold semantics. */}
-      {totalMessages !== null ? (
-        <InfoTile label="Messages sent · all-time" value={formatCount(totalMessages)} />
+      {totalMessages.total !== null ? (
+        <InfoTile
+          label="Messages sent · all-time"
+          value={formatCount(totalMessages.total)}
+          spark={totalMessages.daily}
+        />
       ) : null}
       {showGa4 ? (
         <>
@@ -500,11 +543,6 @@ export function KpiScorecard() {
             label="Clicks · 7d"
             value={formatCount(gsc?.clicks)}
             spark={dailyToSpark(gsc?.daily?.slice(-7), (r) => r.clicks)}
-          />
-          <InfoTile
-            label="CTR · 7d"
-            value={formatPercent(gsc?.ctr)}
-            spark={dailyToSpark(gsc?.daily?.slice(-7), (r) => r.ctr)}
           />
           <InfoTile
             label="Avg position · 7d"
