@@ -306,6 +306,7 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 	s.mux.HandleFunc("POST /v1/admin/agents/{name}/toggle", s.handleAdminAgentToggle)
 	// User-engagement counters for the /admin expandable row (issue #498).
 	s.mux.HandleFunc("GET /v1/admin/user-engagement/top", s.handleAdminUserEngagementTop)
+	s.mux.HandleFunc("GET /v1/admin/user-engagement/total", s.handleAdminUserEngagementTotal)
 	s.mux.HandleFunc("GET /v1/admin/user-engagement/{slackUserId}", s.handleAdminUserEngagement)
 	s.mux.HandleFunc("POST /v1/internal/ingest-user-engagement", s.handleInternalIngestUserEngagement)
 	s.mux.HandleFunc("/v1/internal/refresh-stripe-waitlist-snapshot", s.handleInternalRefreshStripeWaitlistSnapshot)

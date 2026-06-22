@@ -180,6 +180,26 @@ func (s *Store) LoadUserMessages(ctx context.Context, slackUserID string) (UserM
 	return out, nil
 }
 
+// TotalMessages sums the deduped message counts across every observed
+// user. Scores in the sorted set track per-user fingerprint additions,
+// so summing them yields the workspace-wide total.
+func (s *Store) TotalMessages(ctx context.Context) (int64, error) {
+	if s == nil {
+		return 0, errors.New("nil store")
+	}
+	zs, err := s.rdb.ZRangeWithScores(ctx, userMessagesSortedSetKey, 0, -1).Result()
+	if err != nil && !errors.Is(err, redis.Nil) {
+		return 0, fmt.Errorf("zrange totals: %w", err)
+	}
+	var total int64
+	for _, z := range zs {
+		if z.Score > 0 {
+			total += int64(z.Score)
+		}
+	}
+	return total, nil
+}
+
 // TopUsersByMessages returns up to `limit` users ordered by total messages
 // descending. Reads the deduped sorted set, so two-bot channels don't
 // inflate ranks.

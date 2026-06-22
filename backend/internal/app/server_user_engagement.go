@@ -168,3 +168,28 @@ func (s *Server) handleAdminUserEngagementTop(w http.ResponseWriter, r *http.Req
 	}
 	writeJSONNoStore(w, http.StatusOK, map[string]any{"users": top, "limit": limit})
 }
+
+// handleAdminUserEngagementTotal returns the deduped message-count sum
+// across every observed Slack user. Powers the all-time tile on /admin.
+func (s *Server) handleAdminUserEngagementTotal(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	ok, unavailable := s.adminReadOrInternalServiceAuthorized(r)
+	if !ok {
+		if unavailable {
+			http.Error(w, "service unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+	total, err := s.store.TotalMessages(r.Context())
+	if err != nil {
+		s.log.Printf("total messages: %v", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": "store error"})
+		return
+	}
+	writeJSONNoStore(w, http.StatusOK, map[string]any{"total_messages": total})
+}
