@@ -32,10 +32,12 @@ export function formatDuration(seconds: number): string {
 }
 
 /** Days-scale duration used by the TTFV panel. Falls back to hours/minutes
- * under a day so a same-day TTFV reads as "8h" rather than "0.3d". */
+ * under a day so a same-day TTFV reads as "8h" rather than "0.3d".
+ * Returns "<1h" for zero-second values: the backend clamps negative TTFV diffs
+ * (from day-bucketed historical timestamps) to 0, so 0 means same-day, not instant. */
 export function formatDurationDays(seconds: number): string {
   if (!Number.isFinite(seconds)) return "—";
-  if (seconds <= 0) return "0";
+  if (seconds <= 0) return "<1h";
   if (seconds < 3600) return `${(seconds / 60).toFixed(0)}m`;
   if (seconds < 86400) return `${(seconds / 3600).toFixed(1)}h`;
   return `${(seconds / 86400).toFixed(1)}d`;
