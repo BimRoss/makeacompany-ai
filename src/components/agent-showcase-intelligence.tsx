@@ -7,18 +7,18 @@ import type { PublicAgentKnowledge } from "@/lib/public-agent";
 /**
  * Collapsible "What it knows" cards for the public showcase page (/a/[id]).
  * Mirrors the /me YouTube-ingest card look (chevron + grid-rows collapse,
- * numbered bullets). Cards start open here: the whole point of the showcase is
- * to show the harvested intelligence, so default-expanded, collapse on click.
+ * numbered bullets). Cards start closed so the page leads with the hero and
+ * the source list reads as a tidy index; expand on click to see the insights.
  */
 export function AgentShowcaseIntelligence({
   blocks,
 }: {
   blocks: PublicAgentKnowledge[];
 }) {
-  const [closed, setClosed] = useState<Set<number>>(new Set());
+  const [open, setOpen] = useState<Set<number>>(new Set());
 
   const toggle = (i: number) =>
-    setClosed((prev) => {
+    setOpen((prev) => {
       const next = new Set(prev);
       if (next.has(i)) next.delete(i);
       else next.add(i);
@@ -33,7 +33,7 @@ export function AgentShowcaseIntelligence({
       <ul className="flex flex-col gap-2.5">
         {blocks.map((block, i) => {
           const bullets = block.bullets ?? [];
-          const isOpen = !closed.has(i);
+          const isOpen = open.has(i);
           const insightLabel = `${bullets.length} ${bullets.length === 1 ? "insight" : "insights"}`;
           return (
             <li
@@ -45,7 +45,7 @@ export function AgentShowcaseIntelligence({
                 onClick={() => toggle(i)}
                 aria-expanded={isOpen}
                 aria-label={isOpen ? "Hide insights" : "Show insights"}
-                className="flex w-full items-center gap-3 px-5 py-4 text-left"
+                className="flex w-full items-center gap-3 px-4 py-4 text-left sm:px-5"
               >
                 <ChevronDown
                   className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-150 ${isOpen ? "rotate-0" : "-rotate-90"}`}
@@ -67,7 +67,7 @@ export function AgentShowcaseIntelligence({
                   }`}
                 >
                   <ol
-                    className={`space-y-2 overflow-hidden border-t border-border/60 bg-muted/20 px-5 pl-12 transition-[padding] duration-300 ease-out ${
+                    className={`space-y-2 overflow-hidden border-t border-border/60 bg-muted/20 px-4 pl-10 transition-[padding] duration-300 ease-out sm:px-5 sm:pl-12 ${
                       isOpen ? "py-4" : "py-0"
                     }`}
                   >

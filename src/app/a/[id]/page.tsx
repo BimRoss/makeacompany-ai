@@ -47,7 +47,7 @@ export default async function AgentShowcasePage({
     .toUpperCase();
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-2xl flex-col gap-12 px-6 py-16">
+    <main className="mx-auto flex min-h-screen w-full max-w-2xl flex-col gap-10 px-4 py-12 sm:gap-12 sm:px-6 sm:py-16">
       {/* Hero */}
       <section className="flex flex-col items-center text-center">
         {agent.avatarUrl ? (
