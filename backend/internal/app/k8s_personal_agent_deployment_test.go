@@ -55,9 +55,10 @@ func TestWriteAgentDeployment_CreatesDeployment(t *testing.T) {
 		t.Errorf("AGENT_DISPLAY_NAME = %q", gotEnv["AGENT_DISPLAY_NAME"])
 	}
 	// Model/effort defaults must be stamped so PA pods don't fall back to a
-	// stale baked-in constant (sonnet-4-6[1m], which 429s without usage credits).
-	if gotEnv["PERSONAL_AGENT_DEFAULT_MODEL"] != "claude-opus-4-7[1m]" {
-		t.Errorf("PERSONAL_AGENT_DEFAULT_MODEL = %q, want claude-opus-4-7[1m]", gotEnv["PERSONAL_AGENT_DEFAULT_MODEL"])
+	// stale baked-in constant. Non-1M opus-4-8: the [1m] variants fail without
+	// usage credits on the shared pool (see personalAgentDefaultModel).
+	if gotEnv["PERSONAL_AGENT_DEFAULT_MODEL"] != "claude-opus-4-8" {
+		t.Errorf("PERSONAL_AGENT_DEFAULT_MODEL = %q, want claude-opus-4-8", gotEnv["PERSONAL_AGENT_DEFAULT_MODEL"])
 	}
 	if gotEnv["PERSONAL_AGENT_DEFAULT_EFFORT"] != "high" {
 		t.Errorf("PERSONAL_AGENT_DEFAULT_EFFORT = %q, want high", gotEnv["PERSONAL_AGENT_DEFAULT_EFFORT"])

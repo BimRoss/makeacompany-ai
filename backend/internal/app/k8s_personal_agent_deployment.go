@@ -24,14 +24,18 @@ import (
 const personalAgentOAuthPoolSecretName = "claude-oauth-pool"
 
 // personalAgentDefaultModel / personalAgentDefaultEffort are stamped onto every
-// generated PA pod. Default to opus-4-7[1m] (what the shared OAuth pool accounts
-// support free on the 5h rolling limit; sonnet-4-6[1m] 429s without usage
-// credits). Override fleet-wide via the backend env without an image rebuild.
+// generated PA pod. Default to non-1M opus-4-8: the shared OAuth pool has no
+// usage-based billing, so the 1M ([1m]) variants fail ("usage credits required
+// for 1M context") — and opus-4-7[1m] *hung* rather than erroring, which took
+// the personal agents offline on 2026-06-23. The PA wrapper's allowlist
+// (core/spawnsettings) also rejects [1m] unless PERSONAL_AGENT_ALLOW_1M_CONTEXT
+// is set, so keep this default non-1M. Override fleet-wide via the backend env
+// without an image rebuild.
 func personalAgentDefaultModel() string {
 	if v := strings.TrimSpace(os.Getenv("PERSONAL_AGENT_DEFAULT_MODEL")); v != "" {
 		return v
 	}
-	return "claude-opus-4-7[1m]"
+	return "claude-opus-4-8"
 }
 
 func personalAgentDefaultEffort() string {
@@ -238,12 +242,11 @@ func (w *PersonalAgentWriter) WriteAgentDeployment(ctx context.Context, req Pers
 							{Name: "AGENT_DISPLAY_NAME", Value: strings.TrimSpace(req.DisplayName)},
 							// Stamp the spawn model/effort defaults onto every PA
 							// pod so they hold regardless of which PA image is
-							// running (the baked-in handlers.go constant could be
-							// stale) and survive re-provisioning. opus-4-7[1m] is
-							// what the shared OAuth pool accounts support free on
-							// the 5h rolling limit; sonnet-4-6[1m] 429s ("usage
-							// credits required for 1M context"). Override fleet-wide
-							// from the backend env without an image rebuild.
+							// running and survive re-provisioning. Non-1M opus-4-8:
+							// the shared OAuth pool has no usage-based billing, so
+							// the [1m] variants fail ("usage credits required for 1M
+							// context"). Override fleet-wide from the backend env
+							// without an image rebuild.
 							{Name: "PERSONAL_AGENT_DEFAULT_MODEL", Value: personalAgentDefaultModel()},
 							{Name: "PERSONAL_AGENT_DEFAULT_EFFORT", Value: personalAgentDefaultEffort()},
 							// Background-tier (TIER 2) defaults for unattended
