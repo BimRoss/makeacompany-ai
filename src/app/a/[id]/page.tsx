@@ -98,7 +98,7 @@ export default async function AgentShowcasePage({
           {agent.displayName} is an agent, a site, and the infrastructure under it.
         </p>
         <p className="mt-1 text-sm text-muted-foreground">
-          One person and a Slack channel. That&apos;s makeacompany.
+          Built in makeacompany, a curated room of operators running whole companies from Slack.
         </p>
       </section>
 
