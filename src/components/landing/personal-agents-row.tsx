@@ -58,23 +58,27 @@ export function PersonalAgentsRow({ initial }: { initial: LanderPersonalAgents }
         <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
           Agents our users have built
         </p>
-        <div className="mt-4 flex flex-wrap items-center justify-center gap-2 sm:gap-3">
+        <div className="mt-4 flex flex-wrap items-start justify-center gap-x-3 gap-y-4 sm:gap-x-4">
           {visible.map((agent, i) => (
-            <div
-              key={`${agent.name}-${i}`}
-              title={agent.name}
-              className="relative flex h-11 w-11 items-center justify-center overflow-hidden rounded-full border border-border bg-card text-xs font-semibold text-muted-foreground shadow-sm sm:h-12 sm:w-12"
-            >
-              {agent.imageUrl ? (
-                <Image src={agent.imageUrl} alt={agent.name} fill sizes="48px" className="object-cover" />
-              ) : (
-                <span aria-hidden>{initialsOf(agent.name)}</span>
-              )}
+            <div key={`${agent.name}-${i}`} title={agent.name} className="flex w-14 flex-col items-center gap-1.5 sm:w-16">
+              <div className="relative flex h-11 w-11 items-center justify-center overflow-hidden rounded-full border border-border bg-card text-xs font-semibold text-muted-foreground shadow-sm sm:h-12 sm:w-12">
+                {agent.imageUrl ? (
+                  <Image src={agent.imageUrl} alt={agent.name} fill sizes="48px" className="object-cover" />
+                ) : (
+                  <span aria-hidden>{initialsOf(agent.name)}</span>
+                )}
+              </div>
+              <span className="w-full truncate text-center text-[11px] leading-tight text-muted-foreground">
+                {agent.name}
+              </span>
             </div>
           ))}
           {overflow > 0 ? (
-            <div className="flex h-11 w-11 items-center justify-center rounded-full border border-border bg-muted text-xs font-semibold text-muted-foreground sm:h-12 sm:w-12">
-              +{overflow}
+            <div className="flex w-14 flex-col items-center gap-1.5 sm:w-16">
+              <div className="flex h-11 w-11 items-center justify-center rounded-full border border-border bg-muted text-xs font-semibold text-muted-foreground sm:h-12 sm:w-12">
+                +{overflow}
+              </div>
+              <span className="w-full truncate text-center text-[11px] leading-tight text-muted-foreground">more</span>
             </div>
           ) : null}
         </div>
