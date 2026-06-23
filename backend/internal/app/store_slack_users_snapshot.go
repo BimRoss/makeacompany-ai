@@ -107,6 +107,35 @@ func (s *Store) LookupSlackWorkspaceUserByEmail(ctx context.Context, email strin
 	return SlackWorkspaceUser{}, false, nil
 }
 
+// SlackWorkspaceUsersByID returns the cached users.list snapshot keyed by Slack
+// user id. A missing snapshot yields an empty map (not an error) so callers can
+// degrade to "no avatars" rather than failing. Used by the public lander
+// personal-agents row to resolve each agent bot's profile image from one cached
+// snapshot instead of a per-agent Slack round trip.
+func (s *Store) SlackWorkspaceUsersByID(ctx context.Context) (map[string]SlackWorkspaceUser, error) {
+	if s == nil {
+		return nil, errors.New("nil store")
+	}
+	raw, err := s.GetSlackUsersSnapshotBytes(ctx)
+	if err != nil {
+		if errors.Is(err, ErrSlackUsersSnapshotMissing) {
+			return map[string]SlackWorkspaceUser{}, nil
+		}
+		return nil, err
+	}
+	env, err := ParseSlackUsersSnapshotEnvelope(raw)
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[string]SlackWorkspaceUser, len(env.Users))
+	for i := range env.Users {
+		if id := strings.TrimSpace(env.Users[i].SlackUserID); id != "" {
+			out[id] = env.Users[i]
+		}
+	}
+	return out, nil
+}
+
 // LookupSlackFirstNameByEmail returns the first token of Slack real_name/display_name for a workspace
 // member whose profile email matches (from the cached users.list snapshot). Returns "" when unknown.
 func (s *Store) LookupSlackFirstNameByEmail(ctx context.Context, email string) string {
