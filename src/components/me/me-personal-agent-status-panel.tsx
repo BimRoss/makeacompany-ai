@@ -12,6 +12,7 @@ import {
   MePersonalAgentYouTubeIngest,
   type YtSource,
 } from "@/components/me/me-personal-agent-youtube-ingest";
+import { MeShareAgentButton } from "@/components/me/me-share-agent-button";
 import { readCachedAgentIcon, writeCachedAgentIcon } from "@/lib/personal-agent-icon-cache";
 
 type AgentStatus = {
@@ -25,6 +26,8 @@ type AgentStatus = {
   slackAppId?: string;
   status?: string;
   installUrl?: string;
+  visibility?: string;
+  showIntelligence?: boolean;
 };
 
 type Field = "name" | "description" | "longDescription" | "systemPrompt";
@@ -472,6 +475,15 @@ export function MePersonalAgentStatusPanel({
           onSourcesChange={(nextSources) =>
             setAgent((a) => ({ ...a, youtubeSources: nextSources }))
           }
+        />
+      ) : null}
+
+      {status === "installed" && !editOpen && agent.agentId ? (
+        <MeShareAgentButton
+          agentId={agent.agentId}
+          displayName={agent.displayName?.trim() || "my agent"}
+          visibility={agent.visibility}
+          onShared={(visibility) => setAgent((a) => ({ ...a, visibility }))}
         />
       ) : null}
 

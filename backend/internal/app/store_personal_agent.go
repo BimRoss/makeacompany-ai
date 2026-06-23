@@ -22,7 +22,28 @@ const (
 	PersonalAgentStatusPendingInstall = "pending_install"
 	PersonalAgentStatusInstalled      = "installed"
 	PersonalAgentStatusFailed         = "failed"
+
+	// Visibility of an agent's public showcase page (see #657). Default
+	// (empty / unset) is treated as private: the owner opts in before any
+	// public surface renders. unlisted = reachable by direct link but not
+	// listed or indexed; public = also eligible for listing/indexing.
+	PersonalAgentVisibilityPrivate  = "private"
+	PersonalAgentVisibilityUnlisted = "unlisted"
+	PersonalAgentVisibilityPublic   = "public"
 )
+
+// effectivePersonalAgentVisibility normalizes a stored visibility value.
+// Empty (never set, or a record predating #657) is private — fail closed.
+func effectivePersonalAgentVisibility(raw string) string {
+	switch strings.TrimSpace(raw) {
+	case PersonalAgentVisibilityUnlisted:
+		return PersonalAgentVisibilityUnlisted
+	case PersonalAgentVisibilityPublic:
+		return PersonalAgentVisibilityPublic
+	default:
+		return PersonalAgentVisibilityPrivate
+	}
+}
 
 // PersonalAgentRecord is the durable shape of one provisioned personal agent.
 // Bot tokens never live here — those go in per-agent K8s Secrets (see
@@ -36,6 +57,15 @@ type PersonalAgentRecord struct {
 	DisplayName       string `json:"displayName"`
 	Description       string `json:"description"`
 	LongDescription   string `json:"longDescription,omitempty"`
+	// Visibility gates the public showcase page (#657): private (default) /
+	// unlisted / public. Empty is treated as private by
+	// effectivePersonalAgentVisibility — records predating #657 stay closed.
+	Visibility        string `json:"visibility,omitempty"`
+	// ShowIntelligence is a separate opt-in from Visibility: when true the
+	// public page renders the agent's harvested knowledge (YouTube source
+	// titles + bullets) as a selling point. Default false. Never exposes the
+	// raw SystemPrompt or any token regardless of this flag.
+	ShowIntelligence  bool   `json:"showIntelligence,omitempty"`
 	// SystemPrompt is the user-defined persona / system prompt rendered into
 	// instructions.md by the PA wrapper. Stored here so the modal can
 	// hydrate AND so spawned-pod restarts re-read the latest value from the
@@ -227,6 +257,22 @@ func (s *Store) UpdatePersonalAgentDisplay(ctx context.Context, agentID, display
 	return s.updatePersonalAgentFields(ctx, agentID, fields)
 }
 
+// SetPersonalAgentVisibility updates the public-showcase visibility (#657)
+// and the separate show-intelligence opt-in. visibility is normalized to one
+// of private/unlisted/public; an unrecognized value falls back to private.
+// showIntelligence is applied only when non-nil, so callers can change one
+// switch without touching the other.
+func (s *Store) SetPersonalAgentVisibility(ctx context.Context, agentID, visibility string, showIntelligence *bool) error {
+	fields := map[string]any{
+		"visibility": effectivePersonalAgentVisibility(visibility),
+		"updated_at": time.Now().UTC().Format(time.RFC3339),
+	}
+	if showIntelligence != nil {
+		fields["show_intelligence"] = boolToHash(*showIntelligence)
+	}
+	return s.updatePersonalAgentFields(ctx, agentID, fields)
+}
+
 // AppendPersonalAgentYouTubeSource adds a harvested-from-YouTube intelligence
 // block to the agent's sources list, deduping on URL (newest wins). Returns
 // the updated record so the caller can re-render PERSONAL_AGENT_SYSTEM_PROMPT
@@ -341,6 +387,8 @@ func recordToHash(r PersonalAgentRecord) map[string]any {
 		"display_name":        r.DisplayName,
 		"description":         r.Description,
 		"long_description":    r.LongDescription,
+		"visibility":          r.Visibility,
+		"show_intelligence":   boolToHash(r.ShowIntelligence),
 		"system_prompt":       r.SystemPrompt,
 		"slack_app_id":        r.SlackAppID,
 		"slack_client_id":     r.SlackClientID,
@@ -356,6 +404,22 @@ func recordToHash(r PersonalAgentRecord) map[string]any {
 		"status":              r.Status,
 		"created_at":          r.CreatedAt,
 		"updated_at":          r.UpdatedAt,
+	}
+}
+
+func boolToHash(b bool) string {
+	if b {
+		return "1"
+	}
+	return "0"
+}
+
+func hashToBool(raw string) bool {
+	switch strings.TrimSpace(raw) {
+	case "1", "true", "TRUE", "True":
+		return true
+	default:
+		return false
 	}
 }
 
@@ -394,6 +458,8 @@ func hashToRecord(vals map[string]string) PersonalAgentRecord {
 		DisplayName:       vals["display_name"],
 		Description:       vals["description"],
 		LongDescription:   vals["long_description"],
+		Visibility:        vals["visibility"],
+		ShowIntelligence:  hashToBool(vals["show_intelligence"]),
 		SystemPrompt:      vals["system_prompt"],
 		SlackAppID:        vals["slack_app_id"],
 		SlackClientID:     vals["slack_client_id"],

@@ -340,12 +340,14 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 	s.mux.HandleFunc("POST /v1/me/personal-agents/edit", s.handleEditPersonalAgent)
 	s.mux.HandleFunc("POST /v1/me/personal-agents/text-suggest", s.handleSuggestPersonalAgentText)
 	s.mux.HandleFunc("POST /v1/me/personal-agents/delete", s.handleDeletePersonalAgent)
+	s.mux.HandleFunc("POST /v1/me/personal-agents/{id}/visibility", s.handleSetMyPersonalAgentVisibility)
 	s.mux.HandleFunc("GET /v1/me/personal-agents/google/status", s.handlePersonalAgentGoogleStatus)
 	s.mux.HandleFunc("POST /v1/me/personal-agents/google/connect/finish", s.handlePersonalAgentGoogleConnectFinish)
 	s.mux.HandleFunc("POST /v1/me/personal-agents/google/disconnect", s.handlePersonalAgentGoogleDisconnect)
 	s.mux.HandleFunc("POST /v1/internal/personal-agents/rollout-all", s.handlePersonalAgentRolloutAll)
 	s.mux.HandleFunc("POST /v1/internal/personal-agents/backfill-manifest", s.handlePersonalAgentBackfillManifest)
 	s.mux.HandleFunc("GET /v1/personal-agents/{id}/install-complete", s.handlePersonalAgentInstallComplete)
+	s.mux.HandleFunc("GET /v1/personal-agents/{id}/public", s.handlePublicAgentProfile)
 	// Per-agent bearer-authed lazy-load endpoint for harvested intelligence
 	// (#607). Called from the agent-knowledge skill in claude-code-personal-agent.
 	s.mux.HandleFunc("GET /v1/personal-agents/knowledge", s.handleGetPersonalAgentKnowledge)
