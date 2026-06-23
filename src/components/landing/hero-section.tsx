@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { HeroBuildQuoteRotator } from "@/components/landing/hero-build-quote-rotator";
-import { HeroJoanneInviteCard } from "@/components/landing/hero-joanne-invite-card";
 import { JoinSlackCta } from "@/components/landing/join-slack-cta";
 import { PersonaSelector } from "@/components/landing/persona-selector";
 import { usePersona } from "@/components/landing/persona-context";
@@ -197,8 +196,6 @@ export function HeroSection() {
         </div>
 
         <JoinSlackCta label={copy.ctaButtonLabel} />
-
-        <HeroJoanneInviteCard />
       </div>
     </section>
   );
