@@ -60,7 +60,9 @@ func (s *Server) reconcilePersonalAgentImages(ctx context.Context, force bool) r
 	// never touches env, so without this an env change only lands on freshly
 	// provisioned or full-rebuilt pods. See claude-code-personal-agent#35.
 	desiredSpawnEnv := map[string]string{
-		"PERSONAL_AGENT_DEFAULT_MODEL":  personalAgentDefaultModel(),
+		// PERSONAL_AGENT_DEFAULT_MODEL is intentionally absent — core/spawnsettings
+		// owns the interactive default (claude-opus-4-8). It is actively removed
+		// from live pods via personalAgentStaleEnvKeys below.
 		"PERSONAL_AGENT_DEFAULT_EFFORT": personalAgentDefaultEffort(),
 		"PERSONAL_AGENT_LOOP_MODEL":     personalAgentLoopModel(),
 		"PERSONAL_AGENT_LOOP_EFFORT":    personalAgentLoopEffort(),
@@ -273,7 +275,6 @@ func spawnEnvDrift(dep interface{}, desired map[string]string) []corev1.EnvVar {
 	}
 	var drift []corev1.EnvVar
 	for _, k := range []string{
-		"PERSONAL_AGENT_DEFAULT_MODEL",
 		"PERSONAL_AGENT_DEFAULT_EFFORT",
 		"PERSONAL_AGENT_LOOP_MODEL",
 		"PERSONAL_AGENT_LOOP_EFFORT",
@@ -292,13 +293,19 @@ func spawnEnvDrift(dep interface{}, desired map[string]string) []corev1.EnvVar {
 }
 
 // personalAgentStaleEnvKeys are env vars the reconciler actively REMOVES from
-// live PA pods (via $patch:delete), not merely stops managing. The migration
-// from the master internal token to the scoped PA_ENGAGEMENT_TOKEN left
-// MAC_INTERNAL_SERVICE_TOKEN — equal to BACKEND_INTERNAL_SERVICE_TOKEN — sitting
-// in every existing pod's env, where the agent's owner can read it. Stopping
-// injection isn't enough: the value persists across image bumps (which roll the
+// live PA pods (via $patch:delete), not merely stops managing. Stopping
+// injection isn't enough: a value persists across image bumps (which roll the
 // image without resetting env), so it must be explicitly deleted.
-var personalAgentStaleEnvKeys = []string{"MAC_INTERNAL_SERVICE_TOKEN"}
+//
+//   - MAC_INTERNAL_SERVICE_TOKEN: the master-token→PA_ENGAGEMENT_TOKEN migration
+//     left this (== BACKEND_INTERNAL_SERVICE_TOKEN) in every existing pod's env,
+//     where the agent's owner could read it.
+//   - PERSONAL_AGENT_DEFAULT_MODEL: previously stamped as opus-4-7[1m]; now owned
+//     by core/spawnsettings (claude-opus-4-8). Deleting it from live pods drops
+//     the stale 1M pin so the harness falls through to the core default — and so
+//     a future PERSONAL_AGENT_ALLOW_1M_CONTEXT=true can't resurrect a hanging
+//     opus-4-7[1m] from a lingering env.
+var personalAgentStaleEnvKeys = []string{"MAC_INTERNAL_SERVICE_TOKEN", "PERSONAL_AGENT_DEFAULT_MODEL"}
 
 // spawnEnvStale returns the subset of keys that are actually present on dep's
 // first container, so the reconciler only emits a delete (and the pod restart

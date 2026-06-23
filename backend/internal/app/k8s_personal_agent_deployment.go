@@ -23,17 +23,14 @@ import (
 // rotation reaches every agent without rewriting per-agent Secrets.
 const personalAgentOAuthPoolSecretName = "claude-oauth-pool"
 
-// personalAgentDefaultModel / personalAgentDefaultEffort are stamped onto every
-// generated PA pod. Default to opus-4-7[1m] (what the shared OAuth pool accounts
-// support free on the 5h rolling limit; sonnet-4-6[1m] 429s without usage
-// credits). Override fleet-wide via the backend env without an image rebuild.
-func personalAgentDefaultModel() string {
-	if v := strings.TrimSpace(os.Getenv("PERSONAL_AGENT_DEFAULT_MODEL")); v != "" {
-		return v
-	}
-	return "claude-opus-4-7[1m]"
-}
-
+// personalAgentDefaultEffort is stamped onto every generated PA pod. The
+// interactive default MODEL is deliberately NOT stamped: claude-code-core/
+// spawnsettings owns the curated default (claude-opus-4-8, non-1M), so there is
+// one source of truth and no second place to drift or silently re-pin the old
+// opus-4-7[1m] that hung the fleet on 2026-06-23. Leaving PERSONAL_AGENT_DEFAULT_MODEL
+// unset lets the harness fall through to that core default. Effort is still
+// stamped (a valid, non-model knob); override fleet-wide via the backend env
+// without an image rebuild.
 func personalAgentDefaultEffort() string {
 	if v := strings.TrimSpace(os.Getenv("PERSONAL_AGENT_DEFAULT_EFFORT")); v != "" {
 		return v
@@ -89,7 +86,7 @@ func personalAgentMacBackendURL() string {
 // not first in line for eviction, and the limit is the real OOM guard.
 //
 // Every value is overridable fleet-wide via backend env without an image
-// rebuild, mirroring personalAgentDefaultModel et al. A typo'd override falls
+// rebuild, mirroring personalAgentDefaultEffort et al. A typo'd override falls
 // back to the baked default (logged) rather than panicking the provisioner.
 func personalAgentResources() corev1.ResourceRequirements {
 	return corev1.ResourceRequirements{
@@ -236,15 +233,15 @@ func (w *PersonalAgentWriter) WriteAgentDeployment(ctx context.Context, req Pers
 						Env: []corev1.EnvVar{
 							{Name: "AGENT_OWNER_USER_ID", Value: strings.TrimSpace(req.OwnerSlackUserID)},
 							{Name: "AGENT_DISPLAY_NAME", Value: strings.TrimSpace(req.DisplayName)},
-							// Stamp the spawn model/effort defaults onto every PA
-							// pod so they hold regardless of which PA image is
-							// running (the baked-in handlers.go constant could be
-							// stale) and survive re-provisioning. opus-4-7[1m] is
-							// what the shared OAuth pool accounts support free on
-							// the 5h rolling limit; sonnet-4-6[1m] 429s ("usage
-							// credits required for 1M context"). Override fleet-wide
-							// from the backend env without an image rebuild.
-							{Name: "PERSONAL_AGENT_DEFAULT_MODEL", Value: personalAgentDefaultModel()},
+							// Stamp the interactive default EFFORT onto every PA pod
+							// so it holds regardless of which PA image is running and
+							// survives re-provisioning. The default MODEL is NOT
+							// stamped — claude-code-core/spawnsettings owns the curated
+							// default (claude-opus-4-8, non-1M); leaving the env unset
+							// lets the harness fall through to it, keeping one source
+							// of truth and avoiding any chance of re-pinning the
+							// opus-4-7[1m] that hung the fleet on 2026-06-23. Override
+							// effort fleet-wide from the backend env without a rebuild.
 							{Name: "PERSONAL_AGENT_DEFAULT_EFFORT", Value: personalAgentDefaultEffort()},
 							// Background-tier (TIER 2) defaults for unattended
 							// loop/watch ticks — tier down to non-1M Sonnet so
