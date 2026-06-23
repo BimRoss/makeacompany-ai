@@ -14,8 +14,10 @@ import { TestimonialsCarousel } from "@/components/landing/testimonials-carousel
 import { ValueStack } from "@/components/landing/value-stack";
 import { FeaturedProductsCarousel } from "@/components/landing/featured-products-carousel";
 import { MessagesSentLive } from "@/components/landing/messages-sent-live";
+import { PersonalAgentsRow } from "@/components/landing/personal-agents-row";
 import { getFeaturedProducts } from "@/lib/featured-products";
 import { fetchLanderMessagesSent } from "@/lib/lander-messages-sent";
+import { fetchLanderPersonalAgents } from "@/lib/lander-personal-agents";
 import { fetchLanderSlackSeats } from "@/lib/lander-slack-seats";
 import { fetchLanderTestimonials } from "@/lib/lander-testimonials";
 import { DEFAULT_PERSONA, PERSONA_SLUGS, parsePersonaParam } from "@/lib/personas";
@@ -68,10 +70,11 @@ export default async function HomePage({
 }) {
   const params = (await searchParams) ?? {};
   const urlPersona = parsePersonaParam(params.p);
-  const [initialSeats, testimonials, initialMessagesSent] = await Promise.all([
+  const [initialSeats, testimonials, initialMessagesSent, initialPersonalAgents] = await Promise.all([
     fetchLanderSlackSeats(),
     fetchLanderTestimonials(),
     fetchLanderMessagesSent(),
+    fetchLanderPersonalAgents(),
   ]);
   const faqJsonLd = faqStructuredData(initialSeats);
 
@@ -91,6 +94,7 @@ export default async function HomePage({
           initialSelected={urlPersona !== null}
         >
           <HeroSection />
+          <PersonalAgentsRow initial={initialPersonalAgents} />
           <FeaturedProductsCarousel products={getFeaturedProducts()} />
           <MessagesSentLive initial={initialMessagesSent} />
           <ValueStack />

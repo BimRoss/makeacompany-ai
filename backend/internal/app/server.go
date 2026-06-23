@@ -282,6 +282,7 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 	s.mux.HandleFunc("/v1/lander/slack-seats", s.handleLanderSlackSeats)
 	s.mux.HandleFunc("/v1/lander/testimonials", s.handleLanderTestimonials)
 	s.mux.HandleFunc("/v1/lander/messages-sent", s.handleLanderMessagesSent)
+	s.mux.HandleFunc("/v1/lander/personal-agents", s.handleLanderPersonalAgents)
 	// Public tier-waitlist signups (Personal Agent / Enterprise interest).
 	// Stores to Redis and (best-effort) fires a Resend notification to John.
 	s.mux.HandleFunc("/v1/marketing/tier-waitlist", s.handleTierWaitlist)
