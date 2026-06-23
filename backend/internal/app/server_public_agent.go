@@ -25,9 +25,9 @@ type PublicAgentProfile struct {
 	AvatarURL       string                  `json:"avatarUrl,omitempty"`
 	BuiltBy         string                  `json:"builtBy,omitempty"`
 	CreatedAt       string                  `json:"createdAt,omitempty"`
-	// Intelligence is the owner-curated "what it knows" showcase. Populated
-	// only when the owner set ShowIntelligence; nil/empty otherwise. Carries
-	// the harvested source title + bullets, never the raw SystemPrompt.
+	// Intelligence is the agent's "what it knows" showcase. Shown by default on
+	// any public/unlisted agent that has harvested sources; nil/empty otherwise.
+	// Carries the harvested source title + bullets, never the raw SystemPrompt.
 	Intelligence []PublicAgentKnowledge `json:"intelligence,omitempty"`
 	// InviteURL is the "Build your agent" CTA target. The canonical Slack
 	// join link; true who-referred-whom capture on join is a follow-up.
@@ -57,20 +57,21 @@ func buildPublicAgentProfile(rec PersonalAgentRecord, avatarURL, builtBy, invite
 		CreatedAt:       strings.TrimSpace(rec.CreatedAt),
 		InviteURL:       inviteURL,
 	}
-	if rec.ShowIntelligence {
-		for _, src := range rec.YouTubeSources {
-			title := strings.TrimSpace(src.Title)
-			bullets := make([]string, 0, len(src.Bullets))
-			for _, b := range src.Bullets {
-				if b = strings.TrimSpace(b); b != "" {
-					bullets = append(bullets, b)
-				}
+	// Intelligence shows by default on any agent the page is willing to render
+	// (visibility gating already happened upstream). No per-agent opt-in: if the
+	// agent learned something, the showcase says so.
+	for _, src := range rec.YouTubeSources {
+		title := strings.TrimSpace(src.Title)
+		bullets := make([]string, 0, len(src.Bullets))
+		for _, b := range src.Bullets {
+			if b = strings.TrimSpace(b); b != "" {
+				bullets = append(bullets, b)
 			}
-			if title == "" && len(bullets) == 0 {
-				continue
-			}
-			p.Intelligence = append(p.Intelligence, PublicAgentKnowledge{Title: title, Bullets: bullets})
 		}
+		if title == "" && len(bullets) == 0 {
+			continue
+		}
+		p.Intelligence = append(p.Intelligence, PublicAgentKnowledge{Title: title, Bullets: bullets})
 	}
 	return p
 }

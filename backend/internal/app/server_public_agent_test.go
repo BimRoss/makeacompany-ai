@@ -77,25 +77,30 @@ func TestBuildPublicAgentProfile_NeverLeaksSensitiveFields(t *testing.T) {
 	}
 }
 
-func TestBuildPublicAgentProfile_IntelligenceGate(t *testing.T) {
+func TestBuildPublicAgentProfile_IntelligenceShownByDefault(t *testing.T) {
 	rec := sensitiveRecord()
 
-	rec.ShowIntelligence = false
-	if p := buildPublicAgentProfile(rec, "", "", checkoutInviteURL); len(p.Intelligence) != 0 {
-		t.Errorf("ShowIntelligence=false should yield no intelligence, got %d blocks", len(p.Intelligence))
+	// Shown regardless of the legacy ShowIntelligence flag: harvested sources
+	// always surface on the public showcase now (no per-agent opt-in).
+	for _, show := range []bool{false, true} {
+		rec.ShowIntelligence = show
+		p := buildPublicAgentProfile(rec, "", "", checkoutInviteURL)
+		if len(p.Intelligence) != 1 {
+			t.Fatalf("ShowIntelligence=%v should yield 1 block, got %d", show, len(p.Intelligence))
+		}
+		if p.Intelligence[0].Title != "Closing enterprise deals" {
+			t.Errorf("unexpected title: %q", p.Intelligence[0].Title)
+		}
+		// Blank bullet should have been dropped.
+		if len(p.Intelligence[0].Bullets) != 2 {
+			t.Errorf("expected 2 non-empty bullets, got %d: %v", len(p.Intelligence[0].Bullets), p.Intelligence[0].Bullets)
+		}
 	}
 
-	rec.ShowIntelligence = true
-	p := buildPublicAgentProfile(rec, "", "", checkoutInviteURL)
-	if len(p.Intelligence) != 1 {
-		t.Fatalf("ShowIntelligence=true should yield 1 block, got %d", len(p.Intelligence))
-	}
-	if p.Intelligence[0].Title != "Closing enterprise deals" {
-		t.Errorf("unexpected title: %q", p.Intelligence[0].Title)
-	}
-	// Blank bullet should have been dropped.
-	if len(p.Intelligence[0].Bullets) != 2 {
-		t.Errorf("expected 2 non-empty bullets, got %d: %v", len(p.Intelligence[0].Bullets), p.Intelligence[0].Bullets)
+	// No harvested sources means no cards, even though the section is no longer gated.
+	rec.YouTubeSources = nil
+	if p := buildPublicAgentProfile(rec, "", "", checkoutInviteURL); len(p.Intelligence) != 0 {
+		t.Errorf("no sources should yield no intelligence, got %d blocks", len(p.Intelligence))
 	}
 }
 
