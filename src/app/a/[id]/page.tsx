@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { fetchPublicAgent } from "@/lib/public-agent";
 import { siteUrl } from "@/lib/site";
+import { AgentShowcaseIntelligence } from "@/components/agent-showcase-intelligence";
 
 export const dynamic = "force-dynamic";
 
@@ -76,32 +77,7 @@ export default async function AgentShowcasePage({
 
       {/* What it knows */}
       {agent.intelligence && agent.intelligence.length > 0 ? (
-        <section className="flex flex-col gap-5">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-            What it knows
-          </h2>
-          <div className="flex flex-col gap-5">
-            {agent.intelligence.map((block, i) => (
-              <div key={i} className="rounded-xl border border-border p-5">
-                {block.title ? (
-                  <p className="font-medium text-foreground">{block.title}</p>
-                ) : null}
-                {block.bullets && block.bullets.length > 0 ? (
-                  <ul className="mt-2 flex flex-col gap-1.5 text-sm text-muted-foreground">
-                    {block.bullets.map((b, j) => (
-                      <li key={j} className="flex gap-2">
-                        <span aria-hidden className="text-foreground/40">
-                          •
-                        </span>
-                        <span>{b}</span>
-                      </li>
-                    ))}
-                  </ul>
-                ) : null}
-              </div>
-            ))}
-          </div>
-        </section>
+        <AgentShowcaseIntelligence blocks={agent.intelligence} />
       ) : null}
 
       {/* What it does */}
