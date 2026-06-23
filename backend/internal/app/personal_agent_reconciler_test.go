@@ -155,7 +155,9 @@ func TestReconcilePersonalAgentImages_SkipsWhenInitContainerAlreadyPresent(t *te
 
 func TestSpawnEnvDrift(t *testing.T) {
 	desired := map[string]string{
-		"PERSONAL_AGENT_DEFAULT_MODEL":  "claude-opus-4-7[1m]",
+		// DEFAULT_MODEL is intentionally absent — core/spawnsettings owns it and
+		// spawnEnvDrift no longer manages it (it's removed from live pods via
+		// personalAgentStaleEnvKeys instead, see TestSpawnEnvStaleRemovesDefaultModel).
 		"PERSONAL_AGENT_DEFAULT_EFFORT": "high",
 		"PERSONAL_AGENT_LOOP_MODEL":     "claude-sonnet-4-6",
 		"PERSONAL_AGENT_LOOP_EFFORT":    "", // empty desired → never patched
@@ -184,15 +186,16 @@ func TestSpawnEnvDrift(t *testing.T) {
 		return true
 	}
 
-	// Missing all model env → the 3 non-empty desired vars, in fixed order,
-	// LOOP_EFFORT excluded (empty desired).
+	// Missing all model env → the 2 non-empty desired vars, in fixed order,
+	// LOOP_EFFORT excluded (empty desired), DEFAULT_MODEL excluded (core-owned).
 	drift := spawnEnvDrift(mkDep(corev1.EnvVar{Name: "AGENT_DISPLAY_NAME", Value: "x"}), desired)
-	want := []string{"PERSONAL_AGENT_DEFAULT_MODEL", "PERSONAL_AGENT_DEFAULT_EFFORT", "PERSONAL_AGENT_LOOP_MODEL"}
+	want := []string{"PERSONAL_AGENT_DEFAULT_EFFORT", "PERSONAL_AGENT_LOOP_MODEL"}
 	if !eq(names(drift), want) {
 		t.Errorf("missing-all drift = %v, want %v", names(drift), want)
 	}
 
-	// Fully converged → no drift.
+	// Fully converged → no drift. A lingering DEFAULT_MODEL is ignored by
+	// spawnEnvDrift (it's handled by the stale-removal path, not here).
 	converged := spawnEnvDrift(mkDep(
 		corev1.EnvVar{Name: "PERSONAL_AGENT_DEFAULT_MODEL", Value: "claude-opus-4-7[1m]"},
 		corev1.EnvVar{Name: "PERSONAL_AGENT_DEFAULT_EFFORT", Value: "high"},
@@ -204,7 +207,6 @@ func TestSpawnEnvDrift(t *testing.T) {
 
 	// Only LOOP_MODEL wrong → patch just that one.
 	one := spawnEnvDrift(mkDep(
-		corev1.EnvVar{Name: "PERSONAL_AGENT_DEFAULT_MODEL", Value: "claude-opus-4-7[1m]"},
 		corev1.EnvVar{Name: "PERSONAL_AGENT_DEFAULT_EFFORT", Value: "high"},
 		corev1.EnvVar{Name: "PERSONAL_AGENT_LOOP_MODEL", Value: "claude-opus-4-7[1m]"},
 	), desired)
@@ -319,7 +321,7 @@ func TestReconcilePersonalAgentImages_ConvergesResourceDrift(t *testing.T) {
 			Containers: []corev1.Container{{
 				Name: "personal-agent", Image: "img:new",
 				Env: []corev1.EnvVar{
-					{Name: "PERSONAL_AGENT_DEFAULT_MODEL", Value: personalAgentDefaultModel()},
+					// PERSONAL_AGENT_DEFAULT_MODEL intentionally omitted — core/spawnsettings owns it; reconciler scrubs it as stale.
 					{Name: "PERSONAL_AGENT_DEFAULT_EFFORT", Value: personalAgentDefaultEffort()},
 					{Name: "PERSONAL_AGENT_LOOP_MODEL", Value: personalAgentLoopModel()},
 					// MAC_BACKEND_URL has a non-empty default, so it converges on
@@ -378,7 +380,7 @@ func TestReconcilePersonalAgentImages_ScrubsMasterToken(t *testing.T) {
 			Containers: []corev1.Container{{
 				Name: "personal-agent", Image: "img:new",
 				Env: []corev1.EnvVar{
-					{Name: "PERSONAL_AGENT_DEFAULT_MODEL", Value: personalAgentDefaultModel()},
+					// PERSONAL_AGENT_DEFAULT_MODEL intentionally omitted — core/spawnsettings owns it; reconciler scrubs it as stale.
 					{Name: "PERSONAL_AGENT_DEFAULT_EFFORT", Value: personalAgentDefaultEffort()},
 					{Name: "PERSONAL_AGENT_LOOP_MODEL", Value: personalAgentLoopModel()},
 					{Name: "MAC_BACKEND_URL", Value: personalAgentMacBackendURL()},
@@ -401,6 +403,58 @@ func TestReconcilePersonalAgentImages_ScrubsMasterToken(t *testing.T) {
 	for _, e := range got.Spec.Template.Spec.Containers[0].Env {
 		if e.Name == "MAC_INTERNAL_SERVICE_TOKEN" {
 			t.Fatalf("MAC_INTERNAL_SERVICE_TOKEN still present after reconcile (value=%q)", e.Value)
+		}
+	}
+	// Idempotent: a second pass finds nothing to scrub.
+	if r2 := srv.reconcilePersonalAgentImages(context.Background(), false); r2.EnvReconciled != 0 {
+		t.Errorf("second pass EnvReconciled = %d, want 0 (already scrubbed)", r2.EnvReconciled)
+	}
+}
+
+// A live agent provisioned by the old reconciler carries the hardcoded
+// PERSONAL_AGENT_DEFAULT_MODEL=claude-opus-4-7[1m] in its env. core/spawnsettings
+// now owns the interactive default, so the reconcile must actively delete the
+// stale var (not just stop stamping it) — otherwise it persists across image
+// bumps and a future PERSONAL_AGENT_ALLOW_1M_CONTEXT=true could resurrect the
+// hanging opus-4-7[1m]. Asserts the key is gone after one pass.
+func TestReconcilePersonalAgentImages_ScrubsDefaultModel(t *testing.T) {
+	name := personalAgentResourceName("UF")
+	dep := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name, Namespace: "personal-agents",
+			Labels: map[string]string{
+				"app.kubernetes.io/managed-by": personalAgentManagedByLabelValue,
+				"bimross.com/agent-id":         "agent-UF",
+			},
+			Annotations: map[string]string{personalAgentAnnoSlackUserID: "UF"},
+		},
+		Spec: appsv1.DeploymentSpec{Template: corev1.PodTemplateSpec{Spec: corev1.PodSpec{
+			InitContainers: []corev1.Container{{Name: personalAgentInitContainerName}},
+			Containers: []corev1.Container{{
+				Name: "personal-agent", Image: "img:new",
+				Env: []corev1.EnvVar{
+					{Name: "PERSONAL_AGENT_DEFAULT_EFFORT", Value: personalAgentDefaultEffort()},
+					{Name: "PERSONAL_AGENT_LOOP_MODEL", Value: personalAgentLoopModel()},
+					{Name: "MAC_BACKEND_URL", Value: personalAgentMacBackendURL()},
+					// The stale 1M pin left by the pre-spawnsettings reconciler.
+					{Name: "PERSONAL_AGENT_DEFAULT_MODEL", Value: "claude-opus-4-7[1m]"},
+				},
+				Resources: personalAgentResources(),
+			}},
+		}}},
+	}
+	cs := fake.NewSimpleClientset(dep)
+	w := newPersonalAgentWriterWithClient(cs, "personal-agents", "", "")
+	srv := &Server{log: log.Default(), personalAgent: w, cfg: Config{PersonalAgentImage: "img:new"}}
+
+	result := srv.reconcilePersonalAgentImages(context.Background(), false)
+	if result.EnvReconciled != 1 {
+		t.Fatalf("EnvReconciled = %d, want 1", result.EnvReconciled)
+	}
+	got, _ := cs.AppsV1().Deployments("personal-agents").Get(context.Background(), name, metav1.GetOptions{})
+	for _, e := range got.Spec.Template.Spec.Containers[0].Env {
+		if e.Name == "PERSONAL_AGENT_DEFAULT_MODEL" {
+			t.Fatalf("PERSONAL_AGENT_DEFAULT_MODEL still present after reconcile (value=%q)", e.Value)
 		}
 	}
 	// Idempotent: a second pass finds nothing to scrub.

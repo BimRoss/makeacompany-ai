@@ -54,10 +54,11 @@ func TestWriteAgentDeployment_CreatesDeployment(t *testing.T) {
 	if gotEnv["AGENT_DISPLAY_NAME"] != "Garth" {
 		t.Errorf("AGENT_DISPLAY_NAME = %q", gotEnv["AGENT_DISPLAY_NAME"])
 	}
-	// Model/effort defaults must be stamped so PA pods don't fall back to a
-	// stale baked-in constant (sonnet-4-6[1m], which 429s without usage credits).
-	if gotEnv["PERSONAL_AGENT_DEFAULT_MODEL"] != "claude-opus-4-7[1m]" {
-		t.Errorf("PERSONAL_AGENT_DEFAULT_MODEL = %q, want claude-opus-4-7[1m]", gotEnv["PERSONAL_AGENT_DEFAULT_MODEL"])
+	// The default MODEL must NOT be stamped — core/spawnsettings owns it
+	// (claude-opus-4-8). A stamped value would be a second source of truth and
+	// risk re-pinning the opus-4-7[1m] that hung the fleet on 2026-06-23.
+	if v, present := gotEnv["PERSONAL_AGENT_DEFAULT_MODEL"]; present {
+		t.Errorf("PERSONAL_AGENT_DEFAULT_MODEL should be unset (core owns the default), got %q", v)
 	}
 	if gotEnv["PERSONAL_AGENT_DEFAULT_EFFORT"] != "high" {
 		t.Errorf("PERSONAL_AGENT_DEFAULT_EFFORT = %q, want high", gotEnv["PERSONAL_AGENT_DEFAULT_EFFORT"])
