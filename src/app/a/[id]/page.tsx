@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import { fetchPublicAgent } from "@/lib/public-agent";
 import { siteUrl } from "@/lib/site";
 import { AgentShowcaseIntelligence } from "@/components/agent-showcase-intelligence";
+import { Footer } from "@/components/landing/footer";
+import { Header } from "@/components/landing/header";
 
 export const dynamic = "force-dynamic";
 
@@ -47,7 +49,9 @@ export default async function AgentShowcasePage({
     .toUpperCase();
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-2xl flex-col gap-10 px-4 py-12 sm:gap-12 sm:px-6 sm:py-16">
+    <div className="flex min-h-screen flex-col bg-background">
+      <Header />
+      <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-10 px-4 py-12 sm:gap-12 sm:px-6 sm:py-16">
       {/* Hero */}
       <section className="flex flex-col items-center text-center">
         {agent.avatarUrl ? (
@@ -112,6 +116,8 @@ export default async function AgentShowcasePage({
         </a>
         <p className="text-xs text-muted-foreground">Free for the first 100. No credit card.</p>
       </section>
-    </main>
+      </main>
+      <Footer />
+    </div>
   );
 }
