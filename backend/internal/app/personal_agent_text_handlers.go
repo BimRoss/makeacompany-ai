@@ -4,14 +4,11 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"strings"
 	"time"
-
-	"github.com/redis/go-redis/v9"
 )
 
 // textSuggestRequest is the body shape for /text-suggest. Field selects which
@@ -113,18 +110,22 @@ func (s *Server) captureAgentIconCaption(ctx context.Context, email, stagedB64, 
 		return s.geminiText.DescribeImage(ctx, data, mime)
 	}
 
-	// Fall back to whatever is currently in Slack.
+	// Fall back to whatever is currently in Slack. This is best-effort visual
+	// context for a suggestion, so when the owner has more than one agent (and
+	// the request didn't stage icon bytes) we can't tell which to caption —
+	// skip rather than guess. Single-agent owners keep the old behavior.
 	slackUserID, err := s.store.SlackUserIDByProfileEmail(ctx, email)
 	if err != nil || strings.TrimSpace(slackUserID) == "" {
 		return "", nil
 	}
-	rec, err := s.store.GetPersonalAgentByOwner(ctx, slackUserID)
-	if errors.Is(err, redis.Nil) {
-		return "", nil
-	}
+	agents, err := s.store.ListPersonalAgentsByOwner(ctx, slackUserID)
 	if err != nil {
 		return "", err
 	}
+	if len(agents) != 1 {
+		return "", nil
+	}
+	rec := agents[0]
 	if s.personalAgent == nil || s.personalAgent.Disabled() {
 		return "", nil
 	}

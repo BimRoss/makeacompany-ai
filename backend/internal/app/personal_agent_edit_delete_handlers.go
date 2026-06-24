@@ -1,10 +1,12 @@
 package app
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 
@@ -184,9 +186,13 @@ func (s *Server) handleDeletePersonalAgent(w http.ResponseWriter, r *http.Reques
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 
-// ownerPersonalAgentForRequest resolves the caller's /me session, maps it to
-// a slack_user_id, and looks up the user's agent. Returns (record, status,
-// error) where status is the HTTP code the caller should write on error.
+// ownerPersonalAgentForRequest resolves the caller's /me session, maps it to a
+// slack_user_id, and resolves the TARGET agent it owns. The target is selected
+// by an `agentId` field in the request (body for writes, query param for
+// reads) and validated against the owner's agent list (#651).
+//
+// Returns (record, status, error) where status is the HTTP code the caller
+// should write on error.
 func (s *Server) ownerPersonalAgentForRequest(r *http.Request) (PersonalAgentRecord, int, error) {
 	session, err := s.store.GetPortalSession(r.Context(), tokenFromAuthHeader(r))
 	if err != nil || session.TenantType != PortalTenantTypeUser {
@@ -196,14 +202,108 @@ func (s *Server) ownerPersonalAgentForRequest(r *http.Request) (PersonalAgentRec
 	if err != nil || strings.TrimSpace(slackUserID) == "" {
 		return PersonalAgentRecord{}, http.StatusForbidden, errors.New("no slack identity for this account")
 	}
-	rec, err := s.store.GetPersonalAgentByOwner(r.Context(), slackUserID)
-	if errors.Is(err, redis.Nil) {
-		return PersonalAgentRecord{}, http.StatusNotFound, errors.New("no personal agent for this user")
-	}
+	rec, err := s.personalAgentForOwnerRequest(r.Context(), r, slackUserID, agentIDFromRequest(r))
 	if err != nil {
-		return PersonalAgentRecord{}, http.StatusInternalServerError, errors.New("lookup failed")
+		return PersonalAgentRecord{}, personalAgentResolveStatus(err), err
 	}
 	return rec, 0, nil
+}
+
+// Sentinel errors the personalAgentForOwnerRequest resolver returns; mapped to
+// HTTP status by personalAgentResolveStatus.
+var (
+	errPersonalAgentIDRequired = errors.New("agentId required (you have more than one agent)")
+	errPersonalAgentNotOwned   = errors.New("no such personal agent for this user")
+)
+
+// personalAgentForOwnerRequest resolves the target agent for an owner-scoped
+// /me request and validates it belongs to ownerUID (#651). Resolution rules:
+//
+//   - agentID given + owned by ownerUID  → that agent.
+//   - agentID given + NOT owned          → errPersonalAgentNotOwned (404/403).
+//   - agentID empty + owner has exactly one agent → that one agent. This is the
+//     back-compat path for the CURRENT frontend, which sends no agentId; it
+//     keeps working until PR #3 ships the multi-agent UI.
+//   - agentID empty + owner has >1 agent → errPersonalAgentIDRequired (400).
+//   - owner has zero agents              → redis.Nil (404 "no agent").
+//
+// Ownership is checked against the owner's list index, never the record's
+// OwnerSlackUserID alone, so a stale/forged agentId can't slip through.
+func (s *Server) personalAgentForOwnerRequest(ctx context.Context, _ *http.Request, ownerUID, agentID string) (PersonalAgentRecord, error) {
+	agents, err := s.store.ListPersonalAgentsByOwner(ctx, ownerUID)
+	if err != nil {
+		return PersonalAgentRecord{}, err
+	}
+	if len(agents) == 0 {
+		return PersonalAgentRecord{}, redis.Nil
+	}
+	agentID = strings.TrimSpace(agentID)
+	if agentID == "" {
+		if len(agents) == 1 {
+			return agents[0], nil
+		}
+		return PersonalAgentRecord{}, errPersonalAgentIDRequired
+	}
+	for _, a := range agents {
+		if a.ID == agentID {
+			return a, nil
+		}
+	}
+	return PersonalAgentRecord{}, errPersonalAgentNotOwned
+}
+
+// personalAgentResolveStatus maps a personalAgentForOwnerRequest error to the
+// HTTP status the handler should write.
+func personalAgentResolveStatus(err error) int {
+	switch {
+	case errors.Is(err, redis.Nil), errors.Is(err, errPersonalAgentNotOwned):
+		// Don't distinguish "no agent" from "not your agent" — same posture as
+		// the public endpoint: a 404 either way.
+		return http.StatusNotFound
+	case errors.Is(err, errPersonalAgentIDRequired):
+		return http.StatusBadRequest
+	default:
+		return http.StatusInternalServerError
+	}
+}
+
+// agentIDFromRequest extracts the target agent id from a /me request. For GETs
+// it reads the `agentId` query param; for writes it peeks the JSON body for an
+// `agentId` field WITHOUT consuming the body the handler still needs to decode.
+// Returns "" when absent (back-compat single-agent path).
+func agentIDFromRequest(r *http.Request) string {
+	if id := strings.TrimSpace(r.URL.Query().Get("agentId")); id != "" {
+		return id
+	}
+	if r.Method == http.MethodGet || r.Method == http.MethodHead {
+		return ""
+	}
+	return peekAgentIDFromBody(r)
+}
+
+// peekAgentIDFromBody reads the request body, extracts an optional top-level
+// `agentId`, and REPLACES r.Body with a fresh reader over the same bytes so the
+// handler's own json.Decode still sees the full payload. Bounded read so a
+// malicious giant body can't OOM us here (the handlers don't impose their own
+// cap on these small JSON posts).
+func peekAgentIDFromBody(r *http.Request) string {
+	if r.Body == nil {
+		return ""
+	}
+	body, err := io.ReadAll(io.LimitReader(r.Body, 1<<20))
+	_ = r.Body.Close()
+	// Restore the body for the handler regardless of parse outcome.
+	r.Body = io.NopCloser(bytes.NewReader(body))
+	if err != nil || len(body) == 0 {
+		return ""
+	}
+	var probe struct {
+		AgentID string `json:"agentId"`
+	}
+	if err := json.Unmarshal(body, &probe); err != nil {
+		return ""
+	}
+	return strings.TrimSpace(probe.AgentID)
 }
 
 func firstNonEmptyTrim(values ...string) string {
@@ -214,7 +314,3 @@ func firstNonEmptyTrim(values ...string) string {
 	}
 	return ""
 }
-
-// Ensure the ctx import isn't unused if a path strips out the only context
-// reference. (Kept here because go fmt would prune the import otherwise.)
-var _ = context.Background

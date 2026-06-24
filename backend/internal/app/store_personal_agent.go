@@ -16,8 +16,14 @@ import (
 const (
 	personalAgentKeyPrefix              = keyPrefix + ":personal_agent:"
 	personalAgentByOwnerPrefix          = keyPrefix + ":personal_agent_by_owner:"
+	personalAgentIDsByOwnerPrefix       = keyPrefix + ":personal_agent_ids_by_owner:"
 	personalAgentByAppIDPrefix          = keyPrefix + ":personal_agent_by_app:"
 	personalAgentByKnowledgeTokenPrefix = keyPrefix + ":personal_agent_by_knowledge_token:"
+
+	// MaxPersonalAgentsPerOwner caps how many personal agents one owner can
+	// provision (#651). The list index enforces this; the most-recently-created
+	// agent must also be installed before the next slot opens.
+	MaxPersonalAgentsPerOwner = 3
 
 	PersonalAgentStatusPendingInstall = "pending_install"
 	PersonalAgentStatusInstalled      = "installed"
@@ -122,6 +128,9 @@ func personalAgentRedisKey(agentID string) string {
 func personalAgentByOwnerRedisKey(slackUserID string) string {
 	return personalAgentByOwnerPrefix + strings.TrimSpace(slackUserID)
 }
+func personalAgentIDsByOwnerRedisKey(slackUserID string) string {
+	return personalAgentIDsByOwnerPrefix + strings.TrimSpace(slackUserID)
+}
 func personalAgentByAppRedisKey(appID string) string {
 	return personalAgentByAppIDPrefix + strings.TrimSpace(appID)
 }
@@ -129,14 +138,25 @@ func personalAgentByKnowledgeTokenRedisKey(token string) string {
 	return personalAgentByKnowledgeTokenPrefix + strings.TrimSpace(token)
 }
 
-// ErrPersonalAgentExists is returned by CreatePersonalAgent when the owner
-// already has an agent (one-per-user enforcement; revisit when product
-// allows multiple).
+// ErrPersonalAgentExists is retained for callers that still distinguish the
+// legacy single-agent collision. With the multi-agent index (#651) it is no
+// longer returned by CreatePersonalAgent — ErrPersonalAgentMaxReached and
+// ErrPersonalAgentPriorNotInstalled carry the new gate semantics.
 var ErrPersonalAgentExists = errors.New("personal agent already exists for owner")
 
-// CreatePersonalAgent writes the record, the by-owner index, and the
-// by-app-id index in a single transaction. Fails closed if the owner already
-// has an agent.
+// ErrPersonalAgentMaxReached is returned by CreatePersonalAgent when the owner
+// already has MaxPersonalAgentsPerOwner agents.
+var ErrPersonalAgentMaxReached = errors.New("personal agent max reached for owner")
+
+// ErrPersonalAgentPriorNotInstalled is returned by CreatePersonalAgent when the
+// owner's most-recently-created agent has not finished installing. We require
+// the prior agent to be live before opening the next slot so a user can't
+// stack half-provisioned shells.
+var ErrPersonalAgentPriorNotInstalled = errors.New("prior personal agent not yet installed")
+
+// CreatePersonalAgent writes the record, appends to the by-owner LIST index,
+// and writes the by-app-id index in a single transaction. Enforces the
+// per-owner cap and the prior-installed gate (#651).
 func (s *Store) CreatePersonalAgent(ctx context.Context, rec PersonalAgentRecord) error {
 	if strings.TrimSpace(rec.ID) == "" || strings.TrimSpace(rec.OwnerSlackUserID) == "" || strings.TrimSpace(rec.SlackAppID) == "" {
 		return errors.New("CreatePersonalAgent: id, owner slack user id, slack app id required")
@@ -150,28 +170,91 @@ func (s *Store) CreatePersonalAgent(ctx context.Context, rec PersonalAgentRecord
 	}
 	rec.UpdatedAt = now
 
-	ownerKey := personalAgentByOwnerRedisKey(rec.OwnerSlackUserID)
-	existing, err := s.rdb.Get(ctx, ownerKey).Result()
-	switch err {
-	case nil:
-		if existing != "" {
-			return fmt.Errorf("%w (existing id=%s)", ErrPersonalAgentExists, existing)
+	// Read the owner's current agents (runs the legacy migration transparently)
+	// to enforce the cap + prior-installed gate.
+	existing, err := s.ListPersonalAgentsByOwner(ctx, rec.OwnerSlackUserID)
+	if err != nil {
+		return fmt.Errorf("list owner agents: %w", err)
+	}
+	if len(existing) >= MaxPersonalAgentsPerOwner {
+		return fmt.Errorf("%w (have %d, max %d)", ErrPersonalAgentMaxReached, len(existing), MaxPersonalAgentsPerOwner)
+	}
+	if len(existing) > 0 {
+		prior := existing[len(existing)-1]
+		if prior.Status != PersonalAgentStatusInstalled {
+			return fmt.Errorf("%w (prior id=%s status=%s)", ErrPersonalAgentPriorNotInstalled, prior.ID, prior.Status)
 		}
-	case redis.Nil:
-		// no existing — proceed
-	default:
-		return fmt.Errorf("check existing owner mapping: %w", err)
 	}
 
 	mainKey := personalAgentRedisKey(rec.ID)
 	appKey := personalAgentByAppRedisKey(rec.SlackAppID)
+	idsKey := personalAgentIDsByOwnerRedisKey(rec.OwnerSlackUserID)
 
 	pipe := s.rdb.TxPipeline()
 	pipe.HSet(ctx, mainKey, recordToHash(rec))
-	pipe.Set(ctx, ownerKey, rec.ID, 0)
+	pipe.RPush(ctx, idsKey, rec.ID)
 	pipe.Set(ctx, appKey, rec.ID, 0)
 	if _, err := pipe.Exec(ctx); err != nil {
 		return fmt.Errorf("persist personal agent: %w", err)
+	}
+	return nil
+}
+
+// ListPersonalAgentsByOwner returns the owner's 0..MaxPersonalAgentsPerOwner
+// agents in creation order (oldest first). It transparently migrates the legacy
+// single-value `personal_agent_by_owner:<uid>` string key into the new
+// `personal_agent_ids_by_owner:<uid>` LIST on first read: the old id is RPUSHed
+// into the list and the old key is DELeted. Idempotent — a second call after
+// migration is a plain list read.
+func (s *Store) ListPersonalAgentsByOwner(ctx context.Context, slackUserID string) ([]PersonalAgentRecord, error) {
+	if err := s.migrateLegacyPersonalAgentOwnerKey(ctx, slackUserID); err != nil {
+		return nil, err
+	}
+	ids, err := s.rdb.LRange(ctx, personalAgentIDsByOwnerRedisKey(slackUserID), 0, -1).Result()
+	if err != nil {
+		return nil, fmt.Errorf("lrange owner agents: %w", err)
+	}
+	out := make([]PersonalAgentRecord, 0, len(ids))
+	for _, id := range ids {
+		rec, err := s.GetPersonalAgent(ctx, id)
+		if err != nil {
+			if errors.Is(err, redis.Nil) {
+				// Dangling list entry (record deleted out from under the list).
+				// Skip rather than fail the whole listing.
+				continue
+			}
+			return nil, err
+		}
+		out = append(out, rec)
+	}
+	return out, nil
+}
+
+// migrateLegacyPersonalAgentOwnerKey moves the legacy single-value owner index
+// into the new LIST index, exactly once. Safe to call on every list read:
+// when the legacy key is absent (already migrated, or never existed) it is a
+// no-op. The legacy value is appended to the FRONT of nothing — we RPUSH so an
+// owner who somehow has both a legacy key AND a list keeps the legacy agent at
+// its original (oldest) position only when the list is empty; in the normal
+// case the list is empty pre-migration.
+func (s *Store) migrateLegacyPersonalAgentOwnerKey(ctx context.Context, slackUserID string) error {
+	legacyKey := personalAgentByOwnerRedisKey(slackUserID)
+	id, err := s.rdb.Get(ctx, legacyKey).Result()
+	if errors.Is(err, redis.Nil) {
+		return nil // nothing to migrate
+	}
+	if err != nil {
+		return fmt.Errorf("read legacy owner key: %w", err)
+	}
+	id = strings.TrimSpace(id)
+	idsKey := personalAgentIDsByOwnerRedisKey(slackUserID)
+	pipe := s.rdb.TxPipeline()
+	if id != "" {
+		pipe.RPush(ctx, idsKey, id)
+	}
+	pipe.Del(ctx, legacyKey)
+	if _, err := pipe.Exec(ctx); err != nil {
+		return fmt.Errorf("migrate legacy owner key: %w", err)
 	}
 	return nil
 }
@@ -188,14 +271,12 @@ func (s *Store) GetPersonalAgent(ctx context.Context, agentID string) (PersonalA
 	return hashToRecord(vals), nil
 }
 
-// GetPersonalAgentByOwner is the lookup used by the /me UI to find whether
-// the signed-in user already has an agent.
-func (s *Store) GetPersonalAgentByOwner(ctx context.Context, slackUserID string) (PersonalAgentRecord, error) {
-	id, err := s.rdb.Get(ctx, personalAgentByOwnerRedisKey(slackUserID)).Result()
-	if err != nil {
-		return PersonalAgentRecord{}, err
-	}
-	return s.GetPersonalAgent(ctx, id)
+// GetPersonalAgentByID returns the record for an agent id, redis.Nil when
+// absent. A clean by-id getter (alias of GetPersonalAgent) the handler layer
+// calls so the call site reads as a deliberate by-id resolution after the
+// owner→list re-key (#651).
+func (s *Store) GetPersonalAgentByID(ctx context.Context, id string) (PersonalAgentRecord, error) {
+	return s.GetPersonalAgent(ctx, strings.TrimSpace(id))
 }
 
 // GetPersonalAgentByAppID is the lookup used by the events gateway to route
@@ -338,7 +419,14 @@ func (s *Store) DeletePersonalAgent(ctx context.Context, rec PersonalAgentRecord
 	pipe := s.rdb.TxPipeline()
 	pipe.Del(ctx, personalAgentRedisKey(rec.ID))
 	if rec.OwnerSlackUserID != "" {
-		pipe.Del(ctx, personalAgentByOwnerRedisKey(rec.OwnerSlackUserID))
+		// Drop this id from the owner's LIST index (#651). LREM with count 0
+		// removes all matching elements; the legacy single-value key is migrated
+		// away on read, but DEL it too in case a record predating the migration
+		// is deleted before any list read touched it.
+		pipe.LRem(ctx, personalAgentIDsByOwnerRedisKey(rec.OwnerSlackUserID), 0, rec.ID)
+		if legacyID, err := s.rdb.Get(ctx, personalAgentByOwnerRedisKey(rec.OwnerSlackUserID)).Result(); err == nil && strings.TrimSpace(legacyID) == strings.TrimSpace(rec.ID) {
+			pipe.Del(ctx, personalAgentByOwnerRedisKey(rec.OwnerSlackUserID))
+		}
 	}
 	if rec.SlackAppID != "" {
 		pipe.Del(ctx, personalAgentByAppRedisKey(rec.SlackAppID))

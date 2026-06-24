@@ -65,6 +65,35 @@ type createPersonalAgentRequest struct {
 	IconRegenerate bool   `json:"iconRegenerate,omitempty"`
 }
 
+// personalAgentCreateGateCode evaluates the per-owner create gate (#651)
+// against the owner's current agents and returns the 409 error code, or "" when
+// a new agent is allowed:
+//
+//   - "personal_agent_max_reached"        — at the MaxPersonalAgentsPerOwner cap.
+//   - "personal_agent_prior_not_installed" — the newest agent isn't installed yet.
+func personalAgentCreateGateCode(existing []PersonalAgentRecord) string {
+	if len(existing) >= MaxPersonalAgentsPerOwner {
+		return "personal_agent_max_reached"
+	}
+	if len(existing) > 0 && existing[len(existing)-1].Status != PersonalAgentStatusInstalled {
+		return "personal_agent_prior_not_installed"
+	}
+	return ""
+}
+
+// personalAgentCreateGateError maps the store-side gate errors to the same 409
+// codes personalAgentCreateGateCode returns. "" when err is not a gate error.
+func personalAgentCreateGateError(err error) string {
+	switch {
+	case errors.Is(err, ErrPersonalAgentMaxReached):
+		return "personal_agent_max_reached"
+	case errors.Is(err, ErrPersonalAgentPriorNotInstalled):
+		return "personal_agent_prior_not_installed"
+	default:
+		return ""
+	}
+}
+
 type createPersonalAgentResponse struct {
 	AgentID    string `json:"agentId"`
 	SlackAppID string `json:"slackAppId"`
@@ -112,17 +141,20 @@ func (s *Server) handleCreatePersonalAgent(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	if existing, err := s.store.GetPersonalAgentByOwner(r.Context(), slackUserID); err == nil {
-		writeJSON(w, http.StatusConflict, map[string]any{
-			"error":      "personal_agent_already_exists",
-			"agentId":    existing.ID,
-			"slackAppId": existing.SlackAppID,
-			"status":     existing.Status,
-		})
-		return
-	} else if !errors.Is(err, redis.Nil) {
-		s.log.Printf("personal agent owner lookup: %v", err)
+	// Pre-flight the per-owner cap + prior-installed gate (#651) so we don't
+	// burn a Slack apps.manifest.create call when the create will be rejected.
+	// CreatePersonalAgent re-checks atomically below — this is just a cheap,
+	// friendly early exit that returns the same 409 codes.
+	if existing, err := s.store.ListPersonalAgentsByOwner(r.Context(), slackUserID); err != nil {
+		s.log.Printf("personal agent owner list: %v", err)
 		http.Error(w, "lookup failed", http.StatusInternalServerError)
+		return
+	} else if code := personalAgentCreateGateCode(existing); code != "" {
+		writeJSON(w, http.StatusConflict, map[string]any{
+			"error":      code,
+			"maxPerUser": MaxPersonalAgentsPerOwner,
+			"count":      len(existing),
+		})
 		return
 	}
 
@@ -168,6 +200,22 @@ func (s *Server) handleCreatePersonalAgent(w http.ResponseWriter, r *http.Reques
 		Status:             PersonalAgentStatusPendingInstall,
 	}
 	if err := s.store.CreatePersonalAgent(r.Context(), rec); err != nil {
+		// Map the per-owner gate errors to the same 409 codes the pre-flight
+		// returns — covers the (rare) race where another tab created an agent
+		// between the pre-flight and here. Best-effort clean up the orphan Slack
+		// app we just minted so a rejected create doesn't leak a dangling app.
+		if code := personalAgentCreateGateError(err); code != "" {
+			if s.slackManifest != nil && !s.slackManifest.Disabled() {
+				if derr := s.slackManifest.DeleteApp(r.Context(), resp.AppID); derr != nil {
+					s.log.Printf("cleanup orphan slack app %s after rejected create: %v", resp.AppID, derr)
+				}
+			}
+			writeJSON(w, http.StatusConflict, map[string]any{
+				"error":      code,
+				"maxPerUser": MaxPersonalAgentsPerOwner,
+			})
+			return
+		}
 		s.log.Printf("persist personal agent: %v", err)
 		http.Error(w, "persist agent failed", http.StatusInternalServerError)
 		return
@@ -197,32 +245,10 @@ func (s *Server) handleCreatePersonalAgent(w http.ResponseWriter, r *http.Reques
 	})
 }
 
-// handleGetMyPersonalAgent powers the /me UI's "do I already have an agent?"
-// check. Returns 404 when no agent exists; the UI then shows the create form.
-func (s *Server) handleGetMyPersonalAgent(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	session, err := s.store.GetPortalSession(r.Context(), tokenFromAuthHeader(r))
-	if err != nil || session.TenantType != PortalTenantTypeUser {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
-		return
-	}
-	slackUserID, err := s.store.SlackUserIDByProfileEmail(r.Context(), session.Email)
-	if err != nil || strings.TrimSpace(slackUserID) == "" {
-		writeJSON(w, http.StatusOK, map[string]any{"hasAgent": false, "reason": "no_slack_user_id"})
-		return
-	}
-	rec, err := s.store.GetPersonalAgentByOwner(r.Context(), slackUserID)
-	if errors.Is(err, redis.Nil) {
-		writeJSON(w, http.StatusOK, map[string]any{"hasAgent": false})
-		return
-	}
-	if err != nil {
-		http.Error(w, "lookup failed", http.StatusInternalServerError)
-		return
-	}
+// personalAgentMineView is one agent's entry in the /mine list. It carries the
+// SAME fields the legacy single-agent /mine returned, so the current frontend
+// (PR #3 ships the multi-agent UI) can read agents[0] unchanged.
+func (s *Server) personalAgentMineView(rec PersonalAgentRecord) map[string]any {
 	// SystemPrompt may carry a legacy yt-intel fence (frontend used to bake
 	// bullets in there). Strip on read so the textarea hydrates with just the
 	// operator's typed personality. The structured YouTubeSources field is
@@ -232,8 +258,7 @@ func (s *Server) handleGetMyPersonalAgent(w http.ResponseWriter, r *http.Request
 	if sources == nil {
 		sources = []PersonalAgentYouTubeSource{}
 	}
-	writeJSON(w, http.StatusOK, map[string]any{
-		"hasAgent":        true,
+	return map[string]any{
 		"agentId":         rec.ID,
 		"displayName":     rec.DisplayName,
 		"description":     rec.Description,
@@ -252,7 +277,86 @@ func (s *Server) handleGetMyPersonalAgent(w http.ResponseWriter, r *http.Request
 		// fail with invalid_team_for_non_distributed_app. pinInstallURLToTeam is
 		// idempotent (q.Set), so this is safe for already-pinned URLs too.
 		"installUrl": s.pinInstallURLToTeam(rec.OAuthAuthorizeURL),
-	})
+	}
+}
+
+// handleGetMyPersonalAgent powers the /me UI's agent panel. Returns the owner's
+// 0..MaxPersonalAgentsPerOwner agents in creation order along with whether a new
+// one can be created and why not (#651).
+//
+// Shape:
+//
+//	{
+//	  "agents": [ { …same fields as legacy single /mine… } ],
+//	  "maxPerUser": 3,
+//	  "canCreate": bool,
+//	  "canCreateReason": "" | "max_reached" | "prior_not_installed"
+//	}
+//
+// The current frontend reads agents[0]; it keeps working until PR #3.
+func (s *Server) handleGetMyPersonalAgent(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	session, err := s.store.GetPortalSession(r.Context(), tokenFromAuthHeader(r))
+	if err != nil || session.TenantType != PortalTenantTypeUser {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+	slackUserID, err := s.store.SlackUserIDByProfileEmail(r.Context(), session.Email)
+	if err != nil || strings.TrimSpace(slackUserID) == "" {
+		writeJSON(w, http.StatusOK, map[string]any{
+			// New list envelope (PR #3).
+			"agents":          []any{},
+			"maxPerUser":      MaxPersonalAgentsPerOwner,
+			"canCreate":       false,
+			"canCreateReason": "no_slack_user_id",
+			// Legacy flat shape the current frontend reads (back-compat).
+			"hasAgent": false,
+			"reason":   "no_slack_user_id",
+		})
+		return
+	}
+	recs, err := s.store.ListPersonalAgentsByOwner(r.Context(), slackUserID)
+	if err != nil {
+		http.Error(w, "lookup failed", http.StatusInternalServerError)
+		return
+	}
+	agents := make([]map[string]any, 0, len(recs))
+	for _, rec := range recs {
+		agents = append(agents, s.personalAgentMineView(rec))
+	}
+
+	canCreate := true
+	canCreateReason := ""
+	switch personalAgentCreateGateCode(recs) {
+	case "personal_agent_max_reached":
+		canCreate, canCreateReason = false, "max_reached"
+	case "personal_agent_prior_not_installed":
+		canCreate, canCreateReason = false, "prior_not_installed"
+	}
+
+	resp := map[string]any{
+		// New list envelope (PR #3 reads this).
+		"agents":          agents,
+		"maxPerUser":      MaxPersonalAgentsPerOwner,
+		"canCreate":       canCreate,
+		"canCreateReason": canCreateReason,
+	}
+	// Back-compat: the CURRENT frontend (PR #3 replaces it) reads a flat
+	// single-agent shape with hasAgent + the agent's fields at the top level.
+	// Hoist the first (oldest) agent so it keeps working untouched. Once the
+	// multi-agent UI ships, these top-level keys become dead and can be dropped.
+	if len(agents) > 0 {
+		resp["hasAgent"] = true
+		for k, v := range agents[0] {
+			resp[k] = v
+		}
+	} else {
+		resp["hasAgent"] = false
+	}
+	writeJSON(w, http.StatusOK, resp)
 }
 
 // handlePersonalAgentInstallComplete is the Slack OAuth install callback for

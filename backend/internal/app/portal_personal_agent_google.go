@@ -3,12 +3,9 @@ package app
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"net/http"
 	"strings"
 	"time"
-
-	"github.com/redis/go-redis/v9"
 )
 
 // Personal-agent Google Workspace connect/disconnect/status.
@@ -22,8 +19,9 @@ import (
 // gws-mcp-token-sidecar boots with them.
 //
 // All three are gated on a PortalTenantTypeUser session (the /me login),
-// resolved to the owning agent via SlackUserIDByProfileEmail +
-// GetPersonalAgentByOwner — same ownership check as the icon handlers.
+// resolved to the target agent via ownerPersonalAgentForRequest (selects by
+// agentId + validates ownership, #651) — same ownership check as the icon
+// handlers.
 
 type personalAgentGoogleConnectRequest struct {
 	DCR struct {
@@ -41,22 +39,15 @@ type personalAgentGoogleStatusResponse struct {
 }
 
 // resolvePersonalAgentOwner authenticates the /me session and returns the
-// owning agent record. Mirrors the icon handlers' ownership gate.
+// target agent the caller owns. Delegates to the shared
+// ownerPersonalAgentForRequest resolver, which selects the agent by `agentId`
+// (query for GETs, body for writes) and validates ownership (#651). On success
+// the second return is http.StatusOK; on error it is the status the caller
+// should write.
 func (s *Server) resolvePersonalAgentOwner(r *http.Request) (PersonalAgentRecord, int, error) {
-	session, err := s.store.GetPortalSession(r.Context(), tokenFromAuthHeader(r))
-	if err != nil || session.TenantType != PortalTenantTypeUser {
-		return PersonalAgentRecord{}, http.StatusUnauthorized, errors.New("unauthorized")
-	}
-	slackUserID, err := s.store.SlackUserIDByProfileEmail(r.Context(), session.Email)
-	if err != nil || strings.TrimSpace(slackUserID) == "" {
-		return PersonalAgentRecord{}, http.StatusForbidden, errors.New("no slack identity for this account")
-	}
-	rec, err := s.store.GetPersonalAgentByOwner(r.Context(), slackUserID)
-	if errors.Is(err, redis.Nil) {
-		return PersonalAgentRecord{}, http.StatusNotFound, errors.New("no personal agent for this user")
-	}
+	rec, status, err := s.ownerPersonalAgentForRequest(r)
 	if err != nil {
-		return PersonalAgentRecord{}, http.StatusInternalServerError, errors.New("lookup failed")
+		return PersonalAgentRecord{}, status, err
 	}
 	return rec, http.StatusOK, nil
 }

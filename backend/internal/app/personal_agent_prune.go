@@ -231,16 +231,16 @@ func (s *Server) reconcilePersonalAgentLiveness(ctx context.Context, streak map[
 // deprovisionDeadPersonalAgent tears down a personal agent the liveness pass
 // found dead. agentID is the authoritative resource key (#651) read from the
 // deployment's agent-id annotation; ownerSlackUserID is carried only for log
-// attribution. Resolves the store record (best-effort) for DB cleanup, then
-// delegates to the shared teardown keyed by agent id.
+// attribution. Resolves the store record by AGENT ID (best-effort) for DB
+// cleanup, then delegates to the shared teardown keyed by agent id.
 //
-// For THIS PR behavior is unchanged (still one agent per owner): the record is
-// resolved via GetPersonalAgentByOwner. PR #2's Redis-list work replaces that
-// owner lookup; the K8s teardown is already keyed by agent id here.
+// Resolving by agent id (not owner) is what makes this correct under
+// multi-agent owners: one owner can have several agents, so an owner lookup
+// could delete the wrong record. The agent id is unambiguous.
 func (s *Server) deprovisionDeadPersonalAgent(ctx context.Context, agentID, ownerSlackUserID string) error {
 	var rec *PersonalAgentRecord
-	if r, err := s.store.GetPersonalAgentByOwner(ctx, ownerSlackUserID); err != nil {
-		s.log.Printf("personal-agent liveness: DB row lookup for owner=%s (agent=%s) skipped/failed: %v", ownerSlackUserID, agentID, err)
+	if r, err := s.store.GetPersonalAgentByID(ctx, agentID); err != nil {
+		s.log.Printf("personal-agent liveness: DB row lookup for agent=%s (owner=%s) skipped/failed: %v", agentID, ownerSlackUserID, err)
 	} else {
 		rec = &r
 	}

@@ -3,15 +3,12 @@ package app
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
-
-	"github.com/redis/go-redis/v9"
 )
 
 // handlePersonalAgentIconCurrent returns the Slack-side profile image URL for
@@ -27,23 +24,9 @@ func (s *Server) handlePersonalAgentIconCurrent(w http.ResponseWriter, r *http.R
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	session, err := s.store.GetPortalSession(r.Context(), tokenFromAuthHeader(r))
-	if err != nil || session.TenantType != PortalTenantTypeUser {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
-		return
-	}
-	slackUserID, err := s.store.SlackUserIDByProfileEmail(r.Context(), session.Email)
-	if err != nil || strings.TrimSpace(slackUserID) == "" {
-		http.Error(w, "no slack identity for this account", http.StatusForbidden)
-		return
-	}
-	rec, err := s.store.GetPersonalAgentByOwner(r.Context(), slackUserID)
-	if errors.Is(err, redis.Nil) {
-		http.Error(w, "no personal agent for this user", http.StatusNotFound)
-		return
-	}
+	rec, status, err := s.ownerPersonalAgentForRequest(r)
 	if err != nil {
-		http.Error(w, "lookup failed", http.StatusInternalServerError)
+		http.Error(w, err.Error(), status)
 		return
 	}
 	if s.personalAgent == nil || s.personalAgent.Disabled() {
