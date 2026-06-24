@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState } from "react";
 import { AlertTriangle, ArrowUpRight } from "lucide-react";
 
+import { ActivationFunnel } from "./activation-funnel";
 import { AlertsProvider, useAlerts } from "./alerts-provider";
 import { AlertsStrip } from "./alerts-strip";
 import { CloudflarePanels, useCloudflareSummary } from "./cloudflare-panels";
@@ -19,7 +20,7 @@ import {
   LIFECYCLE_PANELS,
   TTFV_COHORTS,
   type TtfvCohort,
-  ttfvPanels,
+  ttfvLatencyPanel,
   WEB_PANELS,
 } from "./panels";
 import { SearchDeviceStrip, SearchHostsPanel, SearchPagesPanel, SearchQueriesPanel } from "./search-panel";
@@ -114,7 +115,12 @@ function TtfvCohortToggle({
   );
 }
 
-function TtfvQuantilesRow({
+// Activation is one section now: the funnel (how many reach value) on top, the
+// TTFV latency line (how long it takes those who do) below, with the cohort
+// toggle driving the latency window only. Value == first app shipped (#621).
+// Replaces the old four-panel TTFV/TTFM sprawl (message + PR, each as a
+// quantile line and a bucket histogram).
+function ActivationSection({
   cohort,
   onChangeCohort,
 }: {
@@ -122,43 +128,18 @@ function TtfvQuantilesRow({
   onChangeCohort: (next: TtfvCohort) => void;
 }) {
   const from = cohortFrom(cohort);
-  const panels = ttfvPanels(cohort).filter((p) => p.id.startsWith("ttfv-pr-quantile-") || p.id.startsWith("ttfv-quantile-"));
-  return (
-    <>
-      {panels.map((def, i) => (
-        <ObservabilitySection
-          key={def.id}
-          id={i === 0 ? "ttfv-pr" : "ttfv-msg"}
-          title={i === 0 ? "TTFV (first PR)" : "TTFM (first message)"}
-          description={
-            i === 0
-              ? "Signup to first PR merged on the user's site repo. The TTFV bar per #621."
-              : "Signup to first ingested message. Secondary signal kept alongside the PR variant during the cutover."
-          }
-          endSlot={i === 0 ? <TtfvCohortToggle value={cohort} onChange={onChangeCohort} /> : undefined}
-        >
-          <MetricPanel def={def} from={from} prominent />
-        </ObservabilitySection>
-      ))}
-    </>
-  );
-}
-
-function TtfvDistributionsRow({ cohort }: { cohort: TtfvCohort }) {
-  const from = cohortFrom(cohort);
-  const panels = ttfvPanels(cohort).filter(
-    (p) => p.id.startsWith("ttfv-pr-distribution-") || p.id.startsWith("ttfv-distribution-"),
-  );
-  if (panels.length === 0) return null;
+  const latency = ttfvLatencyPanel(cohort);
   return (
     <ObservabilitySection
-      id="ttfv-distribution"
-      title="TTFV distribution"
-      description="Users per bucket on the chosen cohort. Same-day at top means we shipped fast."
+      id="activation"
+      title="Activation"
+      description="Signup to first app shipped. The funnel is the count of users who reach each step; the line below is how long that takes for the ones who do."
+      endSlot={<TtfvCohortToggle value={cohort} onChange={onChangeCohort} />}
     >
-      {panels.map((def) => (
-        <MetricPanel key={def.id} def={def} from={from} prominent />
-      ))}
+      <div className="space-y-3">
+        <ActivationFunnel />
+        <MetricPanel def={latency} from={from} prominent />
+      </div>
     </ObservabilitySection>
   );
 }
@@ -240,20 +221,22 @@ function ObservabilityBody() {
       </ObservabilitySection>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <ObservabilitySection
-          id="lifecycle"
-          title="Lifecycle cohorts"
-          description="Free-for-life, trialing, active, and expired user counts over time. Sweeper updates every 5 minutes."
-          endSlot={<TimeRangeChip />}
-        >
-          {LIFECYCLE_PANELS.map((def) => (
-            <MetricPanel key={def.id} def={def} from={from} prominent />
-          ))}
-        </ObservabilitySection>
-        <TtfvQuantilesRow cohort={ttfvCohort} onChangeCohort={setTtfvCohort} />
+        <div className="lg:col-span-2">
+          <ObservabilitySection
+            id="lifecycle"
+            title="Lifecycle cohorts"
+            description="Free-for-life, trialing, active, and expired user counts over time. Sweeper updates every 5 minutes."
+            endSlot={<TimeRangeChip />}
+          >
+            {LIFECYCLE_PANELS.map((def) => (
+              <MetricPanel key={def.id} def={def} from={from} prominent />
+            ))}
+          </ObservabilitySection>
+        </div>
+        <div className="lg:col-span-1">
+          <ActivationSection cohort={ttfvCohort} onChangeCohort={setTtfvCohort} />
+        </div>
       </div>
-
-      <TtfvDistributionsRow cohort={ttfvCohort} />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
         <div className="lg:col-span-12">
