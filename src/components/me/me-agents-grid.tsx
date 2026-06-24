@@ -375,25 +375,48 @@ function AgentTile({ agent, onOpen }: { agent: AgentRecord; onOpen: () => void }
 // Resolves the tile avatar the same way the panel does: the pre-install icon
 // cache (localStorage) covers agents whose Slack bot photo doesn't exist yet.
 function AgentAvatar({ agent, displayName }: { agent: AgentRecord; displayName: string }) {
-  const [cachedUrl, setCachedUrl] = useState<string | null>(null);
+  const [iconUrl, setIconUrl] = useState<string | null>(null);
 
-  // Hydrate from the shared icon cache on mount (client-only). Avoids a flash
-  // of the initial for freshly created / pending-install agents.
   useEffect(() => {
+    let cancelled = false;
+    // 1. Pre-install cache (instant, client-only) — avoids a flash of the
+    //    initial for freshly created / pending-install agents.
     const cached = readCachedAgentIcon(agent.agentId ?? agent.slackAppId);
     if (cached?.base64 && cached.mimeType) {
-      setCachedUrl(`data:${cached.mimeType};base64,${cached.base64}`);
+      setIconUrl(`data:${cached.mimeType};base64,${cached.base64}`);
     }
-  }, [agent.agentId, agent.slackAppId]);
+    // 2. Live bot icon for installed agents — authoritative and works across
+    //    browsers (the localStorage cache only exists on the device that
+    //    created/edited the agent, so without this an agent created elsewhere
+    //    shows the initial). Mirrors the detail panel's icon-current fetch;
+    //    overrides the cache once it loads.
+    const id = agent.agentId ?? "";
+    if (id && agent.status === "installed") {
+      fetch(`/api/me/personal-agents/icon-current?agentId=${encodeURIComponent(id)}`, {
+        cache: "no-store",
+      })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((p: { imageUrl?: string } | null) => {
+          const u = (p?.imageUrl ?? "").trim();
+          if (!cancelled && u) setIconUrl(u);
+        })
+        .catch(() => {
+          /* keep cache/initial fallback */
+        });
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, [agent.agentId, agent.slackAppId, agent.status]);
 
   return (
     <div
       aria-hidden
       className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-foreground/90 text-lg font-semibold text-background"
     >
-      {cachedUrl ? (
+      {iconUrl ? (
         // eslint-disable-next-line @next/next/no-img-element -- data URL / Slack CDN URL
-        <img src={cachedUrl} alt={displayName} className="h-full w-full object-cover" />
+        <img src={iconUrl} alt={displayName} className="h-full w-full object-cover" />
       ) : (
         <span>{avatarInitial(displayName)}</span>
       )}
