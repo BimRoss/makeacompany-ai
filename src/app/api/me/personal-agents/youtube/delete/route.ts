@@ -14,9 +14,9 @@ export async function POST(request: Request) {
   if (!token) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
-  let body: { url?: string };
+  let body: { url?: string; agentId?: string };
   try {
-    body = (await request.json()) as { url?: string };
+    body = (await request.json()) as { url?: string; agentId?: string };
   } catch {
     return NextResponse.json({ error: "invalid_json" }, { status: 400 });
   }
@@ -24,6 +24,8 @@ export async function POST(request: Request) {
   if (!url) {
     return NextResponse.json({ error: "url required" }, { status: 400 });
   }
+  // Per-agent: forward agentId so the backend removes from the right record (#651).
+  const agentId = (body.agentId ?? "").trim();
 
   const backend = resolveBackendBaseURL().replace(/\/$/, "");
   const authHeader = { Authorization: `Bearer ${token}` };
@@ -35,7 +37,7 @@ export async function POST(request: Request) {
     {
       method: "POST",
       headers: { ...authHeader, "Content-Type": "application/json" },
-      body: JSON.stringify({ url }),
+      body: JSON.stringify({ url, ...(agentId ? { agentId } : {}) }),
     },
   );
   if (!res.ok) {

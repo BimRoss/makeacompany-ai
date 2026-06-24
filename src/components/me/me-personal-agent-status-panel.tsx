@@ -32,7 +32,33 @@ type AgentStatus = {
 
 type Field = "name" | "description" | "longDescription" | "systemPrompt";
 
+// The /mine list envelope (#651). agents[] is authoritative; the hoisted
+// top-level fields are legacy back-compat the panel deliberately ignores.
+type MineEnvelope = {
+  agents?: AgentStatus[];
+};
+
 const TERMINAL_STATUSES = new Set(["installed", "failed"]);
+
+// Appends ?agentId=… to a GET path when an id is known (back-compat: omit for
+// single-agent owners). The backend reads agentId from the query for reads.
+function withAgentId(path: string, agentId: string): string {
+  const id = agentId.trim();
+  if (!id) return path;
+  return `${path}?agentId=${encodeURIComponent(id)}`;
+}
+
+// Selects the panel's agent from the /mine envelope by id, falling back to the
+// first agent only when no id is known (single-agent back-compat).
+function pickAgent(payload: MineEnvelope | null, agentId: string): AgentStatus | null {
+  const agents = payload?.agents;
+  if (!Array.isArray(agents) || agents.length === 0) return null;
+  const id = agentId.trim();
+  if (id) {
+    return agents.find((a) => a.agentId === id) ?? null;
+  }
+  return agents[0] ?? null;
+}
 
 export function MePersonalAgentStatusPanel({
   initial,
@@ -47,6 +73,10 @@ export function MePersonalAgentStatusPanel({
 }) {
   const router = useRouter();
   const [agent, setAgent] = useState<AgentStatus>(initial);
+  // The target agent id threaded through EVERY per-agent API call (#651). The
+  // backend selects the agent by this (query for GETs, body for writes); with
+  // >1 agent it is REQUIRED or the call 400s.
+  const agentId = agent.agentId ?? initial.agentId ?? "";
   const [editOpen, setEditOpen] = useState(false);
   const [liveSlackIconUrl, setLiveSlackIconUrl] = useState<string | null>(null);
 
@@ -75,7 +105,9 @@ export function MePersonalAgentStatusPanel({
     let cancelled = false;
     const tick = async () => {
       try {
-        const res = await fetch("/api/me/personal-agents/icon-current", { cache: "no-store" });
+        const res = await fetch(withAgentId("/api/me/personal-agents/icon-current", agentId), {
+          cache: "no-store",
+        });
         if (!res.ok) return;
         const payload = (await res.json().catch(() => ({}))) as { imageUrl?: string };
         if (cancelled) return;
@@ -89,7 +121,7 @@ export function MePersonalAgentStatusPanel({
     return () => {
       cancelled = true;
     };
-  }, [agent.status]);
+  }, [agent.status, agentId]);
 
   useEffect(() => {
     if (!agent.hasAgent || (agent.status && TERMINAL_STATUSES.has(agent.status))) {
@@ -100,12 +132,15 @@ export function MePersonalAgentStatusPanel({
     const tick = async () => {
       if (cancelled) return;
       try {
+        // /mine returns the full list envelope (#651). Find THIS agent by id
+        // rather than trusting the hoisted agents[0] back-compat fields.
         const res = await fetch("/api/me/personal-agents/mine", { cache: "no-store" });
-        const payload = (await res.json().catch(() => null)) as AgentStatus | null;
+        const payload = (await res.json().catch(() => null)) as MineEnvelope | null;
         if (cancelled) return;
-        if (payload?.hasAgent) {
-          setAgent(payload);
-          if (payload.status && TERMINAL_STATUSES.has(payload.status)) {
+        const mine = pickAgent(payload, agentId);
+        if (mine) {
+          setAgent({ ...mine, hasAgent: true });
+          if (mine.status && TERMINAL_STATUSES.has(mine.status)) {
             router.refresh();
             return;
           }
@@ -122,7 +157,7 @@ export function MePersonalAgentStatusPanel({
       cancelled = true;
       clearTimeout(handle);
     };
-  }, [agent.hasAgent, agent.status, router]);
+  }, [agent.hasAgent, agent.status, agentId, router]);
 
   // Hydrate the last-staged icon from localStorage so refresh keeps the preview.
   // This is also how a just-created agent's icon shows pre-install: the creation
@@ -151,7 +186,9 @@ export function MePersonalAgentStatusPanel({
     setLiveSlackIconUrl(null);
     try {
       await new Promise((r) => setTimeout(r, 200));
-      const res = await fetch("/api/me/personal-agents/icon-current", { cache: "no-store" });
+      const res = await fetch(withAgentId("/api/me/personal-agents/icon-current", agentId), {
+        cache: "no-store",
+      });
       if (!res.ok) return;
       const payload = (await res.json().catch(() => ({}))) as { imageUrl?: string };
       const url = (payload.imageUrl ?? "").trim();
@@ -159,7 +196,7 @@ export function MePersonalAgentStatusPanel({
     } catch {
       /* swallow */
     }
-  }, []);
+  }, [agentId]);
 
   const enterEdit = () => {
     setName(agent.displayName ?? "");
@@ -186,6 +223,7 @@ export function MePersonalAgentStatusPanel({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          ...(agentId ? { agentId } : {}),
           field,
           name,
           description,
@@ -226,6 +264,7 @@ export function MePersonalAgentStatusPanel({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          ...(agentId ? { agentId } : {}),
           displayName: name.trim(),
           description: description.trim(),
           longDescription: longDescription.trim() || undefined,
@@ -248,7 +287,11 @@ export function MePersonalAgentStatusPanel({
         const iconRes = await fetch("/api/me/personal-agents/icon", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ iconBase64: icon.base64, iconMimeType: icon.mimeType }),
+          body: JSON.stringify({
+            ...(agentId ? { agentId } : {}),
+            iconBase64: icon.base64,
+            iconMimeType: icon.mimeType,
+          }),
         });
         const iconBody = (await iconRes.json().catch(() => ({}))) as {
           ok?: boolean;
@@ -286,8 +329,9 @@ export function MePersonalAgentStatusPanel({
       try {
         const fresh = await fetch("/api/me/personal-agents/mine", { cache: "no-store" });
         if (fresh.ok) {
-          const next = (await fresh.json().catch(() => null)) as AgentStatus | null;
-          if (next?.hasAgent) setAgent(next);
+          const next = (await fresh.json().catch(() => null)) as MineEnvelope | null;
+          const mine = pickAgent(next, agentId);
+          if (mine) setAgent({ ...mine, hasAgent: true });
         }
       } catch {
         /* optimistic update is fine on its own */
@@ -400,6 +444,7 @@ export function MePersonalAgentStatusPanel({
                 disabled={submitting}
                 displayName={name}
                 description={description}
+                agentId={agentId}
               />
             </div>
           </div>
@@ -471,6 +516,7 @@ export function MePersonalAgentStatusPanel({
 
       {status === "installed" && !editOpen ? (
         <MePersonalAgentYouTubeIngest
+          agentId={agentId}
           sources={agent.youtubeSources ?? []}
           onSourcesChange={(nextSources) =>
             setAgent((a) => ({ ...a, youtubeSources: nextSources }))
@@ -517,6 +563,7 @@ export function MePersonalAgentStatusPanel({
         >
           <div className="overflow-hidden">
             <DeleteAgentConfirm
+              agentId={agentId}
               displayName={agent.displayName?.trim() || "your agent"}
               disabled={submitting}
               onCancel={() => setDeleteArmed(false)}
@@ -527,6 +574,7 @@ export function MePersonalAgentStatusPanel({
       ) : null}
 
       <ConnectionsFooter
+        agentId={agentId}
         editOpen={editOpen}
         showEdit={status === "installed" && !editOpen}
         submitting={submitting}
@@ -654,6 +702,7 @@ function SpinnerDot() {
 }
 
 function ConnectionsFooter({
+  agentId,
   editOpen,
   showEdit,
   submitting,
@@ -663,6 +712,7 @@ function ConnectionsFooter({
   onRequestDelete,
   deleteArmed,
 }: {
+  agentId: string;
   editOpen: boolean;
   showEdit: boolean;
   submitting: boolean;
@@ -689,7 +739,9 @@ function ConnectionsFooter({
     let cancelled = false;
     const load = async () => {
       try {
-        const res = await fetch("/api/me/connections/google/status", { cache: "no-store" });
+        const res = await fetch(withAgentId("/api/me/connections/google/status", agentId), {
+          cache: "no-store",
+        });
         if (res.ok && !cancelled) setGoogle(await res.json());
       } catch {
         /* status is best-effort */
@@ -713,13 +765,14 @@ function ConnectionsFooter({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [agentId]);
 
   const announce = (label: string) => setToast(`${label} — coming soon`);
 
-  // Top-level navigation so the OAuth redirect chain works.
+  // Top-level navigation so the OAuth redirect chain works. Carry agentId so
+  // the callback's connect/finish lands on THIS agent (#651).
   const connectGoogle = () => {
-    window.location.href = "/api/me/connections/google/start";
+    window.location.href = withAgentId("/api/me/connections/google/start", agentId);
   };
 
   const handleGoogleClick = async () => {
@@ -732,7 +785,11 @@ function ConnectionsFooter({
       return;
     }
     try {
-      const res = await fetch("/api/me/connections/google/disconnect", { method: "POST" });
+      const res = await fetch("/api/me/connections/google/disconnect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(agentId ? { agentId } : {}),
+      });
       if (res.ok) {
         setGoogle({ connected: false });
         setToast("Google disconnected");
@@ -864,11 +921,13 @@ function ConnectChip({
 }
 
 function DeleteAgentConfirm({
+  agentId,
   displayName,
   disabled,
   onCancel,
   onDeleted,
 }: {
+  agentId: string;
   displayName: string;
   disabled: boolean;
   onCancel: () => void;
@@ -888,7 +947,7 @@ function DeleteAgentConfirm({
       const res = await fetch("/api/me/personal-agents/delete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ wipeWorkspace }),
+        body: JSON.stringify({ ...(agentId ? { agentId } : {}), wipeWorkspace }),
       });
       const body = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
