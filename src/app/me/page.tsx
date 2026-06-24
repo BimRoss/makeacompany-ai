@@ -158,18 +158,10 @@ export default async function MePage() {
   const account = toAccountInfo(me);
 
   return (
-    <div className="mx-auto flex w-full flex-col gap-4 py-8 sm:py-10">
-      {/* One grid: [Account] [Agent…] [Add]. The header carries the N/max
-          affordance the old section split used to. */}
-      <div className="flex items-baseline gap-2 px-1">
-        <h1 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-          Agents
-        </h1>
-        <span className="text-sm font-medium tabular-nums text-muted-foreground/70">
-          · {envelope.agents.length}/{envelope.maxPerUser}
-        </span>
-      </div>
-
+    <div className="mx-auto flex w-full flex-col gap-6 py-8 sm:py-10">
+      {/* Full-width "this is you" card on top, then a 3-column light agent grid
+          below. The grid component owns the AGENTS · N/max header, the agent
+          states (0/1/2/3 + Add tile), and the detail overlay. */}
       <MeAgentsGrid
         account={account}
         agents={envelope.agents}

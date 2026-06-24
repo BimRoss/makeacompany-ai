@@ -131,7 +131,7 @@ export function MePersonalAgentYouTubeIngest({ agentId, sources, onSourcesChange
         if (lastDoneEvent?.sources) {
           onSourcesChange(lastDoneEvent.sources);
           setUrl(""); // Fresh input for the next URL.
-          setToast("Added. Garth will reference this on his next reply.");
+          setToast("Added — your agent will reference this on its next reply.");
         }
       } catch (err) {
         setStage("error");
