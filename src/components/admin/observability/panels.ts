@@ -262,6 +262,13 @@ export const TTFV_COHORTS: ReadonlyArray<{ value: TtfvCohort; label: string }> =
 const cohortWindow = (cohort: TtfvCohort): string =>
   cohort === "last7d" ? "last 7 days" : cohort === "last30d" ? "last 30 days" : "last 90 days";
 
+// cohortFrom maps a TTFV cohort to the chart x-axis window, so the cohort chip
+// is the single control for the TTFV panels — it drives both the metric's
+// aggregation window and how far back the line is drawn. Keeps TTFV off the
+// shared infra range toggle, which used to double-drive it.
+export const cohortFrom = (cohort: TtfvCohort): string =>
+  cohort === "last7d" ? "now-7d" : cohort === "last30d" ? "now-30d" : "now-90d";
+
 // ttfvPanels builds the TTFV panel set against a chosen lookback cohort.
 // The metric label set in Prometheus is fixed (last7d/last30d/last90d), so
 // we just substitute the cohort into queries and copy. /admin wraps this in

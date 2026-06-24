@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { TIME_RANGE_OPTIONS, useTimeRange, type TimeRangeKey } from "./time-range";
 
 type ToolbarProps = {
   /** ISO timestamp of last successful /api/admin/health fetch — drives the pulse and "updated" label. */
@@ -24,7 +23,6 @@ function formatRelative(iso: string | null, now: number): string {
 }
 
 export function ObservabilityToolbar({ lastUpdatedAt, loading }: ToolbarProps) {
-  const { range, setRange } = useTimeRange();
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
@@ -33,7 +31,7 @@ export function ObservabilityToolbar({ lastUpdatedAt, loading }: ToolbarProps) {
   }, []);
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-2">
+    <div className="flex flex-wrap items-center gap-2">
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
         <span
           aria-hidden="true"
@@ -56,31 +54,6 @@ export function ObservabilityToolbar({ lastUpdatedAt, loading }: ToolbarProps) {
         <span className="whitespace-nowrap">
           {loading ? "Refreshing…" : `Updated ${formatRelative(lastUpdatedAt, now)}`}
         </span>
-      </div>
-      <div
-        role="radiogroup"
-        aria-label="Time range"
-        className="inline-flex items-center gap-1 rounded-lg border border-border bg-card p-0.5 text-xs"
-      >
-        {TIME_RANGE_OPTIONS.map((option) => {
-          const active = range === option.key;
-          return (
-            <button
-              key={option.key}
-              type="button"
-              role="radio"
-              aria-checked={active}
-              onClick={() => setRange(option.key as TimeRangeKey)}
-              className={`rounded-md px-2.5 py-1 transition ${
-                active
-                  ? "bg-foreground text-background"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
-              }`}
-            >
-              {option.label}
-            </button>
-          );
-        })}
       </div>
     </div>
   );
