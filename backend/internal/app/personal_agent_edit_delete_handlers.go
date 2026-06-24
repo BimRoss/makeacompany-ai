@@ -281,26 +281,41 @@ func agentIDFromRequest(r *http.Request) string {
 	return peekAgentIDFromBody(r)
 }
 
-// peekAgentIDFromBody reads the request body, extracts an optional top-level
-// `agentId`, and REPLACES r.Body with a fresh reader over the same bytes so the
-// handler's own json.Decode still sees the full payload. Bounded read so a
-// malicious giant body can't OOM us here (the handlers don't impose their own
-// cap on these small JSON posts).
+// peekAgentIDPrefixBytes bounds how much of the body we buffer to probe for the
+// top-level `agentId`. agentId is a short top-level field, so the prefix is all
+// we need to find it — but the handler must still receive the COMPLETE body, so
+// anything beyond this prefix is streamed through untouched (see below). Keeping
+// the probe buffer bounded means a giant body can't OOM us here.
+const peekAgentIDPrefixBytes = 1 << 20
+
+// peekAgentIDFromBody reads up to peekAgentIDPrefixBytes of the request body to
+// extract an optional top-level `agentId`, then restores r.Body to the FULL,
+// untruncated payload (the buffered prefix followed by whatever remains unread)
+// so the handler's own json.Decode sees every byte. Critically it never
+// truncates the body the handler decodes: a body larger than the probe prefix
+// (e.g. a multi-MiB icon upload) fails the prefix JSON parse here — yielding no
+// peeked id (back-compat single-agent path) — while the handler still gets the
+// whole thing. Bodies at or under the prefix parse normally.
 func peekAgentIDFromBody(r *http.Request) string {
 	if r.Body == nil {
 		return ""
 	}
-	body, err := io.ReadAll(io.LimitReader(r.Body, 1<<20))
-	_ = r.Body.Close()
-	// Restore the body for the handler regardless of parse outcome.
-	r.Body = io.NopCloser(bytes.NewReader(body))
-	if err != nil || len(body) == 0 {
+	orig := r.Body
+	prefix, err := io.ReadAll(io.LimitReader(orig, peekAgentIDPrefixBytes))
+	// Restore the full body: buffered prefix + any unread remainder in orig.
+	// (Don't Close orig — its remaining bytes are still needed; the server
+	// closes the underlying body after the handler returns.)
+	r.Body = io.NopCloser(io.MultiReader(bytes.NewReader(prefix), orig))
+	if err != nil || len(prefix) == 0 {
 		return ""
 	}
 	var probe struct {
 		AgentID string `json:"agentId"`
 	}
-	if err := json.Unmarshal(body, &probe); err != nil {
+	// A body longer than the prefix yields invalid (truncated) JSON here →
+	// Unmarshal fails → no peeked id. That's the intended fallback; the handler
+	// still receives the full body via the MultiReader above.
+	if err := json.Unmarshal(prefix, &probe); err != nil {
 		return ""
 	}
 	return strings.TrimSpace(probe.AgentID)
