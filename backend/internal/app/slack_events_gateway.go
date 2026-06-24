@@ -118,13 +118,19 @@ func (s *Server) handleSlackEventsGateway(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	if rec.ServiceName == "" || rec.ServiceNamespace == "" || rec.ServicePort == 0 {
+	// A record is routable once it has been provisioned. We deliberately do NOT
+	// gate on rec.ServiceName here — the stored value can be stale (see
+	// personalAgentForwardTarget) and the live name is recomputed from the
+	// agent id. ServiceNamespace/ServicePort are still treated as the "has this
+	// agent been bound yet?" signal; both fall back to the known defaults if a
+	// pre-#651 record stored them empty.
+	if rec.ServiceNamespace == "" && rec.ServicePort == 0 && rec.ServiceName == "" {
 		s.log.Printf("slack events gateway: no service binding for agent=%s app_id=%s", rec.ID, apiAppID)
 		http.Error(w, "agent not yet routable", http.StatusServiceUnavailable)
 		return
 	}
 
-	target := fmt.Sprintf("http://%s.%s.svc.cluster.local:%d/slack/events", rec.ServiceName, rec.ServiceNamespace, rec.ServicePort)
+	target := personalAgentForwardTarget(rec)
 	forwardReq, err := http.NewRequestWithContext(r.Context(), http.MethodPost, target, bytes.NewReader(body))
 	if err != nil {
 		http.Error(w, "build forward request", http.StatusInternalServerError)
@@ -146,4 +152,32 @@ func (s *Server) handleSlackEventsGateway(w http.ResponseWriter, r *http.Request
 	defer resp.Body.Close()
 	w.WriteHeader(resp.StatusCode)
 	_, _ = io.Copy(w, resp.Body)
+}
+
+// personalAgentForwardTarget builds the in-cluster URL the events gateway
+// proxies a Slack event to.
+//
+// The service NAME is recomputed from the agent id (rec.ID) via
+// personalAgentResourceName rather than trusting rec.ServiceName. The #651
+// migration re-keyed every per-agent K8s resource off sha256(agent id) and
+// renamed the Services to personal-agent-<sha256(agentID)[:12]>, but the stored
+// service_name on existing records was NOT updated — so the field went stale and
+// the gateway forwarded to a Service that no longer existed (prod incident,
+// #653). The agent id is the source of truth, so we derive the name here every
+// time instead of relying on a field that can drift.
+//
+// Namespace/port are stable constants; we honour the stored values when present
+// (forward-compatible if they ever vary) and fall back to the well-known
+// defaults so pre-#651 records with empty bindings still route.
+func personalAgentForwardTarget(rec PersonalAgentRecord) string {
+	name := personalAgentResourceName(rec.ID)
+	namespace := rec.ServiceNamespace
+	if namespace == "" {
+		namespace = defaultPersonalAgentNamespace
+	}
+	port := rec.ServicePort
+	if port == 0 {
+		port = PersonalAgentServicePort
+	}
+	return fmt.Sprintf("http://%s.%s.svc.cluster.local:%d/slack/events", name, namespace, port)
 }

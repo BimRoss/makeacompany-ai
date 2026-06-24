@@ -130,9 +130,9 @@ export function MeAgentsGrid({
   // no agent tiles, no add tile (mirrors the prior no_slack_user_id behaviour).
   if (!slackUserIDKnown) {
     return (
-      <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 items-start gap-5 sm:grid-cols-2">
         <AccountTile account={account} />
-        <div className="rounded-2xl bg-white p-4 shadow-[0_10px_40px_-12px_rgba(0,0,0,0.18)] ring-1 ring-black/[0.05] sm:col-span-2 sm:p-5 lg:col-span-3 dark:bg-zinc-950 dark:ring-white/[0.06]">
+        <div className="rounded-2xl bg-white p-5 shadow-[0_10px_40px_-12px_rgba(0,0,0,0.18)] ring-1 ring-black/[0.05] sm:p-6 dark:bg-zinc-950 dark:ring-white/[0.06]">
           <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-300">
             Your email isn&apos;t in the MakeaCompany Slack workspace yet, so we can&apos;t bind an
             agent to your Slack identity. Join the workspace, then refresh.
@@ -150,7 +150,7 @@ export function MeAgentsGrid({
 
   return (
     <>
-      <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 items-start gap-5 sm:grid-cols-2">
         <AccountTile account={account} />
 
         {agents.map((agent) => (
@@ -227,10 +227,10 @@ function AccountTile({ account }: { account: AccountInfo }) {
 
   return (
     <section className={TILE_BASE}>
-      <div className="flex items-center gap-3 border-b border-border/60 p-4">
+      <div className="flex items-center gap-3.5 border-b border-border/60 p-5">
         <div
           aria-hidden
-          className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-foreground/90 text-base font-semibold text-background"
+          className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-foreground/90 text-lg font-semibold text-background"
         >
           {portraitUrl ? (
             // eslint-disable-next-line @next/next/no-img-element -- Slack CDN URL, fine to skip next/image optimization
@@ -240,16 +240,16 @@ function AccountTile({ account }: { account: AccountInfo }) {
           )}
         </div>
         <div className="min-w-0 flex-1">
-          <h2 className="truncate text-base font-semibold tracking-tight text-foreground">
+          <h2 className="truncate text-lg font-semibold tracking-tight text-foreground">
             {displayName || "Account"}
           </h2>
-          <p className="truncate text-xs text-muted-foreground" title={email}>
+          <p className="truncate text-sm text-muted-foreground" title={email}>
             {email || "No email"}
           </p>
         </div>
       </div>
 
-      <div className="flex flex-1 flex-col gap-3 p-4">
+      <div className="flex flex-1 flex-col gap-3 p-5">
         <div className="flex flex-wrap items-center gap-1.5">
           {subscriptionStatus ? (
             <Pill tone={billingStatusTone(subscriptionStatus)}>{subscriptionStatus}</Pill>
@@ -297,10 +297,10 @@ function AgentTile({ agent, onOpen }: { agent: AgentRecord; onOpen: () => void }
       aria-label={`Open ${displayName} details`}
       className={`${TILE_BASE} group cursor-pointer text-left transition-shadow duration-200 hover:shadow-[0_18px_50px_-12px_rgba(0,0,0,0.22)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground/30`}
     >
-      <div className="flex items-center gap-3 border-b border-border/60 p-4">
+      <div className="flex items-center gap-3.5 border-b border-border/60 p-5">
         <AgentAvatar agent={agent} displayName={displayName} />
         <div className="min-w-0 flex-1">
-          <h2 className="truncate text-base font-semibold tracking-tight text-foreground">
+          <h2 className="truncate text-lg font-semibold tracking-tight text-foreground">
             {displayName}
           </h2>
           {status || agent.teamMode ? (
@@ -311,11 +311,11 @@ function AgentTile({ agent, onOpen }: { agent: AgentRecord; onOpen: () => void }
           ) : null}
         </div>
       </div>
-      <div className="flex flex-1 flex-col p-4">
+      <div className="flex flex-1 flex-col p-5">
         <p className="line-clamp-3 text-sm text-muted-foreground">
           {description || "No description yet."}
         </p>
-        <span className="mt-auto pt-3 text-xs font-medium text-muted-foreground transition group-hover:text-foreground">
+        <span className="mt-auto pt-4 text-xs font-medium text-muted-foreground transition group-hover:text-foreground">
           View details →
         </span>
       </div>
@@ -340,7 +340,7 @@ function AgentAvatar({ agent, displayName }: { agent: AgentRecord; displayName: 
   return (
     <div
       aria-hidden
-      className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-foreground/90 text-base font-semibold text-background"
+      className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-foreground/90 text-lg font-semibold text-background"
     >
       {cachedUrl ? (
         // eslint-disable-next-line @next/next/no-img-element -- data URL / Slack CDN URL
@@ -368,7 +368,7 @@ function AddTile({
       onClick={onOpen}
       disabled={disabled}
       aria-label="Add agent"
-      className={`group flex min-h-[180px] w-full flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed px-6 py-10 text-center transition ${
+      className={`group flex h-full min-h-[220px] w-full flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed px-6 py-10 text-center transition ${
         disabled
           ? "cursor-not-allowed border-border/60 bg-muted/20"
           : "border-border bg-white/40 hover:border-foreground/30 hover:bg-muted/30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground/30 dark:bg-zinc-950/40 dark:hover:bg-zinc-900/40"
