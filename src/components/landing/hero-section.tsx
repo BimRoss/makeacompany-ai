@@ -166,10 +166,6 @@ export function HeroSection() {
           <PersonaSelector />
         </div>
 
-        <p className="mx-auto mb-3 max-w-2xl text-balance text-xs italic text-muted-foreground sm:mb-4 sm:text-sm">
-          The future of work, where it already happens.
-        </p>
-
         <h1 className="mx-auto mb-4 flex min-h-[3.5rem] max-w-none flex-col items-center justify-center whitespace-nowrap text-balance text-[1.375rem] font-bold leading-[1.1] tracking-tight text-foreground sm:mb-6 sm:min-h-[7rem] sm:text-5xl sm:leading-[1.06] md:min-h-[8rem] md:text-6xl lg:min-h-[10rem] lg:text-7xl">
           <span className="block">
             <span ref={l1ElRef}>{initialL1.current || " "}</span>
@@ -193,7 +189,7 @@ export function HeroSection() {
 
         <JoinSlackCta label={copy.ctaButtonLabel} />
 
-        <p className="mx-auto mt-4 max-w-xl text-balance text-sm text-foreground sm:mt-5 sm:text-base">
+        <p className="mx-auto mt-3 max-w-xl text-balance text-xs text-muted-foreground sm:mt-3.5 sm:text-sm">
           Click the button. You&apos;ll be in our Slack with Ross and Joanne in 60 seconds.
         </p>
       </div>
