@@ -206,6 +206,58 @@ func TestSlackManifestClient_PersistTokensCallbackInvokedOnRotate(t *testing.T) 
 	}
 }
 
+// TestSlackManifestClient_UpdateManifest_ReturnsAuthorizeURL locks the #653 fix:
+// apps.manifest.update echoes a fresh oauth_authorize_url (same shape as create)
+// reflecting the manifest's current scopes, and UpdateManifest must surface it so
+// callers can persist the refreshed install URL.
+func TestSlackManifestClient_UpdateManifest_ReturnsAuthorizeURL(t *testing.T) {
+	const wantURL = "https://slack.com/oauth/v2/authorize?client_id=111.222&scope=groups%3Aread%2Cchat%3Awrite"
+	c, _, calls := newTestManifestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/apps.manifest.update" {
+			t.Errorf("unexpected path %q", r.URL.Path)
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"ok":                  true,
+			"app_id":              "A0APP",
+			"oauth_authorize_url": wantURL,
+		})
+	}, "xoxe.xoxp-access", "xoxe-refresh")
+
+	resp, err := c.UpdateManifest(context.Background(), "A0APP", json.RawMessage(`{}`))
+	if err != nil {
+		t.Fatalf("UpdateManifest: %v", err)
+	}
+	if resp.OAuthAuthorizeURL != wantURL {
+		t.Errorf("OAuthAuthorizeURL = %q, want %q", resp.OAuthAuthorizeURL, wantURL)
+	}
+	if len(*calls) != 1 || (*calls)[0] != "/api/apps.manifest.update" {
+		t.Errorf("expected one update call, got %v", *calls)
+	}
+}
+
+func TestSlackManifestClient_UpdateManifest_RejectedSurfacesError(t *testing.T) {
+	c, _, _ := newTestManifestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"ok":    false,
+			"error": "invalid_manifest",
+			"errors": []map[string]any{
+				{"code": "invalid_scopes", "pointer": "/oauth_config/scopes", "message": "bad scope"},
+			},
+		})
+	}, "a", "r")
+
+	resp, err := c.UpdateManifest(context.Background(), "A0APP", json.RawMessage(`{}`))
+	if err == nil {
+		t.Fatal("expected error for rejected update")
+	}
+	if resp != nil {
+		t.Errorf("expected nil response on rejection, got %+v", resp)
+	}
+	if !strings.Contains(err.Error(), "invalid_scopes") {
+		t.Errorf("error should carry the detail, got %v", err)
+	}
+}
+
 func TestSlackManifestClient_Disabled(t *testing.T) {
 	c := NewSlackManifestClient(NewSlackConfigTokens("", ""), nil, log.New(io.Discard, "", 0))
 	if !c.Disabled() {

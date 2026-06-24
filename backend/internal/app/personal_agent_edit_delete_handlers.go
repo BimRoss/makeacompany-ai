@@ -86,10 +86,21 @@ func (s *Server) handleEditPersonalAgent(w http.ResponseWriter, r *http.Request)
 		http.Error(w, "manifest render: "+err.Error(), http.StatusBadRequest)
 		return
 	}
-	if err := s.slackManifest.UpdateManifest(r.Context(), rec.SlackAppID, manifest); err != nil {
+	updateResp, err := s.slackManifest.UpdateManifest(r.Context(), rec.SlackAppID, manifest)
+	if err != nil {
 		s.log.Printf("apps.manifest.update: %v", err)
 		http.Error(w, "slack apps.manifest.update failed: "+err.Error(), http.StatusBadGateway)
 		return
+	}
+
+	// Refresh the stored install/reinstall URL so it reflects the manifest's
+	// current scopes (the URL is frozen from create time otherwise — #653). Prefer
+	// the URL Slack echoes; fall back to building it from the rendered scopes when
+	// the response omits it. Re-pin team= the same way the create path does.
+	if newURL := s.refreshedPersonalAgentInstallURL(updateResp, manifest, rec.SlackClientID); newURL != "" {
+		if err := s.store.SetPersonalAgentOAuthAuthorizeURL(r.Context(), rec.ID, newURL); err != nil {
+			s.log.Printf("refresh oauth_authorize_url after edit: %v", err)
+		}
 	}
 
 	// Persist to our store. Slack-side change has already landed, so even if

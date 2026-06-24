@@ -4,6 +4,7 @@ import (
 	_ "embed"
 	"encoding/json"
 	"errors"
+	"net/url"
 	"strings"
 )
 
@@ -102,4 +103,39 @@ func RenderPersonalAgentManifest(sub PersonalAgentManifestSubstitutions) (json.R
 		return nil, errors.New("rendered manifest is not valid JSON (placeholder drift?): " + err.Error())
 	}
 	return json.RawMessage(out), nil
+}
+
+// PersonalAgentInstallURLFromManifest constructs the Slack OAuth v2 authorize
+// URL for an app from its CURRENT manifest bot scopes + client_id. It is the
+// fallback for when apps.manifest.update's response omits oauth_authorize_url:
+// the API-returned value is always preferred, but this lets the backfill/edit
+// paths still refresh a stale URL using the scopes Slack just accepted.
+//
+// Shape mirrors what apps.manifest.create returns:
+//
+//	https://slack.com/oauth/v2/authorize?client_id=<id>&scope=<comma-joined bot scopes>
+//
+// scope is comma-joined then URL-encoded (url.Values does the encoding). Returns
+// "" when client_id is empty (no useful URL to build) so callers can keep the
+// previously stored value rather than overwrite it with a half-built one.
+func PersonalAgentInstallURLFromManifest(manifest json.RawMessage, clientID string) string {
+	clientID = strings.TrimSpace(clientID)
+	if clientID == "" {
+		return ""
+	}
+	var parsed struct {
+		OAuthConfig struct {
+			Scopes struct {
+				Bot []string `json:"bot"`
+			} `json:"scopes"`
+		} `json:"oauth_config"`
+	}
+	if err := json.Unmarshal(manifest, &parsed); err != nil {
+		return ""
+	}
+	q := url.Values{}
+	q.Set("client_id", clientID)
+	// Slack joins bot scopes with commas in the create-time authorize URL.
+	q.Set("scope", strings.Join(parsed.OAuthConfig.Scopes.Bot, ","))
+	return "https://slack.com/oauth/v2/authorize?" + q.Encode()
 }

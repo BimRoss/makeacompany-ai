@@ -2,6 +2,7 @@ package app
 
 import (
 	"encoding/json"
+	"net/url"
 	"strings"
 	"testing"
 )
@@ -171,6 +172,64 @@ func TestRenderPersonalAgentManifest_LongUserLongPassedThrough(t *testing.T) {
 	got := parsed["display_information"].(map[string]any)["long_description"].(string)
 	if got != long {
 		t.Errorf("user-supplied long description not passed through verbatim; got %d chars", len(got))
+	}
+}
+
+// TestPersonalAgentInstallURLFromManifest_CarriesCurrentScopes is the fallback
+// path for #653: when apps.manifest.update's response omits oauth_authorize_url,
+// we rebuild it from the rendered manifest's bot scopes + the record's
+// client_id. The built URL must encode the CURRENT scopes (incl. groups:read,
+// the team-mode scope whose addition started the stale-URL incident) and the
+// client_id, properly URL-encoded.
+func TestPersonalAgentInstallURLFromManifest_CarriesCurrentScopes(t *testing.T) {
+	manifest, err := RenderPersonalAgentManifest(PersonalAgentManifestSubstitutions{
+		DisplayName:        "Garth",
+		Description:        "x",
+		EventsRequestURL:   "https://e",
+		InstallRedirectURL: "https://i",
+	})
+	if err != nil {
+		t.Fatalf("render: %v", err)
+	}
+
+	const clientID = "111.222"
+	built := PersonalAgentInstallURLFromManifest(manifest, clientID)
+	if built == "" {
+		t.Fatal("expected a non-empty install URL")
+	}
+
+	u, err := url.Parse(built)
+	if err != nil {
+		t.Fatalf("built URL does not parse: %v", err)
+	}
+	if got := u.Scheme + "://" + u.Host + u.Path; got != "https://slack.com/oauth/v2/authorize" {
+		t.Errorf("authorize base = %q, want https://slack.com/oauth/v2/authorize", got)
+	}
+
+	// url.Parse decodes the query, so checking the parsed values asserts the raw
+	// form was properly encoded.
+	q := u.Query()
+	if q.Get("client_id") != clientID {
+		t.Errorf("client_id = %q, want %q", q.Get("client_id"), clientID)
+	}
+	scope := q.Get("scope")
+	for _, want := range []string{"groups:read", "channels:read", "app_mentions:read", "chat:write"} {
+		if !strings.Contains(scope, want) {
+			t.Errorf("scope %q missing %q", scope, want)
+		}
+	}
+	// Slack joins bot scopes with commas.
+	if !strings.Contains(scope, ",") {
+		t.Errorf("scope should be comma-joined, got %q", scope)
+	}
+}
+
+func TestPersonalAgentInstallURLFromManifest_EmptyClientID(t *testing.T) {
+	manifest, _ := RenderPersonalAgentManifest(PersonalAgentManifestSubstitutions{
+		DisplayName: "x", Description: "x", EventsRequestURL: "https://e", InstallRedirectURL: "https://i",
+	})
+	if got := PersonalAgentInstallURLFromManifest(manifest, "  "); got != "" {
+		t.Errorf("empty client_id should yield empty URL (leave stored value alone), got %q", got)
 	}
 }
 

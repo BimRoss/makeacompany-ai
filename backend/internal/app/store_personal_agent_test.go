@@ -55,6 +55,55 @@ func TestPersonalAgent_CreateAndGet(t *testing.T) {
 	}
 }
 
+// TestPersonalAgent_SetOAuthAuthorizeURL covers the #653 persistence path: a
+// fresh install/reinstall URL (carrying the manifest's current scopes) replaces
+// the create-time frozen one, an empty value is a protective no-op, and a missing
+// record surfaces redis.Nil.
+func TestPersonalAgent_SetOAuthAuthorizeURL(t *testing.T) {
+	st, cleanup := newPersonalAgentTestStore(t)
+	defer cleanup()
+	ctx := context.Background()
+
+	const oldURL = "https://slack.com/oauth/v2/authorize?client_id=111.222&scope=chat%3Awrite"
+	rec := PersonalAgentRecord{
+		ID:                "agent-url",
+		OwnerSlackUserID:  "U0APBT3364D",
+		DisplayName:       "Garth",
+		SlackAppID:        "A0GARTH",
+		SlackClientID:     "111.222",
+		OAuthAuthorizeURL: oldURL,
+	}
+	if err := st.CreatePersonalAgent(ctx, rec); err != nil {
+		t.Fatalf("CreatePersonalAgent: %v", err)
+	}
+
+	const newURL = "https://slack.com/oauth/v2/authorize?client_id=111.222&scope=groups%3Aread%2Cchat%3Awrite"
+	if err := st.SetPersonalAgentOAuthAuthorizeURL(ctx, "agent-url", newURL); err != nil {
+		t.Fatalf("SetPersonalAgentOAuthAuthorizeURL: %v", err)
+	}
+	got, err := st.GetPersonalAgent(ctx, "agent-url")
+	if err != nil {
+		t.Fatalf("GetPersonalAgent: %v", err)
+	}
+	if got.OAuthAuthorizeURL != newURL {
+		t.Errorf("OAuthAuthorizeURL = %q, want refreshed %q", got.OAuthAuthorizeURL, newURL)
+	}
+
+	// Empty value is a no-op — never clobber a good stored URL.
+	if err := st.SetPersonalAgentOAuthAuthorizeURL(ctx, "agent-url", "  "); err != nil {
+		t.Fatalf("empty SetPersonalAgentOAuthAuthorizeURL should be nil no-op: %v", err)
+	}
+	got, _ = st.GetPersonalAgent(ctx, "agent-url")
+	if got.OAuthAuthorizeURL != newURL {
+		t.Errorf("empty set clobbered URL: %q", got.OAuthAuthorizeURL)
+	}
+
+	// Missing record → redis.Nil (mirrors the other updatePersonalAgentFields callers).
+	if err := st.SetPersonalAgentOAuthAuthorizeURL(ctx, "no-such-agent", newURL); !errors.Is(err, redis.Nil) {
+		t.Errorf("missing record err = %v, want redis.Nil", err)
+	}
+}
+
 func TestPersonalAgent_ByOwnerAndByAppID(t *testing.T) {
 	st, cleanup := newPersonalAgentTestStore(t)
 	defer cleanup()
