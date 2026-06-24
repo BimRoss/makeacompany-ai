@@ -1,0 +1,39 @@
+import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
+
+import { resolveBackendBaseURL } from "@/lib/backend-proxy-auth";
+import { meSessionCookieName } from "@/lib/me-session-cookies";
+
+export const dynamic = "force-dynamic";
+
+// Proxies the team-mode toggle (#653) to the backend. Body: { agentId, enabled }.
+// The backend persists the flag, patches PERSONAL_AGENT_TEAM_MODE on the agent's
+// pod, and rolls it; enforcement (owner gate + channel-membership resolver) lives
+// in the PA pod, not here.
+export async function POST(request: Request) {
+  const cookieStore = await cookies();
+  const token = cookieStore.get(meSessionCookieName)?.value ?? "";
+  if (!token) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "invalid_json" }, { status: 400 });
+  }
+  const url = `${resolveBackendBaseURL().replace(/\/$/, "")}/v1/me/personal-agents/team-mode`;
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      cache: "no-store",
+      body: JSON.stringify(body),
+    });
+    const payload = await res.json().catch(() => ({}));
+    return NextResponse.json(payload, { status: res.status });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    return NextResponse.json({ error: message }, { status: 502 });
+  }
+}

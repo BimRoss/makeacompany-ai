@@ -23,6 +23,7 @@ export type AgentRecord = {
   status?: string;
   visibility?: string;
   showIntelligence?: boolean;
+  teamMode?: boolean;
   installUrl?: string;
 };
 
@@ -302,9 +303,10 @@ function AgentTile({ agent, onOpen }: { agent: AgentRecord; onOpen: () => void }
           <h2 className="truncate text-base font-semibold tracking-tight text-foreground">
             {displayName}
           </h2>
-          {status ? (
-            <span className="mt-1 inline-flex">
-              <Pill tone={STATUS_TONE[status] ?? "neutral"}>{status}</Pill>
+          {status || agent.teamMode ? (
+            <span className="mt-1 inline-flex flex-wrap items-center gap-1.5">
+              {status ? <Pill tone={STATUS_TONE[status] ?? "neutral"}>{status}</Pill> : null}
+              {agent.teamMode ? <Pill tone="neutral">Team</Pill> : null}
             </span>
           ) : null}
         </div>

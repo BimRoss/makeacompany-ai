@@ -271,6 +271,10 @@ func (s *Server) personalAgentMineView(rec PersonalAgentRecord) map[string]any {
 		// whether it must flip a still-private agent to unlisted first.
 		"visibility":       effectivePersonalAgentVisibility(rec.Visibility),
 		"showIntelligence": rec.ShowIntelligence,
+		// Team-mode opt-in (#653) so the frontend renders the toggle state + the
+		// "Team" badge on the tile. Enforcement is in the PA pod; this is display
+		// state only.
+		"teamMode": rec.TeamMode,
 		// install url only useful while pending. Re-pin team= on read: records
 		// minted before the pin landed (#454) have a bare authorize URL stored,
 		// which lets Slack fall back to the installer's active workspace and

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Check, TerminalSquare } from "lucide-react";
+import { Check, TerminalSquare, Users } from "lucide-react";
 
 import {
   MePersonalAgentIconPicker,
@@ -28,6 +28,7 @@ type AgentStatus = {
   installUrl?: string;
   visibility?: string;
   showIntelligence?: boolean;
+  teamMode?: boolean;
 };
 
 type Field = "name" | "description" | "longDescription" | "systemPrompt";
@@ -422,6 +423,7 @@ export function MePersonalAgentStatusPanel({
           )}
         </div>
         <div className="flex flex-wrap items-center justify-end gap-1.5">
+          {agent.teamMode ? <TeamBadge /> : null}
           <StatusPill status={status} />
         </div>
       </header>
@@ -530,6 +532,14 @@ export function MePersonalAgentStatusPanel({
           displayName={agent.displayName?.trim() || "my agent"}
           visibility={agent.visibility}
           onShared={(visibility) => setAgent((a) => ({ ...a, visibility }))}
+        />
+      ) : null}
+
+      {status === "installed" && !editOpen && agent.agentId ? (
+        <TeamModeSection
+          agentId={agent.agentId}
+          enabled={agent.teamMode ?? false}
+          onChange={(next) => setAgent((a) => ({ ...a, teamMode: next }))}
         />
       ) : null}
 
@@ -1025,6 +1035,232 @@ function DeleteAgentConfirm({
         ) : null}
       </div>
     </div>
+  );
+}
+
+function TeamBadge() {
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full border border-foreground/20 bg-foreground/[0.06] px-2.5 py-0.5 text-xs font-medium text-foreground">
+      <Users className="h-3 w-3" aria-hidden />
+      Team
+    </span>
+  );
+}
+
+// TeamModeSection renders the "Team agent" toggle (#653) plus the enable-confirm
+// disclosure modal. Turning team mode ON lets anyone in a Slack channel the
+// owner AND the bot both belong to talk to the agent and use everything it can
+// (its connected Google account, memory, tools) — acting on the owner's behalf.
+// Enforcement lives entirely in the PA pod; this just flips the flag + env.
+function TeamModeSection({
+  agentId,
+  enabled,
+  onChange,
+}: {
+  agentId: string;
+  enabled: boolean;
+  onChange: (next: boolean) => void;
+}) {
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  // Connected Google account, surfaced in the disclosure so the exposed mailbox
+  // is never a surprise. Best-effort; the section renders fine without it.
+  const [google, setGoogle] = useState<{ connected: boolean; email?: string }>({ connected: false });
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(
+          `/api/me/connections/google/status?agentId=${encodeURIComponent(agentId)}`,
+          { cache: "no-store" },
+        );
+        if (res.ok && !cancelled) setGoogle(await res.json());
+      } catch {
+        /* best-effort */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [agentId]);
+
+  async function apply(next: boolean) {
+    setSubmitting(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/me/personal-agents/team-mode", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ agentId, enabled: next }),
+      });
+      const body = (await res.json().catch(() => ({}))) as {
+        teamMode?: boolean;
+        error?: string;
+      };
+      if (!res.ok) {
+        setError(body.error || `Failed (${res.status})`);
+        return;
+      }
+      onChange(body.teamMode ?? next);
+      setConfirmOpen(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Network error");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  // Turning ON requires confirmation; turning OFF is immediate (no teardown).
+  const onToggle = () => {
+    setError(null);
+    if (enabled) {
+      void apply(false);
+    } else {
+      setConfirmOpen(true);
+    }
+  };
+
+  return (
+    <div className="border-t border-border/60 px-4 py-4 sm:px-5">
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <Users className="h-4 w-4 text-muted-foreground" aria-hidden />
+            <span className="text-sm font-semibold text-foreground">Team agent</span>
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Let teammates in shared Slack channels talk to this agent. It acts on your behalf,
+            with your connected accounts, memory, and tools.
+          </p>
+        </div>
+        <Switch checked={enabled} disabled={submitting} onChange={onToggle} label="Team agent" />
+      </div>
+
+      {error ? (
+        <p className="mt-3 rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-700 dark:text-rose-300">
+          {error}
+        </p>
+      ) : null}
+
+      {confirmOpen ? (
+        <TeamModeConfirm
+          submitting={submitting}
+          googleConnected={google.connected}
+          googleEmail={google.email}
+          onCancel={() => {
+            setConfirmOpen(false);
+            setError(null);
+          }}
+          onConfirm={() => void apply(true)}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+// TeamModeConfirm is the enable-confirm disclosure shown when turning team mode
+// ON. Copy is fixed product copy (#653) — informed consent is the safety model.
+function TeamModeConfirm({
+  submitting,
+  googleConnected,
+  googleEmail,
+  onCancel,
+  onConfirm,
+}: {
+  submitting: boolean;
+  googleConnected: boolean;
+  googleEmail?: string;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <div className="mt-3 space-y-3 rounded-xl border border-amber-500/30 bg-amber-500/[0.08] p-4">
+      <h3 className="text-sm font-semibold text-foreground">Turn on team mode?</h3>
+      <p className="text-xs leading-relaxed text-foreground/80">
+        Anyone in a Slack channel that both you and this agent belong to can talk to it and use
+        everything it can — its connected Google account, its memory, and its tools. It acts on
+        your behalf to them. It only responds in channels you&apos;re a member of, and goes silent
+        the moment you leave.
+      </p>
+
+      {googleConnected ? (
+        <p className="rounded-lg border border-border/60 bg-background/60 px-3 py-2 text-xs text-foreground/80">
+          Connected Google account this exposes:{" "}
+          <strong className="font-semibold">{googleEmail?.trim() || "(connected)"}</strong>
+        </p>
+      ) : null}
+
+      <div className="space-y-1.5 text-xs leading-relaxed text-foreground/70">
+        <p className="font-medium text-foreground/80">Recommended setup</p>
+        <ul className="list-disc space-y-1 pl-4">
+          <li>
+            Connect a Google account made for this agent (e.g. a shared team mailbox), not your
+            personal one.
+          </li>
+          <li>Keep its memory free of anything you wouldn&apos;t share with the channel.</li>
+          <li>Use a private channel so your team is the only audience.</li>
+        </ul>
+      </div>
+
+      <p className="rounded-lg border border-border/60 bg-background/60 px-3 py-2 text-xs text-muted-foreground">
+        Team mode reads channel membership; if your agent was created before this feature you may
+        need to reinstall its Slack app to grant channel access.
+      </p>
+
+      <div className="flex flex-wrap justify-end gap-2 pt-1">
+        <button
+          type="button"
+          onClick={onCancel}
+          disabled={submitting}
+          className="inline-flex h-9 items-center rounded-full px-3 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          onClick={onConfirm}
+          disabled={submitting}
+          className="inline-flex h-9 items-center rounded-full bg-foreground px-4 text-xs font-semibold text-background shadow-sm transition hover:bg-foreground/90 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {submitting ? "Turning on..." : "Turn on team mode"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// Switch is a small accessible on/off control mirroring the panel's pill styling.
+function Switch({
+  checked,
+  disabled,
+  onChange,
+  label,
+}: {
+  checked: boolean;
+  disabled?: boolean;
+  onChange: () => void;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      disabled={disabled}
+      onClick={onChange}
+      className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground/30 disabled:cursor-not-allowed disabled:opacity-50 ${
+        checked ? "border-foreground bg-foreground" : "border-border bg-muted"
+      }`}
+    >
+      <span
+        className={`inline-block h-4 w-4 transform rounded-full bg-background shadow transition-transform ${
+          checked ? "translate-x-6" : "translate-x-1"
+        }`}
+      />
+    </button>
   );
 }
 
