@@ -72,6 +72,14 @@ type PersonalAgentRecord struct {
 	// titles + bullets) as a selling point. Default false. Never exposes the
 	// raw SystemPrompt or any token regardless of this flag.
 	ShowIntelligence  bool   `json:"showIntelligence,omitempty"`
+	// TeamMode, when true, opts this agent into team mode (#653): anyone in a
+	// Slack channel the owner AND the bot both belong to can talk to it and use
+	// everything it can (its connected Google account, memory, tools), acting on
+	// the owner's behalf. Default false. Enforcement is entirely in the PA pod
+	// (the gate + fail-closed channel-membership resolver, already shipped); this
+	// flag's only job here is to drive PERSONAL_AGENT_TEAM_MODE on the pod env and
+	// render the toggle/badge in /me. Records predating #653 read false (closed).
+	TeamMode          bool   `json:"teamMode,omitempty"`
 	// SystemPrompt is the user-defined persona / system prompt rendered into
 	// instructions.md by the PA wrapper. Stored here so the modal can
 	// hydrate AND so spawned-pod restarts re-read the latest value from the
@@ -354,6 +362,18 @@ func (s *Store) SetPersonalAgentVisibility(ctx context.Context, agentID, visibil
 	return s.updatePersonalAgentFields(ctx, agentID, fields)
 }
 
+// SetPersonalAgentTeamMode flips the team-mode opt-in (#653) and stamps
+// UpdatedAt. The durable flag is the source of truth for the /me toggle state
+// + badge; the caller is responsible for separately pushing
+// PERSONAL_AGENT_TEAM_MODE onto the agent's pod and rolling it. No connection
+// or memory teardown happens here — toggling is just a flag flip.
+func (s *Store) SetPersonalAgentTeamMode(ctx context.Context, agentID string, enabled bool) error {
+	return s.updatePersonalAgentFields(ctx, agentID, map[string]any{
+		"team_mode":  boolToHash(enabled),
+		"updated_at": time.Now().UTC().Format(time.RFC3339),
+	})
+}
+
 // AppendPersonalAgentYouTubeSource adds a harvested-from-YouTube intelligence
 // block to the agent's sources list, deduping on URL (newest wins). Returns
 // the updated record so the caller can re-render PERSONAL_AGENT_SYSTEM_PROMPT
@@ -477,6 +497,7 @@ func recordToHash(r PersonalAgentRecord) map[string]any {
 		"long_description":    r.LongDescription,
 		"visibility":          r.Visibility,
 		"show_intelligence":   boolToHash(r.ShowIntelligence),
+		"team_mode":           boolToHash(r.TeamMode),
 		"system_prompt":       r.SystemPrompt,
 		"slack_app_id":        r.SlackAppID,
 		"slack_client_id":     r.SlackClientID,
@@ -548,6 +569,7 @@ func hashToRecord(vals map[string]string) PersonalAgentRecord {
 		LongDescription:   vals["long_description"],
 		Visibility:        vals["visibility"],
 		ShowIntelligence:  hashToBool(vals["show_intelligence"]),
+		TeamMode:          hashToBool(vals["team_mode"]),
 		SystemPrompt:      vals["system_prompt"],
 		SlackAppID:        vals["slack_app_id"],
 		SlackClientID:     vals["slack_client_id"],

@@ -193,7 +193,7 @@ func TestPersonalAgentTemplate_BotScopesParityWithBASELINE(t *testing.T) {
 		"mpim:read", "mpim:write", "mpim:write.topic", "mpim:history",
 		"reactions:read", "reactions:write",
 		"channels:join", "channels:history", "channels:read",
-		"groups:history",
+		"groups:history", "groups:read",
 		"files:read", "files:write",
 		"users:read", "users:read.email",
 	}

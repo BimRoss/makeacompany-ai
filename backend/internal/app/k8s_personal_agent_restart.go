@@ -44,6 +44,44 @@ func (w *PersonalAgentWriter) PatchAgentSystemPrompt(ctx context.Context, agentI
 	return nil
 }
 
+// PatchAgentTeamMode writes the PERSONAL_AGENT_TEAM_MODE key on the per-agent
+// runtime Secret ("true"/"false"), which the pod consumes via envFrom. The PA
+// resolver/kill-switch (claude-code-personal-agent) reads this env to decide
+// whether to honor non-owner messages in shared channels; the gate + the
+// fail-closed channel-membership check do the actual enforcement in-pod (#653).
+// Caller must RestartAgentDeployment afterward so the running pod re-reads it.
+// No Google/memory teardown — flipping team mode is just an env flip.
+func (w *PersonalAgentWriter) PatchAgentTeamMode(ctx context.Context, agentID string, enabled bool) error {
+	if w.Disabled() {
+		return ErrPersonalAgentWriterDisabled
+	}
+	if strings.TrimSpace(agentID) == "" {
+		return errors.New("PatchAgentTeamMode: agent id empty")
+	}
+	value := "false"
+	if enabled {
+		value = "true"
+	}
+	name := personalAgentSecretName(agentID)
+	patchObj := map[string]any{
+		"stringData": map[string]any{
+			"PERSONAL_AGENT_TEAM_MODE": value,
+		},
+	}
+	patchBytes, err := json.Marshal(patchObj)
+	if err != nil {
+		return err
+	}
+	_, err = w.cs.CoreV1().Secrets(w.agentNamespace).Patch(ctx, name, types.StrategicMergePatchType, patchBytes, metav1.PatchOptions{})
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return errors.New("agent runtime secret not found")
+		}
+		return fmt.Errorf("patch team mode: %w", err)
+	}
+	return nil
+}
+
 // PatchAgentKnowledgeEnv writes the three knowledge-related env vars
 // (PERSONAL_AGENT_ID, PERSONAL_AGENT_KNOWLEDGE_TOKEN, MAKEACOMPANY_API_BASE)
 // onto an existing per-agent runtime Secret without disturbing the bot token
