@@ -15,6 +15,9 @@ interface ConnectTxn {
   clientSecret: string;
   tokenEndpoint: string;
   redirectUri: string;
+  // Per-agent target (#651), carried from the start route through the OAuth
+  // round-trip. Absent for back-compat single-agent connects.
+  agentId?: string;
 }
 
 // Best-effort email from an OIDC id_token (cosmetic — identity is bound
@@ -109,6 +112,7 @@ export async function GET(request: Request) {
         refreshToken: tok.refresh_token,
         email: emailFromIdToken(tok.id_token),
         scope: googleConnectScopes().join(" "),
+        ...(txn.agentId?.trim() ? { agentId: txn.agentId.trim() } : {}),
       }),
     });
     if (!res.ok) {

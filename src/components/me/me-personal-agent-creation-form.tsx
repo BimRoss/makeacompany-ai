@@ -13,6 +13,21 @@ type CreateResponse = {
   error?: string;
 };
 
+// Maps backend 409 create-gate codes (#651) to user-facing copy. Unknown codes
+// fall through to whatever the backend sent.
+function createErrorMessage(code: string | undefined, status: number): string {
+  switch (code) {
+    case "personal_agent_max_reached":
+      return "You're at the 3-agent limit.";
+    case "personal_agent_prior_not_installed":
+      return "Finish installing your last agent before creating another.";
+    case "personal_agent_already_exists":
+      return "You already have an agent with that name.";
+    default:
+      return code || `Create failed (${status})`;
+  }
+}
+
 export function MePersonalAgentCreationForm() {
   const router = useRouter();
   const [displayName, setDisplayName] = useState("");
@@ -43,7 +58,7 @@ export function MePersonalAgentCreationForm() {
       });
       const payload = (await res.json().catch(() => ({}))) as CreateResponse;
       if (!res.ok || !payload.installUrl) {
-        setError(payload.error || `Create failed (${res.status})`);
+        setError(createErrorMessage(payload.error, res.status));
         setSubmitting(false);
         return;
       }

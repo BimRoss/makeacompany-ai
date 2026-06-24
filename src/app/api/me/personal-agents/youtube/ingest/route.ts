@@ -37,9 +37,9 @@ export async function POST(request: Request) {
   if (!token) {
     return new Response("unauthorized", { status: 401 });
   }
-  let body: { url?: string };
+  let body: { url?: string; agentId?: string };
   try {
-    body = (await request.json()) as { url?: string };
+    body = (await request.json()) as { url?: string; agentId?: string };
   } catch {
     return new Response("invalid json", { status: 400 });
   }
@@ -47,6 +47,9 @@ export async function POST(request: Request) {
   if (!url) {
     return new Response("url required", { status: 400 });
   }
+  // Per-agent: thread the agentId through to the structured add endpoint so the
+  // bullets land on the right agent record when the owner holds several (#651).
+  const agentId = (body.agentId ?? "").trim();
 
   const backend = resolveBackendBaseURL().replace(/\/$/, "");
   const authHeader = { Authorization: `Bearer ${token}` };
@@ -112,7 +115,12 @@ export async function POST(request: Request) {
           {
             method: "POST",
             headers: { ...authHeader, "Content-Type": "application/json" },
-            body: JSON.stringify({ url, title: newSource.title, bullets: hv.bullets }),
+            body: JSON.stringify({
+              url,
+              title: newSource.title,
+              bullets: hv.bullets,
+              ...(agentId ? { agentId } : {}),
+            }),
           },
         );
         if (!addRes.ok) {

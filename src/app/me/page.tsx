@@ -1,9 +1,10 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
+import { MeAddAgentCard } from "@/components/me/me-add-agent-card";
 import { MeCancelSubscriptionButton } from "@/components/me/me-cancel-subscription-button";
-import { MePersonalAgentCreationForm } from "@/components/me/me-personal-agent-creation-form";
 import { MePersonalAgentStatusPanel } from "@/components/me/me-personal-agent-status-panel";
+import type { YtSource } from "@/components/me/me-personal-agent-youtube-ingest";
 import { resolveBackendBaseURL } from "@/lib/backend-proxy-auth";
 import { meSessionCookieName } from "@/lib/me-session-cookies";
 
@@ -46,17 +47,45 @@ async function fetchMe(token: string): Promise<MePayload | null> {
   }
 }
 
-type AgentStatusPayload = {
-  hasAgent: boolean;
+// One agent record from the /mine envelope (agents[]). Mirrors the fields the
+// status panel consumes; see personalAgentMineView in the backend (#651).
+type AgentRecord = {
   agentId?: string;
   displayName?: string;
   description?: string;
+  longDescription?: string;
+  systemPrompt?: string;
+  youtubeSources?: YtSource[];
   slackAppId?: string;
   status?: string;
+  visibility?: string;
+  showIntelligence?: boolean;
   installUrl?: string;
 };
 
-async function fetchPersonalAgent(token: string): Promise<AgentStatusPayload> {
+// canCreateReason values the backend emits (#651). "" means a new agent can be
+// created right now.
+type CanCreateReason = "" | "max_reached" | "prior_not_installed" | "no_slack_user_id";
+
+type AgentsEnvelope = {
+  agents: AgentRecord[];
+  maxPerUser: number;
+  canCreate: boolean;
+  canCreateReason: CanCreateReason;
+};
+
+const DEFAULT_MAX_PER_USER = 3;
+
+// Reads the multi-agent list envelope (#651). We deliberately ignore the
+// legacy hoisted top-level fields the backend still returns for back-compat —
+// the UI is driven entirely by agents[] + the gate fields.
+async function fetchPersonalAgents(token: string): Promise<AgentsEnvelope> {
+  const fallback: AgentsEnvelope = {
+    agents: [],
+    maxPerUser: DEFAULT_MAX_PER_USER,
+    canCreate: false,
+    canCreateReason: "",
+  };
   const url = `${resolveBackendBaseURL().replace(/\/$/, "")}/v1/me/personal-agents/mine`;
   try {
     const res = await fetch(url, {
@@ -64,12 +93,21 @@ async function fetchPersonalAgent(token: string): Promise<AgentStatusPayload> {
       cache: "no-store",
     });
     if (!res.ok) {
-      return { hasAgent: false };
+      return fallback;
     }
-    const payload = (await res.json().catch(() => null)) as AgentStatusPayload | null;
-    return payload ?? { hasAgent: false };
+    const payload = (await res.json().catch(() => null)) as Partial<AgentsEnvelope> | null;
+    if (!payload) return fallback;
+    return {
+      agents: Array.isArray(payload.agents) ? payload.agents : [],
+      maxPerUser:
+        typeof payload.maxPerUser === "number" && payload.maxPerUser > 0
+          ? payload.maxPerUser
+          : DEFAULT_MAX_PER_USER,
+      canCreate: Boolean(payload.canCreate),
+      canCreateReason: (payload.canCreateReason ?? "") as CanCreateReason,
+    };
   } catch {
-    return { hasAgent: false };
+    return fallback;
   }
 }
 
@@ -83,7 +121,7 @@ export default async function MePage() {
   if (!me?.authenticated || !me.email) {
     redirect("/me/login?auth=required");
   }
-  const agent = await fetchPersonalAgent(token);
+  const envelope = await fetchPersonalAgents(token);
   const slackUserIDKnown = Boolean(me.slackUserId?.trim());
   const ownerName =
     (me.slackDisplayName ?? "").trim() || displayNameFromEmail(me.email ?? "");
@@ -91,15 +129,34 @@ export default async function MePage() {
   const ownerEmail = (me.email ?? "").trim();
 
   return (
-    <div className="mx-auto flex w-full flex-col gap-6 py-8 sm:py-10">
-      <ProfileCard me={me} />
-      <PersonalAgentCard
-        agent={agent}
+    <div className="mx-auto flex w-full flex-col gap-10 py-8 sm:py-10">
+      {/* Account section — the user. */}
+      <section className="flex flex-col gap-3">
+        <SectionHeader title="Account" />
+        <ProfileCard me={me} />
+      </section>
+
+      {/* Agents section — the user's 0..N personal agents + add-agent tile. */}
+      <AgentsSection
+        envelope={envelope}
         slackUserIDKnown={slackUserIDKnown}
         ownerName={ownerName}
         ownerSlackUserId={ownerSlackUserId}
         ownerEmail={ownerEmail}
       />
+    </div>
+  );
+}
+
+function SectionHeader({ title, count }: { title: string; count?: string }) {
+  return (
+    <div className="flex items-baseline gap-2 px-1">
+      <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+        {title}
+      </h2>
+      {count ? (
+        <span className="text-sm font-medium tabular-nums text-muted-foreground/70">· {count}</span>
+      ) : null}
     </div>
   );
 }
@@ -269,54 +326,53 @@ function Row({ label, value, mono }: { label: string; value: string; mono?: bool
   );
 }
 
-function PersonalAgentCard({
-  agent,
+function AgentsSection({
+  envelope,
   slackUserIDKnown,
   ownerName,
   ownerSlackUserId,
   ownerEmail,
 }: {
-  agent: AgentStatusPayload;
+  envelope: AgentsEnvelope;
   slackUserIDKnown: boolean;
   ownerName: string;
   ownerSlackUserId: string;
   ownerEmail: string;
 }) {
-  // When the user has an installed agent, the status panel owns the full
-  // section (avatar + name + rows + edit) so it mirrors the Profile card
-  // structure 1:1. No outer wrapper needed.
-  if (agent.hasAgent) {
-    return (
-      <MePersonalAgentStatusPanel
-        initial={agent}
-        ownerName={ownerName}
-        ownerSlackUserId={ownerSlackUserId}
-        ownerEmail={ownerEmail}
-      />
-    );
-  }
+  const { agents, maxPerUser, canCreate, canCreateReason } = envelope;
+  const count = agents.length;
 
   return (
-    <section className="rounded-2xl bg-white p-4 shadow-[0_10px_40px_-12px_rgba(0,0,0,0.18)] ring-1 ring-black/[0.05] transition-shadow duration-200 hover:shadow-[0_18px_50px_-12px_rgba(0,0,0,0.22)] sm:p-5 dark:bg-zinc-950 dark:ring-white/[0.06]">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <h2 className="text-base font-semibold tracking-tight text-foreground">Personal agent</h2>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            Your private Slack-bound AI, gated to your Slack user ID.
+    <section className="flex flex-col gap-3">
+      <SectionHeader title="Agents" count={`${count}/${maxPerUser}`} />
+
+      {!slackUserIDKnown ? (
+        // Can't bind an agent without a Slack identity — keep the prior
+        // messaging and render no add card (canCreateReason === "no_slack_user_id").
+        <div className="rounded-2xl bg-white p-4 shadow-[0_10px_40px_-12px_rgba(0,0,0,0.18)] ring-1 ring-black/[0.05] sm:p-5 dark:bg-zinc-950 dark:ring-white/[0.06]">
+          <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-300">
+            Your email isn&apos;t in the MakeaCompany Slack workspace yet, so we can&apos;t bind an
+            agent to your Slack identity. Join the workspace, then refresh.
           </p>
         </div>
-        <Pill>New</Pill>
-      </div>
-      <div className="mt-4">
-        {!slackUserIDKnown ? (
-          <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-300">
-            Your email isn&apos;t in the MakeaCompany Slack workspace yet, so we can&apos;t bind an agent to your Slack
-            identity. Join the workspace, then refresh.
-          </p>
-        ) : (
-          <MePersonalAgentCreationForm />
-        )}
-      </div>
+      ) : (
+        <div className="flex flex-col gap-6">
+          {agents.map((agent) => (
+            <MePersonalAgentStatusPanel
+              key={agent.agentId ?? agent.slackAppId ?? agent.displayName}
+              initial={{ ...agent, hasAgent: true }}
+              ownerName={ownerName}
+              ownerSlackUserId={ownerSlackUserId}
+              ownerEmail={ownerEmail}
+            />
+          ))}
+          <MeAddAgentCard
+            canCreate={canCreate}
+            canCreateReason={canCreateReason}
+            atMax={count >= maxPerUser}
+          />
+        </div>
+      )}
     </section>
   );
 }

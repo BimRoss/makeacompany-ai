@@ -21,11 +21,17 @@ type Props = {
    */
   displayName: string;
   description: string;
+  /**
+   * Target agent for icon-generate (#651). Empty during creation (no agent
+   * exists yet) and for single-agent back-compat; set when editing one of
+   * several agents so generation resolves the right record.
+   */
+  agentId?: string;
 };
 
 type Candidate = { base64: string; mimeType: string };
 
-export function MePersonalAgentIconPicker({ previewDataUrl, onChange, disabled, displayName, description }: Props) {
+export function MePersonalAgentIconPicker({ previewDataUrl, onChange, disabled, displayName, description, agentId }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [generating, setGenerating] = useState<null | "plain" | "slack">(null);
   const [error, setError] = useState<string | null>(null);
@@ -60,6 +66,7 @@ export function MePersonalAgentIconPicker({ previewDataUrl, onChange, disabled, 
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          ...(agentId?.trim() ? { agentId: agentId.trim() } : {}),
           displayName,
           description,
           prompt: prompt.trim(),

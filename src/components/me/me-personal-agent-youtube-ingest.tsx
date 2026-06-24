@@ -22,6 +22,8 @@ const STAGE_LABEL: Record<Stage, string> = {
 };
 
 type Props = {
+  /** Target agent for the ingest/remove calls (#651). Empty = single-agent back-compat. */
+  agentId: string;
   sources: YtSource[];
   onSourcesChange: (next: YtSource[]) => void;
 };
@@ -37,7 +39,7 @@ type Props = {
  * The harvested bullets live separately from the personality (#605/#608) —
  * the agent reaches them via a lazy-load skill (#607), not via system prompt.
  */
-export function MePersonalAgentYouTubeIngest({ sources, onSourcesChange }: Props) {
+export function MePersonalAgentYouTubeIngest({ agentId, sources, onSourcesChange }: Props) {
   const [url, setUrl] = useState("");
   const [stage, setStage] = useState<Stage>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -74,7 +76,7 @@ export function MePersonalAgentYouTubeIngest({ sources, onSourcesChange }: Props
         const res = await fetch("/api/me/personal-agents/youtube/ingest", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ url: trimmed }),
+          body: JSON.stringify({ url: trimmed, ...(agentId ? { agentId } : {}) }),
         });
         if (!res.ok || !res.body) {
           const text = await res.text().catch(() => "");
@@ -136,7 +138,7 @@ export function MePersonalAgentYouTubeIngest({ sources, onSourcesChange }: Props
         setErrorMessage(err instanceof Error ? err.message : "ingest failed");
       }
     },
-    [url, stage, onSourcesChange],
+    [url, stage, onSourcesChange, agentId],
   );
 
   const deleteSource = useCallback(
@@ -146,7 +148,7 @@ export function MePersonalAgentYouTubeIngest({ sources, onSourcesChange }: Props
         const res = await fetch("/api/me/personal-agents/youtube/delete", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ url: sourceUrl }),
+          body: JSON.stringify({ url: sourceUrl, ...(agentId ? { agentId } : {}) }),
         });
         if (!res.ok) {
           const text = await res.text().catch(() => "");
@@ -163,7 +165,7 @@ export function MePersonalAgentYouTubeIngest({ sources, onSourcesChange }: Props
         setPendingDeleteUrl(null);
       }
     },
-    [onSourcesChange],
+    [onSourcesChange, agentId],
   );
 
   const busy = stage === "fetching" || stage === "transcribing" || stage === "harvesting";

@@ -29,6 +29,11 @@ export async function GET(request: Request) {
     return NextResponse.redirect(`${resolvePublicOrigin(request)}/me/login`);
   }
 
+  // Per-agent target (#651): the panel passes ?agentId so the connect/finish
+  // (run in the callback) lands on the right agent. Carried through the OAuth
+  // round-trip via the httpOnly txn cookie below.
+  const agentId = new URL(request.url).searchParams.get("agentId")?.trim() ?? "";
+
   const gateway = personalAgentGoogleGatewayURL();
   const origin = resolvePublicOrigin(request);
   const redirectUri = `${origin}/api/me/connections/google/callback`;
@@ -105,6 +110,7 @@ export async function GET(request: Request) {
       clientSecret: reg.client_secret,
       tokenEndpoint: meta.token_endpoint,
       redirectUri,
+      agentId,
     }),
     {
       httpOnly: true,
