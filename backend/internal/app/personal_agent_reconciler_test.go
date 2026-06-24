@@ -223,6 +223,9 @@ func TestSpawnEnvDrift(t *testing.T) {
 // is how the 4 live PA pods pick up PERSONAL_AGENT_LOOP_MODEL without a
 // full re-provision. See claude-code-personal-agent#35.
 func TestReconcilePersonalAgentImages_ConvergesSpawnEnvDrift(t *testing.T) {
+	// Isolate env drift from the now-default slack-mcp sidecar (a missing
+	// sidecar would otherwise route this through the full rebuild path).
+	t.Setenv("PERSONAL_AGENT_SLACK_MCP_SIDECAR", "off")
 	name := personalAgentResourceName("UC")
 	dep := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -270,7 +273,8 @@ func TestReconcilePersonalAgentImages_ConvergesSpawnEnvDrift(t *testing.T) {
 }
 
 func TestReconcilePersonalAgentImages_ConvergesSlackMcpSidecar(t *testing.T) {
-	t.Setenv("PERSONAL_AGENT_SLACK_MCP_SIDECAR_USERS", "UD")
+	// Default-on: with no env at all, every owned agent wants the sidecar, so
+	// the attach pass needs no enable lever.
 	name := personalAgentResourceName("UD")
 	// Converged on everything the reconciler checks EXCEPT the slack-mcp
 	// sidecar: matching image, init container, spawn env, and resources. So the
@@ -313,8 +317,8 @@ func TestReconcilePersonalAgentImages_ConvergesSlackMcpSidecar(t *testing.T) {
 		t.Fatalf("slack-mcp sidecar not attached after reconcile")
 	}
 
-	// Not-allowlisted owner: no sidecar, and a present sidecar would be removed.
-	t.Setenv("PERSONAL_AGENT_SLACK_MCP_SIDECAR_USERS", "")
+	// Per-owner kill-switch opts this owner out: a present sidecar is removed.
+	t.Setenv("PERSONAL_AGENT_SLACK_MCP_SIDECAR_DISABLE_USERS", "UD")
 	if r2 := srv.reconcilePersonalAgentImages(context.Background(), false); r2.SidecarReconciled != 1 {
 		t.Fatalf("detach pass SidecarReconciled = %d, want 1", r2.SidecarReconciled)
 	}
@@ -361,6 +365,7 @@ func TestResourceDrift(t *testing.T) {
 // the resource-reconcile path — this is how the existing fleet sheds the
 // over-reservation without a full re-provision.
 func TestReconcilePersonalAgentImages_ConvergesResourceDrift(t *testing.T) {
+	t.Setenv("PERSONAL_AGENT_SLACK_MCP_SIDECAR", "off")
 	name := personalAgentResourceName("UD")
 	dep := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -420,6 +425,7 @@ func TestReconcilePersonalAgentImages_ConvergesResourceDrift(t *testing.T) {
 // owner's pod env. Asserts the env key is gone after one pass and the pass is
 // counted as an env reconcile.
 func TestReconcilePersonalAgentImages_ScrubsMasterToken(t *testing.T) {
+	t.Setenv("PERSONAL_AGENT_SLACK_MCP_SIDECAR", "off")
 	name := personalAgentResourceName("UE")
 	dep := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -473,6 +479,7 @@ func TestReconcilePersonalAgentImages_ScrubsMasterToken(t *testing.T) {
 // bumps and a future PERSONAL_AGENT_ALLOW_1M_CONTEXT=true could resurrect the
 // hanging opus-4-7[1m]. Asserts the key is gone after one pass.
 func TestReconcilePersonalAgentImages_ScrubsDefaultModel(t *testing.T) {
+	t.Setenv("PERSONAL_AGENT_SLACK_MCP_SIDECAR", "off")
 	name := personalAgentResourceName("UF")
 	dep := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{

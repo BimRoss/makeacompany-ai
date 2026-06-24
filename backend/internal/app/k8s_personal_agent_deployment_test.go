@@ -19,7 +19,8 @@ func TestWriteAgentDeployment_SlackMcpSidecar(t *testing.T) {
 		Image:            "docker.io/geeemoney/claude-code-personal-agent:v0.1.2",
 	}
 
-	t.Run("disabled by default: no sidecar, no URL override", func(t *testing.T) {
+	t.Run("kill-switch off: no sidecar, no URL override", func(t *testing.T) {
+		t.Setenv("PERSONAL_AGENT_SLACK_MCP_SIDECAR", "off")
 		cs := fake.NewSimpleClientset()
 		w := newPersonalAgentWriterWithClient(cs, "personal-agents", "", "")
 		if err := w.WriteAgentDeployment(ctx, req); err != nil {
@@ -38,8 +39,7 @@ func TestWriteAgentDeployment_SlackMcpSidecar(t *testing.T) {
 		}
 	})
 
-	t.Run("enabled: sidecar reads own token, runtime points at localhost", func(t *testing.T) {
-		t.Setenv("PERSONAL_AGENT_SLACK_MCP_SIDECAR", "true")
+	t.Run("default-on: sidecar reads own token, runtime points at localhost", func(t *testing.T) {
 		cs := fake.NewSimpleClientset()
 		w := newPersonalAgentWriterWithClient(cs, "personal-agents", "", "")
 		if err := w.WriteAgentDeployment(ctx, req); err != nil {
@@ -90,7 +90,7 @@ func TestWriteAgentDeployment_SlackMcpSidecar(t *testing.T) {
 		}
 	})
 
-	t.Run("per-agent canary allowlist", func(t *testing.T) {
+	t.Run("per-agent disable kill-switch", func(t *testing.T) {
 		hasSidecar := func(slackUserID string) bool {
 			cs := fake.NewSimpleClientset()
 			w := newPersonalAgentWriterWithClient(cs, "personal-agents", "", "")
@@ -108,12 +108,13 @@ func TestWriteAgentDeployment_SlackMcpSidecar(t *testing.T) {
 			return false
 		}
 
-		t.Setenv("PERSONAL_AGENT_SLACK_MCP_SIDECAR_USERS", "UAAA, UBBB")
-		if !hasSidecar("UBBB") {
-			t.Errorf("allowlisted user UBBB got no sidecar")
+		// Default-on for everyone; the disable list opts a single owner out.
+		t.Setenv("PERSONAL_AGENT_SLACK_MCP_SIDECAR_DISABLE_USERS", "UAAA, UBBB")
+		if hasSidecar("UBBB") {
+			t.Errorf("disabled user UBBB still got a sidecar")
 		}
-		if hasSidecar("UCCC") {
-			t.Errorf("non-allowlisted user UCCC got a sidecar")
+		if !hasSidecar("UCCC") {
+			t.Errorf("non-disabled user UCCC got no sidecar (default-on)")
 		}
 	})
 }
@@ -211,6 +212,10 @@ func TestWriteAgentDeployment_CreatesDeployment(t *testing.T) {
 func TestWriteAgentDeployment_GoogleSidecarOptIn(t *testing.T) {
 	ctx := context.Background()
 	uid := "U0APBT3364D"
+
+	// This test isolates the Google (gws) sidecar, so disable the now-default
+	// slack-mcp sidecar to keep container counts about Google only.
+	t.Setenv("PERSONAL_AGENT_SLACK_MCP_SIDECAR", "off")
 
 	// Not connected: no sidecar, no per-owner SA, no Google env on the main
 	// container — zero cost for owners who haven't connected Google.
