@@ -495,6 +495,17 @@ func personalAgentReqFromDeployment(dep interface{}, desiredImage string) (Perso
 	if err := json.Unmarshal(buf, &d); err != nil {
 		return PersonalAgentDeploymentRequest{}, fmt.Errorf("unmarshal: %w", err)
 	}
+	// Agent id is the authoritative resource key (#651). Prefer the annotation,
+	// falling back to the label (which has carried the id since before #651) so
+	// a pre-migration deployment that only ever got the label still rebuilds
+	// under the correct agent-id-hashed name.
+	agentID := strings.TrimSpace(d.Metadata.Annotations[personalAgentAnnoAgentID])
+	if agentID == "" {
+		agentID = strings.TrimSpace(d.Metadata.Labels[personalAgentLabelAgentID])
+	}
+	if agentID == "" {
+		return PersonalAgentDeploymentRequest{}, fmt.Errorf("annotation/label %s missing", personalAgentAnnoAgentID)
+	}
 	slackUserID := strings.TrimSpace(d.Metadata.Annotations[personalAgentAnnoSlackUserID])
 	if slackUserID == "" {
 		return PersonalAgentDeploymentRequest{}, fmt.Errorf("annotation %s missing", personalAgentAnnoSlackUserID)
@@ -527,7 +538,7 @@ func personalAgentReqFromDeployment(dep interface{}, desiredImage string) (Perso
 		SlackUserID:              slackUserID,
 		OwnerSlackUserID:         owner,
 		DisplayName:              display,
-		AgentID:                  strings.TrimSpace(d.Metadata.Labels["bimross.com/agent-id"]),
+		AgentID:                  agentID,
 		Image:                    desiredImage,
 		GoogleWorkspaceConnected: googleConnected,
 		GoogleEmail:              googleEmail,
@@ -584,6 +595,13 @@ func (s *Server) StartPersonalAgentReconciler(ctx context.Context) {
 			return
 		case <-time.After(30 * time.Second):
 		}
+		// Rekey migration (#651) runs BEFORE the image reconcile so the latter
+		// operates on the new agent-id-hashed resources. Idempotent + self-healing:
+		// a no-op once every agent is migrated.
+		if m := s.migratePersonalAgentResourceNames(ctx); m.Migrated > 0 || len(m.Errors) > 0 {
+			s.log.Printf("personal-agent rekey boot pass: inspected=%d migrated=%d errors=%d",
+				m.Inspected, m.Migrated, len(m.Errors))
+		}
 		r := s.reconcilePersonalAgentImages(ctx, false)
 		s.log.Printf("personal-agent reconciler boot pass: inspected=%d image_bumped=%d restarted=%d init_container=%d res_reconciled=%d errors=%d",
 			r.Inspected, r.ImageBumped, r.Restarted, r.InitContainer, r.ResReconciled, len(r.Errors))
@@ -599,6 +617,10 @@ func (s *Server) StartPersonalAgentReconciler(ctx context.Context) {
 			case <-ctx.Done():
 				return
 			case <-t.C:
+				if m := s.migratePersonalAgentResourceNames(ctx); m.Migrated > 0 || len(m.Errors) > 0 {
+					s.log.Printf("personal-agent rekey tick: inspected=%d migrated=%d errors=%d",
+						m.Inspected, m.Migrated, len(m.Errors))
+				}
 				r := s.reconcilePersonalAgentImages(ctx, false)
 				if r.ImageBumped > 0 || r.InitContainer > 0 || r.ResReconciled > 0 || len(r.Errors) > 0 {
 					s.log.Printf("personal-agent reconciler tick: inspected=%d image_bumped=%d restarted=%d init_container=%d res_reconciled=%d errors=%d",

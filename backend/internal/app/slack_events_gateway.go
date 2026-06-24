@@ -107,7 +107,7 @@ func (s *Server) handleSlackEventsGateway(w http.ResponseWriter, r *http.Request
 		recCopy := rec
 		go func() {
 			ctx := context.Background()
-			if derr := s.deprovisionPersonalAgent(ctx, recCopy.OwnerSlackUserID, &recCopy); derr != nil {
+			if derr := s.deprovisionPersonalAgent(ctx, recCopy.ID, &recCopy); derr != nil {
 				s.log.Printf("slack uninstall: deprovision failed for agent=%s app_id=%s owner=%s: %v",
 					recCopy.ID, recCopy.SlackAppID, recCopy.OwnerSlackUserID, derr)
 				return

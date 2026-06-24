@@ -46,8 +46,20 @@ const (
 	personalAgentIntegrationLabel    = "personal-agent"
 
 	personalAgentAnnoSlackUserID = "bimross.com/slack-user-id"
+	// personalAgentAnnoAgentID is the AUTHORITATIVE per-agent identity link.
+	// Every per-agent K8s resource is named off sha256(agent id), so the
+	// reconciler/liveness/migration paths resolve identity (and recompute the
+	// resource name for the safety assertion) from this annotation. The
+	// matching `bimross.com/agent-id` LABEL is still stamped for selector/list
+	// ergonomics; the annotation is what the control loops trust. slack-user-id
+	// is kept only for owner attribution, never for resource naming. (#651)
+	personalAgentAnnoAgentID     = "bimross.com/agent-id"
 	personalAgentAnnoAppID       = "bimross.com/slack-app-id"
 	personalAgentAnnoInstalledAt = "bimross.com/installed-at"
+
+	// personalAgentLabelAgentID is the per-agent id label (same key as the
+	// annotation). Promoted from decorative to load-bearing in #651.
+	personalAgentLabelAgentID = "bimross.com/agent-id"
 
 	defaultPersonalAgentNamespace        = "personal-agents"
 	defaultConfigTokensNamespace         = "makeacompany-ai"
@@ -104,54 +116,57 @@ func (w *PersonalAgentWriter) AgentNamespace() string {
 	return w.agentNamespace
 }
 
-// personalAgentUserHash is the deterministic per-owner suffix shared by every
-// personal-agent resource name: sha256(slack_user_id) truncated to 12 hex
-// chars — matches the shopify-conn shape.
-func personalAgentUserHash(slackUserID string) string {
-	sum := sha256.Sum256([]byte(strings.TrimSpace(slackUserID)))
+// personalAgentHash is the deterministic per-AGENT suffix shared by every
+// personal-agent resource name: sha256(agent id) truncated to 12 hex chars —
+// matches the shopify-conn shape. Keyed on agent id (#651) so one owner can
+// hold multiple agents without resource-name collisions; before #651 this
+// hashed the slack_user_id, which collided across an owner's agents.
+func personalAgentHash(agentID string) string {
+	sum := sha256.Sum256([]byte(strings.TrimSpace(agentID)))
 	return hex.EncodeToString(sum[:6])
 }
 
 // personalAgentResourceName is the shared base name for a personal-agent's
-// K8s resources (Deployment, Service, and the Secret which appends a suffix).
-func personalAgentResourceName(slackUserID string) string {
-	return personalAgentSecretNamePrefix + personalAgentUserHash(slackUserID)
+// K8s resources (Deployment, Service, and the Secret which appends a suffix),
+// keyed on agent id.
+func personalAgentResourceName(agentID string) string {
+	return personalAgentSecretNamePrefix + personalAgentHash(agentID)
 }
 
-// personalAgentSecretName derives the deterministic Secret name for a Slack
-// user id.
-func personalAgentSecretName(slackUserID string) string {
-	return personalAgentResourceName(slackUserID) + personalAgentSecretNameSuffix
+// personalAgentSecretName derives the deterministic runtime Secret name for an
+// agent id.
+func personalAgentSecretName(agentID string) string {
+	return personalAgentResourceName(agentID) + personalAgentSecretNameSuffix
 }
 
-// personalAgentGoogleSecretName is the per-owner Secret holding the DCR'd
+// personalAgentGoogleSecretName is the per-agent Secret holding the DCR'd
 // Google OAuth bootstrap creds (client_id/client_secret/refresh_token) the
 // gws-mcp-token-sidecar consumes. Distinct from the runtime Secret so a Google
 // connect/disconnect never rewrites the Slack credentials.
-func personalAgentGoogleSecretName(slackUserID string) string {
-	return "gws-oauth-" + personalAgentUserHash(slackUserID)
+func personalAgentGoogleSecretName(agentID string) string {
+	return "gws-oauth-" + personalAgentHash(agentID)
 }
 
-// personalAgentGwsSidecarSAName is the per-owner ServiceAccount the sidecar
-// runs under. Its Role is scoped to exactly personalAgentGoogleSecretName(uid)
-// (get+patch) so an owner's rotation PATCH can't read or mutate any other
-// owner's Secrets in the shared personal-agents namespace.
-func personalAgentGwsSidecarSAName(slackUserID string) string {
-	return "gws-sidecar-" + personalAgentUserHash(slackUserID)
+// personalAgentGwsSidecarSAName is the per-agent ServiceAccount the sidecar
+// runs under. Its Role is scoped to exactly personalAgentGoogleSecretName(agentID)
+// (get+patch) so an agent's rotation PATCH can't read or mutate any other
+// agent's Secrets in the shared personal-agents namespace.
+func personalAgentGwsSidecarSAName(agentID string) string {
+	return "gws-sidecar-" + personalAgentHash(agentID)
 }
 
 // HasGoogleCredentials reports whether the per-owner Google OAuth Secret
 // exists — i.e. the owner has connected Google. The reconciler uses this to
 // decide whether to attach the gws-mcp-token-sidecar to the pod. Returns
 // false (no sidecar) on Disabled() or NotFound; surfaces other errors.
-func (w *PersonalAgentWriter) HasGoogleCredentials(ctx context.Context, slackUserID string) (bool, error) {
+func (w *PersonalAgentWriter) HasGoogleCredentials(ctx context.Context, agentID string) (bool, error) {
 	if w.Disabled() {
 		return false, nil
 	}
-	if strings.TrimSpace(slackUserID) == "" {
-		return false, errors.New("HasGoogleCredentials: slack user id empty")
+	if strings.TrimSpace(agentID) == "" {
+		return false, errors.New("HasGoogleCredentials: agent id empty")
 	}
-	name := personalAgentGoogleSecretName(slackUserID)
+	name := personalAgentGoogleSecretName(agentID)
 	_, err := w.cs.CoreV1().Secrets(w.agentNamespace).Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
@@ -205,14 +220,14 @@ func personalAgentSecretData(req PersonalAgentRuntimeSecretRequest) map[string]s
 // ReadAgentBotToken returns the bot token (xoxb-) stored in the per-agent
 // runtime Secret. Used by the icon-current endpoint to call Slack on the
 // agent's behalf without round-tripping through a different storage layer.
-func (w *PersonalAgentWriter) ReadAgentBotToken(ctx context.Context, slackUserID string) (string, error) {
+func (w *PersonalAgentWriter) ReadAgentBotToken(ctx context.Context, agentID string) (string, error) {
 	if w.Disabled() {
 		return "", ErrPersonalAgentWriterDisabled
 	}
-	if strings.TrimSpace(slackUserID) == "" {
-		return "", errors.New("ReadAgentBotToken: slack user id empty")
+	if strings.TrimSpace(agentID) == "" {
+		return "", errors.New("ReadAgentBotToken: agent id empty")
 	}
-	name := personalAgentSecretName(slackUserID)
+	name := personalAgentSecretName(agentID)
 	sec, err := w.cs.CoreV1().Secrets(w.agentNamespace).Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
@@ -260,6 +275,10 @@ func (w *PersonalAgentWriter) WriteAgentRuntimeSecret(ctx context.Context, req P
 	if w.Disabled() {
 		return ErrPersonalAgentWriterDisabled
 	}
+	agentID := strings.TrimSpace(req.AgentID)
+	if agentID == "" {
+		return errors.New("WriteAgentRuntimeSecret: agent id empty")
+	}
 	slackUserID := strings.TrimSpace(req.SlackUserID)
 	if slackUserID == "" {
 		return errors.New("WriteAgentRuntimeSecret: slack user id empty")
@@ -267,7 +286,7 @@ func (w *PersonalAgentWriter) WriteAgentRuntimeSecret(ctx context.Context, req P
 	if strings.TrimSpace(req.BotToken) == "" || strings.TrimSpace(req.SigningSecret) == "" {
 		return errors.New("WriteAgentRuntimeSecret: bot token + signing secret required")
 	}
-	name := personalAgentSecretName(slackUserID)
+	name := personalAgentSecretName(agentID)
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -275,8 +294,10 @@ func (w *PersonalAgentWriter) WriteAgentRuntimeSecret(ctx context.Context, req P
 			Labels: map[string]string{
 				"app.kubernetes.io/managed-by": personalAgentManagedByLabelValue,
 				"bimross.com/integration":      personalAgentIntegrationLabel,
+				personalAgentLabelAgentID:      agentID,
 			},
 			Annotations: map[string]string{
+				personalAgentAnnoAgentID:     agentID,
 				personalAgentAnnoSlackUserID: slackUserID,
 				personalAgentAnnoAppID:       strings.TrimSpace(req.SlackAppID),
 				personalAgentAnnoInstalledAt: time.Now().UTC().Format(time.RFC3339),

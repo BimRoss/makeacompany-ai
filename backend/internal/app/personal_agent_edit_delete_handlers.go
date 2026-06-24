@@ -100,9 +100,9 @@ func (s *Server) handleEditPersonalAgent(w http.ResponseWriter, r *http.Request)
 	// dispatcher pod so the next inbound message renders instructions.md
 	// against the new persona. Skipped when the field wasn't touched.
 	if newSystemPrompt != "" && s.personalAgent != nil && !s.personalAgent.Disabled() {
-		if err := s.personalAgent.PatchAgentSystemPrompt(r.Context(), rec.OwnerSlackUserID, newSystemPrompt); err != nil {
+		if err := s.personalAgent.PatchAgentSystemPrompt(r.Context(), rec.ID, newSystemPrompt); err != nil {
 			s.log.Printf("patch system prompt secret: %v", err)
-		} else if err := s.personalAgent.RestartAgentDeployment(r.Context(), rec.OwnerSlackUserID); err != nil {
+		} else if err := s.personalAgent.RestartAgentDeployment(r.Context(), rec.ID); err != nil {
 			s.log.Printf("restart agent deployment after system prompt change: %v", err)
 		}
 	}
@@ -157,12 +157,12 @@ func (s *Server) handleDeletePersonalAgent(w http.ResponseWriter, r *http.Reques
 		}
 	}
 	if s.personalAgent != nil && !s.personalAgent.Disabled() {
-		if err := s.personalAgent.DeleteAgentResources(r.Context(), rec.OwnerSlackUserID); err != nil {
+		if err := s.personalAgent.DeleteAgentResources(r.Context(), rec.ID); err != nil {
 			s.log.Printf("delete agent k8s resources: %v", err)
 			problems = append(problems, "k8s resources cleanup failed: "+err.Error())
 		}
 		if req.WipeWorkspace {
-			if err := s.personalAgent.WipeAgentWorkspace(r.Context(), rec.OwnerSlackUserID); err != nil {
+			if err := s.personalAgent.WipeAgentWorkspace(r.Context(), rec.ID); err != nil {
 				s.log.Printf("wipe agent workspace: %v", err)
 				problems = append(problems, "workspace wipe failed: "+err.Error())
 			}

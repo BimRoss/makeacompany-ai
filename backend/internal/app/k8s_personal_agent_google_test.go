@@ -11,24 +11,24 @@ import (
 
 func TestGoogleCredentials_ConnectLifecycle(t *testing.T) {
 	ctx := context.Background()
-	uid := "U0APBT3364D"
+	agentID := "agent-abc"
 	cs := fake.NewSimpleClientset()
 	w := newPersonalAgentWriterWithClient(cs, "personal-agents", "", "")
 	ns := "personal-agents"
-	secretName := personalAgentGoogleSecretName(uid)
-	rbacName := personalAgentGwsSidecarSAName(uid)
+	secretName := personalAgentGoogleSecretName(agentID)
+	rbacName := personalAgentGwsSidecarSAName(agentID)
 
 	// Initially disconnected.
-	if ok, err := w.HasGoogleCredentials(ctx, uid); err != nil || ok {
+	if ok, err := w.HasGoogleCredentials(ctx, agentID); err != nil || ok {
 		t.Fatalf("HasGoogleCredentials before connect = (%v,%v), want (false,nil)", ok, err)
 	}
 
 	// Connect: writes Secret + RBAC.
-	if err := w.WriteGoogleCredentials(ctx, uid, "Grant@BimRoss.com", "cid", "csecret", "rtok"); err != nil {
+	if err := w.WriteGoogleCredentials(ctx, agentID, "Grant@BimRoss.com", "cid", "csecret", "rtok"); err != nil {
 		t.Fatalf("WriteGoogleCredentials: %v", err)
 	}
 
-	if ok, err := w.HasGoogleCredentials(ctx, uid); err != nil || !ok {
+	if ok, err := w.HasGoogleCredentials(ctx, agentID); err != nil || !ok {
 		t.Fatalf("HasGoogleCredentials after connect = (%v,%v), want (true,nil)", ok, err)
 	}
 
@@ -42,7 +42,7 @@ func TestGoogleCredentials_ConnectLifecycle(t *testing.T) {
 		}
 	}
 	// Email is normalized to lowercase.
-	if got, err := w.ReadGoogleEmail(ctx, uid); err != nil || got != "grant@bimross.com" {
+	if got, err := w.ReadGoogleEmail(ctx, agentID); err != nil || got != "grant@bimross.com" {
 		t.Errorf("ReadGoogleEmail = (%q,%v), want (grant@bimross.com,nil)", got, err)
 	}
 
@@ -62,14 +62,14 @@ func TestGoogleCredentials_ConnectLifecycle(t *testing.T) {
 	}
 
 	// Disconnect: returns the refresh token, removes Secret + RBAC.
-	rtok, err := w.DeleteGoogleCredentials(ctx, uid)
+	rtok, err := w.DeleteGoogleCredentials(ctx, agentID)
 	if err != nil {
 		t.Fatalf("DeleteGoogleCredentials: %v", err)
 	}
 	if rtok != "rtok" {
 		t.Errorf("returned refresh_token = %q, want rtok (for revoke)", rtok)
 	}
-	if ok, _ := w.HasGoogleCredentials(ctx, uid); ok {
+	if ok, _ := w.HasGoogleCredentials(ctx, agentID); ok {
 		t.Errorf("HasGoogleCredentials after disconnect = true, want false")
 	}
 	if _, err := cs.RbacV1().Roles(ns).Get(ctx, rbacName, metav1.GetOptions{}); !apierrors.IsNotFound(err) {
@@ -77,7 +77,7 @@ func TestGoogleCredentials_ConnectLifecycle(t *testing.T) {
 	}
 
 	// Disconnect is idempotent.
-	if _, err := w.DeleteGoogleCredentials(ctx, uid); err != nil {
+	if _, err := w.DeleteGoogleCredentials(ctx, agentID); err != nil {
 		t.Errorf("second DeleteGoogleCredentials should be idempotent, got %v", err)
 	}
 }

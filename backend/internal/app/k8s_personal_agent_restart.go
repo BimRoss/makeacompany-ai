@@ -17,14 +17,14 @@ import (
 // on the per-agent runtime Secret. Empty string clears the key (the wrapper
 // then falls back to the blank-slate persona). Used by the "edit agent"
 // flow so we don't have to re-mint the bot token to rotate the prompt.
-func (w *PersonalAgentWriter) PatchAgentSystemPrompt(ctx context.Context, slackUserID, prompt string) error {
+func (w *PersonalAgentWriter) PatchAgentSystemPrompt(ctx context.Context, agentID, prompt string) error {
 	if w.Disabled() {
 		return ErrPersonalAgentWriterDisabled
 	}
-	if strings.TrimSpace(slackUserID) == "" {
-		return errors.New("PatchAgentSystemPrompt: slack user id empty")
+	if strings.TrimSpace(agentID) == "" {
+		return errors.New("PatchAgentSystemPrompt: agent id empty")
 	}
-	name := personalAgentSecretName(slackUserID)
+	name := personalAgentSecretName(agentID)
 	patchObj := map[string]any{
 		"stringData": map[string]any{
 			"PERSONAL_AGENT_SYSTEM_PROMPT": prompt,
@@ -48,17 +48,14 @@ func (w *PersonalAgentWriter) PatchAgentSystemPrompt(ctx context.Context, slackU
 // (PERSONAL_AGENT_ID, PERSONAL_AGENT_KNOWLEDGE_TOKEN, MAKEACOMPANY_API_BASE)
 // onto an existing per-agent runtime Secret without disturbing the bot token
 // or signing secret. Used to backfill agents minted before #607.
-func (w *PersonalAgentWriter) PatchAgentKnowledgeEnv(ctx context.Context, slackUserID, agentID, token, backendBaseURL string) error {
+func (w *PersonalAgentWriter) PatchAgentKnowledgeEnv(ctx context.Context, agentID, token, backendBaseURL string) error {
 	if w.Disabled() {
 		return ErrPersonalAgentWriterDisabled
-	}
-	if strings.TrimSpace(slackUserID) == "" {
-		return errors.New("PatchAgentKnowledgeEnv: slack user id empty")
 	}
 	if strings.TrimSpace(agentID) == "" || strings.TrimSpace(token) == "" {
 		return errors.New("PatchAgentKnowledgeEnv: agent id + token required")
 	}
-	name := personalAgentSecretName(slackUserID)
+	name := personalAgentSecretName(agentID)
 	stringData := map[string]any{
 		"PERSONAL_AGENT_ID":              agentID,
 		"PERSONAL_AGENT_KNOWLEDGE_TOKEN": token,
@@ -88,14 +85,14 @@ func (w *PersonalAgentWriter) PatchAgentKnowledgeEnv(ctx context.Context, slackU
 //
 // Idempotent: re-running while a rollout is in flight just sets the same
 // annotation again. NotFound is tolerated (caller can race the delete flow).
-func (w *PersonalAgentWriter) RestartAgentDeployment(ctx context.Context, slackUserID string) error {
+func (w *PersonalAgentWriter) RestartAgentDeployment(ctx context.Context, agentID string) error {
 	if w.Disabled() {
 		return ErrPersonalAgentWriterDisabled
 	}
-	if strings.TrimSpace(slackUserID) == "" {
-		return errors.New("RestartAgentDeployment: slack user id empty")
+	if strings.TrimSpace(agentID) == "" {
+		return errors.New("RestartAgentDeployment: agent id empty")
 	}
-	name := personalAgentResourceName(slackUserID)
+	name := personalAgentResourceName(agentID)
 	now := time.Now().UTC().Format(time.RFC3339)
 	patchObj := map[string]any{
 		"spec": map[string]any{

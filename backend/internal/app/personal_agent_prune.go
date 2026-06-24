@@ -137,9 +137,10 @@ type reconcilePruneResult struct {
 // reconcilePersonalAgentLiveness checks each live personal-agent deployment's
 // Slack token and deprovisions any whose token is definitively dead across
 // pruneStreakThreshold consecutive passes. streak is owned by the reconciler
-// goroutine and carried across ticks (keyed by the deployment's slack-user-id
-// annotation); entries for deployments that no longer exist or recover are
-// pruned from the map so it can't grow unbounded.
+// goroutine and carried across ticks (keyed by the deployment's agent-id
+// annotation, #651 — so one owner's multiple agents don't collapse into a
+// single dead-token streak); entries for deployments that no longer exist or
+// recover are pruned from the map so it can't grow unbounded.
 func (s *Server) reconcilePersonalAgentLiveness(ctx context.Context, streak map[string]int) reconcilePruneResult {
 	var result reconcilePruneResult
 	if s.personalAgent == nil || s.personalAgent.Disabled() {
@@ -158,58 +159,62 @@ func (s *Server) reconcilePersonalAgentLiveness(ctx context.Context, streak map[
 	seen := make(map[string]bool, len(deps.Items))
 	for i := range deps.Items {
 		dep := &deps.Items[i]
-		slackUserID := strings.TrimSpace(dep.Annotations[personalAgentAnnoSlackUserID])
-		if slackUserID == "" {
-			// No identity annotation — can't safely target a delete by id, and
-			// can't run auth.test. Leave it for the operator.
+		agentID := strings.TrimSpace(dep.Annotations[personalAgentAnnoAgentID])
+		if agentID == "" {
+			// No agent-id annotation — can't safely target a delete by agent id
+			// (the resource key). Pre-migration deployments are renamed under the
+			// agent-id-hashed name by the migration pass, which carries the
+			// annotation, so this only fires for genuinely-malformed objects.
+			// Leave it for the operator.
 			continue
 		}
+		ownerSlackUserID := strings.TrimSpace(dep.Annotations[personalAgentAnnoSlackUserID])
 		// Safety assertion: only ever act on a deployment whose name is the one
-		// the id hashes to. If they disagree, something is off with this
+		// the AGENT ID hashes to. If they disagree, something is off with this
 		// deployment's provenance — skip rather than risk deleting the wrong
 		// resources by name.
-		if personalAgentResourceName(slackUserID) != dep.Name {
+		if personalAgentResourceName(agentID) != dep.Name {
 			result.Errors = append(result.Errors,
-				fmt.Sprintf("skip %s: name does not match id hash (annotation %s)", dep.Name, slackUserID))
+				fmt.Sprintf("skip %s: name does not match agent-id hash (annotation %s)", dep.Name, agentID))
 			continue
 		}
-		seen[slackUserID] = true
+		seen[agentID] = true
 		result.Checked++
 
-		token, err := s.personalAgent.ReadAgentBotToken(ctx, slackUserID)
+		token, err := s.personalAgent.ReadAgentBotToken(ctx, agentID)
 		if err != nil {
 			// Missing/unreadable secret is non-definitive (e.g. a just-created
 			// agent whose secret hasn't landed). Reset and move on.
-			delete(streak, slackUserID)
+			delete(streak, agentID)
 			continue
 		}
 
 		ok, code, err := slackAuthTest(ctx, token)
 		if err != nil {
 			// No verdict (network/non-200). Treat as non-definitive: reset.
-			delete(streak, slackUserID)
+			delete(streak, agentID)
 			continue
 		}
 
-		newStreak, prune := pruneDecision(streak[slackUserID], ok, code)
+		newStreak, prune := pruneDecision(streak[agentID], ok, code)
 		if newStreak > 0 {
-			streak[slackUserID] = newStreak
+			streak[agentID] = newStreak
 			result.DeadObserved++
 		} else {
-			delete(streak, slackUserID)
+			delete(streak, agentID)
 		}
 
 		if !prune {
 			continue
 		}
 
-		s.log.Printf("personal-agent liveness: deprovisioning %s/%s — slack token dead (error=%q, %d consecutive passes)",
-			ns, dep.Name, code, newStreak)
-		if derr := s.deprovisionDeadPersonalAgent(ctx, slackUserID); derr != nil {
+		s.log.Printf("personal-agent liveness: deprovisioning %s/%s (agent=%s owner=%s) — slack token dead (error=%q, %d consecutive passes)",
+			ns, dep.Name, agentID, ownerSlackUserID, code, newStreak)
+		if derr := s.deprovisionDeadPersonalAgent(ctx, agentID, ownerSlackUserID); derr != nil {
 			result.Errors = append(result.Errors, fmt.Sprintf("deprovision %s: %v", dep.Name, derr))
 			continue
 		}
-		delete(streak, slackUserID)
+		delete(streak, agentID)
 		result.Pruned++
 	}
 
@@ -224,17 +229,22 @@ func (s *Server) reconcilePersonalAgentLiveness(ctx context.Context, streak map[
 }
 
 // deprovisionDeadPersonalAgent tears down a personal agent the liveness pass
-// found dead, identified by the resource-owning slack user id from the
-// deployment annotation. Resolves the store record (best-effort) then delegates
-// to the shared teardown.
-func (s *Server) deprovisionDeadPersonalAgent(ctx context.Context, slackUserID string) error {
+// found dead. agentID is the authoritative resource key (#651) read from the
+// deployment's agent-id annotation; ownerSlackUserID is carried only for log
+// attribution. Resolves the store record (best-effort) for DB cleanup, then
+// delegates to the shared teardown keyed by agent id.
+//
+// For THIS PR behavior is unchanged (still one agent per owner): the record is
+// resolved via GetPersonalAgentByOwner. PR #2's Redis-list work replaces that
+// owner lookup; the K8s teardown is already keyed by agent id here.
+func (s *Server) deprovisionDeadPersonalAgent(ctx context.Context, agentID, ownerSlackUserID string) error {
 	var rec *PersonalAgentRecord
-	if r, err := s.store.GetPersonalAgentByOwner(ctx, slackUserID); err != nil {
-		s.log.Printf("personal-agent liveness: DB row lookup for %s skipped/failed: %v", slackUserID, err)
+	if r, err := s.store.GetPersonalAgentByOwner(ctx, ownerSlackUserID); err != nil {
+		s.log.Printf("personal-agent liveness: DB row lookup for owner=%s (agent=%s) skipped/failed: %v", ownerSlackUserID, agentID, err)
 	} else {
 		rec = &r
 	}
-	return s.deprovisionPersonalAgent(ctx, slackUserID, rec)
+	return s.deprovisionPersonalAgent(ctx, agentID, rec)
 }
 
 // deprovisionPersonalAgent is the single end-to-end teardown, mirroring the
@@ -242,22 +252,22 @@ func (s *Server) deprovisionDeadPersonalAgent(ctx context.Context, slackUserID s
 // then the store record. Shared by the liveness prune and the app_uninstalled
 // webhook so there is exactly one teardown definition.
 //
-//   - resourceID is the slack user id the per-agent K8s resources are NAMED by
-//     (== OwnerSlackUserID). It is what DeleteAgentResources keys off.
+//   - agentID is the authoritative key the per-agent K8s resources are NAMED by
+//     (#651). It is what DeleteAgentResources keys off.
 //   - rec, when non-nil, is the store record to delete. DB cleanup is
 //     best-effort: the K8s teardown is the load-bearing part (it stops the
 //     crashloop / frees the slot), so a missing or failed DB delete must not
 //     fail the whole operation. A nil rec means "no record to clean" (already
 //     gone, or never resolved).
-func (s *Server) deprovisionPersonalAgent(ctx context.Context, resourceID string, rec *PersonalAgentRecord) error {
-	if err := s.personalAgent.DeleteAgentResources(ctx, resourceID); err != nil {
+func (s *Server) deprovisionPersonalAgent(ctx context.Context, agentID string, rec *PersonalAgentRecord) error {
+	if err := s.personalAgent.DeleteAgentResources(ctx, agentID); err != nil {
 		return fmt.Errorf("delete k8s resources: %w", err)
 	}
 	if rec == nil {
 		return nil
 	}
 	if err := s.store.DeletePersonalAgent(ctx, *rec); err != nil {
-		s.log.Printf("personal-agent deprovision: k8s torn down for %s but DB delete failed: %v", resourceID, err)
+		s.log.Printf("personal-agent deprovision: k8s torn down for %s but DB delete failed: %v", agentID, err)
 	}
 	return nil
 }

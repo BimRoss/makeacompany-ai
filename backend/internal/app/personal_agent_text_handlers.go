@@ -128,7 +128,7 @@ func (s *Server) captureAgentIconCaption(ctx context.Context, email, stagedB64, 
 	if s.personalAgent == nil || s.personalAgent.Disabled() {
 		return "", nil
 	}
-	botToken, err := s.personalAgent.ReadAgentBotToken(ctx, rec.OwnerSlackUserID)
+	botToken, err := s.personalAgent.ReadAgentBotToken(ctx, rec.ID)
 	if err != nil {
 		return "", err
 	}

@@ -13,7 +13,7 @@ func TestWipeAgentWorkspace_CreatesJobPinnedToHostNode(t *testing.T) {
 	w := newPersonalAgentWriterWithClient(cs, "personal-agents", "", "")
 	ctx := context.Background()
 
-	if err := w.WipeAgentWorkspace(ctx, "U0APBT3364D"); err != nil {
+	if err := w.WipeAgentWorkspace(ctx, "agent-abc"); err != nil {
 		t.Fatalf("WipeAgentWorkspace: %v", err)
 	}
 	jobs, err := cs.BatchV1().Jobs("personal-agents").List(ctx, metav1.ListOptions{})
@@ -36,7 +36,7 @@ func TestWipeAgentWorkspace_CreatesJobPinnedToHostNode(t *testing.T) {
 		t.Errorf("expected ttl=300, got %+v", job.Spec.TTLSecondsAfterFinished)
 	}
 	c := job.Spec.Template.Spec.Containers[0]
-	expectedSubPath := personalAgentResourceName("U0APBT3364D")
+	expectedSubPath := personalAgentResourceName("agent-abc")
 	if len(c.Args) != 1 || !contains(c.Args[0], expectedSubPath) {
 		t.Errorf("args don't target subpath %q: %+v", expectedSubPath, c.Args)
 	}

@@ -28,14 +28,14 @@ import (
 //
 // Returns nil on success or on a NotFound deployment (idempotent — nothing to
 // wipe). Job-creation errors surface to the caller.
-func (w *PersonalAgentWriter) WipeAgentWorkspace(ctx context.Context, slackUserID string) error {
+func (w *PersonalAgentWriter) WipeAgentWorkspace(ctx context.Context, agentID string) error {
 	if w.Disabled() {
 		return ErrPersonalAgentWriterDisabled
 	}
-	if strings.TrimSpace(slackUserID) == "" {
-		return errors.New("WipeAgentWorkspace: slack user id required")
+	if strings.TrimSpace(agentID) == "" {
+		return errors.New("WipeAgentWorkspace: agent id required")
 	}
-	name := personalAgentResourceName(slackUserID)
+	name := personalAgentResourceName(agentID)
 	jobName := fmt.Sprintf("wipe-%s-%d", name, time.Now().Unix())
 
 	job := &batchv1.Job{
@@ -48,7 +48,7 @@ func (w *PersonalAgentWriter) WipeAgentWorkspace(ctx context.Context, slackUserI
 				"bimross.com/role":             "workspace-wipe",
 			},
 			Annotations: map[string]string{
-				personalAgentAnnoSlackUserID: slackUserID,
+				personalAgentAnnoAgentID: strings.TrimSpace(agentID),
 			},
 		},
 		Spec: batchv1.JobSpec{

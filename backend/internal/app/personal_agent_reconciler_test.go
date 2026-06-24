@@ -19,14 +19,15 @@ func seedDeployments(t *testing.T) (*fake.Clientset, *Server) {
 	managedLabels := map[string]string{
 		"app.kubernetes.io/managed-by": personalAgentManagedByLabelValue,
 	}
-	// Build deployments whose Name matches personalAgentResourceName(SlackUserID)
-	// so the retrofit path's WriteAgentDeployment lands an Update on the
-	// existing object (Create returns AlreadyExists, then Update replaces
-	// the spec). If the names diverge, the writer would Create a fresh
-	// deployment under a different name and the test seed would survive
-	// unchanged — which would silently mask the bump.
+	// Build deployments whose Name matches personalAgentResourceName(agentID)
+	// (#651 keys resources on agent id). So the retrofit path's
+	// WriteAgentDeployment lands an Update on the existing object (Create returns
+	// AlreadyExists, then Update replaces the spec). If the names diverge, the
+	// writer would Create a fresh deployment under a different name and the test
+	// seed would survive unchanged — which would silently mask the bump.
 	mk := func(slackUserID, image string, labels map[string]string) *appsv1.Deployment {
-		name := personalAgentResourceName(slackUserID)
+		agentID := "agent-" + slackUserID
+		name := personalAgentResourceName(agentID)
 		annos := map[string]string{}
 		fullLabels := map[string]string{}
 		for k, v := range labels {
@@ -34,7 +35,8 @@ func seedDeployments(t *testing.T) (*fake.Clientset, *Server) {
 		}
 		if labels["app.kubernetes.io/managed-by"] == personalAgentManagedByLabelValue {
 			annos[personalAgentAnnoSlackUserID] = slackUserID
-			fullLabels["bimross.com/agent-id"] = "agent-" + slackUserID
+			annos[personalAgentAnnoAgentID] = agentID
+			fullLabels[personalAgentLabelAgentID] = agentID
 		}
 		return &appsv1.Deployment{
 			ObjectMeta: metav1.ObjectMeta{
@@ -89,7 +91,7 @@ func TestReconcilePersonalAgentImages_BumpsDriftedImages(t *testing.T) {
 	if result.Restarted != 0 {
 		t.Errorf("Restarted = %d, want 0 (force=false)", result.Restarted)
 	}
-	got, _ := cs.AppsV1().Deployments("personal-agents").Get(context.Background(), personalAgentResourceName("UA"), metav1.GetOptions{})
+	got, _ := cs.AppsV1().Deployments("personal-agents").Get(context.Background(), personalAgentResourceName("agent-UA"), metav1.GetOptions{})
 	if got.Spec.Template.Spec.Containers[0].Image != "img:new" {
 		t.Errorf("A image after reconcile = %q, want img:new", got.Spec.Template.Spec.Containers[0].Image)
 	}
@@ -105,7 +107,7 @@ func TestReconcilePersonalAgentImages_ForceRestartsEvenWhenImageMatches(t *testi
 		t.Errorf("Restarted = %d, want 2 (force=true on both managed)", result.Restarted)
 	}
 	// B's image hasn't changed; force-restart annotation should still bump.
-	got, _ := cs.AppsV1().Deployments("personal-agents").Get(context.Background(), personalAgentResourceName("UB"), metav1.GetOptions{})
+	got, _ := cs.AppsV1().Deployments("personal-agents").Get(context.Background(), personalAgentResourceName("agent-UB"), metav1.GetOptions{})
 	if got.Spec.Template.Annotations["bimross.com/last-reconciled-at"] == "" {
 		t.Errorf("expected last-reconciled-at annotation on B even though image didn't change")
 	}
@@ -122,7 +124,7 @@ func TestReconcilePersonalAgentImages_PatchesMissingInitContainer(t *testing.T) 
 	if result.InitContainer != 2 {
 		t.Errorf("InitContainer = %d, want 2 (both managed lacked it)", result.InitContainer)
 	}
-	for _, name := range []string{personalAgentResourceName("UA"), personalAgentResourceName("UB")} {
+	for _, name := range []string{personalAgentResourceName("agent-UA"), personalAgentResourceName("agent-UB")} {
 		got, err := cs.AppsV1().Deployments("personal-agents").Get(context.Background(), name, metav1.GetOptions{})
 		if err != nil {
 			t.Fatalf("get %s: %v", name, err)
@@ -147,7 +149,7 @@ func TestReconcilePersonalAgentImages_SkipsWhenInitContainerAlreadyPresent(t *te
 		t.Errorf("second pass ImageBumped = %d, want 0 (already on desired image)", result.ImageBumped)
 	}
 	// Sanity: B should not have churned.
-	got, _ := cs.AppsV1().Deployments("personal-agents").Get(context.Background(), personalAgentResourceName("UB"), metav1.GetOptions{})
+	got, _ := cs.AppsV1().Deployments("personal-agents").Get(context.Background(), personalAgentResourceName("agent-UB"), metav1.GetOptions{})
 	if !hasPersonalAgentInitContainer(got) {
 		t.Errorf("B lost its init container between ticks")
 	}
@@ -226,7 +228,7 @@ func TestReconcilePersonalAgentImages_ConvergesSpawnEnvDrift(t *testing.T) {
 	// Isolate env drift from the now-default slack-mcp sidecar (a missing
 	// sidecar would otherwise route this through the full rebuild path).
 	t.Setenv("PERSONAL_AGENT_SLACK_MCP_SIDECAR", "off")
-	name := personalAgentResourceName("UC")
+	name := personalAgentResourceName("agent-UC")
 	dep := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name, Namespace: "personal-agents",
@@ -234,7 +236,7 @@ func TestReconcilePersonalAgentImages_ConvergesSpawnEnvDrift(t *testing.T) {
 				"app.kubernetes.io/managed-by": personalAgentManagedByLabelValue,
 				"bimross.com/agent-id":         "agent-UC",
 			},
-			Annotations: map[string]string{personalAgentAnnoSlackUserID: "UC"},
+			Annotations: map[string]string{personalAgentAnnoSlackUserID: "UC", personalAgentAnnoAgentID: "agent-UC"},
 		},
 		Spec: appsv1.DeploymentSpec{Template: corev1.PodTemplateSpec{Spec: corev1.PodSpec{
 			InitContainers: []corev1.Container{{Name: personalAgentInitContainerName}},
@@ -275,7 +277,7 @@ func TestReconcilePersonalAgentImages_ConvergesSpawnEnvDrift(t *testing.T) {
 func TestReconcilePersonalAgentImages_ConvergesSlackMcpSidecar(t *testing.T) {
 	// Default-on: with no env at all, every owned agent wants the sidecar, so
 	// the attach pass needs no enable lever.
-	name := personalAgentResourceName("UD")
+	name := personalAgentResourceName("agent-UD")
 	// Converged on everything the reconciler checks EXCEPT the slack-mcp
 	// sidecar: matching image, init container, spawn env, and resources. So the
 	// sidecar is the only drift and it must route through the full rebuild path.
@@ -286,7 +288,7 @@ func TestReconcilePersonalAgentImages_ConvergesSlackMcpSidecar(t *testing.T) {
 				"app.kubernetes.io/managed-by": personalAgentManagedByLabelValue,
 				"bimross.com/agent-id":         "agent-UD",
 			},
-			Annotations: map[string]string{personalAgentAnnoSlackUserID: "UD"},
+			Annotations: map[string]string{personalAgentAnnoSlackUserID: "UD", personalAgentAnnoAgentID: "agent-UD"},
 		},
 		Spec: appsv1.DeploymentSpec{Template: corev1.PodTemplateSpec{Spec: corev1.PodSpec{
 			InitContainers: []corev1.Container{{Name: personalAgentInitContainerName}},
@@ -366,7 +368,7 @@ func TestResourceDrift(t *testing.T) {
 // over-reservation without a full re-provision.
 func TestReconcilePersonalAgentImages_ConvergesResourceDrift(t *testing.T) {
 	t.Setenv("PERSONAL_AGENT_SLACK_MCP_SIDECAR", "off")
-	name := personalAgentResourceName("UD")
+	name := personalAgentResourceName("agent-UD")
 	dep := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name, Namespace: "personal-agents",
@@ -374,7 +376,7 @@ func TestReconcilePersonalAgentImages_ConvergesResourceDrift(t *testing.T) {
 				"app.kubernetes.io/managed-by": personalAgentManagedByLabelValue,
 				"bimross.com/agent-id":         "agent-UD",
 			},
-			Annotations: map[string]string{personalAgentAnnoSlackUserID: "UD"},
+			Annotations: map[string]string{personalAgentAnnoSlackUserID: "UD", personalAgentAnnoAgentID: "agent-UD"},
 		},
 		Spec: appsv1.DeploymentSpec{Template: corev1.PodTemplateSpec{Spec: corev1.PodSpec{
 			InitContainers: []corev1.Container{{Name: personalAgentInitContainerName}},
@@ -426,7 +428,7 @@ func TestReconcilePersonalAgentImages_ConvergesResourceDrift(t *testing.T) {
 // counted as an env reconcile.
 func TestReconcilePersonalAgentImages_ScrubsMasterToken(t *testing.T) {
 	t.Setenv("PERSONAL_AGENT_SLACK_MCP_SIDECAR", "off")
-	name := personalAgentResourceName("UE")
+	name := personalAgentResourceName("agent-UE")
 	dep := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name, Namespace: "personal-agents",
@@ -434,7 +436,7 @@ func TestReconcilePersonalAgentImages_ScrubsMasterToken(t *testing.T) {
 				"app.kubernetes.io/managed-by": personalAgentManagedByLabelValue,
 				"bimross.com/agent-id":         "agent-UE",
 			},
-			Annotations: map[string]string{personalAgentAnnoSlackUserID: "UE"},
+			Annotations: map[string]string{personalAgentAnnoSlackUserID: "UE", personalAgentAnnoAgentID: "agent-UE"},
 		},
 		Spec: appsv1.DeploymentSpec{Template: corev1.PodTemplateSpec{Spec: corev1.PodSpec{
 			InitContainers: []corev1.Container{{Name: personalAgentInitContainerName}},
@@ -480,7 +482,7 @@ func TestReconcilePersonalAgentImages_ScrubsMasterToken(t *testing.T) {
 // hanging opus-4-7[1m]. Asserts the key is gone after one pass.
 func TestReconcilePersonalAgentImages_ScrubsDefaultModel(t *testing.T) {
 	t.Setenv("PERSONAL_AGENT_SLACK_MCP_SIDECAR", "off")
-	name := personalAgentResourceName("UF")
+	name := personalAgentResourceName("agent-UF")
 	dep := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name, Namespace: "personal-agents",
@@ -488,7 +490,7 @@ func TestReconcilePersonalAgentImages_ScrubsDefaultModel(t *testing.T) {
 				"app.kubernetes.io/managed-by": personalAgentManagedByLabelValue,
 				"bimross.com/agent-id":         "agent-UF",
 			},
-			Annotations: map[string]string{personalAgentAnnoSlackUserID: "UF"},
+			Annotations: map[string]string{personalAgentAnnoSlackUserID: "UF", personalAgentAnnoAgentID: "agent-UF"},
 		},
 		Spec: appsv1.DeploymentSpec{Template: corev1.PodTemplateSpec{Spec: corev1.PodSpec{
 			InitContainers: []corev1.Container{{Name: personalAgentInitContainerName}},
