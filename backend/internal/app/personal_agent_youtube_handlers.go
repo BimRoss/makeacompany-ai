@@ -176,12 +176,12 @@ func (s *Server) applyPersonalAgentRuntimePrompt(r *http.Request, rec PersonalAg
 		return
 	}
 	rendered := renderPersonalAgentRuntimePrompt(rec)
-	if err := s.personalAgent.PatchAgentSystemPrompt(r.Context(), rec.OwnerSlackUserID, rendered); err != nil {
-		s.log.Printf("patch runtime prompt for %s: %v", rec.OwnerSlackUserID, err)
+	if err := s.personalAgent.PatchAgentSystemPrompt(r.Context(), rec.ID, rendered); err != nil {
+		s.log.Printf("patch runtime prompt for %s: %v", rec.ID, err)
 		return
 	}
-	if err := s.personalAgent.RestartAgentDeployment(r.Context(), rec.OwnerSlackUserID); err != nil {
-		s.log.Printf("restart agent deployment for %s: %v", rec.OwnerSlackUserID, err)
+	if err := s.personalAgent.RestartAgentDeployment(r.Context(), rec.ID); err != nil {
+		s.log.Printf("restart agent deployment for %s: %v", rec.ID, err)
 	}
 }
 

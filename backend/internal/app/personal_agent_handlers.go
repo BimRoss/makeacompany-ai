@@ -334,7 +334,7 @@ func (s *Server) handlePersonalAgentInstallComplete(w http.ResponseWriter, r *ht
 	// route inbound Slack events. Order: Service first (so the gateway has a
 	// stable name to forward to), then Deployment (which produces the
 	// endpoints behind the Service).
-	if err := s.personalAgent.WriteAgentService(r.Context(), rec.OwnerSlackUserID); err != nil {
+	if err := s.personalAgent.WriteAgentService(r.Context(), rec.ID); err != nil {
 		s.log.Printf("personal agent service write: %v", err)
 		_ = s.store.UpdatePersonalAgentStatus(r.Context(), agentID, PersonalAgentStatusFailed)
 		http.Redirect(w, r, "/me?personal_agent_install=failed&reason=service", http.StatusFound)
@@ -343,7 +343,7 @@ func (s *Server) handlePersonalAgentInstallComplete(w http.ResponseWriter, r *ht
 	// Almost always false at install time (Google is connected later from /me),
 	// but check so a re-provision after a connect doesn't strip the sidecar. A
 	// lookup error defaults to no sidecar — safe, the reconciler re-adds it.
-	googleConnected, _ := s.personalAgent.HasGoogleCredentials(r.Context(), rec.OwnerSlackUserID)
+	googleConnected, _ := s.personalAgent.HasGoogleCredentials(r.Context(), rec.ID)
 	if err := s.personalAgent.WriteAgentDeployment(r.Context(), PersonalAgentDeploymentRequest{
 		SlackUserID:              rec.OwnerSlackUserID,
 		OwnerSlackUserID:         rec.OwnerSlackUserID,
@@ -358,7 +358,7 @@ func (s *Server) handlePersonalAgentInstallComplete(w http.ResponseWriter, r *ht
 		return
 	}
 
-	resourceName := personalAgentResourceName(rec.OwnerSlackUserID)
+	resourceName := personalAgentResourceName(rec.ID)
 	if err := s.store.SetPersonalAgentService(r.Context(), agentID, s.personalAgent.AgentNamespace(), resourceName, PersonalAgentServicePort); err != nil {
 		// Non-fatal: pod is up, but the events gateway won't route until this
 		// binding lands. Surface as a soft failure so the user retries.

@@ -83,7 +83,7 @@ func (s *Server) redeployPersonalAgentGoogle(ctx context.Context, rec PersonalAg
 	// silently keeps minting the old token. (Disconnect already rolls the pod
 	// via the spec change that removes the sidecar.)
 	if connected {
-		if err := s.personalAgent.RestartAgentDeployment(ctx, rec.OwnerSlackUserID); err != nil {
+		if err := s.personalAgent.RestartAgentDeployment(ctx, rec.ID); err != nil {
 			return err
 		}
 	}
@@ -120,7 +120,7 @@ func (s *Server) handlePersonalAgentGoogleConnectFinish(w http.ResponseWriter, r
 	}
 
 	if err := s.personalAgent.WriteGoogleCredentials(
-		r.Context(), rec.OwnerSlackUserID, req.Email, clientID, clientSecret, refreshToken,
+		r.Context(), rec.ID, req.Email, clientID, clientSecret, refreshToken,
 	); err != nil {
 		s.log.Printf("personal-agent google connect write failed for owner=%s: %v", rec.OwnerSlackUserID, err)
 		http.Error(w, "failed", http.StatusInternalServerError)
@@ -154,7 +154,7 @@ func (s *Server) handlePersonalAgentGoogleDisconnect(w http.ResponseWriter, r *h
 		return
 	}
 
-	refreshToken, delErr := s.personalAgent.DeleteGoogleCredentials(r.Context(), rec.OwnerSlackUserID)
+	refreshToken, delErr := s.personalAgent.DeleteGoogleCredentials(r.Context(), rec.ID)
 	if delErr != nil {
 		s.log.Printf("personal-agent google disconnect delete failed for owner=%s: %v", rec.OwnerSlackUserID, delErr)
 		http.Error(w, "failed", http.StatusInternalServerError)
@@ -205,13 +205,13 @@ func (s *Server) handlePersonalAgentGoogleStatus(w http.ResponseWriter, r *http.
 	// /token doesn't always return a Google id_token to extract it from), but
 	// the connection — and the sidecar — are live regardless. Keying off email
 	// left the /me chip white after a successful connect.
-	connected, err := s.personalAgent.HasGoogleCredentials(r.Context(), rec.OwnerSlackUserID)
+	connected, err := s.personalAgent.HasGoogleCredentials(r.Context(), rec.ID)
 	if err != nil {
 		s.log.Printf("personal-agent google status read failed for owner=%s: %v", rec.OwnerSlackUserID, err)
 		http.Error(w, "failed", http.StatusInternalServerError)
 		return
 	}
-	email, _ := s.personalAgent.ReadGoogleEmail(r.Context(), rec.OwnerSlackUserID) // cosmetic; best-effort
+	email, _ := s.personalAgent.ReadGoogleEmail(r.Context(), rec.ID) // cosmetic; best-effort
 	writeJSON(w, http.StatusOK, personalAgentGoogleStatusResponse{
 		Connected: connected,
 		Email:     email,

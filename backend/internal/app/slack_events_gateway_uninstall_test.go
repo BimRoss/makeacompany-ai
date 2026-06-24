@@ -39,7 +39,7 @@ func uninstallTestEnv(t *testing.T, signingSecret string) (*Server, *fake.Client
 		DisplayName:        "Ghost",
 		SlackAppID:         "A0GHOST",
 		SlackSigningSecret: signingSecret,
-		ServiceName:        personalAgentResourceName(owner),
+		ServiceName:        personalAgentResourceName("agent-dead-1"),
 		ServiceNamespace:   "personal-agents",
 		ServicePort:        8080,
 		Status:             "installed",
@@ -48,11 +48,13 @@ func uninstallTestEnv(t *testing.T, signingSecret string) (*Server, *fake.Client
 		t.Fatalf("CreatePersonalAgent: %v", err)
 	}
 
-	name := personalAgentResourceName(owner)
+	// #651: per-agent K8s resources are named off the AGENT ID hash, not the
+	// owner's. Seed them under rec.ID so the agent-id-keyed teardown finds them.
+	name := personalAgentResourceName(rec.ID)
 	cs := fake.NewSimpleClientset(
 		&appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "personal-agents"}},
 		&corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "personal-agents"}},
-		&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: personalAgentSecretName(owner), Namespace: "personal-agents"}},
+		&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: personalAgentSecretName(rec.ID), Namespace: "personal-agents"}},
 	)
 	w := newPersonalAgentWriterWithClient(cs, "personal-agents", "", "")
 	srv := &Server{log: log.Default(), personalAgent: w, store: store}
@@ -64,8 +66,8 @@ func uninstallBody(appID string) []byte {
 	return []byte(`{"type":"event_callback","api_app_id":"` + appID + `","event":{"type":"app_uninstalled"}}`)
 }
 
-func deploymentExists(cs *fake.Clientset, owner string) bool {
-	_, err := cs.AppsV1().Deployments("personal-agents").Get(context.Background(), personalAgentResourceName(owner), metav1.GetOptions{})
+func deploymentExists(cs *fake.Clientset, agentID string) bool {
+	_, err := cs.AppsV1().Deployments("personal-agents").Get(context.Background(), personalAgentResourceName(agentID), metav1.GetOptions{})
 	return err == nil
 }
 
@@ -89,12 +91,12 @@ func TestGatewayUninstall_ValidSignatureDeprovisions(t *testing.T) {
 	// Teardown is async; poll briefly for the deployment to disappear.
 	deadline := time.Now().Add(2 * time.Second)
 	for time.Now().Before(deadline) {
-		if !deploymentExists(cs, rec.OwnerSlackUserID) {
+		if !deploymentExists(cs, rec.ID) {
 			break
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
-	if deploymentExists(cs, rec.OwnerSlackUserID) {
+	if deploymentExists(cs, rec.ID) {
 		t.Fatal("deployment still present — deprovision did not run")
 	}
 	// Store record gone too.
@@ -123,7 +125,7 @@ func TestGatewayUninstall_InvalidSignatureRejected(t *testing.T) {
 	// Give any (erroneously spawned) goroutine a moment, then assert nothing
 	// was torn down.
 	time.Sleep(50 * time.Millisecond)
-	if !deploymentExists(cs, rec.OwnerSlackUserID) {
+	if !deploymentExists(cs, rec.ID) {
 		t.Fatal("deployment was deleted on an UNVERIFIED uninstall — spoof guard failed")
 	}
 }
@@ -133,15 +135,15 @@ func TestDeprovisionPersonalAgent_TeardownIsIdempotent(t *testing.T) {
 	defer cleanup()
 	ctx := context.Background()
 
-	if err := srv.deprovisionPersonalAgent(ctx, rec.OwnerSlackUserID, &rec); err != nil {
+	if err := srv.deprovisionPersonalAgent(ctx, rec.ID, &rec); err != nil {
 		t.Fatalf("first deprovision: %v", err)
 	}
-	if deploymentExists(cs, rec.OwnerSlackUserID) {
+	if deploymentExists(cs, rec.ID) {
 		t.Fatal("deployment still present after deprovision")
 	}
 	// Second call (Slack retry shape) must not error even though everything is
 	// already gone.
-	if err := srv.deprovisionPersonalAgent(ctx, rec.OwnerSlackUserID, &rec); err != nil {
+	if err := srv.deprovisionPersonalAgent(ctx, rec.ID, &rec); err != nil {
 		t.Fatalf("second (idempotent) deprovision: %v", err)
 	}
 }

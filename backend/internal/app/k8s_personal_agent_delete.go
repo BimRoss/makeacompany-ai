@@ -14,15 +14,15 @@ import (
 // runtime Secret from the personal-agents namespace. Used by the "delete
 // agent" flow. Each resource is deleted independently; per-resource
 // NotFound is tolerated (idempotent), other errors are surfaced.
-func (w *PersonalAgentWriter) DeleteAgentResources(ctx context.Context, slackUserID string) error {
+func (w *PersonalAgentWriter) DeleteAgentResources(ctx context.Context, agentID string) error {
 	if w.Disabled() {
 		return ErrPersonalAgentWriterDisabled
 	}
-	if strings.TrimSpace(slackUserID) == "" {
-		return errors.New("DeleteAgentResources: slack user id required")
+	if strings.TrimSpace(agentID) == "" {
+		return errors.New("DeleteAgentResources: agent id required")
 	}
-	name := personalAgentResourceName(slackUserID)
-	secretName := personalAgentSecretName(slackUserID)
+	name := personalAgentResourceName(agentID)
+	secretName := personalAgentSecretName(agentID)
 
 	var problems []string
 

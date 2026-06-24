@@ -51,7 +51,7 @@ func (s *Server) handlePersonalAgentIconCurrent(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	botToken, err := s.personalAgent.ReadAgentBotToken(r.Context(), rec.OwnerSlackUserID)
+	botToken, err := s.personalAgent.ReadAgentBotToken(r.Context(), rec.ID)
 	if err != nil {
 		s.log.Printf("icon-current: read bot token: %v", err)
 		writeJSON(w, http.StatusOK, map[string]string{"imageUrl": ""})

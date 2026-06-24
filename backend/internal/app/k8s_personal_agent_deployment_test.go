@@ -26,7 +26,7 @@ func TestWriteAgentDeployment_SlackMcpSidecar(t *testing.T) {
 		if err := w.WriteAgentDeployment(ctx, req); err != nil {
 			t.Fatalf("WriteAgentDeployment: %v", err)
 		}
-		spec := mustGetPodSpec(t, cs, req.SlackUserID)
+		spec := mustGetPodSpec(t, cs, req.AgentID)
 		for _, c := range spec.Containers {
 			if c.Name == personalAgentSlackMcpContainerName {
 				t.Fatalf("slack-mcp sidecar present with kill-switch off")
@@ -45,7 +45,7 @@ func TestWriteAgentDeployment_SlackMcpSidecar(t *testing.T) {
 		if err := w.WriteAgentDeployment(ctx, req); err != nil {
 			t.Fatalf("WriteAgentDeployment: %v", err)
 		}
-		spec := mustGetPodSpec(t, cs, req.SlackUserID)
+		spec := mustGetPodSpec(t, cs, req.AgentID)
 
 		var sidecar *corev1.Container
 		for i := range spec.Containers {
@@ -71,8 +71,8 @@ func TestWriteAgentDeployment_SlackMcpSidecar(t *testing.T) {
 		if got := xoxb.ValueFrom.SecretKeyRef.Key; got != "PERSONAL_SLACK_BOT_TOKEN" {
 			t.Errorf("xoxb key = %q, want PERSONAL_SLACK_BOT_TOKEN", got)
 		}
-		if got := xoxb.ValueFrom.SecretKeyRef.Name; got != personalAgentSecretName(req.SlackUserID) {
-			t.Errorf("xoxb secret = %q, want %q", got, personalAgentSecretName(req.SlackUserID))
+		if got := xoxb.ValueFrom.SecretKeyRef.Name; got != personalAgentSecretName(req.AgentID) {
+			t.Errorf("xoxb secret = %q, want %q", got, personalAgentSecretName(req.AgentID))
 		}
 		if xoxb.Value != "" {
 			t.Errorf("xoxb has inline Value %q, must be secretKeyRef only", xoxb.Value)
@@ -97,10 +97,13 @@ func TestWriteAgentDeployment_SlackMcpSidecar(t *testing.T) {
 			r := req
 			r.SlackUserID = slackUserID
 			r.OwnerSlackUserID = slackUserID
+			// Distinct agent id per owner so resource names don't collide; the
+			// slack-mcp kill-switch is still keyed off the owner's slack user id.
+			r.AgentID = "agent-" + slackUserID
 			if err := w.WriteAgentDeployment(ctx, r); err != nil {
 				t.Fatalf("WriteAgentDeployment: %v", err)
 			}
-			for _, c := range mustGetPodSpec(t, cs, slackUserID).Containers {
+			for _, c := range mustGetPodSpec(t, cs, r.AgentID).Containers {
 				if c.Name == personalAgentSlackMcpContainerName {
 					return true
 				}
@@ -119,9 +122,9 @@ func TestWriteAgentDeployment_SlackMcpSidecar(t *testing.T) {
 	})
 }
 
-func mustGetPodSpec(t *testing.T, cs *fake.Clientset, slackUserID string) corev1.PodSpec {
+func mustGetPodSpec(t *testing.T, cs *fake.Clientset, agentID string) corev1.PodSpec {
 	t.Helper()
-	dep, err := cs.AppsV1().Deployments("personal-agents").Get(context.Background(), personalAgentResourceName(slackUserID), metav1.GetOptions{})
+	dep, err := cs.AppsV1().Deployments("personal-agents").Get(context.Background(), personalAgentResourceName(agentID), metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("get deployment: %v", err)
 	}
@@ -142,7 +145,7 @@ func TestWriteAgentDeployment_CreatesDeployment(t *testing.T) {
 	if err := w.WriteAgentDeployment(ctx, req); err != nil {
 		t.Fatalf("WriteAgentDeployment: %v", err)
 	}
-	name := personalAgentResourceName(req.SlackUserID)
+	name := personalAgentResourceName(req.AgentID)
 	dep, err := cs.AppsV1().Deployments("personal-agents").Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("get deployment: %v", err)
@@ -151,7 +154,7 @@ func TestWriteAgentDeployment_CreatesDeployment(t *testing.T) {
 	if c.Image != req.Image {
 		t.Errorf("image = %q, want %q", c.Image, req.Image)
 	}
-	if c.EnvFrom[0].SecretRef.Name != personalAgentSecretName(req.SlackUserID) {
+	if c.EnvFrom[0].SecretRef.Name != personalAgentSecretName(req.AgentID) {
 		t.Errorf("envFrom secret = %q", c.EnvFrom[0].SecretRef.Name)
 	}
 	// The reflected shared OAuth pool must be envFrom'd AFTER the per-agent
@@ -212,22 +215,23 @@ func TestWriteAgentDeployment_CreatesDeployment(t *testing.T) {
 func TestWriteAgentDeployment_GoogleSidecarOptIn(t *testing.T) {
 	ctx := context.Background()
 	uid := "U0APBT3364D"
+	aid := "agent-google"
 
 	// This test isolates the Google (gws) sidecar, so disable the now-default
 	// slack-mcp sidecar to keep container counts about Google only.
 	t.Setenv("PERSONAL_AGENT_SLACK_MCP_SIDECAR", "off")
 
-	// Not connected: no sidecar, no per-owner SA, no Google env on the main
-	// container — zero cost for owners who haven't connected Google.
+	// Not connected: no sidecar, no per-agent SA, no Google env on the main
+	// container — zero cost for agents that haven't connected Google.
 	t.Run("disconnected has no sidecar", func(t *testing.T) {
 		cs := fake.NewSimpleClientset()
 		w := newPersonalAgentWriterWithClient(cs, "personal-agents", "", "")
 		if err := w.WriteAgentDeployment(ctx, PersonalAgentDeploymentRequest{
-			SlackUserID: uid, OwnerSlackUserID: uid, Image: "img:1",
+			SlackUserID: uid, OwnerSlackUserID: uid, AgentID: aid, Image: "img:1",
 		}); err != nil {
 			t.Fatalf("WriteAgentDeployment: %v", err)
 		}
-		dep, err := cs.AppsV1().Deployments("personal-agents").Get(ctx, personalAgentResourceName(uid), metav1.GetOptions{})
+		dep, err := cs.AppsV1().Deployments("personal-agents").Get(ctx, personalAgentResourceName(aid), metav1.GetOptions{})
 		if err != nil {
 			t.Fatalf("get deployment: %v", err)
 		}
@@ -251,19 +255,19 @@ func TestWriteAgentDeployment_GoogleSidecarOptIn(t *testing.T) {
 		cs := fake.NewSimpleClientset()
 		w := newPersonalAgentWriterWithClient(cs, "personal-agents", "", "")
 		if err := w.WriteAgentDeployment(ctx, PersonalAgentDeploymentRequest{
-			SlackUserID: uid, OwnerSlackUserID: uid, Image: "img:1",
+			SlackUserID: uid, OwnerSlackUserID: uid, AgentID: aid, Image: "img:1",
 			GoogleWorkspaceConnected: true,
 		}); err != nil {
 			t.Fatalf("WriteAgentDeployment: %v", err)
 		}
-		dep, err := cs.AppsV1().Deployments("personal-agents").Get(ctx, personalAgentResourceName(uid), metav1.GetOptions{})
+		dep, err := cs.AppsV1().Deployments("personal-agents").Get(ctx, personalAgentResourceName(aid), metav1.GetOptions{})
 		if err != nil {
 			t.Fatalf("get deployment: %v", err)
 		}
 		spec := dep.Spec.Template.Spec
 
-		if spec.ServiceAccountName != personalAgentGwsSidecarSAName(uid) {
-			t.Errorf("ServiceAccountName = %q, want %q", spec.ServiceAccountName, personalAgentGwsSidecarSAName(uid))
+		if spec.ServiceAccountName != personalAgentGwsSidecarSAName(aid) {
+			t.Errorf("ServiceAccountName = %q, want %q", spec.ServiceAccountName, personalAgentGwsSidecarSAName(aid))
 		}
 
 		var sidecarFound bool
@@ -293,8 +297,8 @@ func TestWriteAgentDeployment_GoogleSidecarOptIn(t *testing.T) {
 		if !sidecarFound {
 			t.Fatalf("sidecar container %q not attached", personalAgentGwsSidecarContainerName)
 		}
-		if secretEnv != personalAgentGoogleSecretName(uid) {
-			t.Errorf("sidecar SECRET_NAME = %q, want %q", secretEnv, personalAgentGoogleSecretName(uid))
+		if secretEnv != personalAgentGoogleSecretName(aid) {
+			t.Errorf("sidecar SECRET_NAME = %q, want %q", secretEnv, personalAgentGoogleSecretName(aid))
 		}
 
 		// Main container points at the in-pod sidecar.
@@ -312,7 +316,7 @@ func TestWriteAgentDeployment_GoogleSidecarOptIn(t *testing.T) {
 		// Bootstrap Secret volume references this owner's Secret.
 		var found bool
 		for _, v := range spec.Volumes {
-			if v.Name == "oauth-bootstrap" && v.Secret != nil && v.Secret.SecretName == personalAgentGoogleSecretName(uid) {
+			if v.Name == "oauth-bootstrap" && v.Secret != nil && v.Secret.SecretName == personalAgentGoogleSecretName(aid) {
 				found = true
 			}
 		}
@@ -336,7 +340,7 @@ func TestWriteAgentDeployment_PersistsWorkspaceViaHostPath(t *testing.T) {
 	if err := w.WriteAgentDeployment(ctx, req); err != nil {
 		t.Fatalf("WriteAgentDeployment: %v", err)
 	}
-	name := personalAgentResourceName(req.SlackUserID)
+	name := personalAgentResourceName(req.AgentID)
 	dep, err := cs.AppsV1().Deployments("personal-agents").Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("get: %v", err)
@@ -386,7 +390,7 @@ func TestWriteAgentDeployment_UpdatesExisting(t *testing.T) {
 	if err := w.WriteAgentDeployment(ctx, req); err != nil {
 		t.Fatalf("second write: %v", err)
 	}
-	name := personalAgentResourceName(req.SlackUserID)
+	name := personalAgentResourceName(req.AgentID)
 	dep, err := cs.AppsV1().Deployments("personal-agents").Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("get: %v", err)
@@ -410,7 +414,7 @@ func TestWriteAgentDeployment_AddsChownInitContainer(t *testing.T) {
 	if err := w.WriteAgentDeployment(ctx, req); err != nil {
 		t.Fatalf("WriteAgentDeployment: %v", err)
 	}
-	name := personalAgentResourceName(req.SlackUserID)
+	name := personalAgentResourceName(req.AgentID)
 	dep, err := cs.AppsV1().Deployments("personal-agents").Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("get: %v", err)
@@ -442,9 +446,12 @@ func TestWriteAgentDeployment_RejectsEmpty(t *testing.T) {
 	cs := fake.NewSimpleClientset()
 	w := newPersonalAgentWriterWithClient(cs, "personal-agents", "", "")
 	if err := w.WriteAgentDeployment(context.Background(), PersonalAgentDeploymentRequest{Image: "x"}); err == nil {
+		t.Fatal("expected error on missing agent id")
+	}
+	if err := w.WriteAgentDeployment(context.Background(), PersonalAgentDeploymentRequest{AgentID: "a1", Image: "x"}); err == nil {
 		t.Fatal("expected error on missing slack user id")
 	}
-	if err := w.WriteAgentDeployment(context.Background(), PersonalAgentDeploymentRequest{SlackUserID: "U1"}); err == nil {
+	if err := w.WriteAgentDeployment(context.Background(), PersonalAgentDeploymentRequest{AgentID: "a1", SlackUserID: "U1"}); err == nil {
 		t.Fatal("expected error on missing image")
 	}
 }
@@ -453,10 +460,10 @@ func TestWriteAgentService_CreatesService(t *testing.T) {
 	cs := fake.NewSimpleClientset()
 	w := newPersonalAgentWriterWithClient(cs, "personal-agents", "", "")
 	ctx := context.Background()
-	if err := w.WriteAgentService(ctx, "U0APBT3364D"); err != nil {
+	if err := w.WriteAgentService(ctx, "agent-abc"); err != nil {
 		t.Fatalf("WriteAgentService: %v", err)
 	}
-	name := personalAgentResourceName("U0APBT3364D")
+	name := personalAgentResourceName("agent-abc")
 	svc, err := cs.CoreV1().Services("personal-agents").Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("get service: %v", err)
@@ -472,8 +479,8 @@ func TestWriteAgentService_CreatesService(t *testing.T) {
 func TestPersonalAgentResourceName_MatchesSecretPrefix(t *testing.T) {
 	// Sanity: secret name = resource name + suffix. If anyone changes one
 	// without the other, the Deployment's envFrom would point at the wrong key.
-	name := personalAgentResourceName("U0APBT3364D")
-	secret := personalAgentSecretName("U0APBT3364D")
+	name := personalAgentResourceName("agent-abc")
+	secret := personalAgentSecretName("agent-abc")
 	if secret != name+"-runtime-secrets" {
 		t.Errorf("name shape drift: name=%q secret=%q", name, secret)
 	}

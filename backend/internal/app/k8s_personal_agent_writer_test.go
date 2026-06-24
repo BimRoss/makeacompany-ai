@@ -11,16 +11,42 @@ import (
 )
 
 func TestPersonalAgentSecretName_Deterministic(t *testing.T) {
-	n1 := personalAgentSecretName("U0APBT3364D")
-	n2 := personalAgentSecretName("U0APBT3364D")
+	n1 := personalAgentSecretName("agent-abc")
+	n2 := personalAgentSecretName("agent-abc")
 	if n1 != n2 {
 		t.Fatalf("name not deterministic: %q vs %q", n1, n2)
 	}
 	if !strings.HasPrefix(n1, "personal-agent-") || !strings.HasSuffix(n1, "-runtime-secrets") {
 		t.Errorf("unexpected name shape: %q", n1)
 	}
-	if n1 == personalAgentSecretName("U0OTHER") {
+	if n1 == personalAgentSecretName("agent-other") {
 		t.Errorf("different inputs produced same name")
+	}
+}
+
+// #651: the whole point of keying on agent id. Two agents owned by the SAME
+// Slack user must produce DISTINCT resource / secret / google-secret / SA
+// names so one owner can hold multiple agents without collisions.
+func TestPersonalAgentNames_DistinctPerAgentSameOwner(t *testing.T) {
+	// Same agent id → stable names.
+	if personalAgentResourceName("agent-1") != personalAgentResourceName("agent-1") {
+		t.Fatal("resource name not stable for the same agent id")
+	}
+	// Different agent ids (would be the same owner in practice) → distinct names
+	// across every per-agent resource family.
+	pairs := []struct {
+		name     string
+		a, b     string
+	}{
+		{"resource", personalAgentResourceName("agent-1"), personalAgentResourceName("agent-2")},
+		{"runtime secret", personalAgentSecretName("agent-1"), personalAgentSecretName("agent-2")},
+		{"google secret", personalAgentGoogleSecretName("agent-1"), personalAgentGoogleSecretName("agent-2")},
+		{"gws sidecar SA", personalAgentGwsSidecarSAName("agent-1"), personalAgentGwsSidecarSAName("agent-2")},
+	}
+	for _, p := range pairs {
+		if p.a == p.b {
+			t.Errorf("%s name collided for distinct agent ids: %q == %q", p.name, p.a, p.b)
+		}
 	}
 }
 
@@ -34,12 +60,13 @@ func TestWriteAgentRuntimeSecret_CreatesSecret(t *testing.T) {
 		SlackAppID:    "A0GARTH",
 		BotToken:      "xoxb-test",
 		SigningSecret: "sig-test",
+		AgentID:       "agent-abc",
 	}
 	if err := w.WriteAgentRuntimeSecret(ctx, req); err != nil {
 		t.Fatalf("WriteAgentRuntimeSecret: %v", err)
 	}
 
-	name := personalAgentSecretName(req.SlackUserID)
+	name := personalAgentSecretName(req.AgentID)
 	got, err := cs.CoreV1().Secrets("personal-agents").Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("get secret: %v", err)
@@ -52,6 +79,13 @@ func TestWriteAgentRuntimeSecret_CreatesSecret(t *testing.T) {
 	}
 	if got.StringData["PERSONAL_SLACK_SIGNING_SECRET"] != "sig-test" {
 		t.Errorf("PERSONAL_SLACK_SIGNING_SECRET = %q, want sig-test", got.StringData["PERSONAL_SLACK_SIGNING_SECRET"])
+	}
+	// agent-id is the authoritative key; slack-user-id stays for owner attribution.
+	if got.Annotations[personalAgentAnnoAgentID] != "agent-abc" {
+		t.Errorf("agent-id annotation missing/wrong: %q", got.Annotations[personalAgentAnnoAgentID])
+	}
+	if got.Labels[personalAgentLabelAgentID] != "agent-abc" {
+		t.Errorf("agent-id label missing/wrong: %q", got.Labels[personalAgentLabelAgentID])
 	}
 	if got.Annotations[personalAgentAnnoSlackUserID] != "U0APBT3364D" {
 		t.Errorf("slack-user-id annotation missing/wrong: %q", got.Annotations[personalAgentAnnoSlackUserID])
@@ -73,11 +107,12 @@ func TestWriteAgentRuntimeSecret_NeverWritesClaudeOAuthPool(t *testing.T) {
 		SlackAppID:    "A0GARTH",
 		BotToken:      "xoxb-test",
 		SigningSecret: "sig-test",
+		AgentID:       "agent-abc",
 	}
 	if err := w.WriteAgentRuntimeSecret(ctx, req); err != nil {
 		t.Fatalf("WriteAgentRuntimeSecret: %v", err)
 	}
-	name := personalAgentSecretName(req.SlackUserID)
+	name := personalAgentSecretName(req.AgentID)
 	got, err := cs.CoreV1().Secrets("personal-agents").Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("get: %v", err)
@@ -102,6 +137,7 @@ func TestWriteAgentRuntimeSecret_UpdatesExisting(t *testing.T) {
 		SlackAppID:    "A0GARTH",
 		BotToken:      "xoxb-1",
 		SigningSecret: "sig-1",
+		AgentID:       "agent-abc",
 	}
 	if err := w.WriteAgentRuntimeSecret(ctx, req); err != nil {
 		t.Fatalf("first write: %v", err)
@@ -111,7 +147,7 @@ func TestWriteAgentRuntimeSecret_UpdatesExisting(t *testing.T) {
 	if err := w.WriteAgentRuntimeSecret(ctx, req); err != nil {
 		t.Fatalf("second write (update): %v", err)
 	}
-	name := personalAgentSecretName(req.SlackUserID)
+	name := personalAgentSecretName(req.AgentID)
 	got, err := cs.CoreV1().Secrets("personal-agents").Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("get secret: %v", err)
@@ -128,9 +164,15 @@ func TestWriteAgentRuntimeSecret_RejectsEmpty(t *testing.T) {
 	ctx := context.Background()
 
 	if err := w.WriteAgentRuntimeSecret(ctx, PersonalAgentRuntimeSecretRequest{}); err == nil {
+		t.Fatal("expected error on empty agent id")
+	}
+	if err := w.WriteAgentRuntimeSecret(ctx, PersonalAgentRuntimeSecretRequest{
+		AgentID: "agent-abc",
+	}); err == nil {
 		t.Fatal("expected error on empty slack user id")
 	}
 	if err := w.WriteAgentRuntimeSecret(ctx, PersonalAgentRuntimeSecretRequest{
+		AgentID:     "agent-abc",
 		SlackUserID: "U1",
 	}); err == nil {
 		t.Fatal("expected error on missing bot token / signing secret")

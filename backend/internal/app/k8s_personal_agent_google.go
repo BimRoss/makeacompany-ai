@@ -45,21 +45,22 @@ const (
 // references the SA — the ServiceAccount admission controller rejects a pod
 // that names a non-existent ServiceAccount, so connect ordering is:
 // EnsureGoogleSidecarRBAC → WriteGoogleCredentials → WriteAgentDeployment(connected).
-func (w *PersonalAgentWriter) EnsureGoogleSidecarRBAC(ctx context.Context, slackUserID string) error {
+func (w *PersonalAgentWriter) EnsureGoogleSidecarRBAC(ctx context.Context, agentID string) error {
 	if w.Disabled() {
 		return ErrPersonalAgentWriterDisabled
 	}
-	if strings.TrimSpace(slackUserID) == "" {
-		return errors.New("EnsureGoogleSidecarRBAC: slack user id empty")
+	if strings.TrimSpace(agentID) == "" {
+		return errors.New("EnsureGoogleSidecarRBAC: agent id empty")
 	}
-	name := personalAgentGwsSidecarSAName(slackUserID)
-	secretName := personalAgentGoogleSecretName(slackUserID)
+	name := personalAgentGwsSidecarSAName(agentID)
+	secretName := personalAgentGoogleSecretName(agentID)
 	ns := w.agentNamespace
 	labels := map[string]string{
 		"app.kubernetes.io/managed-by": personalAgentManagedByLabelValue,
 		"bimross.com/integration":      personalAgentIntegrationLabel,
+		personalAgentLabelAgentID:      strings.TrimSpace(agentID),
 	}
-	anno := map[string]string{personalAgentAnnoSlackUserID: strings.TrimSpace(slackUserID)}
+	anno := map[string]string{personalAgentAnnoAgentID: strings.TrimSpace(agentID)}
 
 	sa := &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: ns, Labels: labels, Annotations: anno},
@@ -104,22 +105,22 @@ func (w *PersonalAgentWriter) EnsureGoogleSidecarRBAC(ctx context.Context, slack
 // after ensuring the sidecar RBAC exists. googleEmail is recorded as an
 // annotation. The caller flips the Deployment to GoogleWorkspaceConnected
 // afterwards (a pod restart mounts the Secret into the sidecar).
-func (w *PersonalAgentWriter) WriteGoogleCredentials(ctx context.Context, slackUserID, googleEmail, clientID, clientSecret, refreshToken string) error {
+func (w *PersonalAgentWriter) WriteGoogleCredentials(ctx context.Context, agentID, googleEmail, clientID, clientSecret, refreshToken string) error {
 	if w.Disabled() {
 		return ErrPersonalAgentWriterDisabled
 	}
-	slackUserID = strings.TrimSpace(slackUserID)
-	if slackUserID == "" {
-		return errors.New("WriteGoogleCredentials: slack user id empty")
+	agentID = strings.TrimSpace(agentID)
+	if agentID == "" {
+		return errors.New("WriteGoogleCredentials: agent id empty")
 	}
 	if strings.TrimSpace(clientID) == "" || strings.TrimSpace(clientSecret) == "" || strings.TrimSpace(refreshToken) == "" {
 		return errors.New("WriteGoogleCredentials: client_id + client_secret + refresh_token required")
 	}
-	if err := w.EnsureGoogleSidecarRBAC(ctx, slackUserID); err != nil {
+	if err := w.EnsureGoogleSidecarRBAC(ctx, agentID); err != nil {
 		return err
 	}
 
-	name := personalAgentGoogleSecretName(slackUserID)
+	name := personalAgentGoogleSecretName(agentID)
 	ns := w.agentNamespace
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -128,9 +129,10 @@ func (w *PersonalAgentWriter) WriteGoogleCredentials(ctx context.Context, slackU
 			Labels: map[string]string{
 				"app.kubernetes.io/managed-by": personalAgentManagedByLabelValue,
 				"bimross.com/integration":      personalAgentIntegrationLabel,
+				personalAgentLabelAgentID:      agentID,
 			},
 			Annotations: map[string]string{
-				personalAgentAnnoSlackUserID:       slackUserID,
+				personalAgentAnnoAgentID:           agentID,
 				personalAgentGoogleAnnoEmail:       strings.ToLower(strings.TrimSpace(googleEmail)),
 				personalAgentGoogleAnnoConnectedAt: time.Now().UTC().Format(time.RFC3339),
 			},
@@ -161,14 +163,14 @@ func (w *PersonalAgentWriter) WriteGoogleCredentials(ctx context.Context, slackU
 // ReadGoogleEmail returns the Google account recorded on the per-owner Secret,
 // or "" if the owner hasn't connected. Used by the /me status panel and to
 // stamp AGENT_GOOGLE_EMAIL onto the pod.
-func (w *PersonalAgentWriter) ReadGoogleEmail(ctx context.Context, slackUserID string) (string, error) {
+func (w *PersonalAgentWriter) ReadGoogleEmail(ctx context.Context, agentID string) (string, error) {
 	if w.Disabled() {
 		return "", nil
 	}
-	if strings.TrimSpace(slackUserID) == "" {
-		return "", errors.New("ReadGoogleEmail: slack user id empty")
+	if strings.TrimSpace(agentID) == "" {
+		return "", errors.New("ReadGoogleEmail: agent id empty")
 	}
-	name := personalAgentGoogleSecretName(slackUserID)
+	name := personalAgentGoogleSecretName(agentID)
 	sec, err := w.cs.CoreV1().Secrets(w.agentNamespace).Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
@@ -184,16 +186,16 @@ func (w *PersonalAgentWriter) ReadGoogleEmail(ctx context.Context, slackUserID s
 // best-effort revoke it before the only copy is gone. Idempotent — NotFound on
 // any object is fine. The caller flips the Deployment to disconnected
 // afterwards (a pod restart drops the sidecar).
-func (w *PersonalAgentWriter) DeleteGoogleCredentials(ctx context.Context, slackUserID string) (refreshToken string, err error) {
+func (w *PersonalAgentWriter) DeleteGoogleCredentials(ctx context.Context, agentID string) (refreshToken string, err error) {
 	if w.Disabled() {
 		return "", ErrPersonalAgentWriterDisabled
 	}
-	if strings.TrimSpace(slackUserID) == "" {
-		return "", errors.New("DeleteGoogleCredentials: slack user id empty")
+	if strings.TrimSpace(agentID) == "" {
+		return "", errors.New("DeleteGoogleCredentials: agent id empty")
 	}
 	ns := w.agentNamespace
-	secretName := personalAgentGoogleSecretName(slackUserID)
-	rbacName := personalAgentGwsSidecarSAName(slackUserID)
+	secretName := personalAgentGoogleSecretName(agentID)
+	rbacName := personalAgentGwsSidecarSAName(agentID)
 
 	// Read the refresh_token first so the caller can revoke it at the gateway/
 	// Google before we drop our only copy.

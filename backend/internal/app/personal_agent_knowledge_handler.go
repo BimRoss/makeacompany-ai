@@ -91,12 +91,12 @@ func (s *Server) handleBackfillPersonalAgentKnowledgeTokens(w http.ResponseWrite
 			k8sSkipped++
 			continue
 		}
-		if err := s.personalAgent.PatchAgentKnowledgeEnv(ctx, rec.OwnerSlackUserID, rec.ID, token, s.personalAgentAPIBase()); err != nil {
+		if err := s.personalAgent.PatchAgentKnowledgeEnv(ctx, rec.ID, token, s.personalAgentAPIBase()); err != nil {
 			s.log.Printf("patch knowledge env for %s: %v", rec.ID, err)
 			k8sFailed++
 			continue
 		}
-		if err := s.personalAgent.RestartAgentDeployment(ctx, rec.OwnerSlackUserID); err != nil {
+		if err := s.personalAgent.RestartAgentDeployment(ctx, rec.ID); err != nil {
 			s.log.Printf("restart agent after knowledge env backfill for %s: %v", rec.ID, err)
 		}
 	}

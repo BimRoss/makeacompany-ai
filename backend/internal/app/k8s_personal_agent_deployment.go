@@ -144,16 +144,20 @@ func (w *PersonalAgentWriter) WriteAgentDeployment(ctx context.Context, req Pers
 	if w.Disabled() {
 		return ErrPersonalAgentWriterDisabled
 	}
+	if strings.TrimSpace(req.AgentID) == "" {
+		return errors.New("WriteAgentDeployment: agent id required")
+	}
 	if strings.TrimSpace(req.SlackUserID) == "" || strings.TrimSpace(req.Image) == "" {
 		return errors.New("WriteAgentDeployment: slack user id + image required")
 	}
-	name := personalAgentResourceName(req.SlackUserID)
-	secretName := personalAgentSecretName(req.SlackUserID)
+	agentID := strings.TrimSpace(req.AgentID)
+	name := personalAgentResourceName(agentID)
+	secretName := personalAgentSecretName(agentID)
 	labels := map[string]string{
 		"app.kubernetes.io/managed-by": personalAgentManagedByLabelValue,
 		"app.kubernetes.io/name":       name,
 		"bimross.com/integration":      personalAgentIntegrationLabel,
-		"bimross.com/agent-id":         strings.TrimSpace(req.AgentID),
+		personalAgentLabelAgentID:      agentID,
 	}
 	replicas := int32(1)
 	dep := &appsv1.Deployment{
@@ -162,7 +166,11 @@ func (w *PersonalAgentWriter) WriteAgentDeployment(ctx context.Context, req Pers
 			Namespace: w.agentNamespace,
 			Labels:    labels,
 			Annotations: map[string]string{
-				personalAgentAnnoSlackUserID: req.SlackUserID,
+				// agent-id is the authoritative identity the control loops
+				// resolve resources by (#651); slack-user-id stays for owner
+				// attribution only.
+				personalAgentAnnoAgentID:     agentID,
+				personalAgentAnnoSlackUserID: strings.TrimSpace(req.SlackUserID),
 			},
 		},
 		Spec: appsv1.DeploymentSpec{
@@ -298,13 +306,13 @@ func (w *PersonalAgentWriter) WriteAgentDeployment(ctx context.Context, req Pers
 		// that Secret (provisioned alongside the Secret by the credential
 		// writer). The SA token is mounted in the main container too, but it
 		// can only get+patch this owner's own OAuth Secret.
-		tmpl.ServiceAccountName = personalAgentGwsSidecarSAName(req.SlackUserID)
+		tmpl.ServiceAccountName = personalAgentGwsSidecarSAName(agentID)
 		tmpl.Containers[0].Env = append(tmpl.Containers[0].Env, personalAgentGoogleEnv()...)
 		if email := strings.TrimSpace(req.GoogleEmail); email != "" {
 			tmpl.Containers[0].Env = append(tmpl.Containers[0].Env, corev1.EnvVar{Name: "AGENT_GOOGLE_EMAIL", Value: email})
 		}
-		tmpl.Containers = append(tmpl.Containers, personalAgentGwsSidecar(req.SlackUserID))
-		tmpl.Volumes = append(tmpl.Volumes, personalAgentGwsVolumes(req.SlackUserID)...)
+		tmpl.Containers = append(tmpl.Containers, personalAgentGwsSidecar(agentID))
+		tmpl.Volumes = append(tmpl.Volumes, personalAgentGwsVolumes(agentID)...)
 	}
 
 	// Attach the per-owner slack-mcp sidecar (makeacompany-ai#665 WS2). Every
@@ -318,7 +326,9 @@ func (w *PersonalAgentWriter) WriteAgentDeployment(ctx context.Context, req Pers
 	if personalAgentSlackMcpEnabled(req.SlackUserID) {
 		tmpl := &dep.Spec.Template.Spec
 		tmpl.Containers[0].Env = append(tmpl.Containers[0].Env, personalAgentSlackEnv()...)
-		tmpl.Containers = append(tmpl.Containers, personalAgentSlackMcpSidecar(req.SlackUserID))
+		// The sidecar reads its xoxb from this agent's runtime Secret, so it must
+		// reference the agent-id-keyed Secret name (#651), not the owner's.
+		tmpl.Containers = append(tmpl.Containers, personalAgentSlackMcpSidecar(agentID))
 	}
 
 	_, err := w.cs.AppsV1().Deployments(w.agentNamespace).Create(ctx, dep, metav1.CreateOptions{})
@@ -339,14 +349,14 @@ func (w *PersonalAgentWriter) WriteAgentDeployment(ctx context.Context, req Pers
 
 // WriteAgentService creates (or updates) the per-agent ClusterIP Service the
 // events gateway forwards to.
-func (w *PersonalAgentWriter) WriteAgentService(ctx context.Context, slackUserID string) error {
+func (w *PersonalAgentWriter) WriteAgentService(ctx context.Context, agentID string) error {
 	if w.Disabled() {
 		return ErrPersonalAgentWriterDisabled
 	}
-	if strings.TrimSpace(slackUserID) == "" {
-		return errors.New("WriteAgentService: slack user id required")
+	if strings.TrimSpace(agentID) == "" {
+		return errors.New("WriteAgentService: agent id required")
 	}
-	name := personalAgentResourceName(slackUserID)
+	name := personalAgentResourceName(agentID)
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -506,8 +516,8 @@ func personalAgentGoogleEnv() []corev1.EnvVar {
 	}
 }
 
-// personalAgentGwsSidecar builds the per-owner gws-mcp-token-sidecar container.
-func personalAgentGwsSidecar(slackUserID string) corev1.Container {
+// personalAgentGwsSidecar builds the per-agent gws-mcp-token-sidecar container.
+func personalAgentGwsSidecar(agentID string) corev1.Container {
 	return corev1.Container{
 		Name:            personalAgentGwsSidecarContainerName,
 		Image:           personalAgentGwsSidecarImage,
@@ -518,7 +528,7 @@ func personalAgentGwsSidecar(slackUserID string) corev1.Container {
 			{Name: "CLIENT_SECRET_FILE", Value: "/etc/oauth/client_secret"},
 			{Name: "REFRESH_TOKEN_BOOTSTRAP_FILE", Value: "/etc/oauth/refresh_token"},
 			{Name: "REFRESH_TOKEN_CURRENT_FILE", Value: "/var/oauth/refresh_token"},
-			{Name: "SECRET_NAME", Value: personalAgentGoogleSecretName(slackUserID)},
+			{Name: "SECRET_NAME", Value: personalAgentGoogleSecretName(agentID)},
 		},
 		Ports: []corev1.ContainerPort{{
 			Name:          "mint",
@@ -555,18 +565,18 @@ func personalAgentGwsSidecar(slackUserID string) corev1.Container {
 	}
 }
 
-// personalAgentGwsVolumes returns the sidecar's two volumes: the per-owner
+// personalAgentGwsVolumes returns the sidecar's two volumes: the per-agent
 // bootstrap Secret (RO) and a small writable scratch for the rotated token
 // (preferred over bootstrap on boot; the sidecar also PATCHes the Secret as
 // cold-start backup).
-func personalAgentGwsVolumes(slackUserID string) []corev1.Volume {
+func personalAgentGwsVolumes(agentID string) []corev1.Volume {
 	scratchLimit := resource.MustParse("1Mi")
 	return []corev1.Volume{
 		{
 			Name: "oauth-bootstrap",
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
-					SecretName: personalAgentGoogleSecretName(slackUserID),
+					SecretName: personalAgentGoogleSecretName(agentID),
 				},
 			},
 		},
@@ -663,8 +673,8 @@ func personalAgentSlackEnv() []corev1.EnvVar {
 	}
 }
 
-// personalAgentSlackMcpSidecar builds the per-owner slack-mcp sidecar container.
-func personalAgentSlackMcpSidecar(slackUserID string) corev1.Container {
+// personalAgentSlackMcpSidecar builds the per-agent slack-mcp sidecar container.
+func personalAgentSlackMcpSidecar(agentID string) corev1.Container {
 	return corev1.Container{
 		Name:            personalAgentSlackMcpContainerName,
 		Image:           personalAgentSlackMcpImage,
@@ -676,7 +686,7 @@ func personalAgentSlackMcpSidecar(slackUserID string) corev1.Container {
 			// (not envFrom — the sidecar gets exactly this token, nothing else).
 			{Name: "SLACK_MCP_XOXB_TOKEN", ValueFrom: &corev1.EnvVarSource{
 				SecretKeyRef: &corev1.SecretKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{Name: personalAgentSecretName(slackUserID)},
+					LocalObjectReference: corev1.LocalObjectReference{Name: personalAgentSecretName(agentID)},
 					Key:                  "PERSONAL_SLACK_BOT_TOKEN",
 				},
 			}},
