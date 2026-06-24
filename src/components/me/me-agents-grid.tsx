@@ -126,19 +126,20 @@ export function MeAgentsGrid({
   const [overlay, setOverlay] = useState<Overlay>(null);
   const count = agents.length;
 
-  // Slack identity missing: can't bind an agent. Show Account + the join notice;
-  // no agent tiles, no add tile (mirrors the prior no_slack_user_id behaviour).
+  // Slack identity missing: can't bind an agent. Show the full-width human card +
+  // the join notice; no agent tiles, no add tile (mirrors the prior
+  // no_slack_user_id behaviour).
   if (!slackUserIDKnown) {
     return (
-      <div className="grid grid-cols-1 items-start gap-5 sm:grid-cols-2">
-        <AccountTile account={account} />
+      <>
+        <AccountCard account={account} />
         <div className="rounded-2xl bg-white p-5 shadow-[0_10px_40px_-12px_rgba(0,0,0,0.18)] ring-1 ring-black/[0.05] sm:p-6 dark:bg-zinc-950 dark:ring-white/[0.06]">
           <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-300">
             Your email isn&apos;t in the MakeaCompany Slack workspace yet, so we can&apos;t bind an
             agent to your Slack identity. Join the workspace, then refresh.
           </p>
         </div>
-      </div>
+      </>
     );
   }
 
@@ -150,28 +151,41 @@ export function MeAgentsGrid({
 
   return (
     <>
-      <div className="grid grid-cols-1 items-start gap-5 sm:grid-cols-2">
-        <AccountTile account={account} />
+      {/* Full-width "this is you" card on top. */}
+      <AccountCard account={account} />
 
-        {agents.map((agent) => (
-          <AgentTile
-            key={agent.agentId ?? agent.slackAppId ?? agent.displayName}
-            agent={agent}
-            onOpen={() => {
-              const id = agent.agentId ?? "";
-              if (id) setOverlay({ kind: "agent", agentId: id });
-            }}
-          />
-        ))}
+      {/* Agents section: header + 3-column grid of light tiles + Add tile. */}
+      <section className="flex flex-col gap-4">
+        <div className="flex items-baseline gap-2 px-1">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+            Agents
+          </h2>
+          <span className="text-sm font-medium tabular-nums text-muted-foreground/70">
+            · {count}/{maxPerUser}
+          </span>
+        </div>
 
-        {showAddTile ? (
-          <AddTile
-            canCreate={canCreate}
-            canCreateReason={canCreateReason}
-            onOpen={() => setOverlay({ kind: "create" })}
-          />
-        ) : null}
-      </div>
+        <div className="grid grid-cols-1 items-start gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          {agents.map((agent) => (
+            <AgentTile
+              key={agent.agentId ?? agent.slackAppId ?? agent.displayName}
+              agent={agent}
+              onOpen={() => {
+                const id = agent.agentId ?? "";
+                if (id) setOverlay({ kind: "agent", agentId: id });
+              }}
+            />
+          ))}
+
+          {showAddTile ? (
+            <AddTile
+              canCreate={canCreate}
+              canCreateReason={canCreateReason}
+              onOpen={() => setOverlay({ kind: "create" })}
+            />
+          ) : null}
+        </div>
+      </section>
 
       {/* Detail overlay — reuses the existing status panel / creation form
           verbatim so all per-agent agentId threading stays unchanged. */}
@@ -211,11 +225,29 @@ export function MeAgentsGrid({
   );
 }
 
-function AccountTile({ account }: { account: AccountInfo }) {
+// LabeledRow renders a left-aligned label + value pair, like the original
+// ProfileCard. Used in the human card's billing column for read-as-you details.
+function LabeledRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-start justify-between gap-4 py-1.5">
+      <span className="shrink-0 text-xs font-medium uppercase tracking-wide text-muted-foreground/70">
+        {label}
+      </span>
+      <span className="min-w-0 text-right text-sm text-foreground">{children}</span>
+    </div>
+  );
+}
+
+// AccountCard — the full-width "this is you" card on top of the page. Roomier
+// than the old compact tile: left identity block (avatar + name + email + Slack
+// user ID) and a right billing block (plan badges + renew/end date + the
+// Subscribe / Cancel action).
+function AccountCard({ account }: { account: AccountInfo }) {
   const {
     email,
     displayName,
     portraitUrl,
+    slackUserId,
     subscriptionStatus,
     tier,
     freeLifetime,
@@ -225,60 +257,76 @@ function AccountTile({ account }: { account: AccountInfo }) {
     subscribeUrl,
   } = account;
 
+  const hasAnyPlan = Boolean(
+    subscriptionStatus || tier || freeLifetime || cancelAtPeriodEnd,
+  );
+
   return (
-    <section className={TILE_BASE}>
-      <div className="flex items-center gap-3.5 border-b border-border/60 p-5">
-        <div
-          aria-hidden
-          className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-foreground/90 text-lg font-semibold text-background"
-        >
-          {portraitUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element -- Slack CDN URL, fine to skip next/image optimization
-            <img src={portraitUrl} alt={displayName} className="h-full w-full object-cover" />
-          ) : (
-            <span>{avatarInitial(displayName || email)}</span>
-          )}
-        </div>
-        <div className="min-w-0 flex-1">
-          <h2 className="truncate text-lg font-semibold tracking-tight text-foreground">
-            {displayName || "Account"}
-          </h2>
-          <p className="truncate text-sm text-muted-foreground" title={email}>
-            {email || "No email"}
-          </p>
-        </div>
-      </div>
-
-      <div className="flex flex-1 flex-col gap-3 p-5">
-        <div className="flex flex-wrap items-center gap-1.5">
-          {subscriptionStatus ? (
-            <Pill tone={billingStatusTone(subscriptionStatus)}>{subscriptionStatus}</Pill>
-          ) : null}
-          {tier ? <Pill>{tier}</Pill> : null}
-          {freeLifetime ? <Pill tone="positive">free lifetime</Pill> : null}
-          {cancelAtPeriodEnd ? <Pill tone="warning">cancels at period end</Pill> : null}
-          {!subscriptionStatus && !tier && !freeLifetime && !cancelAtPeriodEnd ? (
-            <span className="text-xs text-muted-foreground">No active plan</span>
-          ) : null}
+    <section className={`${TILE_BASE} w-full`}>
+      <div className="flex flex-col gap-8 p-6 sm:p-8 lg:flex-row lg:items-stretch lg:gap-10">
+        {/* Identity block */}
+        <div className="flex min-w-0 flex-1 items-center gap-4">
+          <div
+            aria-hidden
+            className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-foreground/90 text-2xl font-semibold text-background"
+          >
+            {portraitUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element -- Slack CDN URL, fine to skip next/image optimization
+              <img src={portraitUrl} alt={displayName} className="h-full w-full object-cover" />
+            ) : (
+              <span>{avatarInitial(displayName || email)}</span>
+            )}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground/70">
+              This is you
+            </p>
+            <h2 className="mt-0.5 truncate text-xl font-semibold tracking-tight text-foreground">
+              {displayName || "Account"}
+            </h2>
+            <p className="truncate text-sm text-muted-foreground" title={email}>
+              {email || "No email"}
+            </p>
+            {slackUserId ? (
+              <p className="mt-1 truncate font-mono text-xs text-muted-foreground/80" title={slackUserId}>
+                Slack ID · {slackUserId}
+              </p>
+            ) : null}
+          </div>
         </div>
 
-        {periodEndLabel ? (
-          <p className="text-xs text-muted-foreground">
-            {cancelAtPeriodEnd ? "Ends" : "Renews"} {periodEndLabel}
-          </p>
-        ) : null}
+        {/* Billing block */}
+        <div className="flex w-full flex-col gap-2 border-t border-border/60 pt-6 lg:w-80 lg:border-l lg:border-t-0 lg:pl-10 lg:pt-0">
+          <div className="flex flex-wrap items-center gap-1.5">
+            {subscriptionStatus ? (
+              <Pill tone={billingStatusTone(subscriptionStatus)}>{subscriptionStatus}</Pill>
+            ) : null}
+            {tier ? <Pill>{tier}</Pill> : null}
+            {freeLifetime ? <Pill tone="positive">free lifetime</Pill> : null}
+            {cancelAtPeriodEnd ? <Pill tone="warning">cancels at period end</Pill> : null}
+            {!hasAnyPlan ? (
+              <span className="text-xs text-muted-foreground">No active plan</span>
+            ) : null}
+          </div>
 
-        <div className="mt-auto pt-1">
-          {canCancel ? (
-            <MeCancelSubscriptionButton />
-          ) : subscribeUrl ? (
-            <a
-              href={subscribeUrl}
-              className="inline-flex h-9 w-full items-center justify-center rounded-xl border-2 border-foreground/15 bg-background px-4 text-sm font-semibold text-foreground shadow-sm transition hover:border-foreground/25 hover:bg-muted/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground/30 dark:border-white/20 dark:bg-zinc-950 dark:hover:bg-zinc-900"
-            >
-              Subscribe — $99/mo
-            </a>
+          {periodEndLabel ? (
+            <LabeledRow label={cancelAtPeriodEnd ? "Ends" : "Renews"}>
+              {periodEndLabel}
+            </LabeledRow>
           ) : null}
+
+          <div className="mt-auto pt-2">
+            {canCancel ? (
+              <MeCancelSubscriptionButton />
+            ) : subscribeUrl ? (
+              <a
+                href={subscribeUrl}
+                className="inline-flex h-9 w-full items-center justify-center rounded-xl border-2 border-foreground/15 bg-background px-4 text-sm font-semibold text-foreground shadow-sm transition hover:border-foreground/25 hover:bg-muted/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground/30 dark:border-white/20 dark:bg-zinc-950 dark:hover:bg-zinc-900"
+              >
+                Subscribe — $99/mo
+              </a>
+            ) : null}
+          </div>
         </div>
       </div>
     </section>
@@ -303,12 +351,13 @@ function AgentTile({ agent, onOpen }: { agent: AgentRecord; onOpen: () => void }
           <h2 className="truncate text-lg font-semibold tracking-tight text-foreground">
             {displayName}
           </h2>
-          {status || agent.teamMode ? (
-            <span className="mt-1 inline-flex flex-wrap items-center gap-1.5">
-              {status ? <Pill tone={STATUS_TONE[status] ?? "neutral"}>{status}</Pill> : null}
-              {agent.teamMode ? <Pill tone="neutral">Team</Pill> : null}
-            </span>
-          ) : null}
+          <span className="mt-1 inline-flex flex-wrap items-center gap-1.5">
+            {status ? <Pill tone={STATUS_TONE[status] ?? "neutral"}>{status}</Pill> : null}
+            {/* Kind pill is always shown so team-vs-personal is legible at a glance. */}
+            <Pill tone={agent.teamMode ? "positive" : "neutral"}>
+              {agent.teamMode ? "Team" : "Personal"}
+            </Pill>
+          </span>
         </div>
       </div>
       <div className="flex flex-1 flex-col p-5">
