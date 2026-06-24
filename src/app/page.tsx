@@ -13,7 +13,6 @@ import { faqStructuredData, SeoFaqSection } from "@/components/landing/seo-faq";
 import { TestimonialsCarousel } from "@/components/landing/testimonials-carousel";
 import { ValueStack } from "@/components/landing/value-stack";
 import { FeaturedProductsCarousel } from "@/components/landing/featured-products-carousel";
-import { MessagesSentLive } from "@/components/landing/messages-sent-live";
 import { PersonalAgentsRow } from "@/components/landing/personal-agents-row";
 import { getFeaturedProducts } from "@/lib/featured-products";
 import { fetchLanderMessagesSent } from "@/lib/lander-messages-sent";
@@ -95,8 +94,10 @@ export default async function HomePage({
         >
           <HeroSection />
           <PersonalAgentsRow initial={initialPersonalAgents} />
-          <FeaturedProductsCarousel products={getFeaturedProducts()} />
-          <MessagesSentLive initial={initialMessagesSent} />
+          <FeaturedProductsCarousel
+            products={getFeaturedProducts()}
+            messagesTotal={initialMessagesSent.total}
+          />
           <ValueStack />
           <HarnessVsAgent />
           <BuiltFromInside />

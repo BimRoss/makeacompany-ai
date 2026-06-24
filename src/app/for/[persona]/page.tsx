@@ -8,7 +8,6 @@ import { Footer } from "@/components/landing/footer";
 import { HarnessVsAgent } from "@/components/landing/harness-vs-agent";
 import { Header } from "@/components/landing/header";
 import { HeroSection } from "@/components/landing/hero-section";
-import { MessagesSentLive } from "@/components/landing/messages-sent-live";
 import { PersonaPageView } from "@/components/landing/persona-page-view";
 import { PersonaProvider } from "@/components/landing/persona-context";
 import { PricingTiers } from "@/components/landing/pricing-tiers";
@@ -108,8 +107,10 @@ export default async function PersonaLandingPage({
         <PersonaProvider initialPersona={persona} initialFromUrl>
           <PersonaPageView persona={persona} slug={slug} />
           <HeroSection />
-          <FeaturedProductsCarousel products={getFeaturedProducts()} />
-          <MessagesSentLive initial={initialMessagesSent} />
+          <FeaturedProductsCarousel
+            products={getFeaturedProducts()}
+            messagesTotal={initialMessagesSent.total}
+          />
           <ValueStack />
           <HarnessVsAgent />
           <BuiltFromInside />
