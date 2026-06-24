@@ -185,10 +185,6 @@ export function HeroSection() {
           </span>
         </h1>
 
-        <p className="mx-auto mb-6 max-w-xl text-balance text-sm text-foreground sm:mb-10 sm:text-base">
-          Click the button. You&apos;ll be in our Slack with Ross and Joanne in 60 seconds.
-        </p>
-
         <HeroBuildQuoteRotator />
 
         <div className="mb-6 flex w-full justify-center sm:mb-10">
@@ -196,6 +192,10 @@ export function HeroSection() {
         </div>
 
         <JoinSlackCta label={copy.ctaButtonLabel} />
+
+        <p className="mx-auto mt-4 max-w-xl text-balance text-sm text-foreground sm:mt-5 sm:text-base">
+          Click the button. You&apos;ll be in our Slack with Ross and Joanne in 60 seconds.
+        </p>
       </div>
     </section>
   );
