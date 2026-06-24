@@ -110,7 +110,9 @@ export default async function AgentShowcasePage({
       <section className="flex flex-col items-center gap-4">
         <a
           href={agent.inviteUrl}
-          className="inline-flex min-h-12 items-center justify-center rounded-full bg-foreground px-8 text-base font-semibold text-background transition hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground/40"
+          target="_blank"
+          rel="noopener"
+          className="flex w-full items-center justify-center rounded-lg bg-foreground px-8 py-3 text-base font-semibold text-background transition hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground/40 sm:w-auto sm:px-10 sm:py-3.5"
         >
           Build your agent
         </a>
