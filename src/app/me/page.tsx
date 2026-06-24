@@ -1,10 +1,12 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
-import { MeAddAgentCard } from "@/components/me/me-add-agent-card";
-import { MeCancelSubscriptionButton } from "@/components/me/me-cancel-subscription-button";
-import { MePersonalAgentStatusPanel } from "@/components/me/me-personal-agent-status-panel";
-import type { YtSource } from "@/components/me/me-personal-agent-youtube-ingest";
+import {
+  MeAgentsGrid,
+  type AccountInfo,
+  type AgentRecord,
+  type CanCreateReason,
+} from "@/components/me/me-agents-grid";
 import { resolveBackendBaseURL } from "@/lib/backend-proxy-auth";
 import { meSessionCookieName } from "@/lib/me-session-cookies";
 
@@ -46,26 +48,6 @@ async function fetchMe(token: string): Promise<MePayload | null> {
     return null;
   }
 }
-
-// One agent record from the /mine envelope (agents[]). Mirrors the fields the
-// status panel consumes; see personalAgentMineView in the backend (#651).
-type AgentRecord = {
-  agentId?: string;
-  displayName?: string;
-  description?: string;
-  longDescription?: string;
-  systemPrompt?: string;
-  youtubeSources?: YtSource[];
-  slackAppId?: string;
-  status?: string;
-  visibility?: string;
-  showIntelligence?: boolean;
-  installUrl?: string;
-};
-
-// canCreateReason values the backend emits (#651). "" means a new agent can be
-// created right now.
-type CanCreateReason = "" | "max_reached" | "prior_not_installed" | "no_slack_user_id";
 
 type AgentsEnvelope = {
   agents: AgentRecord[];
@@ -111,6 +93,52 @@ async function fetchPersonalAgents(token: string): Promise<AgentsEnvelope> {
   }
 }
 
+function displayNameFromEmail(email: string): string {
+  const local = email.split("@")[0] ?? email;
+  return local.charAt(0).toUpperCase() + local.slice(1);
+}
+
+function pillValue(v?: string): string | null {
+  const s = (v ?? "").trim();
+  if (!s) return null;
+  const lower = s.toLowerCase();
+  if (lower === "none" || lower === "n/a") return null;
+  return s;
+}
+
+function formatRenewDate(unixSec: number): string {
+  return new Date(unixSec * 1000).toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+// Flattens the /me payload into the serializable shape the client grid renders
+// in the first (Account) tile.
+function toAccountInfo(me: MePayload): AccountInfo {
+  const email = (me.email ?? "").trim();
+  const slackName = (me.slackDisplayName ?? "").trim();
+  const billing = me.billing ?? {};
+  const periodEndUnix =
+    typeof billing.currentPeriodEnd === "number" && billing.currentPeriodEnd > 0
+      ? billing.currentPeriodEnd
+      : null;
+  return {
+    email,
+    displayName: slackName || displayNameFromEmail(email),
+    portraitUrl: (me.slackProfileImageUrl ?? "").trim(),
+    slackUserId: me.slackUserId?.trim() ?? "",
+    subscriptionStatus: pillValue(billing.subscriptionStatus),
+    tier: pillValue(me.tier),
+    freeLifetime: Boolean(me.freeLifetime),
+    cancelAtPeriodEnd: Boolean(billing.cancelAtPeriodEnd),
+    periodEndLabel: periodEndUnix ? formatRenewDate(periodEndUnix) : null,
+    canCancel: Boolean(me.canCancel),
+    subscribeUrl: me.subscribeUrl?.trim() ?? "",
+  };
+}
+
 export default async function MePage() {
   const cookieStore = await cookies();
   const token = cookieStore.get(meSessionCookieName)?.value ?? "";
@@ -127,252 +155,32 @@ export default async function MePage() {
     (me.slackDisplayName ?? "").trim() || displayNameFromEmail(me.email ?? "");
   const ownerSlackUserId = me.slackUserId?.trim() ?? "";
   const ownerEmail = (me.email ?? "").trim();
+  const account = toAccountInfo(me);
 
   return (
-    <div className="mx-auto flex w-full flex-col gap-10 py-8 sm:py-10">
-      {/* Account section — the user. */}
-      <section className="flex flex-col gap-3">
-        <SectionHeader title="Account" />
-        <ProfileCard me={me} />
-      </section>
+    <div className="mx-auto flex w-full flex-col gap-4 py-8 sm:py-10">
+      {/* One grid: [Account] [Agent…] [Add]. The header carries the N/max
+          affordance the old section split used to. */}
+      <div className="flex items-baseline gap-2 px-1">
+        <h1 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+          Agents
+        </h1>
+        <span className="text-sm font-medium tabular-nums text-muted-foreground/70">
+          · {envelope.agents.length}/{envelope.maxPerUser}
+        </span>
+      </div>
 
-      {/* Agents section — the user's 0..N personal agents + add-agent tile. */}
-      <AgentsSection
-        envelope={envelope}
+      <MeAgentsGrid
+        account={account}
+        agents={envelope.agents}
+        maxPerUser={envelope.maxPerUser}
+        canCreate={envelope.canCreate}
+        canCreateReason={envelope.canCreateReason}
         slackUserIDKnown={slackUserIDKnown}
         ownerName={ownerName}
         ownerSlackUserId={ownerSlackUserId}
         ownerEmail={ownerEmail}
       />
     </div>
-  );
-}
-
-function SectionHeader({ title, count }: { title: string; count?: string }) {
-  return (
-    <div className="flex items-baseline gap-2 px-1">
-      <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-        {title}
-      </h2>
-      {count ? (
-        <span className="text-sm font-medium tabular-nums text-muted-foreground/70">· {count}</span>
-      ) : null}
-    </div>
-  );
-}
-
-const PILL_TONES = {
-  neutral: "border-border bg-muted/40 text-muted-foreground",
-  positive: "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
-  warning: "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300",
-  danger: "border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-300",
-} as const;
-
-type PillTone = keyof typeof PILL_TONES;
-
-function Pill({ children, tone = "neutral" }: { children: React.ReactNode; tone?: PillTone }) {
-  return (
-    <span
-      className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${PILL_TONES[tone]}`}
-    >
-      {children}
-    </span>
-  );
-}
-
-function statusTone(status: string): PillTone {
-  switch (status) {
-    case "active":
-    case "trialing":
-      return "positive";
-    case "past_due":
-    case "unpaid":
-      return "warning";
-    case "canceled":
-    case "incomplete":
-    case "incomplete_expired":
-      return "danger";
-    default:
-      return "neutral";
-  }
-}
-
-function formatRenewDate(unixSec: number): string {
-  return new Date(unixSec * 1000).toLocaleDateString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
-}
-
-function pillValue(v?: string): string | null {
-  const s = (v ?? "").trim();
-  if (!s) return null;
-  const lower = s.toLowerCase();
-  if (lower === "none" || lower === "n/a") return null;
-  return s;
-}
-
-function displayNameFromEmail(email: string): string {
-  const local = email.split("@")[0] ?? email;
-  return local.charAt(0).toUpperCase() + local.slice(1);
-}
-
-function avatarInitial(name: string, email: string): string {
-  const seed = name.trim() || email.trim();
-  return (seed[0] ?? "?").toUpperCase();
-}
-
-function ProfileCard({ me }: { me: MePayload }) {
-  const email = me.email ?? "";
-  const slackName = (me.slackDisplayName ?? "").trim();
-  const displayName = slackName || displayNameFromEmail(email);
-  const portraitUrl = (me.slackProfileImageUrl ?? "").trim();
-  const billing = me.billing ?? {};
-  const status = pillValue(billing.subscriptionStatus);
-  const cancelAtEnd = Boolean(billing.cancelAtPeriodEnd);
-  const periodEndUnix =
-    typeof billing.currentPeriodEnd === "number" && billing.currentPeriodEnd > 0
-      ? billing.currentPeriodEnd
-      : null;
-  const tier = pillValue(me.tier);
-
-  return (
-    <section className="overflow-hidden rounded-2xl bg-white shadow-[0_10px_40px_-12px_rgba(0,0,0,0.18)] ring-1 ring-black/[0.05] transition-shadow duration-200 hover:shadow-[0_18px_50px_-12px_rgba(0,0,0,0.22)] dark:bg-zinc-950 dark:ring-white/[0.06]">
-      <header className="flex flex-wrap items-center gap-3 border-b border-border/60 px-4 py-4 sm:gap-4 sm:px-5 sm:py-5">
-        <div
-          aria-hidden
-          className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-foreground/90 text-xl font-semibold text-background"
-        >
-          {portraitUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element -- Slack CDN URL, fine to skip next/image optimization
-            <img src={portraitUrl} alt={displayName} className="h-full w-full object-cover" />
-          ) : (
-            <span>{avatarInitial(displayName, email)}</span>
-          )}
-        </div>
-        <div className="min-w-0 flex-1">
-          <h1 className="truncate text-lg font-semibold tracking-tight text-foreground sm:text-xl">
-            {displayName}
-          </h1>
-          <p className="truncate text-sm text-muted-foreground" title={email}>
-            {email || "No email"}
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center justify-end gap-1.5">
-          {status ? <Pill tone={statusTone(status)}>{status}</Pill> : null}
-          {tier ? <Pill>{tier}</Pill> : null}
-          {me.freeLifetime ? <Pill tone="positive">free lifetime</Pill> : null}
-          {cancelAtEnd ? <Pill tone="warning">cancels at period end</Pill> : null}
-        </div>
-      </header>
-      <dl className="divide-y divide-border/60 px-4 py-2 text-sm sm:px-5">
-        <Row label="Email" value={email || "No email"} mono />
-        <Row label="Slack user ID" value={me.slackUserId?.trim() || "No Slack ID"} mono />
-        {periodEndUnix ? (
-          <Row label={cancelAtEnd ? "Ends" : "Renews"} value={formatRenewDate(periodEndUnix)} />
-        ) : null}
-      </dl>
-      <BillingActions me={me} />
-    </section>
-  );
-}
-
-function BillingActions({ me }: { me: MePayload }) {
-  const billing = me.billing ?? {};
-  const hasManageableSubscription = Boolean(billing.hasManageableSubscription);
-  const cancelAtEnd = Boolean(billing.cancelAtPeriodEnd);
-  const canCancel = Boolean(me.canCancel);
-  const subscribeUrl = me.subscribeUrl?.trim() ?? "";
-
-  if (canCancel) {
-    return (
-      <div className="flex justify-end border-t border-border/60 px-4 py-4 sm:px-5">
-        <MeCancelSubscriptionButton />
-      </div>
-    );
-  }
-  if (hasManageableSubscription || cancelAtEnd) {
-    return null;
-  }
-  if (!subscribeUrl) {
-    return null;
-  }
-  return (
-    <div className="flex justify-end border-t border-border/60 px-5 py-4">
-      <a
-        href={subscribeUrl}
-        className="inline-flex h-10 items-center justify-center rounded-xl border-2 border-foreground/15 bg-background px-5 text-sm font-semibold text-foreground shadow-sm transition hover:border-foreground/25 hover:bg-muted/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground/30 dark:border-white/20 dark:bg-zinc-950 dark:hover:bg-zinc-900"
-      >
-        Subscribe — $99/mo
-      </a>
-    </div>
-  );
-}
-
-function Row({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
-  return (
-    <div className="flex items-center justify-between gap-4 py-2.5 first:pt-3 last:pb-3">
-      <dt className="shrink-0 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-        {label}
-      </dt>
-      <dd
-        className={`min-w-0 truncate text-right text-foreground ${mono ? "font-mono" : ""}`}
-        title={value}
-      >
-        {value}
-      </dd>
-    </div>
-  );
-}
-
-function AgentsSection({
-  envelope,
-  slackUserIDKnown,
-  ownerName,
-  ownerSlackUserId,
-  ownerEmail,
-}: {
-  envelope: AgentsEnvelope;
-  slackUserIDKnown: boolean;
-  ownerName: string;
-  ownerSlackUserId: string;
-  ownerEmail: string;
-}) {
-  const { agents, maxPerUser, canCreate, canCreateReason } = envelope;
-  const count = agents.length;
-
-  return (
-    <section className="flex flex-col gap-3">
-      <SectionHeader title="Agents" count={`${count}/${maxPerUser}`} />
-
-      {!slackUserIDKnown ? (
-        // Can't bind an agent without a Slack identity — keep the prior
-        // messaging and render no add card (canCreateReason === "no_slack_user_id").
-        <div className="rounded-2xl bg-white p-4 shadow-[0_10px_40px_-12px_rgba(0,0,0,0.18)] ring-1 ring-black/[0.05] sm:p-5 dark:bg-zinc-950 dark:ring-white/[0.06]">
-          <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-300">
-            Your email isn&apos;t in the MakeaCompany Slack workspace yet, so we can&apos;t bind an
-            agent to your Slack identity. Join the workspace, then refresh.
-          </p>
-        </div>
-      ) : (
-        <div className="flex flex-col gap-6">
-          {agents.map((agent) => (
-            <MePersonalAgentStatusPanel
-              key={agent.agentId ?? agent.slackAppId ?? agent.displayName}
-              initial={{ ...agent, hasAgent: true }}
-              ownerName={ownerName}
-              ownerSlackUserId={ownerSlackUserId}
-              ownerEmail={ownerEmail}
-            />
-          ))}
-          <MeAddAgentCard
-            canCreate={canCreate}
-            canCreateReason={canCreateReason}
-            atMax={count >= maxPerUser}
-          />
-        </div>
-      )}
-    </section>
   );
 }
