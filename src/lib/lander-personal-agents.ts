@@ -28,7 +28,7 @@ export function normalizeLanderPersonalAgents(body: {
 }
 
 /**
- * Server-side fetch for the "Agents our users have built" row on the lander.
+ * Server-side fetch for the "Agents our members have built" row on the lander.
  * Hits the public, unauthenticated `/v1/lander/personal-agents`. Any failure
  * returns an empty list so the section can quietly skip itself — the lander
  * must never break on a backend hiccup.

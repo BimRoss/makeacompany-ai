@@ -150,10 +150,10 @@ export function PersonalAgentsRow({ initial }: { initial: LanderPersonalAgents }
   }
 
   return (
-    <section aria-label="Agents our users have built" className="pb-10 sm:pb-14">
+    <section aria-label="Agents our members have built" className="pb-10 sm:pb-14">
       <div className="mx-auto max-w-3xl px-6 text-center">
         <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-          Agents our users have built
+          Agents our members have built
         </p>
 
         {/* Title line — types the focused agent's name, holds height when idle. */}

@@ -209,7 +209,7 @@ export default function ClaudeInSlackPage() {
           MaC is in active development with a small set of design-partner
           teams. If you want Claude as a real teammate in your Slack — with
           real tool access and real memory, not another browser tab —{" "}
-          <Link href="/">start here</Link>. First 100 users are free for life.
+          <Link href="/">start here</Link>. First 100 members are free for life.
         </p>
       </article>
 
