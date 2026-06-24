@@ -72,9 +72,6 @@ function splitByLabel(
 const REQ = "makeacompany_http_requests_total";
 const DUR = "makeacompany_http_request_duration_seconds_bucket";
 const LIFECYCLE = "makeacompany_lifecycle_users";
-const TTFV_BUCKET = "makeacompany_ttfv_bucket_users";
-const TTFV_QUANTILE = "makeacompany_ttfv_quantile_seconds";
-const TTFV_PR_BUCKET = "makeacompany_ttfv_pr_bucket_users";
 const TTFV_PR_QUANTILE = "makeacompany_ttfv_pr_quantile_seconds";
 
 const statusTone = (cls: string): ChartTone =>
@@ -185,68 +182,6 @@ export const LIFECYCLE_PANELS: PanelDef[] = [
   },
 ];
 
-// TTFV bucket ordering follows the sweeper's seconds-upper-bound order so the
-// stacked chart reads same-day at the bottom and "longer" at the top.
-const TTFV_BUCKET_ORDER = ["same_day", "week", "two_weeks", "month", "quarter", "longer"];
-const TTFV_BUCKET_LABELS: Record<string, string> = {
-  same_day: "same day",
-  week: "1–7 days",
-  two_weeks: "8–14 days",
-  month: "15–30 days",
-  quarter: "31–90 days",
-  longer: "90+ days",
-};
-
-const ttfvBucketLabel = (bucket: string): string => TTFV_BUCKET_LABELS[bucket] ?? bucket;
-
-const ttfvBucketTone = (bucket: string): ChartTone => {
-  switch (bucket) {
-    case "same_day":
-      return "pos";
-    case "week":
-      return "ink";
-    case "two_weeks":
-      return "accent";
-    case "month":
-    case "quarter":
-      return "muted";
-    case "longer":
-    default:
-      return "neg";
-  }
-};
-
-const ttfvBucketSort = (a: string, b: string): number => {
-  const ai = TTFV_BUCKET_ORDER.indexOf(a);
-  const bi = TTFV_BUCKET_ORDER.indexOf(b);
-  if (ai === -1 && bi === -1) return a.localeCompare(b);
-  if (ai === -1) return 1;
-  if (bi === -1) return -1;
-  return ai - bi;
-};
-
-// splitByLabel sorts alphabetically by default, which puts "longer" next to
-// "month" and "same_day" between "quarter" and "two_weeks" -- meaningless to
-// a reader. We want the buckets in TTFV order.
-function splitByLabelOrdered(
-  query: string,
-  labelKey: string,
-  tone: (v: string) => ChartTone,
-  label: (v: string) => string,
-  sort: (a: string, b: string) => number,
-) {
-  return (raw: RangeSeries[]): ChartSeries[] =>
-    raw
-      .filter((s) => s.query === query && s.labels[labelKey])
-      .sort((a, b) => sort(a.labels[labelKey], b.labels[labelKey]))
-      .map((s) => ({
-        key: `${query}-${s.labels[labelKey]}`,
-        label: label(s.labels[labelKey]),
-        tone: tone(s.labels[labelKey]),
-        points: s.points,
-      }));
-}
-
 const ttfvQuantileTone = (q: string): ChartTone => (q === "0.5" ? "muted" : "ink");
 const ttfvQuantileLabel = (q: string): string =>
   q === "0.5" ? "p50" : q === "0.9" ? "p90" : `p${Math.round(parseFloat(q) * 100)}`;
@@ -269,79 +204,29 @@ const cohortWindow = (cohort: TtfvCohort): string =>
 export const cohortFrom = (cohort: TtfvCohort): string =>
   cohort === "last7d" ? "now-7d" : cohort === "last30d" ? "now-30d" : "now-90d";
 
-// ttfvPanels builds the TTFV panel set against a chosen lookback cohort.
-// The metric label set in Prometheus is fixed (last7d/last30d/last90d), so
-// we just substitute the cohort into queries and copy. /admin wraps this in
-// a section with a cohort toggle so a reader can pivot between windows
-// without a page reload.
-export function ttfvPanels(cohort: TtfvCohort): PanelDef[] {
+// ttfvLatencyPanel is the single TTFV view: how long it takes the users who
+// convert to ship their first app (signup -> first merged PR, #621). The
+// count view (how *many* convert) lives in the ActivationFunnel; the four
+// older panels (message + PR, each as quantile + bucket histogram) collapsed
+// into this one line plus that funnel. Message-based TTFV was retired here
+// because messages are tracked elsewhere and easy to come by — first app
+// shipped is the value milestone now.
+export function ttfvLatencyPanel(cohort: TtfvCohort): PanelDef {
   const win = cohortWindow(cohort);
-  return [
-    {
-      id: `ttfv-pr-quantile-${cohort}`,
-      title: "TTFV p50 / p90 (first merged PR)",
-      subtitle: `Signup to first PR merged on the user's site repo, ${win}. The new TTFV bar per #621.`,
-      queries: [`${TTFV_PR_QUANTILE}{cohort="${cohort}"}`],
-      toSeries: splitByLabel(
-        `${TTFV_PR_QUANTILE}{cohort="${cohort}"}`,
-        "quantile",
-        ttfvQuantileTone,
-        ttfvQuantileLabel,
-      ),
-      format: formatDurationDays,
-      hideWhenEmpty: true,
-    },
-    {
-      id: `ttfv-pr-distribution-${cohort}`,
-      title: "TTFV distribution (first merged PR)",
-      subtitle: `Users per bucket, ${win} of signups. Same-day at top means we shipped fast.`,
-      queries: [`${TTFV_PR_BUCKET}{cohort="${cohort}"}`],
-      toSeries: splitByLabelOrdered(
-        `${TTFV_PR_BUCKET}{cohort="${cohort}"}`,
-        "bucket",
-        ttfvBucketTone,
-        ttfvBucketLabel,
-        ttfvBucketSort,
-      ),
-      format: formatCompact,
-      area: true,
-      zeroBaseline: true,
-      span: 2,
-      hideWhenEmpty: true,
-    },
-    {
-      id: `ttfv-quantile-${cohort}`,
-      title: "TTFM p50 / p90 (first message)",
-      subtitle: `Signup to first ingested message, ${win}. Secondary signal kept alongside the PR variant during the cutover.`,
-      queries: [`${TTFV_QUANTILE}{cohort="${cohort}"}`],
-      toSeries: splitByLabel(
-        `${TTFV_QUANTILE}{cohort="${cohort}"}`,
-        "quantile",
-        ttfvQuantileTone,
-        ttfvQuantileLabel,
-      ),
-      format: formatDurationDays,
-      hideWhenEmpty: true,
-    },
-    {
-      id: `ttfv-distribution-${cohort}`,
-      title: "TTFM distribution (first message)",
-      subtitle: `Users per bucket, ${win} of signups.`,
-      queries: [`${TTFV_BUCKET}{cohort="${cohort}"}`],
-      toSeries: splitByLabelOrdered(
-        `${TTFV_BUCKET}{cohort="${cohort}"}`,
-        "bucket",
-        ttfvBucketTone,
-        ttfvBucketLabel,
-        ttfvBucketSort,
-      ),
-      format: formatCompact,
-      area: true,
-      zeroBaseline: true,
-      span: 2,
-      hideWhenEmpty: true,
-    },
-  ];
+  return {
+    id: `ttfv-pr-quantile-${cohort}`,
+    title: "TTFV p50 / p90",
+    subtitle: `Signup to first app shipped (first merged PR on the user's site repo), ${win}.`,
+    queries: [`${TTFV_PR_QUANTILE}{cohort="${cohort}"}`],
+    toSeries: splitByLabel(
+      `${TTFV_PR_QUANTILE}{cohort="${cohort}"}`,
+      "quantile",
+      ttfvQuantileTone,
+      ttfvQuantileLabel,
+    ),
+    format: formatDurationDays,
+    hideWhenEmpty: true,
+  };
 }
 
 const TOP_N_NAMESPACE_TONES: ChartTone[] = ["ink", "pos", "neg", "muted", "muted"];
