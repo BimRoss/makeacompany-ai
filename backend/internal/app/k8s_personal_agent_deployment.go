@@ -307,6 +307,20 @@ func (w *PersonalAgentWriter) WriteAgentDeployment(ctx context.Context, req Pers
 		tmpl.Volumes = append(tmpl.Volumes, personalAgentGwsVolumes(req.SlackUserID)...)
 	}
 
+	// Attach the per-owner slack-mcp sidecar (makeacompany-ai#665 WS2). Every
+	// PA holds its own xoxb (PERSONAL_SLACK_BOT_TOKEN, required by
+	// WriteAgentRuntimeSecret), so the sidecar reads that one key and the
+	// runtime points at it on localhost — the agent's Slack MCP reach is its
+	// own token only, never the shared slack-mcp bundle. Gated behind a
+	// default-off env kill-switch so this merges inert; we enable it
+	// fleet-wide after a dev soak. Until then PA Slack MCP behavior is
+	// unchanged. Post-literal mutation, same shape as the Google block above.
+	if personalAgentSlackMcpEnabled(req.SlackUserID) {
+		tmpl := &dep.Spec.Template.Spec
+		tmpl.Containers[0].Env = append(tmpl.Containers[0].Env, personalAgentSlackEnv()...)
+		tmpl.Containers = append(tmpl.Containers, personalAgentSlackMcpSidecar(req.SlackUserID))
+	}
+
 	_, err := w.cs.AppsV1().Deployments(w.agentNamespace).Create(ctx, dep, metav1.CreateOptions{})
 	if err == nil {
 		return nil
@@ -578,5 +592,124 @@ func httpProbeOnPort(port, initialDelay, period int) *corev1.Probe {
 		InitialDelaySeconds: int32(initialDelay),
 		PeriodSeconds:       int32(period),
 		FailureThreshold:    3,
+	}
+}
+
+// tcpProbeOnPort is a tcpSocket probe on a numeric port. The slack-mcp
+// (korotovsky) SSE server has no /healthz endpoint, so we liveness/readiness
+// check the TCP listener — the same shape the Ross/Joanne slack-mcp
+// Deployments use (rancher-admin admin/apps/slack-mcp-*).
+func tcpProbeOnPort(port, initialDelay, period int) *corev1.Probe {
+	return &corev1.Probe{
+		ProbeHandler: corev1.ProbeHandler{
+			TCPSocket: &corev1.TCPSocketAction{Port: intstr.FromInt(port)},
+		},
+		InitialDelaySeconds: int32(initialDelay),
+		PeriodSeconds:       int32(period),
+		FailureThreshold:    3,
+	}
+}
+
+// --- Slack MCP sidecar (per-owner) ------------------------------------------
+//
+// makeacompany-ai#665 WS2. Mirrors the Ross/Joanne slack-mcp Deployments
+// (rancher-admin admin/apps/slack-mcp-*) but as a sidecar in the PA's own pod:
+// it reads only this agent's xoxb (PERSONAL_SLACK_BOT_TOKEN from the per-agent
+// runtime Secret, surfaced as SLACK_MCP_XOXB_TOKEN) and binds localhost:13080.
+// The PA runtime reaches it via ROSS_SLACK_MCP_URL. Isolation is automatic:
+// the sidecar shares the pod's network namespace and only ever holds its own
+// token, so there is nothing to scope and no shared bundle to reach.
+
+const (
+	personalAgentSlackMcpImage         = "geeemoney/slack-mcp:0.1.2"
+	personalAgentSlackMcpPort          = 13080
+	personalAgentSlackMcpContainerName = "slack-mcp"
+)
+
+// personalAgentSlackMcpEnabled decides whether to attach the sidecar to this
+// owner's pod. Default OFF so the feature merges inert. Two enable levers
+// (#665 WS2 rollout — there is no dev env, so the canary lever matters):
+//
+//   - PERSONAL_AGENT_SLACK_MCP_SIDECAR=true — global, every PA pod.
+//   - PERSONAL_AGENT_SLACK_MCP_SIDECAR_USERS="U123,U456" — per-owner canary
+//     allowlist of Slack user IDs. Lets us enable one real agent in prod,
+//     watch it, then widen to the global flag.
+//
+// When neither matches, PA Slack MCP behavior is unchanged.
+func personalAgentSlackMcpEnabled(slackUserID string) bool {
+	v := strings.ToLower(strings.TrimSpace(os.Getenv("PERSONAL_AGENT_SLACK_MCP_SIDECAR")))
+	if v == "1" || v == "true" || v == "yes" || v == "on" {
+		return true
+	}
+	allow := strings.TrimSpace(os.Getenv("PERSONAL_AGENT_SLACK_MCP_SIDECAR_USERS"))
+	if allow == "" || strings.TrimSpace(slackUserID) == "" {
+		return false
+	}
+	for _, id := range strings.FieldsFunc(allow, func(r rune) bool { return r == ',' || r == ' ' || r == '\n' || r == '\t' }) {
+		if strings.TrimSpace(id) == strings.TrimSpace(slackUserID) {
+			return true
+		}
+	}
+	return false
+}
+
+// personalAgentSlackEnv points the PA runtime at the in-pod slack-mcp sidecar.
+// The harness's resolveSlackMCPURL reads ROSS_SLACK_MCP_URL; setting it here
+// overrides the shared-bundle default so a connected agent talks only to its
+// own sidecar.
+func personalAgentSlackEnv() []corev1.EnvVar {
+	return []corev1.EnvVar{
+		{Name: "ROSS_SLACK_MCP_URL", Value: fmt.Sprintf("http://localhost:%d/sse", personalAgentSlackMcpPort)},
+	}
+}
+
+// personalAgentSlackMcpSidecar builds the per-owner slack-mcp sidecar container.
+func personalAgentSlackMcpSidecar(slackUserID string) corev1.Container {
+	return corev1.Container{
+		Name:            personalAgentSlackMcpContainerName,
+		Image:           personalAgentSlackMcpImage,
+		ImagePullPolicy: corev1.PullIfNotPresent,
+		Env: []corev1.EnvVar{
+			{Name: "SLACK_MCP_HOST", Value: "0.0.0.0"},
+			{Name: "SLACK_MCP_PORT", Value: fmt.Sprintf("%d", personalAgentSlackMcpPort)},
+			// The agent's own bot token, mapped from the one runtime-Secret key
+			// (not envFrom — the sidecar gets exactly this token, nothing else).
+			{Name: "SLACK_MCP_XOXB_TOKEN", ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{Name: personalAgentSecretName(slackUserID)},
+					Key:                  "PERSONAL_SLACK_BOT_TOKEN",
+				},
+			}},
+			{Name: "SLACK_MCP_ADD_MESSAGE_TOOL", Value: "true"},
+			{Name: "SLACK_MCP_UPDATE_MESSAGE_TOOL", Value: "true"},
+			{Name: "SLACK_MCP_REACTION_TOOL", Value: "true"},
+			{Name: "SLACK_MCP_MARK_TOOL", Value: "true"},
+			{Name: "SLACK_MCP_ATTACHMENT_TOOL", Value: "true"},
+			{Name: "SLACK_MCP_CANVAS_TOOL", Value: "true"},
+		},
+		Ports: []corev1.ContainerPort{{
+			Name:          "sse",
+			ContainerPort: int32(personalAgentSlackMcpPort),
+			Protocol:      corev1.ProtocolTCP,
+		}},
+		LivenessProbe:  tcpProbeOnPort(personalAgentSlackMcpPort, 15, 30),
+		ReadinessProbe: tcpProbeOnPort(personalAgentSlackMcpPort, 5, 15),
+		Resources: corev1.ResourceRequirements{
+			// Matches the Ross/Joanne slack-mcp footprint (25m/64Mi req,
+			// 256Mi limit). An EXPLICIT cpu limit is required: the
+			// personal-agents LimitRange injects a default cpu limit of "1"
+			// when omitted and enforces maxLimitRequestRatio cpu=40 — a 25m
+			// request with the injected 1000m limit is ratio 40 (at the
+			// boundary). 100m limit / 25m request is ratio 4, safe headroom;
+			// the server's CPU is near-idle outside brief bursts.
+			Requests: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("25m"),
+				corev1.ResourceMemory: resource.MustParse("64Mi"),
+			},
+			Limits: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("100m"),
+				corev1.ResourceMemory: resource.MustParse("256Mi"),
+			},
+		},
 	}
 }
