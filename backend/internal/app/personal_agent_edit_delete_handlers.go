@@ -1,10 +1,12 @@
 package app
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 
@@ -184,9 +186,13 @@ func (s *Server) handleDeletePersonalAgent(w http.ResponseWriter, r *http.Reques
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 
-// ownerPersonalAgentForRequest resolves the caller's /me session, maps it to
-// a slack_user_id, and looks up the user's agent. Returns (record, status,
-// error) where status is the HTTP code the caller should write on error.
+// ownerPersonalAgentForRequest resolves the caller's /me session, maps it to a
+// slack_user_id, and resolves the TARGET agent it owns. The target is selected
+// by an `agentId` field in the request (body for writes, query param for
+// reads) and validated against the owner's agent list (#651).
+//
+// Returns (record, status, error) where status is the HTTP code the caller
+// should write on error.
 func (s *Server) ownerPersonalAgentForRequest(r *http.Request) (PersonalAgentRecord, int, error) {
 	session, err := s.store.GetPortalSession(r.Context(), tokenFromAuthHeader(r))
 	if err != nil || session.TenantType != PortalTenantTypeUser {
@@ -196,14 +202,123 @@ func (s *Server) ownerPersonalAgentForRequest(r *http.Request) (PersonalAgentRec
 	if err != nil || strings.TrimSpace(slackUserID) == "" {
 		return PersonalAgentRecord{}, http.StatusForbidden, errors.New("no slack identity for this account")
 	}
-	rec, err := s.store.GetPersonalAgentByOwner(r.Context(), slackUserID)
-	if errors.Is(err, redis.Nil) {
-		return PersonalAgentRecord{}, http.StatusNotFound, errors.New("no personal agent for this user")
-	}
+	rec, err := s.personalAgentForOwnerRequest(r.Context(), r, slackUserID, agentIDFromRequest(r))
 	if err != nil {
-		return PersonalAgentRecord{}, http.StatusInternalServerError, errors.New("lookup failed")
+		return PersonalAgentRecord{}, personalAgentResolveStatus(err), err
 	}
 	return rec, 0, nil
+}
+
+// Sentinel errors the personalAgentForOwnerRequest resolver returns; mapped to
+// HTTP status by personalAgentResolveStatus.
+var (
+	errPersonalAgentIDRequired = errors.New("agentId required (you have more than one agent)")
+	errPersonalAgentNotOwned   = errors.New("no such personal agent for this user")
+)
+
+// personalAgentForOwnerRequest resolves the target agent for an owner-scoped
+// /me request and validates it belongs to ownerUID (#651). Resolution rules:
+//
+//   - agentID given + owned by ownerUID  → that agent.
+//   - agentID given + NOT owned          → errPersonalAgentNotOwned (404/403).
+//   - agentID empty + owner has exactly one agent → that one agent. This is the
+//     back-compat path for the CURRENT frontend, which sends no agentId; it
+//     keeps working until PR #3 ships the multi-agent UI.
+//   - agentID empty + owner has >1 agent → errPersonalAgentIDRequired (400).
+//   - owner has zero agents              → redis.Nil (404 "no agent").
+//
+// Ownership is checked against the owner's list index, never the record's
+// OwnerSlackUserID alone, so a stale/forged agentId can't slip through.
+func (s *Server) personalAgentForOwnerRequest(ctx context.Context, _ *http.Request, ownerUID, agentID string) (PersonalAgentRecord, error) {
+	agents, err := s.store.ListPersonalAgentsByOwner(ctx, ownerUID)
+	if err != nil {
+		return PersonalAgentRecord{}, err
+	}
+	if len(agents) == 0 {
+		return PersonalAgentRecord{}, redis.Nil
+	}
+	agentID = strings.TrimSpace(agentID)
+	if agentID == "" {
+		if len(agents) == 1 {
+			return agents[0], nil
+		}
+		return PersonalAgentRecord{}, errPersonalAgentIDRequired
+	}
+	for _, a := range agents {
+		if a.ID == agentID {
+			return a, nil
+		}
+	}
+	return PersonalAgentRecord{}, errPersonalAgentNotOwned
+}
+
+// personalAgentResolveStatus maps a personalAgentForOwnerRequest error to the
+// HTTP status the handler should write.
+func personalAgentResolveStatus(err error) int {
+	switch {
+	case errors.Is(err, redis.Nil), errors.Is(err, errPersonalAgentNotOwned):
+		// Don't distinguish "no agent" from "not your agent" — same posture as
+		// the public endpoint: a 404 either way.
+		return http.StatusNotFound
+	case errors.Is(err, errPersonalAgentIDRequired):
+		return http.StatusBadRequest
+	default:
+		return http.StatusInternalServerError
+	}
+}
+
+// agentIDFromRequest extracts the target agent id from a /me request. For GETs
+// it reads the `agentId` query param; for writes it peeks the JSON body for an
+// `agentId` field WITHOUT consuming the body the handler still needs to decode.
+// Returns "" when absent (back-compat single-agent path).
+func agentIDFromRequest(r *http.Request) string {
+	if id := strings.TrimSpace(r.URL.Query().Get("agentId")); id != "" {
+		return id
+	}
+	if r.Method == http.MethodGet || r.Method == http.MethodHead {
+		return ""
+	}
+	return peekAgentIDFromBody(r)
+}
+
+// peekAgentIDPrefixBytes bounds how much of the body we buffer to probe for the
+// top-level `agentId`. agentId is a short top-level field, so the prefix is all
+// we need to find it — but the handler must still receive the COMPLETE body, so
+// anything beyond this prefix is streamed through untouched (see below). Keeping
+// the probe buffer bounded means a giant body can't OOM us here.
+const peekAgentIDPrefixBytes = 1 << 20
+
+// peekAgentIDFromBody reads up to peekAgentIDPrefixBytes of the request body to
+// extract an optional top-level `agentId`, then restores r.Body to the FULL,
+// untruncated payload (the buffered prefix followed by whatever remains unread)
+// so the handler's own json.Decode sees every byte. Critically it never
+// truncates the body the handler decodes: a body larger than the probe prefix
+// (e.g. a multi-MiB icon upload) fails the prefix JSON parse here — yielding no
+// peeked id (back-compat single-agent path) — while the handler still gets the
+// whole thing. Bodies at or under the prefix parse normally.
+func peekAgentIDFromBody(r *http.Request) string {
+	if r.Body == nil {
+		return ""
+	}
+	orig := r.Body
+	prefix, err := io.ReadAll(io.LimitReader(orig, peekAgentIDPrefixBytes))
+	// Restore the full body: buffered prefix + any unread remainder in orig.
+	// (Don't Close orig — its remaining bytes are still needed; the server
+	// closes the underlying body after the handler returns.)
+	r.Body = io.NopCloser(io.MultiReader(bytes.NewReader(prefix), orig))
+	if err != nil || len(prefix) == 0 {
+		return ""
+	}
+	var probe struct {
+		AgentID string `json:"agentId"`
+	}
+	// A body longer than the prefix yields invalid (truncated) JSON here →
+	// Unmarshal fails → no peeked id. That's the intended fallback; the handler
+	// still receives the full body via the MultiReader above.
+	if err := json.Unmarshal(prefix, &probe); err != nil {
+		return ""
+	}
+	return strings.TrimSpace(probe.AgentID)
 }
 
 func firstNonEmptyTrim(values ...string) string {
@@ -214,7 +329,3 @@ func firstNonEmptyTrim(values ...string) string {
 	}
 	return ""
 }
-
-// Ensure the ctx import isn't unused if a path strips out the only context
-// reference. (Kept here because go fmt would prune the import otherwise.)
-var _ = context.Background

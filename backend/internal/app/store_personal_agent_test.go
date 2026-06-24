@@ -67,12 +67,12 @@ func TestPersonalAgent_ByOwnerAndByAppID(t *testing.T) {
 		t.Fatalf("create: %v", err)
 	}
 
-	byOwner, err := st.GetPersonalAgentByOwner(ctx, "U1")
+	owned, err := st.ListPersonalAgentsByOwner(ctx, "U1")
 	if err != nil {
-		t.Fatalf("GetPersonalAgentByOwner: %v", err)
+		t.Fatalf("ListPersonalAgentsByOwner: %v", err)
 	}
-	if byOwner.ID != "agent-1" {
-		t.Errorf("by-owner id = %q", byOwner.ID)
+	if len(owned) != 1 || owned[0].ID != "agent-1" {
+		t.Errorf("owner list = %+v, want one agent-1", owned)
 	}
 
 	byApp, err := st.GetPersonalAgentByAppID(ctx, "A_APP1")
@@ -83,25 +83,120 @@ func TestPersonalAgent_ByOwnerAndByAppID(t *testing.T) {
 		t.Errorf("by-app id = %q", byApp.ID)
 	}
 
-	if _, err := st.GetPersonalAgentByOwner(ctx, "UNOPE"); !errors.Is(err, redis.Nil) {
-		t.Errorf("expected redis.Nil for missing owner, got %v", err)
+	missing, err := st.ListPersonalAgentsByOwner(ctx, "UNOPE")
+	if err != nil {
+		t.Fatalf("ListPersonalAgentsByOwner(missing): %v", err)
+	}
+	if len(missing) != 0 {
+		t.Errorf("expected empty list for unknown owner, got %+v", missing)
 	}
 }
 
-func TestPersonalAgent_OneAgentPerOwner(t *testing.T) {
+// installed builds a record already marked installed so the prior-installed
+// create gate is satisfied for the NEXT create.
+func installedAgent(id, owner, app string) PersonalAgentRecord {
+	return PersonalAgentRecord{ID: id, OwnerSlackUserID: owner, SlackAppID: app, Status: PersonalAgentStatusInstalled}
+}
+
+func TestPersonalAgent_MaxThreePerOwner(t *testing.T) {
 	st, cleanup := newPersonalAgentTestStore(t)
 	defer cleanup()
 	ctx := context.Background()
 
+	// Three installed agents are fine; the prior-installed gate is satisfied
+	// each time because each prior is already installed.
+	for i, id := range []string{"a1", "a2", "a3"} {
+		if err := st.CreatePersonalAgent(ctx, installedAgent(id, "U1", "A"+id)); err != nil {
+			t.Fatalf("create #%d (%s): %v", i+1, id, err)
+		}
+	}
+	owned, err := st.ListPersonalAgentsByOwner(ctx, "U1")
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if len(owned) != 3 {
+		t.Fatalf("want 3 agents, got %d", len(owned))
+	}
+	// Creation order preserved (oldest first).
+	if owned[0].ID != "a1" || owned[1].ID != "a2" || owned[2].ID != "a3" {
+		t.Errorf("creation order wrong: %s,%s,%s", owned[0].ID, owned[1].ID, owned[2].ID)
+	}
+
+	// 4th is rejected at the cap.
+	err = st.CreatePersonalAgent(ctx, installedAgent("a4", "U1", "Aa4"))
+	if !errors.Is(err, ErrPersonalAgentMaxReached) {
+		t.Fatalf("expected ErrPersonalAgentMaxReached, got %v", err)
+	}
+}
+
+func TestPersonalAgent_BlockedWhenPriorPending(t *testing.T) {
+	st, cleanup := newPersonalAgentTestStore(t)
+	defer cleanup()
+	ctx := context.Background()
+
+	// First create lands as pending_install (default status).
 	if err := st.CreatePersonalAgent(ctx, PersonalAgentRecord{ID: "a1", OwnerSlackUserID: "U1", SlackAppID: "A1"}); err != nil {
 		t.Fatalf("first create: %v", err)
 	}
+	// Second create is blocked while the first is still pending.
 	err := st.CreatePersonalAgent(ctx, PersonalAgentRecord{ID: "a2", OwnerSlackUserID: "U1", SlackAppID: "A2"})
-	if err == nil {
-		t.Fatal("expected second agent for same owner to be rejected")
+	if !errors.Is(err, ErrPersonalAgentPriorNotInstalled) {
+		t.Fatalf("expected ErrPersonalAgentPriorNotInstalled, got %v", err)
 	}
-	if !errors.Is(err, ErrPersonalAgentExists) {
-		t.Errorf("expected ErrPersonalAgentExists, got %v", err)
+	// Once the first is installed, the second is allowed.
+	if err := st.MarkPersonalAgentInstalled(ctx, "a1"); err != nil {
+		t.Fatalf("mark installed: %v", err)
+	}
+	if err := st.CreatePersonalAgent(ctx, PersonalAgentRecord{ID: "a2", OwnerSlackUserID: "U1", SlackAppID: "A2"}); err != nil {
+		t.Fatalf("second create after install: %v", err)
+	}
+}
+
+func TestPersonalAgent_LegacyOwnerKeyMigratesOnRead(t *testing.T) {
+	st, cleanup := newPersonalAgentTestStore(t)
+	defer cleanup()
+	ctx := context.Background()
+
+	// Seed a record + the LEGACY single-value owner key (pre-#651 shape). We
+	// write the record hash directly so we don't go through CreatePersonalAgent
+	// (which would build the new list index).
+	rec := PersonalAgentRecord{
+		ID: "legacy-1", OwnerSlackUserID: "U1", SlackAppID: "A1",
+		Status: PersonalAgentStatusInstalled, CreatedAt: "2026-01-01T00:00:00Z", UpdatedAt: "2026-01-01T00:00:00Z",
+	}
+	if err := st.rdb.HSet(ctx, personalAgentRedisKey(rec.ID), recordToHash(rec)).Err(); err != nil {
+		t.Fatalf("seed record: %v", err)
+	}
+	legacyKey := personalAgentByOwnerRedisKey("U1")
+	if err := st.rdb.Set(ctx, legacyKey, rec.ID, 0).Err(); err != nil {
+		t.Fatalf("seed legacy key: %v", err)
+	}
+
+	owned, err := st.ListPersonalAgentsByOwner(ctx, "U1")
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if len(owned) != 1 || owned[0].ID != "legacy-1" {
+		t.Fatalf("migration list = %+v, want [legacy-1]", owned)
+	}
+	// New list key exists, old key is gone.
+	if n, _ := st.rdb.Exists(ctx, personalAgentIDsByOwnerRedisKey("U1")).Result(); n != 1 {
+		t.Errorf("new list key should exist after migration")
+	}
+	if n, _ := st.rdb.Exists(ctx, legacyKey).Result(); n != 0 {
+		t.Errorf("legacy key should be deleted after migration")
+	}
+
+	// Second call is a no-op: same single record, list key still length 1.
+	owned2, err := st.ListPersonalAgentsByOwner(ctx, "U1")
+	if err != nil {
+		t.Fatalf("second list: %v", err)
+	}
+	if len(owned2) != 1 || owned2[0].ID != "legacy-1" {
+		t.Errorf("second list = %+v, want [legacy-1] (no double-push)", owned2)
+	}
+	if n, _ := st.rdb.LLen(ctx, personalAgentIDsByOwnerRedisKey("U1")).Result(); n != 1 {
+		t.Errorf("list length = %d after 2nd read, want 1 (idempotent)", n)
 	}
 }
 
