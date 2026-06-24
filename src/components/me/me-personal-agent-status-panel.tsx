@@ -539,6 +539,7 @@ export function MePersonalAgentStatusPanel({
         <TeamModeSection
           agentId={agent.agentId}
           enabled={agent.teamMode ?? false}
+          installUrl={agent.installUrl}
           onChange={(next) => setAgent((a) => ({ ...a, teamMode: next }))}
         />
       ) : null}
@@ -1055,10 +1056,12 @@ function TeamBadge() {
 function TeamModeSection({
   agentId,
   enabled,
+  installUrl,
   onChange,
 }: {
   agentId: string;
   enabled: boolean;
+  installUrl?: string;
   onChange: (next: boolean) => void;
 }) {
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -1067,6 +1070,17 @@ function TeamModeSection({
   // Connected Google account, surfaced in the disclosure so the exposed mailbox
   // is never a surprise. Best-effort; the section renders fine without it.
   const [google, setGoogle] = useState<{ connected: boolean; email?: string }>({ connected: false });
+  // Detect-driven scope readiness (#653). Agents whose Slack app was installed
+  // before groups:read was added to the manifest can't read channel membership,
+  // so team mode fails closed. We check the live bot-token scopes and surface an
+  // explicit reinstall affordance ONLY for those agents — not a blanket note.
+  // verified=false → couldn't determine (local dev / transient); don't block.
+  const [scope, setScope] = useState<{
+    loading: boolean;
+    ready: boolean;
+    verified: boolean;
+    missing: string[];
+  }>({ loading: true, ready: false, verified: false, missing: [] });
 
   useEffect(() => {
     let cancelled = false;
@@ -1079,6 +1093,38 @@ function TeamModeSection({
         if (res.ok && !cancelled) setGoogle(await res.json());
       } catch {
         /* best-effort */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [agentId]);
+
+  // Check whether this agent's installed app actually has the team-mode scopes.
+  useEffect(() => {
+    let cancelled = false;
+    setScope((s) => ({ ...s, loading: true }));
+    (async () => {
+      try {
+        const res = await fetch(
+          `/api/me/personal-agents/team-scope-status?agentId=${encodeURIComponent(agentId)}`,
+          { cache: "no-store" },
+        );
+        const body = (await res.json().catch(() => ({}))) as {
+          teamScopesReady?: boolean;
+          verified?: boolean;
+          missing?: string[];
+        };
+        if (!cancelled) {
+          setScope({
+            loading: false,
+            ready: !!body.teamScopesReady,
+            verified: !!body.verified,
+            missing: body.missing ?? [],
+          });
+        }
+      } catch {
+        if (!cancelled) setScope({ loading: false, ready: false, verified: false, missing: [] });
       }
     })();
     return () => {
@@ -1112,12 +1158,18 @@ function TeamModeSection({
     }
   }
 
+  // This agent's app is missing a team-mode scope (detect-driven). Block
+  // enabling until the owner reinstalls; the membership resolver would fail
+  // closed otherwise. verified=false (couldn't check) never blocks.
+  const needsReinstall = scope.verified && !scope.ready;
+
   // Turning ON requires confirmation; turning OFF is immediate (no teardown).
   const onToggle = () => {
     setError(null);
     if (enabled) {
       void apply(false);
     } else {
+      if (needsReinstall) return; // gated — reinstall affordance shown below
       setConfirmOpen(true);
     }
   };
@@ -1135,8 +1187,43 @@ function TeamModeSection({
             with your connected accounts, memory, and tools.
           </p>
         </div>
-        <Switch checked={enabled} disabled={submitting} onChange={onToggle} label="Team agent" />
+        <Switch
+          checked={enabled}
+          disabled={submitting || scope.loading || (needsReinstall && !enabled)}
+          onChange={onToggle}
+          label="Team agent"
+        />
       </div>
+
+      {scope.loading ? (
+        <p className="mt-2 text-xs text-muted-foreground">Checking channel-read permissions…</p>
+      ) : null}
+
+      {needsReinstall ? (
+        <div className="mt-3 space-y-2 rounded-lg border border-amber-500/30 bg-amber-500/[0.08] px-3 py-2.5">
+          <p className="text-xs leading-relaxed text-foreground/80">
+            {enabled
+              ? "Team mode is on, but this agent's Slack app can't read channel membership yet, so it's answering no one. Reinstall to activate it."
+              : "Team mode needs channel-read access this agent's Slack app doesn't have yet. Reinstall to enable it."}
+            {scope.missing.length ? (
+              <>
+                {" "}
+                <span className="text-muted-foreground">Missing: {scope.missing.join(", ")}.</span>
+              </>
+            ) : null}
+          </p>
+          {installUrl ? (
+            <a
+              href={installUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex h-8 items-center rounded-full bg-foreground px-3 text-xs font-medium text-background transition hover:opacity-90"
+            >
+              Reinstall Slack app
+            </a>
+          ) : null}
+        </div>
+      ) : null}
 
       {error ? (
         <p className="mt-3 rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-700 dark:text-rose-300">
@@ -1203,11 +1290,6 @@ function TeamModeConfirm({
           <li>Use a private channel so your team is the only audience.</li>
         </ul>
       </div>
-
-      <p className="rounded-lg border border-border/60 bg-background/60 px-3 py-2 text-xs text-muted-foreground">
-        Team mode reads channel membership; if your agent was created before this feature you may
-        need to reinstall its Slack app to grant channel access.
-      </p>
 
       <div className="flex flex-wrap justify-end gap-2 pt-1">
         <button

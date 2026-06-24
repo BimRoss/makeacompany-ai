@@ -342,6 +342,7 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 	s.mux.HandleFunc("POST /v1/me/personal-agents/delete", s.handleDeletePersonalAgent)
 	s.mux.HandleFunc("POST /v1/me/personal-agents/{id}/visibility", s.handleSetMyPersonalAgentVisibility)
 	s.mux.HandleFunc("POST /v1/me/personal-agents/team-mode", s.handleSetMyPersonalAgentTeamMode)
+	s.mux.HandleFunc("GET /v1/me/personal-agents/team-scope-status", s.handlePersonalAgentTeamScopeStatus)
 	s.mux.HandleFunc("GET /v1/me/personal-agents/google/status", s.handlePersonalAgentGoogleStatus)
 	s.mux.HandleFunc("POST /v1/me/personal-agents/google/connect/finish", s.handlePersonalAgentGoogleConnectFinish)
 	s.mux.HandleFunc("POST /v1/me/personal-agents/google/disconnect", s.handlePersonalAgentGoogleDisconnect)
