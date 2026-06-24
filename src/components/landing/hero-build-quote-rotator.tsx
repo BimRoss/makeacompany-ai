@@ -56,7 +56,7 @@ export function HeroBuildQuoteRotator() {
 
   return (
     <div
-      className="mx-auto mb-6 flex min-h-[5rem] max-w-3xl items-center justify-center px-4 text-center sm:mb-8 sm:min-h-[4.5rem]"
+      className="mx-auto mb-5 flex min-h-[5rem] max-w-3xl items-center justify-center px-4 text-center sm:mb-7 sm:min-h-[4.5rem]"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
       onFocus={() => setPaused(true)}
