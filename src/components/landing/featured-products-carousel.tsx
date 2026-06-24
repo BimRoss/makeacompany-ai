@@ -95,7 +95,7 @@ export function FeaturedProductsCarousel({
             {total !== null && (
               <>
                 <br />
-                {messagesFormatter.format(total)} messages sent and counting.
+                {messagesFormatter.format(total)} things done and counting.
               </>
             )}
           </h2>
