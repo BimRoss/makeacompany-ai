@@ -5,7 +5,38 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { FeaturedProduct } from "@/lib/featured-products";
 
-export function FeaturedProductsCarousel({ products }: { products: FeaturedProduct[] }) {
+const POLL_INTERVAL_MS = 60_000;
+const messagesFormatter = new Intl.NumberFormat("en-US");
+
+export function FeaturedProductsCarousel({
+  products,
+  messagesTotal,
+}: {
+  products: FeaturedProduct[];
+  messagesTotal: number | null;
+}) {
+  const [total, setTotal] = useState<number | null>(messagesTotal);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const res = await fetch("/api/lander/messages-sent", { cache: "no-store" });
+        if (!res.ok) return;
+        const body = (await res.json()) as { total?: number };
+        if (cancelled) return;
+        if (typeof body.total === "number" && body.total >= 0) setTotal(body.total);
+      } catch {
+        // Keep showing the last good value on transient failures.
+      }
+    };
+    const id = window.setInterval(() => void load(), POLL_INTERVAL_MS);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, []);
+
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
@@ -59,8 +90,14 @@ export function FeaturedProductsCarousel({ products }: { products: FeaturedProdu
           <p className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
             Built on makeacompany.ai
           </p>
-          <h2 className="mb-4 text-3xl font-bold tracking-tight sm:text-4xl">
-            Real products from real founders
+          <h2 className="mb-4 text-balance text-3xl font-bold tracking-tight sm:text-4xl">
+            Real products from real founders.
+            {total !== null && (
+              <>
+                <br />
+                {messagesFormatter.format(total)} messages sent and counting.
+              </>
+            )}
           </h2>
           <p className="text-lg text-muted-foreground">
             Live sites made by the community. Tap any card to see one.
