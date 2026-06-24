@@ -80,3 +80,41 @@ export function useTimeRange(): TimeRangeContextValue {
   }
   return ctx;
 }
+
+/**
+ * Compact range selector that lives inline on a section header, not at the top
+ * of the page. It binds to the shared TimeRangeProvider, so toggling it on one
+ * Prometheus-backed section moves every other section that shows it too — the
+ * control only appears next to panels it actually drives. Sections with their
+ * own native window (GA4, Search, the scorecard) don't render it.
+ */
+export function TimeRangeChip() {
+  const { range, setRange } = useTimeRange();
+  return (
+    <div
+      role="radiogroup"
+      aria-label="Time range"
+      className="inline-flex items-center gap-1 rounded-lg border border-border bg-card p-0.5 text-xs"
+    >
+      {TIME_RANGE_OPTIONS.map((option) => {
+        const active = range === option.key;
+        return (
+          <button
+            key={option.key}
+            type="button"
+            role="radio"
+            aria-checked={active}
+            onClick={() => setRange(option.key)}
+            className={`rounded-md px-2.5 py-1 transition ${
+              active
+                ? "bg-foreground text-background"
+                : "text-muted-foreground hover:bg-muted hover:text-foreground"
+            }`}
+          >
+            {option.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}

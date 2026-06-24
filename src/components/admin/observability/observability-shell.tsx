@@ -15,6 +15,7 @@ import { MetricPanel } from "./metric-panel";
 import { OAuthPoolPanel } from "@/components/admin/oauth-pool-panel";
 import {
   CLUSTER_PANELS,
+  cohortFrom,
   LIFECYCLE_PANELS,
   TTFV_COHORTS,
   type TtfvCohort,
@@ -24,7 +25,7 @@ import {
 import { SearchDeviceStrip, SearchHostsPanel, SearchPagesPanel, SearchQueriesPanel } from "./search-panel";
 import { SearchTimeseriesPanels } from "./search-timeseries";
 import { ObservabilitySection } from "./section";
-import { TimeRangeProvider, useTimeRange } from "./time-range";
+import { TimeRangeChip, TimeRangeProvider, useTimeRange } from "./time-range";
 import { ObservabilityToolbar } from "./toolbar";
 
 function DashboardLink({ href, label }: { href: string | null; label: string }) {
@@ -114,14 +115,13 @@ function TtfvCohortToggle({
 }
 
 function TtfvQuantilesRow({
-  from,
   cohort,
   onChangeCohort,
 }: {
-  from: string;
   cohort: TtfvCohort;
   onChangeCohort: (next: TtfvCohort) => void;
 }) {
+  const from = cohortFrom(cohort);
   const panels = ttfvPanels(cohort).filter((p) => p.id.startsWith("ttfv-pr-quantile-") || p.id.startsWith("ttfv-quantile-"));
   return (
     <>
@@ -144,7 +144,8 @@ function TtfvQuantilesRow({
   );
 }
 
-function TtfvDistributionsRow({ from, cohort }: { from: string; cohort: TtfvCohort }) {
+function TtfvDistributionsRow({ cohort }: { cohort: TtfvCohort }) {
+  const from = cohortFrom(cohort);
   const panels = ttfvPanels(cohort).filter(
     (p) => p.id.startsWith("ttfv-pr-distribution-") || p.id.startsWith("ttfv-distribution-"),
   );
@@ -208,6 +209,7 @@ function ObservabilityBody() {
         endSlot={
           <div className="flex items-center gap-2">
             <AnomalyBadge component="web" />
+            <TimeRangeChip />
             <DashboardLink href={adminDeep} label="Open in Grafana" />
           </div>
         }
@@ -242,15 +244,16 @@ function ObservabilityBody() {
           id="lifecycle"
           title="Lifecycle cohorts"
           description="Free-for-life, trialing, active, and expired user counts over time. Sweeper updates every 5 minutes."
+          endSlot={<TimeRangeChip />}
         >
           {LIFECYCLE_PANELS.map((def) => (
             <MetricPanel key={def.id} def={def} from={from} prominent />
           ))}
         </ObservabilitySection>
-        <TtfvQuantilesRow from={from} cohort={ttfvCohort} onChangeCohort={setTtfvCohort} />
+        <TtfvQuantilesRow cohort={ttfvCohort} onChangeCohort={setTtfvCohort} />
       </div>
 
-      <TtfvDistributionsRow from={from} cohort={ttfvCohort} />
+      <TtfvDistributionsRow cohort={ttfvCohort} />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
         <div className="lg:col-span-12">
@@ -292,6 +295,7 @@ function ObservabilityBody() {
           id="edge"
           title="Edge (Cloudflare)"
           description="Cloudflare zone analytics for makeacompany.ai."
+          endSlot={<TimeRangeChip />}
         >
           <CloudflarePanels />
         </ObservabilitySection>
@@ -304,6 +308,7 @@ function ObservabilityBody() {
         endSlot={
           <div className="flex items-center gap-2">
             <AnomalyBadge component="cluster" />
+            <TimeRangeChip />
             <DashboardLink href={clusterDeep} label="Open in Grafana" />
           </div>
         }
