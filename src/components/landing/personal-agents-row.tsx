@@ -14,6 +14,11 @@ const POLL_INTERVAL_MS = 60_000;
 const MAX_VISIBLE = 12;
 const TYPE_MS = 42;
 const ERASE_MS = 22;
+// Each circle overlaps its left neighbor by this fraction of its own diameter.
+const OVERLAP = 0.28;
+// Circles never grow past this on wide screens; they only shrink to fit.
+const MAX_DIAMETER = 96;
+const MIN_DIAMETER = 40;
 
 function initialsOf(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -33,7 +38,7 @@ function useTypingTitle() {
 
   const set = useCallback((v: string) => {
     currentRef.current = v;
-    if (elRef.current) elRef.current.textContent = v || " ";
+    if (elRef.current) elRef.current.textContent = v || " ";
   }, []);
 
   const typeTo = useCallback(
@@ -101,6 +106,7 @@ export function PersonalAgentsRow({ initial }: { initial: LanderPersonalAgents }
   const [active, setActive] = useState<number | null>(null);
   const { elRef, caret, typeTo } = useTypingTitle();
   const wrapRef = useRef<HTMLDivElement | null>(null);
+  const [diameter, setDiameter] = useState(MAX_DIAMETER);
 
   useEffect(() => {
     let cancelled = false;
@@ -124,6 +130,26 @@ export function PersonalAgentsRow({ initial }: { initial: LanderPersonalAgents }
   }, [initial.agents.length]);
 
   const visible = data.agents.slice(0, MAX_VISIBLE);
+  const count = visible.length;
+
+  // Size the circles to fill the available row width, then keep them square so
+  // they stay perfect circles instead of getting squished by flexbox overflow.
+  // Width = d + (n-1)*d*(1-OVERLAP)  →  solve for d, cap at MAX_DIAMETER.
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el || count === 0) return;
+    const compute = () => {
+      const span = 1 + (count - 1) * (1 - OVERLAP);
+      const raw = Math.floor(el.clientWidth / span);
+      setDiameter(Math.max(MIN_DIAMETER, Math.min(MAX_DIAMETER, raw)));
+    };
+    compute();
+    const ro = new ResizeObserver(compute);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [count]);
+
+  const overlapPx = Math.round(diameter * OVERLAP);
 
   const focus = useCallback(
     (i: number | null, name: string) => {
@@ -150,15 +176,15 @@ export function PersonalAgentsRow({ initial }: { initial: LanderPersonalAgents }
   }
 
   return (
-    <section aria-label="Agents our members have built" className="pb-10 sm:pb-14">
-      <div className="mx-auto max-w-3xl px-6 text-center">
+    <section aria-label="Agents our users have built" className="pb-10 sm:pb-14">
+      <div className="mx-auto max-w-3xl px-4 text-center sm:px-6">
         <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-          Agents our members have built
+          Agents our users have built
         </p>
 
         {/* Title line — types the focused agent's name, holds height when idle. */}
         <h3 className="mt-3 flex min-h-[1.75rem] items-center justify-center text-lg font-bold tracking-tight text-foreground sm:min-h-[2.25rem] sm:text-2xl">
-          <span ref={elRef}>{" "}</span>
+          <span ref={elRef}>{" "}</span>
           {caret ? (
             <span className="ml-0.5 inline-block animate-pulse font-normal text-muted-foreground" aria-hidden>
               |
@@ -179,13 +205,19 @@ export function PersonalAgentsRow({ initial }: { initial: LanderPersonalAgents }
               title={agent.name}
               onMouseEnter={() => focus(i, agent.name)}
               onClick={() => focus(i, agent.name)}
-              style={{ zIndex: active === i ? visible.length + 1 : visible.length - i }}
-              className={`relative -ml-4 flex h-16 w-16 items-center justify-center overflow-hidden rounded-full border-2 border-background bg-card text-sm font-semibold text-muted-foreground shadow-md transition-transform duration-300 ease-out first:ml-0 hover:-translate-y-1 hover:scale-105 sm:-ml-6 sm:h-24 sm:w-24 ${
+              style={{
+                width: diameter,
+                height: diameter,
+                marginLeft: i === 0 ? 0 : -overlapPx,
+                zIndex: active === i ? count + 1 : count - i,
+                willChange: active === i ? "transform" : undefined,
+              }}
+              className={`relative flex shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-background bg-card text-sm font-semibold text-muted-foreground shadow-md transition-transform duration-300 ease-out hover:-translate-y-1 hover:scale-105 ${
                 active === i ? "-translate-y-1 scale-105" : ""
               }`}
             >
               {agent.imageUrl ? (
-                <Image src={agent.imageUrl} alt={agent.name} fill sizes="(max-width: 640px) 64px, 96px" className="object-cover" />
+                <Image src={agent.imageUrl} alt={agent.name} fill sizes={`${diameter}px`} className="object-cover" />
               ) : (
                 <span aria-hidden>{initialsOf(agent.name)}</span>
               )}
