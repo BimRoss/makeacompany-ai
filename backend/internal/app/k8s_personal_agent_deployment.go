@@ -621,7 +621,7 @@ func tcpProbeOnPort(port, initialDelay, period int) *corev1.Probe {
 // token, so there is nothing to scope and no shared bundle to reach.
 
 const (
-	personalAgentSlackMcpImage         = "geeemoney/slack-mcp:0.1.2"
+	personalAgentSlackMcpImage         = "geeemoney/slack-mcp:0.1.3"
 	personalAgentSlackMcpPort          = 13080
 	personalAgentSlackMcpContainerName = "slack-mcp"
 )
