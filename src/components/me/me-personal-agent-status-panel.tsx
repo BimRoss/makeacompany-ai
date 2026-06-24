@@ -1051,7 +1051,7 @@ function TeamBadge() {
 // TeamModeSection renders the "Team agent" toggle (#653) plus the enable-confirm
 // disclosure modal. Turning team mode ON lets anyone in a Slack channel the
 // owner AND the bot both belong to talk to the agent and use everything it can
-// (its connected Google account, memory, tools) — acting on the owner's behalf.
+// (it acts as whatever accounts the owner connected to it, plus its memory + tools).
 // Enforcement lives entirely in the PA pod; this just flips the flag + env.
 function TeamModeSection({
   agentId,
@@ -1183,8 +1183,8 @@ function TeamModeSection({
             <span className="text-sm font-semibold text-foreground">Team agent</span>
           </div>
           <p className="mt-1 text-xs text-muted-foreground">
-            Let teammates in shared Slack channels talk to this agent. It acts on your behalf,
-            with your connected accounts, memory, and tools.
+            Let teammates in shared Slack channels talk to this agent. It acts as whatever
+            accounts you&apos;ve connected to it (see Connections), plus its memory and tools.
           </p>
         </div>
         <Switch
@@ -1267,9 +1267,9 @@ function TeamModeConfirm({
       <h3 className="text-sm font-semibold text-foreground">Turn on team mode?</h3>
       <p className="text-xs leading-relaxed text-foreground/80">
         Anyone in a Slack channel that both you and this agent belong to can talk to it and use
-        everything it can — its connected Google account, its memory, and its tools. It acts on
-        your behalf to them. It only responds in channels you&apos;re a member of, and goes silent
-        the moment you leave.
+        everything it can — it acts as whatever accounts you&apos;ve connected to it (see
+        Connections), plus its memory and tools. It only responds in channels you&apos;re a member
+        of, and goes silent the moment you leave.
       </p>
 
       {googleConnected ? (
