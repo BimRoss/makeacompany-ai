@@ -141,31 +141,46 @@ func (c *SlackManifestClient) CreateManifest(ctx context.Context, manifest json.
 	return &resp, nil
 }
 
+// ManifestUpdateResponse mirrors the subset of apps.manifest.update we use.
+// Like apps.manifest.create, the update response echoes a fresh
+// `oauth_authorize_url` that reflects the manifest's CURRENT bot scopes — so a
+// scope change (e.g. adding groups:read for team mode) regenerates the install
+// URL with the new `scope=` list. Callers persist this so the /me "Reinstall"
+// button re-consents to the current scopes instead of the frozen create-time set.
+// https://api.slack.com/methods/apps.manifest.update
+type ManifestUpdateResponse struct {
+	OK                bool   `json:"ok"`
+	Error             string `json:"error,omitempty"`
+	OAuthAuthorizeURL string `json:"oauth_authorize_url"`
+	Errors            []struct {
+		Code    string `json:"code,omitempty"`
+		Message string `json:"message,omitempty"`
+		Pointer string `json:"pointer,omitempty"`
+	} `json:"errors,omitempty"`
+}
+
 // UpdateManifest calls apps.manifest.update on an existing app. Used by the
-// "edit description" flow on /me to push name/description changes back to
-// Slack so the bot listing stays in sync.
-func (c *SlackManifestClient) UpdateManifest(ctx context.Context, appID string, manifest json.RawMessage) error {
+// "edit description" flow on /me and the manifest backfill to push the current
+// manifest (name/description AND scopes) back to Slack so the bot listing — and
+// the install/reinstall URL — stays in sync.
+//
+// Returns the response so callers can persist the refreshed oauth_authorize_url
+// (which encodes the manifest's current scopes). When Slack omits the URL from
+// its response, callers fall back to PersonalAgentInstallURLFromManifest.
+func (c *SlackManifestClient) UpdateManifest(ctx context.Context, appID string, manifest json.RawMessage) (*ManifestUpdateResponse, error) {
 	if c.Disabled() {
-		return errors.New("slack manifest client disabled (config tokens unset)")
+		return nil, errors.New("slack manifest client disabled (config tokens unset)")
 	}
 	if strings.TrimSpace(appID) == "" {
-		return errors.New("UpdateManifest: app_id required")
+		return nil, errors.New("UpdateManifest: app_id required")
 	}
 	body := map[string]any{
 		"app_id":   appID,
 		"manifest": json.RawMessage(manifest),
 	}
-	var resp struct {
-		OK     bool   `json:"ok"`
-		Error  string `json:"error,omitempty"`
-		Errors []struct {
-			Code    string `json:"code,omitempty"`
-			Message string `json:"message,omitempty"`
-			Pointer string `json:"pointer,omitempty"`
-		} `json:"errors,omitempty"`
-	}
+	var resp ManifestUpdateResponse
 	if err := c.callJSONWithRefresh(ctx, "/api/apps.manifest.update", body, &resp); err != nil {
-		return err
+		return nil, err
 	}
 	if !resp.OK {
 		if len(resp.Errors) > 0 {
@@ -173,11 +188,11 @@ func (c *SlackManifestClient) UpdateManifest(ctx context.Context, appID string, 
 			for _, e := range resp.Errors {
 				detail = append(detail, fmt.Sprintf("%s@%s: %s", e.Code, e.Pointer, e.Message))
 			}
-			return fmt.Errorf("apps.manifest.update rejected: %s (%s)", resp.Error, strings.Join(detail, "; "))
+			return nil, fmt.Errorf("apps.manifest.update rejected: %s (%s)", resp.Error, strings.Join(detail, "; "))
 		}
-		return fmt.Errorf("apps.manifest.update rejected: %s", resp.Error)
+		return nil, fmt.Errorf("apps.manifest.update rejected: %s", resp.Error)
 	}
-	return nil
+	return &resp, nil
 }
 
 // DeleteApp calls apps.manifest.delete to revoke the Slack app entirely.

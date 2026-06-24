@@ -458,6 +458,22 @@ func (s *Store) DeletePersonalAgent(ctx context.Context, rec PersonalAgentRecord
 	return err
 }
 
+// SetPersonalAgentOAuthAuthorizeURL refreshes the stored install/reinstall URL
+// after an apps.manifest.update. The URL encodes the manifest's bot scopes, so
+// a scope change (e.g. adding groups:read for team mode) regenerates it — this
+// is what keeps /me's "Reinstall Slack app" button consenting to the CURRENT
+// scopes instead of the frozen create-time set. No-op (returns nil) on an empty
+// url so a failed/omitted refresh never clobbers a good stored value.
+func (s *Store) SetPersonalAgentOAuthAuthorizeURL(ctx context.Context, agentID, authorizeURL string) error {
+	if strings.TrimSpace(authorizeURL) == "" {
+		return nil
+	}
+	return s.updatePersonalAgentFields(ctx, agentID, map[string]any{
+		"oauth_authorize_url": authorizeURL,
+		"updated_at":          time.Now().UTC().Format(time.RFC3339),
+	})
+}
+
 // SetPersonalAgentBotUserID stores the Slack bot user id resolved at OAuth
 // install (or lazily via auth.test on first icon-current fetch).
 func (s *Store) SetPersonalAgentBotUserID(ctx context.Context, agentID, botUserID string) error {

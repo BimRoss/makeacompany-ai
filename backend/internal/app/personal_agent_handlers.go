@@ -50,6 +50,27 @@ func (s *Server) pinInstallURLToTeam(raw string) string {
 	return u.String()
 }
 
+// refreshedPersonalAgentInstallURL resolves the install/reinstall URL to store
+// after an apps.manifest.update. Order: prefer the oauth_authorize_url Slack
+// echoes (it already reflects the manifest's current scopes), else construct it
+// from the rendered manifest's bot scopes + the record's client_id. Either way
+// the result is team-pinned exactly like the create path. Returns "" only when
+// neither source yields a URL (e.g. empty client_id) — callers treat that as
+// "leave the stored URL alone" so a no-op never clobbers a good value.
+func (s *Server) refreshedPersonalAgentInstallURL(resp *ManifestUpdateResponse, manifest json.RawMessage, clientID string) string {
+	raw := ""
+	if resp != nil {
+		raw = strings.TrimSpace(resp.OAuthAuthorizeURL)
+	}
+	if raw == "" {
+		raw = PersonalAgentInstallURLFromManifest(manifest, clientID)
+	}
+	if raw == "" {
+		return ""
+	}
+	return s.pinInstallURLToTeam(raw)
+}
+
 type createPersonalAgentRequest struct {
 	DisplayName     string `json:"displayName"`
 	Description     string `json:"description"`

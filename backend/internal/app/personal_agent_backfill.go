@@ -34,11 +34,12 @@ func (s *Server) handlePersonalAgentBackfillManifest(w http.ResponseWriter, r *h
 	}
 
 	type backfillResult struct {
-		Total   int      `json:"total"`
-		Updated int      `json:"updated"`
-		Skipped int      `json:"skipped"`
-		Failed  int      `json:"failed"`
-		Errors  []string `json:"errors,omitempty"`
+		Total       int      `json:"total"`
+		Updated     int      `json:"updated"`
+		URLsRefresh int      `json:"urlsRefreshed"`
+		Skipped     int      `json:"skipped"`
+		Failed      int      `json:"failed"`
+		Errors      []string `json:"errors,omitempty"`
 	}
 	result := backfillResult{Total: len(recs)}
 
@@ -61,16 +62,30 @@ func (s *Server) handlePersonalAgentBackfillManifest(w http.ResponseWriter, r *h
 			result.Errors = append(result.Errors, rec.ID+" ("+appID+"): render: "+err.Error())
 			continue
 		}
-		if err := s.slackManifest.UpdateManifest(r.Context(), appID, manifest); err != nil {
+		updateResp, err := s.slackManifest.UpdateManifest(r.Context(), appID, manifest)
+		if err != nil {
 			result.Failed++
 			result.Errors = append(result.Errors, rec.ID+" ("+appID+"): update: "+err.Error())
 			continue
 		}
 		result.Updated++
+
+		// Refresh the stored install/reinstall URL so it carries the manifest's
+		// current scopes (#653 — the URL is frozen from create time otherwise).
+		// Prefer Slack's echoed URL; fall back to one built from the rendered
+		// scopes. Idempotent: an unchanged manifest yields the same URL, so a
+		// re-run is a stable no-op write. Non-fatal — the manifest already landed.
+		if newURL := s.refreshedPersonalAgentInstallURL(updateResp, manifest, rec.SlackClientID); newURL != "" {
+			if err := s.store.SetPersonalAgentOAuthAuthorizeURL(r.Context(), rec.ID, newURL); err != nil {
+				result.Errors = append(result.Errors, rec.ID+" ("+appID+"): url refresh: "+err.Error())
+			} else {
+				result.URLsRefresh++
+			}
+		}
 		s.log.Printf("personal-agent manifest backfill: updated agent=%s app_id=%s", rec.ID, appID)
 	}
 
-	s.log.Printf("personal-agent manifest backfill: total=%d updated=%d skipped=%d failed=%d",
-		result.Total, result.Updated, result.Skipped, result.Failed)
+	s.log.Printf("personal-agent manifest backfill: total=%d updated=%d urlsRefreshed=%d skipped=%d failed=%d",
+		result.Total, result.Updated, result.URLsRefresh, result.Skipped, result.Failed)
 	writeJSON(w, http.StatusOK, result)
 }
