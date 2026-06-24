@@ -4,9 +4,101 @@ import (
 	"context"
 	"testing"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 )
+
+func TestWriteAgentDeployment_SlackMcpSidecar(t *testing.T) {
+	ctx := context.Background()
+	req := PersonalAgentDeploymentRequest{
+		SlackUserID:      "U0APBT3364D",
+		OwnerSlackUserID: "U0APBT3364D",
+		DisplayName:      "Garth",
+		AgentID:          "agent-abc",
+		Image:            "docker.io/geeemoney/claude-code-personal-agent:v0.1.2",
+	}
+
+	t.Run("disabled by default: no sidecar, no URL override", func(t *testing.T) {
+		cs := fake.NewSimpleClientset()
+		w := newPersonalAgentWriterWithClient(cs, "personal-agents", "", "")
+		if err := w.WriteAgentDeployment(ctx, req); err != nil {
+			t.Fatalf("WriteAgentDeployment: %v", err)
+		}
+		spec := mustGetPodSpec(t, cs, req.SlackUserID)
+		for _, c := range spec.Containers {
+			if c.Name == personalAgentSlackMcpContainerName {
+				t.Fatalf("slack-mcp sidecar present with kill-switch off")
+			}
+		}
+		for _, e := range spec.Containers[0].Env {
+			if e.Name == "ROSS_SLACK_MCP_URL" {
+				t.Fatalf("ROSS_SLACK_MCP_URL stamped with kill-switch off")
+			}
+		}
+	})
+
+	t.Run("enabled: sidecar reads own token, runtime points at localhost", func(t *testing.T) {
+		t.Setenv("PERSONAL_AGENT_SLACK_MCP_SIDECAR", "true")
+		cs := fake.NewSimpleClientset()
+		w := newPersonalAgentWriterWithClient(cs, "personal-agents", "", "")
+		if err := w.WriteAgentDeployment(ctx, req); err != nil {
+			t.Fatalf("WriteAgentDeployment: %v", err)
+		}
+		spec := mustGetPodSpec(t, cs, req.SlackUserID)
+
+		var sidecar *corev1.Container
+		for i := range spec.Containers {
+			if spec.Containers[i].Name == personalAgentSlackMcpContainerName {
+				sidecar = &spec.Containers[i]
+			}
+		}
+		if sidecar == nil {
+			t.Fatalf("slack-mcp sidecar missing when enabled")
+		}
+
+		// The sidecar must read ONLY this agent's own token, via secretKeyRef
+		// to PERSONAL_SLACK_BOT_TOKEN in the per-agent runtime Secret.
+		var xoxb *corev1.EnvVar
+		for i := range sidecar.Env {
+			if sidecar.Env[i].Name == "SLACK_MCP_XOXB_TOKEN" {
+				xoxb = &sidecar.Env[i]
+			}
+		}
+		if xoxb == nil || xoxb.ValueFrom == nil || xoxb.ValueFrom.SecretKeyRef == nil {
+			t.Fatalf("SLACK_MCP_XOXB_TOKEN not sourced from a secretKeyRef")
+		}
+		if got := xoxb.ValueFrom.SecretKeyRef.Key; got != "PERSONAL_SLACK_BOT_TOKEN" {
+			t.Errorf("xoxb key = %q, want PERSONAL_SLACK_BOT_TOKEN", got)
+		}
+		if got := xoxb.ValueFrom.SecretKeyRef.Name; got != personalAgentSecretName(req.SlackUserID) {
+			t.Errorf("xoxb secret = %q, want %q", got, personalAgentSecretName(req.SlackUserID))
+		}
+		if xoxb.Value != "" {
+			t.Errorf("xoxb has inline Value %q, must be secretKeyRef only", xoxb.Value)
+		}
+
+		// The runtime must be repointed at the in-pod sidecar, not the shared bundle.
+		var url string
+		for _, e := range spec.Containers[0].Env {
+			if e.Name == "ROSS_SLACK_MCP_URL" {
+				url = e.Value
+			}
+		}
+		if url != "http://localhost:13080/sse" {
+			t.Errorf("ROSS_SLACK_MCP_URL = %q, want http://localhost:13080/sse", url)
+		}
+	})
+}
+
+func mustGetPodSpec(t *testing.T, cs *fake.Clientset, slackUserID string) corev1.PodSpec {
+	t.Helper()
+	dep, err := cs.AppsV1().Deployments("personal-agents").Get(context.Background(), personalAgentResourceName(slackUserID), metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("get deployment: %v", err)
+	}
+	return dep.Spec.Template.Spec
+}
 
 func TestWriteAgentDeployment_CreatesDeployment(t *testing.T) {
 	cs := fake.NewSimpleClientset()
