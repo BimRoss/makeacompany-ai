@@ -25,13 +25,16 @@ import (
 // what they did. Non-fatal on per-Deployment failures — one bad pod
 // shouldn't stop the rest of the fleet from rolling.
 type reconcileAgentImagesResult struct {
-	Inspected     int      `json:"inspected"`
-	ImageBumped   int      `json:"imageBumped"`
-	Restarted     int      `json:"restarted"`
-	InitContainer int      `json:"initContainerPatched"`
-	EnvReconciled int      `json:"envReconciled"`
-	ResReconciled int      `json:"resourceReconciled"`
-	Errors        []string `json:"errors,omitempty"`
+	Inspected     int `json:"inspected"`
+	ImageBumped   int `json:"imageBumped"`
+	Restarted     int `json:"restarted"`
+	InitContainer int `json:"initContainerPatched"`
+	EnvReconciled int `json:"envReconciled"`
+	ResReconciled int `json:"resourceReconciled"`
+	// SidecarReconciled counts agents whose per-owner slack-mcp sidecar was
+	// attached or detached this pass to match the desired enabled state (#665 WS2).
+	SidecarReconciled int      `json:"sidecarReconciled"`
+	Errors            []string `json:"errors,omitempty"`
 }
 
 func (s *Server) reconcilePersonalAgentImages(ctx context.Context, force bool) reconcileAgentImagesResult {
@@ -105,8 +108,18 @@ func (s *Server) reconcilePersonalAgentImages(ctx context.Context, force bool) r
 		staleEnv := spawnEnvStale(dep, personalAgentStaleEnvKeys)
 		needsEnvReconcile := len(driftEnv) > 0 || len(staleEnv) > 0
 		needsResReconcile := resourceDrift(dep, desiredResources)
+		// Slack MCP sidecar convergence (#665 WS2): attach or detach the
+		// per-owner slack-mcp sidecar so the live pod matches the desired
+		// enabled state (PERSONAL_AGENT_SLACK_MCP_SIDECAR[_USERS]). A container
+		// add/remove can't be a strategic-merge env patch, so this routes to the
+		// full WriteAgentDeployment rebuild path below (same as the init-container
+		// retrofit). slackUser is the owner id the writer stamps as an annotation;
+		// an empty annotation means we can't tell whose agent this is, so leave it.
+		slackUser := strings.TrimSpace(dep.Annotations[personalAgentAnnoSlackUserID])
+		wantSidecar := slackUser != "" && personalAgentSlackMcpEnabled(slackUser)
+		needsSidecarReconcile := slackUser != "" && wantSidecar != hasSlackMcpSidecar(dep)
 
-		if !needsImagePatch && !needsRestart && !needsInitContainer && !needsEnvReconcile && !needsResReconcile {
+		if !needsImagePatch && !needsRestart && !needsInitContainer && !needsEnvReconcile && !needsResReconcile && !needsSidecarReconcile {
 			continue
 		}
 
@@ -116,7 +129,7 @@ func (s *Server) reconcilePersonalAgentImages(ctx context.Context, force bool) r
 		// fails K8s validation. For those, rebuild the spec authoritatively
 		// via WriteAgentDeployment instead of patching, which replaces the
 		// pod template wholesale (new volume name, init container, image).
-		if needsInitContainer {
+		if needsInitContainer || needsSidecarReconcile {
 			req, err := personalAgentReqFromDeployment(dep, desired)
 			if err != nil {
 				result.Errors = append(result.Errors, fmt.Sprintf("rebuild req for %s: %v", dep.Name, err))
@@ -147,8 +160,13 @@ func (s *Server) reconcilePersonalAgentImages(ctx context.Context, force bool) r
 				result.Errors = append(result.Errors, fmt.Sprintf("stamp reconciled-at on %s: %v", dep.Name, err))
 				// non-fatal: deployment is already rewritten correctly.
 			}
-			result.InitContainer++
-			s.log.Printf("personal-agent reconciler retrofit %s/%s via full Update (init container + canonical volume)", ns, dep.Name)
+			if needsInitContainer {
+				result.InitContainer++
+			}
+			if needsSidecarReconcile {
+				result.SidecarReconciled++
+			}
+			s.log.Printf("personal-agent reconciler rebuilt %s/%s via full Update (initContainer=%v slackSidecar=%v wantSidecar=%v)", ns, dep.Name, needsInitContainer, needsSidecarReconcile, wantSidecar)
 			if needsImagePatch {
 				result.ImageBumped++
 			}
@@ -415,6 +433,34 @@ func hasPersonalAgentInitContainer(dep interface{}) bool {
 	}
 	for _, c := range s.Spec.Template.Spec.InitContainers {
 		if c.Name == personalAgentInitContainerName {
+			return true
+		}
+	}
+	return false
+}
+
+// hasSlackMcpSidecar reports whether dep's pod template already carries the
+// per-owner slack-mcp sidecar container (#665 WS2). Fail-closed on a marshal
+// error (returns true) so a transient read glitch never churns the fleet.
+func hasSlackMcpSidecar(dep interface{}) bool {
+	buf, err := json.Marshal(dep)
+	if err != nil {
+		return true
+	}
+	var s struct {
+		Spec struct {
+			Template struct {
+				Spec struct {
+					Containers []corev1.Container `json:"containers"`
+				} `json:"spec"`
+			} `json:"template"`
+		} `json:"spec"`
+	}
+	if err := json.Unmarshal(buf, &s); err != nil {
+		return true
+	}
+	for _, c := range s.Spec.Template.Spec.Containers {
+		if c.Name == personalAgentSlackMcpContainerName {
 			return true
 		}
 	}

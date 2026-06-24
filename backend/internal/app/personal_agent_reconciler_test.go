@@ -269,6 +269,61 @@ func TestReconcilePersonalAgentImages_ConvergesSpawnEnvDrift(t *testing.T) {
 	}
 }
 
+func TestReconcilePersonalAgentImages_ConvergesSlackMcpSidecar(t *testing.T) {
+	t.Setenv("PERSONAL_AGENT_SLACK_MCP_SIDECAR_USERS", "UD")
+	name := personalAgentResourceName("UD")
+	// Converged on everything the reconciler checks EXCEPT the slack-mcp
+	// sidecar: matching image, init container, spawn env, and resources. So the
+	// sidecar is the only drift and it must route through the full rebuild path.
+	dep := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name, Namespace: "personal-agents",
+			Labels: map[string]string{
+				"app.kubernetes.io/managed-by": personalAgentManagedByLabelValue,
+				"bimross.com/agent-id":         "agent-UD",
+			},
+			Annotations: map[string]string{personalAgentAnnoSlackUserID: "UD"},
+		},
+		Spec: appsv1.DeploymentSpec{Template: corev1.PodTemplateSpec{Spec: corev1.PodSpec{
+			InitContainers: []corev1.Container{{Name: personalAgentInitContainerName}},
+			Containers: []corev1.Container{{
+				Name: "personal-agent", Image: "img:new",
+				Env: []corev1.EnvVar{
+					{Name: "AGENT_OWNER_USER_ID", Value: "U-owner-UD"},
+					{Name: "AGENT_DISPLAY_NAME", Value: "Agent UD"},
+					{Name: "PERSONAL_AGENT_DEFAULT_EFFORT", Value: personalAgentDefaultEffort()},
+					{Name: "PERSONAL_AGENT_LOOP_MODEL", Value: personalAgentLoopModel()},
+					{Name: "PERSONAL_AGENT_LOOP_EFFORT", Value: personalAgentLoopEffort()},
+					{Name: "MAC_BACKEND_URL", Value: personalAgentMacBackendURL()},
+				},
+				Resources: personalAgentResources(),
+			}},
+		}}},
+	}
+	cs := fake.NewSimpleClientset(dep)
+	w := newPersonalAgentWriterWithClient(cs, "personal-agents", "", "")
+	srv := &Server{log: log.Default(), personalAgent: w, cfg: Config{PersonalAgentImage: "img:new"}}
+
+	result := srv.reconcilePersonalAgentImages(context.Background(), false)
+	if result.SidecarReconciled != 1 {
+		t.Fatalf("SidecarReconciled = %d, want 1 (result=%+v)", result.SidecarReconciled, result)
+	}
+	got, _ := cs.AppsV1().Deployments("personal-agents").Get(context.Background(), name, metav1.GetOptions{})
+	if !hasSlackMcpSidecar(got) {
+		t.Fatalf("slack-mcp sidecar not attached after reconcile")
+	}
+
+	// Not-allowlisted owner: no sidecar, and a present sidecar would be removed.
+	t.Setenv("PERSONAL_AGENT_SLACK_MCP_SIDECAR_USERS", "")
+	if r2 := srv.reconcilePersonalAgentImages(context.Background(), false); r2.SidecarReconciled != 1 {
+		t.Fatalf("detach pass SidecarReconciled = %d, want 1", r2.SidecarReconciled)
+	}
+	got2, _ := cs.AppsV1().Deployments("personal-agents").Get(context.Background(), name, metav1.GetOptions{})
+	if hasSlackMcpSidecar(got2) {
+		t.Fatalf("slack-mcp sidecar still present after disabling the flag")
+	}
+}
+
 func TestResourceDrift(t *testing.T) {
 	desired := personalAgentResources()
 	mkDep := func(r corev1.ResourceRequirements) *appsv1.Deployment {
