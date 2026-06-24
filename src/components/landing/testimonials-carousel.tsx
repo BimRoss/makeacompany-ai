@@ -161,7 +161,7 @@ export function TestimonialsCarousel({ testimonials }: { testimonials: LanderTes
       <div className="mx-auto max-w-6xl px-6">
         <div className="mb-12 text-center">
           <h2 className="mb-4 text-3xl font-bold tracking-tight sm:text-4xl">
-            Early users are already seeing results
+            Early members are already seeing results
           </h2>
           <p className="text-lg text-muted-foreground">
             Here&apos;s what beta testers are saying about makeacompany.ai
