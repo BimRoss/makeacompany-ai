@@ -315,7 +315,7 @@ func (w *PersonalAgentWriter) WriteAgentDeployment(ctx context.Context, req Pers
 	// default-off env kill-switch so this merges inert; we enable it
 	// fleet-wide after a dev soak. Until then PA Slack MCP behavior is
 	// unchanged. Post-literal mutation, same shape as the Google block above.
-	if personalAgentSlackMcpEnabled() {
+	if personalAgentSlackMcpEnabled(req.SlackUserID) {
 		tmpl := &dep.Spec.Template.Spec
 		tmpl.Containers[0].Env = append(tmpl.Containers[0].Env, personalAgentSlackEnv()...)
 		tmpl.Containers = append(tmpl.Containers, personalAgentSlackMcpSidecar(req.SlackUserID))
@@ -626,13 +626,31 @@ const (
 	personalAgentSlackMcpContainerName = "slack-mcp"
 )
 
-// personalAgentSlackMcpEnabled gates the sidecar fleet-wide. Default OFF so the
-// feature merges inert; flip PERSONAL_AGENT_SLACK_MCP_SIDECAR=true to enable
-// after a dev soak (#665 WS2 rollout). When off, PA Slack MCP behavior is
-// unchanged.
-func personalAgentSlackMcpEnabled() bool {
+// personalAgentSlackMcpEnabled decides whether to attach the sidecar to this
+// owner's pod. Default OFF so the feature merges inert. Two enable levers
+// (#665 WS2 rollout — there is no dev env, so the canary lever matters):
+//
+//   - PERSONAL_AGENT_SLACK_MCP_SIDECAR=true — global, every PA pod.
+//   - PERSONAL_AGENT_SLACK_MCP_SIDECAR_USERS="U123,U456" — per-owner canary
+//     allowlist of Slack user IDs. Lets us enable one real agent in prod,
+//     watch it, then widen to the global flag.
+//
+// When neither matches, PA Slack MCP behavior is unchanged.
+func personalAgentSlackMcpEnabled(slackUserID string) bool {
 	v := strings.ToLower(strings.TrimSpace(os.Getenv("PERSONAL_AGENT_SLACK_MCP_SIDECAR")))
-	return v == "1" || v == "true" || v == "yes" || v == "on"
+	if v == "1" || v == "true" || v == "yes" || v == "on" {
+		return true
+	}
+	allow := strings.TrimSpace(os.Getenv("PERSONAL_AGENT_SLACK_MCP_SIDECAR_USERS"))
+	if allow == "" || strings.TrimSpace(slackUserID) == "" {
+		return false
+	}
+	for _, id := range strings.FieldsFunc(allow, func(r rune) bool { return r == ',' || r == ' ' || r == '\n' || r == '\t' }) {
+		if strings.TrimSpace(id) == strings.TrimSpace(slackUserID) {
+			return true
+		}
+	}
+	return false
 }
 
 // personalAgentSlackEnv points the PA runtime at the in-pod slack-mcp sidecar.

@@ -89,6 +89,33 @@ func TestWriteAgentDeployment_SlackMcpSidecar(t *testing.T) {
 			t.Errorf("ROSS_SLACK_MCP_URL = %q, want http://localhost:13080/sse", url)
 		}
 	})
+
+	t.Run("per-agent canary allowlist", func(t *testing.T) {
+		hasSidecar := func(slackUserID string) bool {
+			cs := fake.NewSimpleClientset()
+			w := newPersonalAgentWriterWithClient(cs, "personal-agents", "", "")
+			r := req
+			r.SlackUserID = slackUserID
+			r.OwnerSlackUserID = slackUserID
+			if err := w.WriteAgentDeployment(ctx, r); err != nil {
+				t.Fatalf("WriteAgentDeployment: %v", err)
+			}
+			for _, c := range mustGetPodSpec(t, cs, slackUserID).Containers {
+				if c.Name == personalAgentSlackMcpContainerName {
+					return true
+				}
+			}
+			return false
+		}
+
+		t.Setenv("PERSONAL_AGENT_SLACK_MCP_SIDECAR_USERS", "UAAA, UBBB")
+		if !hasSidecar("UBBB") {
+			t.Errorf("allowlisted user UBBB got no sidecar")
+		}
+		if hasSidecar("UCCC") {
+			t.Errorf("non-allowlisted user UCCC got a sidecar")
+		}
+	})
 }
 
 func mustGetPodSpec(t *testing.T, cs *fake.Clientset, slackUserID string) corev1.PodSpec {
