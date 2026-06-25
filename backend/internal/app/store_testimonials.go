@@ -17,9 +17,9 @@ const (
 	testimonialIndexKey  = keyPrefix + ":testimonials:v1:index"
 )
 
-// MaxTestimonialContent caps the quote body. Short enough that a 4-line clamp
-// at the carousel's card width has no visible cutoff for typical entries.
-const MaxTestimonialContent = 240
+// MaxTestimonialContent caps the quote body. Cards clamp visually with CSS
+// line-clamp; the modal shows the full text, so longer quotes are fine.
+const MaxTestimonialContent = 600
 
 // MaxTestimonialRole caps the "Title, Company" string. 80 chars fits the
 // card's single-line subtitle without truncation at the smallest card width.
