@@ -453,7 +453,7 @@ export function MePersonalAgentStatusPanel({
         </div>
       ) : null}
 
-      <dl className="divide-y divide-border/60 px-4 py-2 text-sm sm:px-5">
+      <dl className="divide-y divide-border/60 py-2 text-sm">
         <Row label="Email" value={ownerEmail || "—"} />
         <Row label="Slack app" value={agent.slackAppId?.trim() || "Not set"} mono />
         {editOpen ? (
@@ -527,15 +527,6 @@ export function MePersonalAgentStatusPanel({
       ) : null}
 
       {status === "installed" && !editOpen && agent.agentId ? (
-        <MeShareAgentButton
-          agentId={agent.agentId}
-          displayName={agent.displayName?.trim() || "my agent"}
-          visibility={agent.visibility}
-          onShared={(visibility) => setAgent((a) => ({ ...a, visibility }))}
-        />
-      ) : null}
-
-      {status === "installed" && !editOpen && agent.agentId ? (
         <TeamModeSection
           agentId={agent.agentId}
           enabled={agent.teamMode ?? false}
@@ -594,6 +585,17 @@ export function MePersonalAgentStatusPanel({
         onSave={save}
         onRequestDelete={() => setDeleteArmed(true)}
         deleteArmed={deleteArmed}
+        share={
+          status === "installed" && !editOpen && agent.agentId ? (
+            <MeShareAgentButton
+              bare
+              agentId={agent.agentId}
+              displayName={agent.displayName?.trim() || "my agent"}
+              visibility={agent.visibility}
+              onShared={(visibility) => setAgent((a) => ({ ...a, visibility }))}
+            />
+          ) : null
+        }
       />
       {savedToast ? (
         <div className="pointer-events-none fixed inset-x-0 bottom-6 z-[70] flex justify-center px-4">
@@ -640,7 +642,7 @@ function EditRow({
   multiline?: boolean;
 }) {
   return (
-    <div className="flex flex-col gap-2 py-2.5 first:pt-0 last:pb-0 sm:flex-row sm:items-start sm:gap-4">
+    <div className="flex flex-col gap-2 px-4 py-2.5 first:pt-0 last:pb-0 sm:flex-row sm:items-start sm:gap-4 sm:px-5">
       <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground sm:w-40 sm:shrink-0 sm:pt-2">
         {label}
       </dt>
@@ -722,6 +724,7 @@ function ConnectionsFooter({
   onSave,
   onRequestDelete,
   deleteArmed,
+  share,
 }: {
   agentId: string;
   editOpen: boolean;
@@ -732,6 +735,7 @@ function ConnectionsFooter({
   onSave: () => void;
   onRequestDelete: () => void;
   deleteArmed: boolean;
+  share?: React.ReactNode;
 }) {
   const [toast, setToast] = useState<string | null>(null);
   const [google, setGoogle] = useState<{ connected: boolean; email?: string }>({
@@ -815,8 +819,8 @@ function ConnectionsFooter({
   return (
     <footer className="border-t border-border/60">
       {!editOpen ? (
-        <div className="flex flex-col gap-3 px-4 py-4 sm:flex-row sm:flex-nowrap sm:items-center sm:gap-3 sm:px-5">
-          <div className="flex flex-wrap items-center gap-2 sm:min-w-0 sm:flex-1">
+        <>
+          <div className="flex flex-wrap items-center gap-2 px-4 py-4 sm:px-5">
             <ConnectChip
               label="Google"
               icon={<GoogleGlyph />}
@@ -834,17 +838,27 @@ function ConnectionsFooter({
               disabled
             />
           </div>
-          {showEdit ? (
-            <button
-              type="button"
-              onClick={onEdit}
-              className="inline-flex h-11 w-full items-center justify-center gap-1.5 rounded-full border border-border bg-background px-3.5 text-sm font-medium text-foreground transition hover:border-foreground/30 hover:bg-muted/50 sm:ml-auto sm:h-9 sm:w-auto sm:shrink-0 sm:text-xs dark:bg-zinc-950 dark:hover:bg-zinc-900"
-            >
-              <PenIcon />
-              Edit
-            </button>
+          {/* Edit + Share as the final row, each 50% of the card width. The
+              wrapper is relative so Share's confirm popover (bare mode) can
+              break out to the full footer width above this row. */}
+          {share || showEdit ? (
+            <div className="relative grid grid-cols-2 gap-2 border-t border-border/60 px-4 py-3 sm:px-5">
+              <div className="min-w-0">{share}</div>
+              <div className="min-w-0">
+                {showEdit ? (
+                  <button
+                    type="button"
+                    onClick={onEdit}
+                    className="inline-flex h-11 w-full items-center justify-center gap-1.5 rounded-full border border-border bg-background px-3.5 text-sm font-medium text-foreground transition hover:border-foreground/30 hover:bg-muted/50 sm:h-9 sm:text-xs dark:bg-zinc-950 dark:hover:bg-zinc-900"
+                  >
+                    <PenIcon />
+                    Edit
+                  </button>
+                ) : null}
+              </div>
+            </div>
           ) : null}
-        </div>
+        </>
       ) : null}
       {editOpen ? (
         <div className="flex flex-wrap items-center gap-x-2 gap-y-2 bg-muted/20 px-4 py-3 sm:px-5">
@@ -1439,7 +1453,7 @@ function StatusPill({ status }: { status: string }) {
 
 function Row({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
-    <div className="flex items-center justify-between gap-4 py-2.5 first:pt-0 last:pb-0">
+    <div className="flex items-center justify-between gap-4 px-4 py-2.5 first:pt-0 last:pb-0 sm:px-5">
       <dt className="shrink-0 text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</dt>
       <dd className={`min-w-0 truncate text-right text-foreground ${mono ? "font-mono" : ""}`} title={value}>
         {value}
