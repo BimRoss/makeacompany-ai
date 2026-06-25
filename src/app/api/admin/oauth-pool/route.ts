@@ -438,11 +438,22 @@ export async function GET() {
     for (const bot of slackBots) nameBySlackID.set(bot.slackUserID, bot.displayName);
   }
 
+  const seenAgentIDs = new Set<string>();
   const seenSlackIDs = new Set<string>();
   const seenURLs = new Set<string>();
   const deduped: AgentTarget[] = [];
   for (const t of agentTargets) {
-    if (t.slackUserID) {
+    // Personal agents are uniquely identified by their agent id. The
+    // slackUserID on a personal target is the *owner* (a human), which is NOT
+    // unique — one user can own several agents (up to 3), so deduping personal
+    // agents by slackUserID silently collapses an owner's 2nd/3rd agent out of
+    // the legend (and out of the headroom total). Dedup personal agents by
+    // agentID; keep slackUserID dedup only for static agents (Ross/Joanne),
+    // where it's the bot's own id.
+    if (t.agentID) {
+      if (seenAgentIDs.has(t.agentID)) continue;
+      seenAgentIDs.add(t.agentID);
+    } else if (t.slackUserID) {
       if (seenSlackIDs.has(t.slackUserID)) continue;
       seenSlackIDs.add(t.slackUserID);
     }
