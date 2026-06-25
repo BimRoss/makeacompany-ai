@@ -430,19 +430,28 @@ export async function GET() {
   // is used purely to enrich display names by slackUserID; bots without a
   // matching target are dropped (MCPs in particular — already filtered in
   // fetchSlackBots — and any other workspace integration that doesn't
-  // consume the pool). De-duped by slackUserID first, then by URL, so
-  // a target that lacks ROSS_SLACK_BOT_ID/JOANNE_SLACK_BOT_ID env wiring
-  // can't collide with itself.
+  // consume the pool). De-duped by *agent identity*: personal agents key on
+  // their unique agent-id, because a single human owner now has up to 3
+  // personal agents that all carry the *owner's* Slack id (see
+  // discoverPersonalAgents) — keying those on slackUserID collapses all 3
+  // into one row. Static agents (Ross/Joanne) have no agent-id, so they fall
+  // back to slackUserID, which also guards a target that lacks
+  // ROSS_SLACK_BOT_ID/JOANNE_SLACK_BOT_ID env wiring from colliding with
+  // itself. URL is a final backstop for either kind.
   const nameBySlackID = new Map<string, string>();
   if (slackBots) {
     for (const bot of slackBots) nameBySlackID.set(bot.slackUserID, bot.displayName);
   }
 
+  const seenAgentIDs = new Set<string>();
   const seenSlackIDs = new Set<string>();
   const seenURLs = new Set<string>();
   const deduped: AgentTarget[] = [];
   for (const t of agentTargets) {
-    if (t.slackUserID) {
+    if (t.agentID) {
+      if (seenAgentIDs.has(t.agentID)) continue;
+      seenAgentIDs.add(t.agentID);
+    } else if (t.slackUserID) {
       if (seenSlackIDs.has(t.slackUserID)) continue;
       seenSlackIDs.add(t.slackUserID);
     }
