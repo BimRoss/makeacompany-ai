@@ -81,16 +81,16 @@ func TestValidateTestimonial(t *testing.T) {
 		}
 	})
 
-	t.Run("rejects content over 240 chars", func(t *testing.T) {
-		got := Testimonial{Name: "Jane", Role: "Founder, Acme", Content: strings.Repeat("a", 241)}
+	t.Run("rejects content over 600 chars", func(t *testing.T) {
+		got := Testimonial{Name: "Jane", Role: "Founder, Acme", Content: strings.Repeat("a", 601)}
 		err := ValidateTestimonial(&got)
 		if err == nil || !strings.Contains(err.Error(), "content exceeds") {
 			t.Errorf("err = %v, want content-exceeds error", err)
 		}
 	})
 
-	t.Run("accepts content at the 240-char boundary", func(t *testing.T) {
-		got := Testimonial{Name: "Jane", Role: "Founder, Acme", Content: strings.Repeat("a", 240)}
+	t.Run("accepts content at the 600-char boundary", func(t *testing.T) {
+		got := Testimonial{Name: "Jane", Role: "Founder, Acme", Content: strings.Repeat("a", 600)}
 		if err := ValidateTestimonial(&got); err != nil {
 			t.Errorf("unexpected err: %v", err)
 		}
