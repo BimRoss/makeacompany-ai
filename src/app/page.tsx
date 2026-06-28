@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { BuiltFromInside } from "@/components/landing/built-from-inside";
 import { HarnessVsAgent } from "@/components/landing/harness-vs-agent";
 import { CheckoutReturnToast } from "@/components/landing/checkout-return-toast";
+import { ComingSoonToast } from "@/components/landing/coming-soon-toast";
 import { CtaSection } from "@/components/landing/cta-section";
 import { Footer } from "@/components/landing/footer";
 import { Header } from "@/components/landing/header";
@@ -85,6 +86,7 @@ export default async function HomePage({
           dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
         />
         <CheckoutReturnToast />
+        <ComingSoonToast />
         <SideNav />
         <Header />
         <PersonaProvider

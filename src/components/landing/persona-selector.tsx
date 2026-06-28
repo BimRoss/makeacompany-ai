@@ -1,14 +1,13 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { usePersona } from "@/components/landing/persona-context";
 import { firstTouchToGtagParams, readFirstTouchClient } from "@/lib/first-touch";
 import { PERSONA_LABELS, PERSONA_SLUGS, PERSONAS, type Persona } from "@/lib/personas";
 import { track } from "@/lib/gtag";
+import { dispatchComingSoon } from "@/components/landing/coming-soon-toast";
 
 export function PersonaSelector() {
   const { persona, selected } = usePersona();
-  const router = useRouter();
   const activeIndex = PERSONAS.indexOf(persona);
 
   return (
@@ -36,20 +35,12 @@ export function PersonaSelector() {
             role="tab"
             aria-selected={active}
             onClick={() => {
-              if (active) {
-                track("persona_unselected", {
-                  persona: PERSONA_SLUGS[p],
-                  ...firstTouchToGtagParams(readFirstTouchClient()),
-                });
-                router.push("/");
-                return;
-              }
               track("persona_selected", {
                 persona: PERSONA_SLUGS[p],
                 from: persona,
                 ...firstTouchToGtagParams(readFirstTouchClient()),
               });
-              router.push(`/for/${PERSONA_SLUGS[p]}`);
+              dispatchComingSoon();
             }}
             className={`relative z-10 rounded-full px-2 py-1.5 transition-colors sm:px-3 ${
               active ? "text-background" : "text-muted-foreground hover:text-foreground"
