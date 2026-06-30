@@ -6,6 +6,7 @@ import { HarnessVsAgent } from "@/components/landing/harness-vs-agent";
 import { Header } from "@/components/landing/header";
 import { IncubatorCta } from "@/components/landing/incubator-cta";
 import { IncubatorFaq } from "@/components/landing/incubator-faq";
+import { IncubatorFounders } from "@/components/landing/incubator-founders";
 import { IncubatorHarnessMoat } from "@/components/landing/incubator-harness-moat";
 import { IncubatorHero } from "@/components/landing/incubator-hero";
 import { IncubatorImageBand } from "@/components/landing/incubator-image-band";
@@ -88,6 +89,7 @@ export default async function IncubatorPage() {
         <IncubatorHarnessMoat />
         <BuiltFromInside />
         <IncubatorTeam />
+        <IncubatorFounders />
         <IncubatorProcess />
         <div id="agents">
           <PersonalAgentsRow initial={personalAgents} />
