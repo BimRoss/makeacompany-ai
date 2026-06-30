@@ -5,9 +5,14 @@ import { Footer } from "@/components/landing/footer";
 import { HarnessVsAgent } from "@/components/landing/harness-vs-agent";
 import { Header } from "@/components/landing/header";
 import { IncubatorCta } from "@/components/landing/incubator-cta";
+import { IncubatorFaq } from "@/components/landing/incubator-faq";
 import { IncubatorHarnessMoat } from "@/components/landing/incubator-harness-moat";
 import { IncubatorHero } from "@/components/landing/incubator-hero";
+import { IncubatorLeverage } from "@/components/landing/incubator-leverage";
 import { IncubatorPortfolio } from "@/components/landing/incubator-portfolio";
+import { IncubatorProcess } from "@/components/landing/incubator-process";
+import { IncubatorWho } from "@/components/landing/incubator-who";
+import { IncubatorWhyFounders } from "@/components/landing/incubator-why-founders";
 import { PersonalAgentsRow } from "@/components/landing/personal-agents-row";
 import { SideNav, SideNavProvider } from "@/components/landing/side-nav";
 import { TestimonialsCarousel } from "@/components/landing/testimonials-carousel";
@@ -34,11 +39,12 @@ export const metadata: Metadata = {
 const PORTFOLIO_SLUGS = ["brandlete", "nexus-ats"] as const;
 
 const INCUBATOR_NAV = [
-  { href: "#start", label: "Top" },
+  { href: "#leverage", label: "Leverage" },
+  { href: "#who", label: "Who we work with" },
   { href: "#portfolio", label: "Portfolio" },
   { href: "#how", label: "The harness" },
-  { href: "#moat", label: "The moat" },
-  { href: "#agents", label: "Agents" },
+  { href: "#process", label: "Process" },
+  { href: "#faq", label: "FAQ" },
 ];
 
 export default async function IncubatorPage() {
@@ -58,14 +64,19 @@ export default async function IncubatorPage() {
         <SideNav anchors={INCUBATOR_NAV} />
         <Header />
         <IncubatorHero />
+        <IncubatorLeverage />
+        <IncubatorWho />
+        <IncubatorWhyFounders />
         <IncubatorPortfolio products={portfolio} />
         <HarnessVsAgent />
         <IncubatorHarnessMoat />
         <BuiltFromInside />
+        <IncubatorProcess />
         <div id="agents">
           <PersonalAgentsRow initial={personalAgents} />
         </div>
         <TestimonialsCarousel testimonials={testimonials} />
+        <IncubatorFaq />
         <IncubatorCta />
         <Footer />
       </main>
