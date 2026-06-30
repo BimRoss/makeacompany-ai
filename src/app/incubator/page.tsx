@@ -29,12 +29,31 @@ export const dynamic = "force-dynamic";
 // Preview-only surface. Keep it out of search until it's promoted to the
 // real homepage. The `incubator.` host also gets an X-Robots-Tag noindex
 // header from middleware as a second layer.
+const incubatorOgTitle = "makeacompany.ai — private incubator";
+const incubatorOgDescription =
+  "Multiply yourself. Your best work, in a fraction of the time. A private incubator for founders and operators, by introduction only.";
+
 export const metadata: Metadata = {
-  title: "makeacompany.ai — private incubator",
+  title: incubatorOgTitle,
   description:
     "A private incubator for founders and operators chasing maximum leverage.",
   robots: { index: false, follow: false },
   alternates: { canonical: "/incubator" },
+  // Override the inherited public-site unfurl (the "$99/mo AI team" card) so
+  // shared incubator links preview in the new look. The OG/Twitter images come
+  // from the route's opengraph-image.tsx / twitter-image.tsx.
+  openGraph: {
+    title: incubatorOgTitle,
+    description: incubatorOgDescription,
+    url: "/incubator",
+    siteName: "makeacompany.ai",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: incubatorOgTitle,
+    description: incubatorOgDescription,
+  },
 };
 
 // Portfolio order: Brandlete (flagship) first, then Nexus. Driven by slug so
