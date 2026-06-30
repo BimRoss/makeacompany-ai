@@ -349,6 +349,7 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 	s.mux.HandleFunc("POST /v1/internal/personal-agents/rollout-all", s.handlePersonalAgentRolloutAll)
 	s.mux.HandleFunc("POST /v1/internal/personal-agents/backfill-manifest", s.handlePersonalAgentBackfillManifest)
 	s.mux.HandleFunc("GET /v1/personal-agents/{id}/install-complete", s.handlePersonalAgentInstallComplete)
+	s.mux.HandleFunc("GET /v1/personal-agents/sitemap", s.handlePublicAgentSitemap)
 	s.mux.HandleFunc("GET /v1/personal-agents/{id}/public", s.handlePublicAgentProfile)
 	// Per-agent bearer-authed lazy-load endpoint for harvested intelligence
 	// (#607). Called from the agent-knowledge skill in claude-code-personal-agent.
