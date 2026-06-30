@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { Linkedin } from "lucide-react";
 
 const FOUNDERS = [
   {
@@ -6,24 +7,22 @@ const FOUNDERS = [
     title: "Founder / Builder",
     photo: "/founders/grant.jpg",
     bio: "Twelve years shipping production software, from trading systems to real-time sports to point-cloud pipelines, now agent platforms. He built the unglamorous parts of MaC: the orchestration, the integrations, the infrastructure that keeps agents reliable at 3am. Ross, Joanne, and the deploy stack behind them are his.",
-    site: "grantfoster.dev",
-    href: "https://grantfoster.dev",
+    linkedin: "https://www.linkedin.com/in/grantdfoster",
   },
   {
     name: "John Osberg",
     title: "Head of Growth",
     photo: "/founders/john.jpg",
     bio: "Seventeen years building partnerships and revenue engines across the PGA of America, Bloomberg, Citigroup, DICK'S, and more, with over $11M generated in partnerships, funding, and sales. At MaC he turns the relationship-to-revenue playbook into AI, so founders compound trust at scale instead of trading hours for it.",
-    site: "johnosberg.com",
-    href: "https://johnosberg.com",
+    linkedin: "https://www.linkedin.com/in/johnosberg",
   },
 ];
 
 /**
  * "Built by founders, for founders" — the human founders behind MaC, with
  * bios distilled from their LinkedIn/portfolio (John supplied, 2026-06-30).
- * Sits next to the agent team section: the agents that run it, and the people
- * who built it. Brand voice: no em dashes, no inflated vocab.
+ * Each whole tile is a single link to that founder's LinkedIn profile. Brand
+ * voice: no em dashes, no inflated vocab.
  */
 export function IncubatorFounders() {
   return (
@@ -46,10 +45,14 @@ export function IncubatorFounders() {
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
-          {FOUNDERS.map(({ name, title, photo, bio, site, href }) => (
-            <div
+          {FOUNDERS.map(({ name, title, photo, bio, linkedin }) => (
+            <a
               key={name}
-              className="flex flex-col rounded-2xl border border-border bg-card p-6 shadow-sm sm:p-8"
+              href={linkedin}
+              target="_blank"
+              rel="noopener"
+              aria-label={`${name} on LinkedIn`}
+              className="group/card flex flex-col rounded-2xl border border-border bg-card p-6 shadow-sm transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/25 sm:p-8"
             >
               <div className="mb-4 flex items-center gap-4">
                 <Image
@@ -64,20 +67,16 @@ export function IncubatorFounders() {
                   <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                     {title}
                   </p>
-                  <a
-                    href={href}
-                    target="_blank"
-                    rel="noopener"
-                    className="mt-1 inline-block text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-                  >
-                    {site}
-                  </a>
+                  <span className="mt-1.5 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors group-hover/card:text-foreground">
+                    <Linkedin className="h-4 w-4" aria-hidden />
+                    View on LinkedIn
+                  </span>
                 </div>
               </div>
               <p className="text-pretty text-sm leading-relaxed text-muted-foreground">
                 {bio}
               </p>
-            </div>
+            </a>
           ))}
         </div>
       </div>
