@@ -12,6 +12,7 @@ import { IncubatorHero } from "@/components/landing/incubator-hero";
 import { IncubatorImageBand } from "@/components/landing/incubator-image-band";
 import { IncubatorLeverage } from "@/components/landing/incubator-leverage";
 import { IncubatorPortfolio } from "@/components/landing/incubator-portfolio";
+import { IncubatorProblem } from "@/components/landing/incubator-problem";
 import { IncubatorProcess } from "@/components/landing/incubator-process";
 import { IncubatorTeam } from "@/components/landing/incubator-team";
 import { IncubatorWho } from "@/components/landing/incubator-who";
@@ -61,11 +62,11 @@ export const metadata: Metadata = {
 const PORTFOLIO_SLUGS = ["brandlete", "nexus-ats"] as const;
 
 const INCUBATOR_NAV = [
+  { href: "#problem", label: "The problem" },
+  { href: "#founders", label: "Founders" },
   { href: "#leverage", label: "Leverage" },
-  { href: "#who", label: "Who we work with" },
   { href: "#portfolio", label: "Portfolio" },
   { href: "#how", label: "The harness" },
-  { href: "#process", label: "Process" },
   { href: "#faq", label: "FAQ" },
 ];
 
@@ -86,6 +87,9 @@ export default async function IncubatorPage() {
         <SideNav anchors={INCUBATOR_NAV} />
         <Header />
         <IncubatorHero />
+        <IncubatorProblem />
+        <IncubatorFounders />
+        <IncubatorTeam />
         <IncubatorImageBand
           src="/incubator/leverage.jpg"
           alt="One operator directing a vast network of work that fans out and multiplies"
@@ -107,8 +111,6 @@ export default async function IncubatorPage() {
         />
         <IncubatorHarnessMoat />
         <BuiltFromInside />
-        <IncubatorTeam />
-        <IncubatorFounders />
         <IncubatorProcess />
         <div id="agents">
           <PersonalAgentsRow initial={personalAgents} />
