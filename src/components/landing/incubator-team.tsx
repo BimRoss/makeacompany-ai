@@ -1,4 +1,6 @@
 import Image from "next/image";
+import Link from "next/link";
+import { ArrowRight } from "lucide-react";
 
 const TEAM = [
   {
@@ -6,19 +8,20 @@ const TEAM = [
     role: "Software Developer",
     headshot: "/headshots/ross.webp",
     body: "Ships the code, runs the deploys, builds the sites. This page is his work.",
+    href: "/incubator/ross",
   },
   {
     name: "Joanne",
     role: "Chief of Staff",
     headshot: "/headshots/joanne.webp",
     body: "Runs the ops: onboarding, scheduling, the standing routines that keep things moving.",
+    href: "/incubator/joanne",
   },
 ];
 
 /**
- * "The team that runs it" — Ross and Joanne with their real headshots. Puts a
- * face on the agents that back every engagement, ahead of the user-built
- * agent showcase. Brand voice.
+ * "The team that runs it" — Ross and Joanne with their real headshots. Each
+ * tile links to that agent's own page. Brand voice.
  */
 export function IncubatorTeam() {
   return (
@@ -38,10 +41,12 @@ export function IncubatorTeam() {
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
-          {TEAM.map(({ name, role, headshot, body }) => (
-            <div
+          {TEAM.map(({ name, role, headshot, body, href }) => (
+            <Link
               key={name}
-              className="flex items-center gap-4 rounded-2xl border border-border bg-card p-5 shadow-sm sm:p-6"
+              href={href}
+              aria-label={`More about ${name}`}
+              className="group/card flex items-center gap-4 rounded-2xl border border-border bg-card p-5 shadow-sm transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/25 sm:p-6"
             >
               <Image
                 src={headshot}
@@ -56,8 +61,15 @@ export function IncubatorTeam() {
                   {role}
                 </p>
                 <p className="text-pretty text-sm text-muted-foreground">{body}</p>
+                <span className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-muted-foreground transition-colors group-hover/card:text-foreground">
+                  More about {name}
+                  <ArrowRight
+                    className="h-3.5 w-3.5 transition-transform group-hover/card:translate-x-0.5"
+                    aria-hidden
+                  />
+                </span>
               </div>
-            </div>
+            </Link>
           ))}
         </div>
       </div>
