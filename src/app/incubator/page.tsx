@@ -8,9 +8,11 @@ import { IncubatorCta } from "@/components/landing/incubator-cta";
 import { IncubatorFaq } from "@/components/landing/incubator-faq";
 import { IncubatorHarnessMoat } from "@/components/landing/incubator-harness-moat";
 import { IncubatorHero } from "@/components/landing/incubator-hero";
+import { IncubatorImageBand } from "@/components/landing/incubator-image-band";
 import { IncubatorLeverage } from "@/components/landing/incubator-leverage";
 import { IncubatorPortfolio } from "@/components/landing/incubator-portfolio";
 import { IncubatorProcess } from "@/components/landing/incubator-process";
+import { IncubatorTeam } from "@/components/landing/incubator-team";
 import { IncubatorWho } from "@/components/landing/incubator-who";
 import { IncubatorWhyFounders } from "@/components/landing/incubator-why-founders";
 import { PersonalAgentsRow } from "@/components/landing/personal-agents-row";
@@ -64,13 +66,28 @@ export default async function IncubatorPage() {
         <SideNav anchors={INCUBATOR_NAV} />
         <Header />
         <IncubatorHero />
+        <IncubatorImageBand
+          src="/incubator/leverage.jpg"
+          alt="One operator directing a vast network of work that fans out and multiplies"
+          caption="One operator. The output of a team."
+        />
         <IncubatorLeverage />
         <IncubatorWho />
         <IncubatorWhyFounders />
         <IncubatorPortfolio products={portfolio} />
+        <IncubatorImageBand
+          src="/incubator/harness-engine.jpg"
+          alt="A car rendered in white outline with a glowing blue chip at its core and wiring through the chassis"
+        />
         <HarnessVsAgent />
+        <IncubatorImageBand
+          src="/incubator/harness-foundation.jpg"
+          alt="Stacked translucent layers forming a foundation with a single glowing blue core on top"
+          caption="A rented core, on a foundation we own."
+        />
         <IncubatorHarnessMoat />
         <BuiltFromInside />
+        <IncubatorTeam />
         <IncubatorProcess />
         <div id="agents">
           <PersonalAgentsRow initial={personalAgents} />
