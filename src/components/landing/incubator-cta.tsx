@@ -1,9 +1,10 @@
 import { ArrowRight } from "lucide-react";
 
 const CONTACT_EMAIL = "john@makeacompany.ai";
+const CONTACT_BCC = "grant@makeacompany.ai";
 const CONTACT_HREF = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(
   "Multiply with MaC",
-)}`;
+)}&bcc=${CONTACT_BCC}`;
 
 /**
  * Closing CTA for the incubator lander. Inbound-only: the one action is an
