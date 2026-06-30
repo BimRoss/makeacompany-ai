@@ -147,6 +147,8 @@ async function withK8sTLSRelaxed<T>(fn: () => Promise<T>): Promise<T> {
   }
 }
 
+type DiscoveryResult = { targets: AgentTarget[]; discoveryError?: string };
+
 // Discover personal agents from K8s. Each personal-agent has a Deployment
 // + Service + Secret in the personal-agents namespace, all labeled
 // `bimross.com/integration=personal-agent`. We enumerate Deployments (so
@@ -154,7 +156,7 @@ async function withK8sTLSRelaxed<T>(fn: () => Promise<T>): Promise<T> {
 // "scaled to 0" marker) and join with Pods to pick up a pod IP when one
 // is running. Secret annotations carry the slack-user-id so the legend
 // can render "garth" instead of a resource-name hash.
-async function discoverPersonalAgents(): Promise<AgentTarget[]> {
+async function discoverPersonalAgents(): Promise<DiscoveryResult> {
   const kubeApiUrl = process.env.KUBERNETES_SERVICE_HOST;
   const kubeApiPort = process.env.KUBERNETES_SERVICE_PORT;
   // The in-cluster service account token is mounted by kubelet at a
@@ -162,7 +164,7 @@ async function discoverPersonalAgents(): Promise<AgentTarget[]> {
   const token = await readServiceAccountToken();
 
   if (!kubeApiUrl || !token) {
-    return [];
+    return { targets: [] };
   }
 
   const coreBase = `https://${kubeApiUrl}:${kubeApiPort}/api/v1/namespaces/${PERSONAL_AGENT_NAMESPACE}`;
@@ -179,10 +181,9 @@ async function discoverPersonalAgents(): Promise<AgentTarget[]> {
       ]);
 
       if (!deploysResp.ok) {
-        console.error(
-          `K8s API error querying personal-agents deployments: HTTP ${deploysResp.status}`,
-        );
-        return [];
+        const msg = `K8s API error querying personal-agents deployments: HTTP ${deploysResp.status} — RBAC likely missing list on deployments in ${PERSONAL_AGENT_NAMESPACE}`;
+        console.error(msg);
+        return { targets: [], discoveryError: msg };
       }
 
       const deployList = (await deploysResp.json()) as {
@@ -265,18 +266,19 @@ async function discoverPersonalAgents(): Promise<AgentTarget[]> {
           preFailReason: podIp ? undefined : "scaled to 0",
         });
       }
-      return targets;
+      return { targets };
     });
   } catch (error) {
-    console.error("Failed to discover personal agents from K8s", error);
-    return [];
+    const msg = `Failed to discover personal agents from K8s: ${error instanceof Error ? error.message : String(error)}`;
+    console.error(msg);
+    return { targets: [], discoveryError: msg };
   }
 }
 
-async function getAgentTargets(): Promise<AgentTarget[]> {
+async function getAgentTargets(): Promise<{ targets: AgentTarget[]; discoveryError?: string }> {
   const staticTargets = STATIC_AGENT_TARGETS;
-  const personalTargets = await discoverPersonalAgents();
-  return [...staticTargets, ...personalTargets];
+  const { targets: personalTargets, discoveryError } = await discoverPersonalAgents();
+  return { targets: [...staticTargets, ...personalTargets], discoveryError };
 }
 
 // MCP bot users (e.g. "Joanne MCP", "Ross MCP") show up in the workspace
@@ -418,7 +420,7 @@ export async function GET() {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  const [agentTargets, slackBots, paNameByAgentID] = await Promise.all([
+  const [{ targets: agentTargets, discoveryError }, slackBots, paNameByAgentID] = await Promise.all([
     getAgentTargets(),
     fetchSlackBots(),
     fetchPersonalAgentNames(),
@@ -471,7 +473,7 @@ export async function GET() {
   const agents = await Promise.all(deduped.map(fetchAgent));
 
   return NextResponse.json(
-    { agents, checked_at: new Date().toISOString() },
+    { agents, checked_at: new Date().toISOString(), ...(discoveryError ? { discovery_error: discoveryError } : {}) },
     {
       status: 200,
       headers: {

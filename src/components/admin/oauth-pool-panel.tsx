@@ -43,6 +43,7 @@ type AgentResult = {
 type Payload = {
   agents: AgentResult[];
   checked_at: string;
+  discovery_error?: string;
 };
 
 // Go marshals zero-valued time.Time as "0001-01-01T00:00:00Z". omitempty
@@ -109,6 +110,13 @@ export function OAuthPoolPanel() {
       {error ? (
         <div className="rounded-lg border border-[var(--chart-neg)]/40 bg-[var(--chart-neg)]/10 px-3 py-2 text-xs text-[var(--chart-neg)]">
           {error}
+        </div>
+      ) : null}
+
+      {data?.discovery_error ? (
+        <div className="flex items-start gap-2 rounded-lg border border-yellow-500/40 bg-yellow-500/10 px-3 py-2 text-xs text-yellow-700 dark:text-yellow-400">
+          <AlertTriangle className="mt-px h-3.5 w-3.5 shrink-0" />
+          <span>Personal agent discovery failed — showing Ross + Joanne only. {data.discovery_error}</span>
         </div>
       ) : null}
 
