@@ -57,7 +57,7 @@ export function IncubatorHero() {
         <div className="mx-auto mt-10 w-full max-w-3xl overflow-hidden rounded-2xl border border-border bg-black sm:mt-14">
           <Image
             src="/incubator/hero.jpg"
-            alt="A single line splitting into many, one operator multiplied into the output of a team"
+            alt="One glowing cube multiplied into five, one operator multiplied into the output of a team"
             width={1376}
             height={768}
             priority
