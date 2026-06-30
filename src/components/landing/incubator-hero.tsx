@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { ArrowRight } from "lucide-react";
 
 const CONTACT_EMAIL = "john@makeacompany.ai";
@@ -52,6 +53,18 @@ export function IncubatorHero() {
         <p className="mx-auto mt-3 max-w-xl text-balance text-xs text-muted-foreground sm:mt-3.5 sm:text-sm">
           By introduction. John reads every request himself.
         </p>
+
+        <div className="mx-auto mt-10 w-full max-w-3xl overflow-hidden rounded-2xl border border-border bg-black sm:mt-14">
+          <Image
+            src="/incubator/hero.jpg"
+            alt="A single line splitting into many, one operator multiplied into the output of a team"
+            width={1376}
+            height={768}
+            priority
+            className="h-auto w-full"
+            sizes="(max-width: 768px) 100vw, 768px"
+          />
+        </div>
       </div>
     </section>
   );
