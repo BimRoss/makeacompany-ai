@@ -34,7 +34,16 @@ export function IncubatorHero() {
         <p className="mx-auto mb-8 max-w-xl text-pretty text-base text-muted-foreground sm:mb-10 sm:text-lg">
           A private incubator for founders and operators chasing maximum
           leverage on their money, time, and focus. We build alongside a small
-          portfolio of companies, with Brandlete as the flagship.
+          portfolio of companies, with{" "}
+          <a
+            href="https://www.brandlete.com"
+            target="_blank"
+            rel="noopener"
+            className="font-medium text-foreground underline-offset-4 hover:underline"
+          >
+            Brandlete, Inc.
+          </a>{" "}
+          as the flagship.
         </p>
 
         <div className="mx-auto flex w-full max-w-sm justify-center">
@@ -51,7 +60,8 @@ export function IncubatorHero() {
         </div>
 
         <p className="mx-auto mt-3 max-w-xl text-balance text-xs text-muted-foreground sm:mt-3.5 sm:text-sm">
-          By introduction. John reads every request himself.
+          By introduction. John, MaC&apos;s Head of Growth, will review your
+          request.
         </p>
 
         <div className="mx-auto mt-10 w-full max-w-3xl overflow-hidden rounded-2xl border border-border bg-black sm:mt-14">
