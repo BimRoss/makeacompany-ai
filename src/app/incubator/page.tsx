@@ -5,6 +5,7 @@ import { Footer } from "@/components/landing/footer";
 import { HarnessVsAgent } from "@/components/landing/harness-vs-agent";
 import { Header } from "@/components/landing/header";
 import { IncubatorCta } from "@/components/landing/incubator-cta";
+import { IncubatorHarnessMoat } from "@/components/landing/incubator-harness-moat";
 import { IncubatorHero } from "@/components/landing/incubator-hero";
 import { IncubatorPortfolio } from "@/components/landing/incubator-portfolio";
 import { PersonalAgentsRow } from "@/components/landing/personal-agents-row";
@@ -36,6 +37,7 @@ const INCUBATOR_NAV = [
   { href: "#start", label: "Top" },
   { href: "#portfolio", label: "Portfolio" },
   { href: "#how", label: "The harness" },
+  { href: "#moat", label: "The moat" },
   { href: "#agents", label: "Agents" },
 ];
 
@@ -58,6 +60,7 @@ export default async function IncubatorPage() {
         <IncubatorHero />
         <IncubatorPortfolio products={portfolio} />
         <HarnessVsAgent />
+        <IncubatorHarnessMoat />
         <BuiltFromInside />
         <div id="agents">
           <PersonalAgentsRow initial={personalAgents} />
