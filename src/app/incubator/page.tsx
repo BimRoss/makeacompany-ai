@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 
+import { BuiltFromInside } from "@/components/landing/built-from-inside";
 import { Footer } from "@/components/landing/footer";
+import { HarnessVsAgent } from "@/components/landing/harness-vs-agent";
 import { Header } from "@/components/landing/header";
 import { IncubatorCta } from "@/components/landing/incubator-cta";
 import { IncubatorHero } from "@/components/landing/incubator-hero";
@@ -33,6 +35,7 @@ const PORTFOLIO_SLUGS = ["brandlete", "nexus-ats"] as const;
 const INCUBATOR_NAV = [
   { href: "#start", label: "Top" },
   { href: "#portfolio", label: "Portfolio" },
+  { href: "#how", label: "The harness" },
   { href: "#agents", label: "Agents" },
 ];
 
@@ -54,6 +57,8 @@ export default async function IncubatorPage() {
         <Header />
         <IncubatorHero />
         <IncubatorPortfolio products={portfolio} />
+        <HarnessVsAgent />
+        <BuiltFromInside />
         <div id="agents">
           <PersonalAgentsRow initial={personalAgents} />
         </div>
