@@ -62,6 +62,17 @@ export function middleware(request: NextRequest) {
     }
   }
 
+  // incubator.makeacompany.ai → serve the preview incubator lander at "/".
+  // noindex header keeps the preview out of search; the /incubator page also
+  // sets robots noindex in its metadata as a second layer.
+  if (host.startsWith("incubator.")) {
+    if (pathname === "/" || pathname === "") {
+      const res = NextResponse.rewrite(new URL("/incubator", request.url));
+      res.headers.set("X-Robots-Tag", "noindex, nofollow");
+      return res;
+    }
+  }
+
   const session = request.cookies.get(adminSessionCookieName)?.value?.trim();
   const hasSession = Boolean(session);
 

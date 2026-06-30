@@ -13,6 +13,7 @@ export default function robots(): MetadataRoute.Robots {
         "/api",
         "/me",
         "/success",
+        "/incubator",
       ],
     },
     sitemap: `${siteUrl}/sitemap.xml`,
