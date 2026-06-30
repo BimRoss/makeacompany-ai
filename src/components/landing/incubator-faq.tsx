@@ -49,7 +49,7 @@ export function IncubatorFaq() {
 
         <div className="divide-y divide-border rounded-2xl border border-border bg-card">
           {FAQS.map(({ q, a }) => (
-            <details key={q} className="group px-5 py-4 sm:px-6">
+            <details key={q} open className="group px-5 py-4 sm:px-6">
               <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-base font-semibold tracking-tight [&::-webkit-details-marker]:hidden">
                 {q}
                 <span
