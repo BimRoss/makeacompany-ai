@@ -33,7 +33,7 @@ export function IncubatorHero() {
         </h1>
 
         <p className="mx-auto mb-8 max-w-xl text-pretty text-base text-muted-foreground sm:mb-10 sm:text-lg">
-          A private incubator for founders and operators chasing maximum
+          An invite-only incubator for founders and operators chasing maximum
           leverage on their money, time, and focus. We build alongside a small
           portfolio of companies, with{" "}
           <a
