@@ -2,7 +2,7 @@ const STEPS = [
   {
     n: "01",
     title: "Introduction",
-    body: "You reach John. Every request goes through him, and he reads each one himself.",
+    body: "You send us a note. Every request gets a real read from our team.",
   },
   {
     n: "02",
