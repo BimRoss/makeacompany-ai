@@ -60,8 +60,7 @@ export function IncubatorHero() {
         </div>
 
         <p className="mx-auto mt-3 max-w-xl text-balance text-xs text-muted-foreground sm:mt-3.5 sm:text-sm">
-          By introduction. John, MaC&apos;s Head of Growth, will review your
-          request.
+          By introduction. Our team reviews every request.
         </p>
 
         <div className="mx-auto mt-10 w-full max-w-3xl overflow-hidden rounded-2xl border border-border bg-black sm:mt-14">

@@ -41,7 +41,7 @@ export function IncubatorCta() {
             </div>
 
             <p className="mt-6 text-pretty text-sm text-muted-foreground">
-              John Osberg, Head of Growth. He reads every request himself.
+              The MaC team reviews every request.
             </p>
           </div>
         </div>

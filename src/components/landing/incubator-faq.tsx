@@ -1,11 +1,11 @@
 const FAQS: { q: string; a: string }[] = [
   {
     q: "Is this open to the public?",
-    a: "No. The incubator is private and inbound only. You come in through an introduction to John.",
+    a: "No. The incubator is private and inbound only. You come in through an introduction.",
   },
   {
     q: "How do I get in?",
-    a: "Reach John at john@makeacompany.ai. He reads every request himself and starts the fit conversation from there.",
+    a: "Send a note to john@makeacompany.ai. Our team reviews every request and starts the fit conversation from there.",
   },
   {
     q: "What does it cost?",
@@ -17,7 +17,7 @@ const FAQS: { q: string; a: string }[] = [
   },
   {
     q: "Who owns what I build?",
-    a: "The builders own what they build. You're building your own company, and it stays yours. The specifics of any engagement are part of the conversation with John.",
+    a: "The builders own what they build. You're building your own company, and it stays yours. The specifics of any engagement are part of the fit conversation.",
   },
   {
     q: "What's already in the portfolio?",
