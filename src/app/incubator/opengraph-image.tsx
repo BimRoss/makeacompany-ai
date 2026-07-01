@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 
 export const alt =
-  "makeacompany.ai private incubator — Multiply yourself. Your best work, in a fraction of the time.";
+  "makeacompany.ai private incubator — Multiply yourself. Your best work, in a fraction of the time and cost.";
 export const size = {
   width: 1200,
   height: 630,
@@ -102,7 +102,7 @@ export default async function IncubatorOpenGraphImage() {
               marginTop: "22px",
             }}
           >
-            Your best work, in a fraction of the time.
+            Your best work, in a fraction of the time and cost.
           </div>
         </div>
 
