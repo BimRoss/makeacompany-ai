@@ -33,9 +33,9 @@ export function IncubatorHero() {
         </h1>
 
         <p className="mx-auto mb-8 max-w-xl text-pretty text-base text-muted-foreground sm:mb-10 sm:text-lg">
-          An invite-only incubator for founders and operators chasing maximum
-          leverage on their money, time, and focus. We build alongside a small
-          portfolio of companies, with{" "}
+          The builders&apos; incubator. For founders and operators chasing
+          maximum leverage on their money, time, and focus. We build alongside a
+          small portfolio of companies, with{" "}
           <a
             href="https://www.brandlete.com"
             target="_blank"

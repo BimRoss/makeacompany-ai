@@ -30,14 +30,14 @@ export const dynamic = "force-dynamic";
 // Preview-only surface. Keep it out of search until it's promoted to the
 // real homepage. The `incubator.` host also gets an X-Robots-Tag noindex
 // header from middleware as a second layer.
-const incubatorOgTitle = "makeacompany.ai — invite-only incubator";
+const incubatorOgTitle = "makeacompany.ai — the builders' incubator";
 const incubatorOgDescription =
-  "Multiply yourself. Your best work, in a fraction of the time and cost. An invite-only incubator for founders and operators.";
+  "Multiply yourself. Your best work, in a fraction of the time and cost. The builders' incubator, for founders and operators.";
 
 export const metadata: Metadata = {
   title: incubatorOgTitle,
   description:
-    "An invite-only incubator for founders and operators chasing maximum leverage.",
+    "The builders' incubator, for founders and operators chasing maximum leverage.",
   robots: { index: false, follow: false },
   alternates: { canonical: "/incubator" },
   // Override the inherited public-site unfurl (the "$99/mo AI team" card) so

@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 
 export const alt =
-  "makeacompany.ai invite-only incubator — Multiply yourself. Your best work, in a fraction of the time and cost.";
+  "makeacompany.ai the builders' incubator — Multiply yourself. Your best work, in a fraction of the time and cost.";
 export const size = {
   width: 1200,
   height: 630,
@@ -54,7 +54,7 @@ export default async function IncubatorOpenGraphImage() {
               color: "#8a8a8a",
             }}
           >
-            invite-only incubator
+            the builders&apos; incubator
           </div>
         </div>
 
