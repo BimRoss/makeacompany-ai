@@ -1,6 +1,8 @@
 import Image from "next/image";
 import { ArrowRight } from "lucide-react";
 
+import { IncubatorHeroHeadline } from "@/components/landing/incubator-hero-headline";
+
 const CONTACT_EMAIL = "john@makeacompany.ai";
 const CONTACT_BCC = "grant@makeacompany.ai";
 const CONTACT_HREF = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(
@@ -8,8 +10,8 @@ const CONTACT_HREF = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(
 )}&bcc=${CONTACT_BCC}`;
 
 /**
- * Incubator-positioning hero. Static (no persona context, no typewriter) so the
- * promise lands hard and the single black CTA points at John, the front door.
+ * Incubator-positioning hero. The headline types out on first visit (see
+ * IncubatorHeroHeadline), then the single black CTA points at the front door.
  * Headline + button copy are locked with John (2026-06-30).
  */
 export function IncubatorHero() {
@@ -27,10 +29,10 @@ export function IncubatorHero() {
           By introduction only
         </p>
 
-        <h1 className="mx-auto mb-5 max-w-3xl text-balance text-[1.75rem] font-bold leading-[1.1] tracking-tight text-foreground sm:mb-6 sm:text-5xl sm:leading-[1.06] lg:text-6xl">
-          Multiply yourself. Your best work, in a fraction of the time and
-          cost.
-        </h1>
+        <IncubatorHeroHeadline
+          text="Multiply yourself. Your best work, in a fraction of the time and cost."
+          className="mx-auto mb-5 max-w-3xl text-balance text-[1.75rem] font-bold leading-[1.1] tracking-tight text-foreground sm:mb-6 sm:text-5xl sm:leading-[1.06] lg:text-6xl"
+        />
 
         <p className="mx-auto mb-8 max-w-xl text-pretty text-base text-muted-foreground sm:mb-10 sm:text-lg">
           The builders&apos; incubator. For founders and operators chasing
