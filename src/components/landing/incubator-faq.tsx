@@ -17,11 +17,11 @@ const FAQS: { q: string; a: string }[] = [
   },
   {
     q: "Who owns what I build?",
-    a: "You're building your own company. The specifics of any engagement are part of the conversation with John, not a fixed template.",
+    a: "The builders own what they build. You're building your own company, and it stays yours. The specifics of any engagement are part of the conversation with John.",
   },
   {
     q: "What's already in the portfolio?",
-    a: "Brandlete is the flagship, with Nexus alongside. Both were built inside the platform with the same team that would back yours.",
+    a: "Brandlete, Inc. is the flagship, with Nexus alongside. Brandlete's new site and marketing materials were built inside MaC, and its agents are booking demos and landing new customers. Nexus was built in the platform end to end. The same team would back yours.",
   },
   {
     q: "Can the agents use my own tools and accounts?",
