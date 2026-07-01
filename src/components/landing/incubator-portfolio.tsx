@@ -26,8 +26,8 @@ export function IncubatorPortfolio({
             Companies we build alongside.
           </h2>
           <p className="mx-auto max-w-xl text-pretty text-lg text-muted-foreground">
-            Real companies inside the platform, built with the same team that
-            would back yours.
+            Real companies we build alongside, with the same team that would back
+            yours.
           </p>
         </div>
 
