@@ -86,8 +86,8 @@ export default async function OpenGraphImage() {
           <div
             style={{
               display: "flex",
-              marginTop: "24px",
-              fontSize: 94,
+              marginTop: "20px",
+              fontSize: 84,
               fontWeight: 800,
               color: "#ffffff",
               letterSpacing: "-0.03em",
@@ -100,8 +100,8 @@ export default async function OpenGraphImage() {
           <div
             style={{
               display: "flex",
-              marginTop: "22px",
-              fontSize: 40,
+              marginTop: "20px",
+              fontSize: 37,
               fontWeight: 500,
               color: "#cfcfcf",
             }}
@@ -109,16 +109,64 @@ export default async function OpenGraphImage() {
             Your best work, in a fraction of the time and cost.
           </div>
 
+          {/* "One becomes many" cube motif — one blue cube (you) multiplying
+              into a row of white cubes (the output of a team). Ties to the MaC
+              logo and the hero graphic; renders crisp at unfurl size. */}
           <div
             style={{
               display: "flex",
               alignItems: "center",
-              marginTop: "44px",
+              marginTop: "34px",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                width: "46px",
+                height: "46px",
+                borderRadius: "10px",
+                background: "#3b82f6",
+                boxShadow: "0 0 26px rgba(59,130,246,0.65)",
+              }}
+            />
+            <div
+              style={{
+                display: "flex",
+                margin: "0 20px",
+                fontSize: 34,
+                fontWeight: 700,
+                color: "#6b7280",
+              }}
+            >
+              →
+            </div>
+            <div style={{ display: "flex" }}>
+              {[0, 1, 2, 3, 4].map((i) => (
+                <div
+                  key={i}
+                  style={{
+                    display: "flex",
+                    width: "42px",
+                    height: "42px",
+                    borderRadius: "9px",
+                    marginLeft: i === 0 ? "0" : "12px",
+                    background: "#ffffff",
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              marginTop: "34px",
               background: "#ffffff",
               color: "#000000",
               borderRadius: "9999px",
-              padding: "17px 36px",
-              fontSize: 23,
+              padding: "16px 34px",
+              fontSize: 22,
               fontWeight: 700,
             }}
           >
