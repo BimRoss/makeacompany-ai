@@ -28,7 +28,8 @@ export function IncubatorHero() {
         </p>
 
         <h1 className="mx-auto mb-5 max-w-3xl text-balance text-[1.75rem] font-bold leading-[1.1] tracking-tight text-foreground sm:mb-6 sm:text-5xl sm:leading-[1.06] lg:text-6xl">
-          Multiply yourself. Your best work, in a fraction of the time.
+          Multiply yourself. Your best work, in a fraction of the time and
+          cost.
         </h1>
 
         <p className="mx-auto mb-8 max-w-xl text-pretty text-base text-muted-foreground sm:mb-10 sm:text-lg">

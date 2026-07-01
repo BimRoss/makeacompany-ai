@@ -32,7 +32,7 @@ export const dynamic = "force-dynamic";
 // header from middleware as a second layer.
 const incubatorOgTitle = "makeacompany.ai — private incubator";
 const incubatorOgDescription =
-  "Multiply yourself. Your best work, in a fraction of the time. A private incubator for founders and operators, by introduction only.";
+  "Multiply yourself. Your best work, in a fraction of the time and cost. A private incubator for founders and operators, by introduction only.";
 
 export const metadata: Metadata = {
   title: incubatorOgTitle,
