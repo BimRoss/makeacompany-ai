@@ -30,7 +30,7 @@ const ROWS: { icon: typeof Wrench; title: string; body: string }[] = [
 
 export function HarnessVsAgent() {
   return (
-    <section id="how" className="border-y border-border bg-muted/20 py-14 sm:py-20">
+    <section id="how" className="border-y border-border bg-muted/20 py-10 sm:py-14">
       <div className="mx-auto w-full max-w-5xl px-6">
         <div className="mb-12 text-center">
           <p className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">

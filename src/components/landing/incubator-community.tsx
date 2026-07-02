@@ -7,7 +7,7 @@
  */
 export function IncubatorCommunity() {
   return (
-    <section id="community" className="py-14 sm:py-20">
+    <section id="community" className="py-10 sm:py-14">
       <div className="mx-auto w-full max-w-4xl px-6 text-center">
         <p className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
           The part nobody prices in
@@ -26,7 +26,7 @@ export function IncubatorCommunity() {
         <blockquote className="mx-auto mt-10 max-w-3xl rounded-2xl bg-foreground px-6 py-10 sm:px-10">
           <p className="text-balance text-xl font-semibold leading-snug tracking-tight text-background sm:text-2xl">
             Alone, you learn at your own pace. In the room, you learn at
-            everyone&apos;s.
+            everyone else&apos;s, at lightspeed.
           </p>
         </blockquote>
       </div>

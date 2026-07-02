@@ -8,7 +8,7 @@ export function CtaSection() {
   const { copy } = usePersona();
 
   return (
-    <section className="py-14 sm:py-20">
+    <section className="py-10 sm:py-14">
       <div className="mx-auto w-full max-w-4xl px-6">
         <div className="relative overflow-hidden rounded-3xl border border-border bg-card p-8 shadow-lg sm:p-12">
           <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-primary/5 blur-3xl" />

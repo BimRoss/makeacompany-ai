@@ -27,7 +27,7 @@ const STEPS = [
  */
 export function IncubatorProcess() {
   return (
-    <section id="process" className="py-14 sm:py-20">
+    <section id="process" className="py-10 sm:py-14">
       <div className="mx-auto w-full max-w-5xl px-6">
         <div className="mb-12 text-center">
           <p className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
