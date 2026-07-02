@@ -37,10 +37,10 @@ export function HarnessVsAgent() {
             What you&apos;re actually buying
           </p>
           <h2 className="text-balance text-3xl font-bold tracking-tight sm:text-4xl">
-            Claude is the engine. The harness is the car.
+            Claude is the car&apos;s engine. Our harness is the car&apos;s body.
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-pretty text-lg text-muted-foreground">
-            A $100 Claude sub gets you an engine on the floor. We ship the chassis, the wiring, the dashboard — everything that turns it into something your team can actually drive.
+            A $100 Claude sub gets you the engine, sitting on the floor. Our proprietary harness is the body around it: the chassis, the wiring, the dashboard, everything that turns it into something your team can actually drive.
           </p>
         </div>
 
