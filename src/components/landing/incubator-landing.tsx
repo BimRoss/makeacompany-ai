@@ -1,5 +1,7 @@
 import { BuiltFromInside } from "@/components/landing/built-from-inside";
 import { Footer } from "@/components/landing/footer";
+import { IncubatorAgentsFor } from "@/components/landing/incubator-agents-for";
+import { IncubatorCommunity } from "@/components/landing/incubator-community";
 import { HarnessVsAgent } from "@/components/landing/harness-vs-agent";
 import { Header } from "@/components/landing/header";
 import { IncubatorCta } from "@/components/landing/incubator-cta";
@@ -57,6 +59,7 @@ export async function IncubatorLanding() {
         <SideNav anchors={INCUBATOR_NAV} />
         <Header />
         <IncubatorHero />
+        <IncubatorAgentsFor />
         <IncubatorProblem />
         <IncubatorFounders />
         <IncubatorTeam />
@@ -68,6 +71,7 @@ export async function IncubatorLanding() {
         <IncubatorLeverage />
         <IncubatorWho />
         <IncubatorWhyFounders />
+        <IncubatorCommunity />
         <IncubatorPortfolio products={portfolio} />
         <IncubatorImageBand
           src="/incubator/harness-engine.jpg"
