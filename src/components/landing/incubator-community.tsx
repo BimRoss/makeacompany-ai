@@ -7,7 +7,7 @@
  */
 export function IncubatorCommunity() {
   return (
-    <section id="community" className="py-14 sm:py-20">
+    <section id="community" className="py-10 sm:py-14">
       <div className="mx-auto w-full max-w-4xl px-6 text-center">
         <p className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
           The part nobody prices in

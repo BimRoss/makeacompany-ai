@@ -26,7 +26,7 @@ const PILLARS = [
 
 export function ValueStack() {
   return (
-    <section id="why" className="py-14 sm:py-20">
+    <section id="why" className="py-10 sm:py-14">
       <div className="mx-auto w-full max-w-5xl px-6">
         <div className="mb-12 text-center">
           <h2 className="text-balance text-3xl font-bold tracking-tight sm:text-4xl">

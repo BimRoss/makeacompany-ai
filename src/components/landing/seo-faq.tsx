@@ -122,7 +122,7 @@ export function SeoFaqSection({
     </>
   );
   return (
-    <section className="mx-auto w-full max-w-4xl px-6 py-14 sm:py-20">
+    <section className="mx-auto w-full max-w-4xl px-6 py-10 sm:py-14">
       {hideHeading ? null : (
         <h2 className="text-center text-3xl font-semibold tracking-tight sm:text-4xl">Frequently asked questions</h2>
       )}
