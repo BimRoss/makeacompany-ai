@@ -5,7 +5,7 @@ import { ArrowRight } from "lucide-react";
 const TEAM = [
   {
     name: "Ross",
-    role: "Software Developer",
+    role: "Chief Engineer, Full Stack",
     headshot: "/headshots/ross.webp",
     body: "Ships the code, runs the deploys, builds the sites. This page is his work.",
     href: "/incubator/ross",
