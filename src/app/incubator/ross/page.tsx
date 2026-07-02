@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { IncubatorAgentDetail } from "@/components/landing/incubator-agent-detail";
 
 export const metadata: Metadata = {
-  title: "Ross — Software Developer | makeacompany.ai incubator",
+  title: "Ross — Chief Engineer, Full Stack | makeacompany.ai incubator",
   description: "Ross ships the code, runs the deploys, and builds the sites.",
   robots: { index: false, follow: false },
   alternates: { canonical: "/incubator/ross" },
@@ -13,7 +13,7 @@ export default function RossPage() {
   return (
     <IncubatorAgentDetail
       name="Ross"
-      role="Software Developer"
+      role="Chief Engineer, Full Stack"
       headshot="/headshots/ross.webp"
       intro="Ross is the builder. He ships your code, runs your deploys, and stands up your sites, all from inside Slack. This very page is his work, written and shipped the same way he would build for you."
       capabilities={[
