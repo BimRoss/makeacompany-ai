@@ -1,6 +1,6 @@
-import Image from "next/image";
 import { ArrowRight } from "lucide-react";
 
+import { IncubatorHeroGraphic } from "@/components/landing/incubator-hero-graphic";
 import { IncubatorHeroHeadline } from "@/components/landing/incubator-hero-headline";
 
 const CONTACT_EMAIL = "john@makeacompany.ai";
@@ -66,17 +66,7 @@ export function IncubatorHero() {
           By introduction. Our team reviews every request.
         </p>
 
-        <div className="mx-auto mt-10 w-full max-w-3xl overflow-hidden rounded-2xl border border-border bg-black sm:mt-14">
-          <Image
-            src="/incubator/hero.png"
-            alt="One glowing cube multiplied into six, one operator multiplied into the output of a team"
-            width={1376}
-            height={768}
-            priority
-            className="h-auto w-full"
-            sizes="(max-width: 768px) 100vw, 768px"
-          />
-        </div>
+        <IncubatorHeroGraphic />
       </div>
     </section>
   );
