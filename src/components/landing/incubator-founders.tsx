@@ -11,7 +11,7 @@ const FOUNDERS = [
   },
   {
     name: "John Osberg",
-    title: "Head of Growth",
+    title: "Co-Founder / Head of Growth",
     photo: "/founders/john.jpg",
     bio: "Seventeen years building partnerships and revenue engines across the PGA of America, Bloomberg, Citigroup, DICK'S, and more, with over $11M generated in partnerships, funding, and sales. At MaC he turns the relationship-to-revenue playbook into AI, so founders compound trust at scale instead of trading hours for it.",
     linkedin: "https://www.linkedin.com/in/johnosberg",
