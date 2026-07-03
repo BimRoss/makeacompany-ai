@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { LanderTestimonial } from "@/lib/lander-testimonials";
 
@@ -130,17 +130,31 @@ function TestimonialCard({
   );
 }
 
+// Named testimonials lead the carousel; the generic "Early user" / "Anonymous"
+// ones sort to the back (John's call). Stable so relative order is otherwise
+// preserved.
+function isGenericName(name: string): boolean {
+  return /^(early users?|anonymous)$/i.test(name.trim());
+}
+
 export function TestimonialsCarousel({ testimonials }: { testimonials: LanderTestimonial[] }) {
   const [activeId, setActiveId] = useState<string | null>(null);
-  const activeIndex = activeId ? testimonials.findIndex((t) => t.id === activeId) : -1;
-  const activeTestimonial = activeIndex >= 0 ? testimonials[activeIndex] : null;
+  const ordered = useMemo(
+    () =>
+      [...testimonials].sort(
+        (a, b) => Number(isGenericName(a.name)) - Number(isGenericName(b.name)),
+      ),
+    [testimonials],
+  );
+  const activeIndex = activeId ? ordered.findIndex((t) => t.id === activeId) : -1;
+  const activeTestimonial = activeIndex >= 0 ? ordered[activeIndex] : null;
   const goToOffset = useCallback(
     (offset: number) => {
       if (activeIndex < 0) return;
-      const next = (activeIndex + offset + testimonials.length) % testimonials.length;
-      setActiveId(testimonials[next].id);
+      const next = (activeIndex + offset + ordered.length) % ordered.length;
+      setActiveId(ordered[next].id);
     },
-    [activeIndex, testimonials],
+    [activeIndex, ordered],
   );
   const touchStartXRef = useRef<number | null>(null);
   const touchDeltaXRef = useRef(0);
@@ -190,14 +204,14 @@ export function TestimonialsCarousel({ testimonials }: { testimonials: LanderTes
         }}
       >
         <div className="testimonials-marquee-track flex w-max px-4">
-          {testimonials.map((t) => (
+          {ordered.map((t) => (
             <TestimonialCard
               key={t.id}
               testimonial={t}
               onOpen={() => setActiveId(t.id)}
             />
           ))}
-          {testimonials.map((t) => (
+          {ordered.map((t) => (
             <TestimonialCard
               key={`${t.id}-dup`}
               testimonial={t}
