@@ -23,7 +23,7 @@ const ITEMS: { icon: typeof GitBranch; title: string; body: string }[] = [
 
 export function PreviewValue() {
   return (
-    <section className="border-t border-border/60 py-14 sm:py-20">
+    <section className="py-16 sm:py-24">
       <div className="mx-auto w-full max-w-5xl px-6">
         <h2 className="mx-auto max-w-2xl text-balance text-center text-2xl font-bold tracking-tight sm:text-3xl">
           Not one agent. A whole team of them.
@@ -35,8 +35,8 @@ export function PreviewValue() {
         <ul className="mt-10 grid gap-8 sm:grid-cols-3">
           {ITEMS.map(({ icon: Icon, title, body }) => (
             <li key={title} className="text-center sm:text-left">
-              <span className="mx-auto flex h-11 w-11 items-center justify-center rounded-xl bg-foreground/5 text-foreground sm:mx-0">
-                <Icon className="h-5 w-5" aria-hidden="true" />
+              <span className="mx-auto flex h-8 w-8 items-center justify-center text-foreground sm:mx-0">
+                <Icon className="h-6 w-6" aria-hidden="true" strokeWidth={1.5} />
               </span>
               <h3 className="mt-4 text-base font-semibold tracking-tight">
                 {title}
