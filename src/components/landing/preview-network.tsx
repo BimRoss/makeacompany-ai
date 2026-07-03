@@ -103,8 +103,7 @@ export function PreviewNetwork() {
           The network
         </p>
         <h2 className="mx-auto max-w-2xl text-balance text-2xl font-bold tracking-tight sm:text-3xl">
-          The people building with MaC work, or once worked, at these
-          companies.
+          Current and alumni of these companies are building with MaC, today:
         </h2>
       </div>
 
