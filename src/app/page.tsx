@@ -11,21 +11,20 @@ export const dynamic = "force-dynamic";
 // $99 self-serve lander remains at /classic. Rollback = restore IncubatorLanding
 // here. The OG/Twitter card is still the incubator card (opengraph-image.tsx);
 // swap on request.
-const homeTitle = "makeacompany.ai — the builders' incubator";
+const homeTitle = "makeacompany.ai — Multiply yourself";
 const homeDescription =
-  "Multiply yourself. Your best work, in a fraction of the time and cost. The builders' incubator, for founders and operators chasing maximum leverage.";
+  "Multiply yourself. Your best work, in a fraction of the time and cost. A team of agents that runs your company from inside Slack.";
 
 export const metadata: Metadata = {
   title: homeTitle,
-  description:
-    "The builders' incubator, for founders and operators chasing maximum leverage on their money, time, and focus.",
+  description: homeDescription,
   alternates: { canonical: "/" },
   keywords: [
-    "startup incubator",
-    "founder incubator",
+    "AI agents",
     "AI agents for founders",
-    "builders incubator",
-    "operator leverage",
+    "AI teammate",
+    "Slack agents",
+    "makeacompany",
     "MakeaCompany",
   ],
   openGraph: {
