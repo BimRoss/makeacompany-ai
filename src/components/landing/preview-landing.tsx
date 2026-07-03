@@ -3,13 +3,15 @@ import { Header } from "@/components/landing/header";
 import { PreviewCta } from "@/components/landing/preview-cta";
 import { PreviewHero } from "@/components/landing/preview-hero";
 import { PreviewNetwork } from "@/components/landing/preview-network";
+import { PreviewProduct } from "@/components/landing/preview-product";
 import { PreviewValue } from "@/components/landing/preview-value";
 
 /**
  * Minimal, boardy-style preview lander served at `preview.makeacompany.ai`
- * (noindex). Hero + logo network + a short value row + closing CTA + footer —
- * boardy-clean but with enough substance that it doesn't read as too thin. The
- * live homepage (the full incubator lander) is untouched.
+ * (noindex). Hero + logo network + short product explainer + value row +
+ * closing CTA + footer — boardy-clean but with enough substance to orient a
+ * first-time visitor. The live homepage (the full incubator lander) is
+ * untouched.
  */
 export function PreviewLanding() {
   return (
@@ -17,6 +19,7 @@ export function PreviewLanding() {
       <Header />
       <PreviewHero />
       <PreviewNetwork />
+      <PreviewProduct />
       <PreviewValue />
       <PreviewCta />
       <Footer />
