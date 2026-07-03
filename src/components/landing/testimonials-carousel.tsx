@@ -93,7 +93,7 @@ function TestimonialCard({
           onOpen();
         }
       }}
-      className="group/card flex shrink-0 mr-4 w-[300px] sm:w-[340px] min-h-[280px] cursor-pointer flex-col rounded-xl border border-border bg-card/60 p-6 transition hover:border-foreground/30 hover:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/25"
+      className="group/card flex shrink-0 mr-4 w-[300px] sm:w-[340px] min-h-[280px] cursor-pointer flex-col rounded-xl border border-border/50 bg-transparent p-6 transition hover:border-foreground/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/25"
     >
       <div className="mb-1 text-3xl font-black leading-none text-foreground/15 select-none">&ldquo;</div>
       <div className="mb-6 text-foreground/90 text-sm">
@@ -265,7 +265,7 @@ export function TestimonialsCarousel({ testimonials }: { testimonials: LanderTes
   if (testimonials.length === 0) return null;
 
   return (
-    <section id="testimonials" className="bg-muted/30 py-10 sm:py-14">
+    <section id="testimonials" className="py-16 sm:py-24">
       <div className="mx-auto max-w-6xl px-6">
         <div className="mb-12 text-center">
           <h2 className="mb-4 text-3xl font-bold tracking-tight sm:text-4xl">
