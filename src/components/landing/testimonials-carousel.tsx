@@ -60,13 +60,78 @@ function TestimonialContent({ content, clamp }: { content: string; clamp?: boole
   );
 }
 
+// A single testimonial card. Used twice per row (real + duplicate) to make the
+// marquee loop seamlessly; the duplicate is aria-hidden so screen readers and
+// tab order only see each quote once. Deliberately does NOT use the
+// `.testimonial-card` reveal class — that one starts at opacity:0 and only shows
+// once an IntersectionObserver marks it in-view, which never fires on a row
+// that's always moving.
+function TestimonialCard({
+  testimonial,
+  onOpen,
+  ariaHidden,
+}: {
+  testimonial: LanderTestimonial;
+  onOpen: () => void;
+  ariaHidden?: boolean;
+}) {
+  const [tintLight, tintDark] = pickMonogramTint(testimonial.name);
+  const initials = testimonial.avatar || deriveInitials(testimonial.name);
+  return (
+    <article
+      {...(ariaHidden
+        ? { "aria-hidden": true, tabIndex: -1 }
+        : {
+            tabIndex: 0,
+            role: "button",
+            "aria-label": `Read full testimonial from ${testimonial.name}`,
+          })}
+      onClick={onOpen}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onOpen();
+        }
+      }}
+      className="group/card flex shrink-0 mr-4 w-[300px] sm:w-[340px] min-h-[280px] cursor-pointer flex-col rounded-xl border border-border bg-card/60 p-6 transition hover:border-foreground/30 hover:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/25"
+    >
+      <div className="mb-1 text-3xl font-black leading-none text-foreground/15 select-none">&ldquo;</div>
+      <div className="mb-6 text-foreground/90 text-sm">
+        <TestimonialContent content={testimonial.content} clamp />
+      </div>
+      <div className="mt-auto flex items-center gap-3">
+        <div
+          className="testimonial-monogram relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border text-sm font-semibold"
+          style={
+            {
+              "--monogram-bg-light": tintLight,
+              "--monogram-bg-dark": tintDark,
+            } as React.CSSProperties
+          }
+        >
+          {testimonial.avatarImage ? (
+            <Image
+              src={testimonial.avatarImage}
+              alt={testimonial.name}
+              fill
+              sizes="40px"
+              className="object-cover object-top"
+            />
+          ) : (
+            <span aria-hidden>{initials}</span>
+          )}
+        </div>
+        <div className="min-w-0">
+          <p className="truncate font-bold">{testimonial.name}</p>
+          <p className="truncate text-sm text-muted-foreground">{testimonial.role}</p>
+        </div>
+      </div>
+    </article>
+  );
+}
+
 export function TestimonialsCarousel({ testimonials }: { testimonials: LanderTestimonial[] }) {
-  const scrollRef = useRef<HTMLDivElement>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [canScrollLeft, setCanScrollLeft] = useState(false);
-  const [canScrollRight, setCanScrollRight] = useState(false);
-  const [hasScrolledRight, setHasScrolledRight] = useState(false);
-  const initialScrollLeftRef = useRef<number | null>(null);
   const activeIndex = activeId ? testimonials.findIndex((t) => t.id === activeId) : -1;
   const activeTestimonial = activeIndex >= 0 ? testimonials[activeIndex] : null;
   const goToOffset = useCallback(
@@ -79,53 +144,6 @@ export function TestimonialsCarousel({ testimonials }: { testimonials: LanderTes
   );
   const touchStartXRef = useRef<number | null>(null);
   const touchDeltaXRef = useRef(0);
-
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    if (typeof window === "undefined" || !("IntersectionObserver" in window)) return;
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    const cards = el.querySelectorAll<HTMLElement>("[data-testimonial-card]");
-    const io = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          if (entry.isIntersecting) {
-            entry.target.classList.add("testimonial-card--in-view");
-            io.unobserve(entry.target);
-          }
-        }
-      },
-      { root: null, rootMargin: "0px 0px -10% 0px", threshold: 0.2 },
-    );
-    cards.forEach((c) => io.observe(c));
-    return () => io.disconnect();
-  }, [testimonials.length]);
-
-  const updateScrollState = useCallback(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const maxScroll = el.scrollWidth - el.clientWidth;
-    if (initialScrollLeftRef.current === null) {
-      initialScrollLeftRef.current = el.scrollLeft;
-    }
-    setCanScrollLeft(el.scrollLeft > 1);
-    setCanScrollRight(el.scrollLeft < maxScroll - 1);
-    if (el.scrollLeft > (initialScrollLeftRef.current ?? 0) + 8) {
-      setHasScrolledRight(true);
-    }
-  }, []);
-
-  useEffect(() => {
-    updateScrollState();
-    const el = scrollRef.current;
-    if (!el) return;
-    el.addEventListener("scroll", updateScrollState, { passive: true });
-    window.addEventListener("resize", updateScrollState);
-    return () => {
-      el.removeEventListener("scroll", updateScrollState);
-      window.removeEventListener("resize", updateScrollState);
-    };
-  }, [updateScrollState, testimonials.length]);
 
   useEffect(() => {
     if (!activeId) return;
@@ -143,17 +161,6 @@ export function TestimonialsCarousel({ testimonials }: { testimonials: LanderTes
     };
   }, [activeId, goToOffset]);
 
-  const scrollByDirection = (dir: 1 | -1) => {
-    const el = scrollRef.current;
-    if (!el) return;
-    if (dir === 1) setHasScrolledRight(true);
-    // Step by the visible width of one card (incl. gap) so a click reveals the next card cleanly.
-    const card = el.querySelector<HTMLElement>("[data-testimonial-card]");
-    const gap = 16; // matches gap-4
-    const step = (card?.offsetWidth ?? el.clientWidth * 0.8) + gap;
-    el.scrollBy({ left: dir * step, behavior: "smooth" });
-  };
-
   if (testimonials.length === 0) return null;
 
   return (
@@ -167,96 +174,40 @@ export function TestimonialsCarousel({ testimonials }: { testimonials: LanderTes
             Here&apos;s what beta testers are saying about makeacompany.ai
           </p>
         </div>
+      </div>
 
-        <div className="relative mx-2 sm:mx-4">
-          <div
-            ref={scrollRef}
-            className="-mx-4 flex gap-4 overflow-x-auto overscroll-x-contain px-4 py-6 sm:-mx-2 sm:px-2 snap-x snap-mandatory scroll-smooth"
-            style={{ touchAction: "pan-x pan-y" }}
-            role="region"
-            aria-label="Testimonials"
-          >
-            {testimonials.map((testimonial, idx) => {
-              const [tintLight, tintDark] = pickMonogramTint(testimonial.name);
-              const initials = testimonial.avatar || deriveInitials(testimonial.name);
-              return (
-                <article
-                  key={testimonial.id}
-                  data-testimonial-card
-                  style={{ ["--testimonial-reveal-delay" as string]: `${Math.min(idx, 5) * 60}ms` }}
-                  tabIndex={0}
-                  role="button"
-                  aria-label={`Read full testimonial from ${testimonial.name}`}
-                  onClick={() => setActiveId(testimonial.id)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      setActiveId(testimonial.id);
-                    }
-                  }}
-                  className="testimonial-card group/card flex shrink-0 snap-start w-[85%] max-w-[360px] sm:w-[340px] lg:w-[360px] min-h-[280px] cursor-pointer flex-col rounded-xl border border-border bg-card/60 p-6 hover:border-foreground/30 hover:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/25"
-                >
-                  <div className="mb-1 text-3xl font-black leading-none text-foreground/15 select-none">&ldquo;</div>
-                  <div className="mb-6 text-foreground/90 text-sm">
-                    <TestimonialContent content={testimonial.content} clamp />
-                  </div>
-                  <div className="mt-auto flex items-center gap-3">
-                    <div
-                      className="testimonial-monogram relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border text-sm font-semibold"
-                      style={
-                        {
-                          "--monogram-bg-light": tintLight,
-                          "--monogram-bg-dark": tintDark,
-                        } as React.CSSProperties
-                      }
-                    >
-                      {testimonial.avatarImage ? (
-                        <Image
-                          src={testimonial.avatarImage}
-                          alt={testimonial.name}
-                          fill
-                          sizes="40px"
-                          className="object-cover object-top"
-                        />
-                      ) : (
-                        <span aria-hidden>{initials}</span>
-                      )}
-                    </div>
-                    <div className="min-w-0">
-                      <p className="truncate font-bold">{testimonial.name}</p>
-                      <p className="truncate text-sm text-muted-foreground">{testimonial.role}</p>
-                    </div>
-                  </div>
-                </article>
-              );
-            })}
-          </div>
-
-          <button
-            type="button"
-            aria-label="Scroll testimonials left"
-            onClick={() => scrollByDirection(-1)}
-            disabled={!canScrollLeft || !hasScrolledRight}
-            className="testimonial-nav-btn z-20 hidden md:flex absolute left-0 top-1/2 -translate-x-1/2 -translate-y-1/2 h-12 w-12 items-center justify-center rounded-full border-2 border-foreground/30 bg-background text-foreground shadow-xl ring-1 ring-black/5 transition hover:scale-105 hover:border-foreground hover:bg-foreground hover:text-background disabled:pointer-events-none disabled:opacity-0"
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
-              <path d="M15 6l-6 6 6 6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </button>
-          <button
-            type="button"
-            aria-label="Scroll testimonials right"
-            onClick={() => scrollByDirection(1)}
-            disabled={!canScrollRight}
-            className="testimonial-nav-btn z-20 hidden md:flex absolute right-0 top-1/2 translate-x-1/2 -translate-y-1/2 h-12 w-12 items-center justify-center rounded-full border-2 border-foreground/30 bg-background text-foreground shadow-xl ring-1 ring-black/5 transition hover:scale-105 hover:border-foreground hover:bg-foreground hover:text-background disabled:pointer-events-none disabled:opacity-0"
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
-              <path d="M9 6l6 6-6 6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </button>
-
+      {/* Auto-sliding marquee: the track translates right-to-left very slowly and
+          loops seamlessly (two identical copies, shifted -50%). Hover pauses it,
+          reduced-motion stops it, and every card stays clickable to open the full
+          quote. Edge fade masks keep cards from popping in at the borders. */}
+      <div
+        className="testimonials-marquee relative overflow-hidden py-6"
+        style={{
+          maskImage:
+            "linear-gradient(to right, transparent, black 6%, black 94%, transparent)",
+          WebkitMaskImage:
+            "linear-gradient(to right, transparent, black 6%, black 94%, transparent)",
+        }}
+      >
+        <div className="testimonials-marquee-track flex w-max px-4">
+          {testimonials.map((t) => (
+            <TestimonialCard
+              key={t.id}
+              testimonial={t}
+              onOpen={() => setActiveId(t.id)}
+            />
+          ))}
+          {testimonials.map((t) => (
+            <TestimonialCard
+              key={`${t.id}-dup`}
+              testimonial={t}
+              onOpen={() => setActiveId(t.id)}
+              ariaHidden
+            />
+          ))}
         </div>
       </div>
+
       {activeTestimonial && (
         <div
           role="dialog"

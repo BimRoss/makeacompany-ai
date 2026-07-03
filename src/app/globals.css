@@ -812,6 +812,32 @@ button:disabled {
   }
 }
 
+/* makeacompany.ai — testimonials auto-slide (right to left, very slow) */
+@keyframes testimonials-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.testimonials-marquee-track {
+  animation: testimonials-marquee 120s linear infinite;
+  will-change: transform;
+  backface-visibility: hidden;
+}
+
+.testimonials-marquee:hover .testimonials-marquee-track {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .testimonials-marquee-track {
+    animation: none;
+  }
+}
+
 /* preview.makeacompany.ai — Slack mockup message reveal */
 @keyframes preview-msg-in {
   from {
