@@ -159,6 +159,93 @@ export function TestimonialsCarousel({ testimonials }: { testimonials: LanderTes
   const touchStartXRef = useRef<number | null>(null);
   const touchDeltaXRef = useRef(0);
 
+  // Draggable auto-scrolling rail. Three copies of the list + recenter-to-middle
+  // let it loop seamlessly in either direction; the visitor can grab (mouse),
+  // swipe (touch), or trackpad-scroll it, and auto-scroll pauses while they do.
+  const scrollerRef = useRef<HTMLDivElement>(null);
+  const hoverRef = useRef(false);
+  const draggingRef = useRef(false);
+  const draggedRef = useRef(false);
+  const dragStartXRef = useRef(0);
+  const dragStartScrollRef = useRef(0);
+  const pauseRef = useRef(false);
+  const pauseTimerRef = useRef<number | null>(null);
+  const initedRef = useRef(false);
+
+  const pauseBriefly = useCallback(() => {
+    pauseRef.current = true;
+    if (pauseTimerRef.current) window.clearTimeout(pauseTimerRef.current);
+    pauseTimerRef.current = window.setTimeout(() => {
+      pauseRef.current = false;
+    }, 1600);
+  }, []);
+
+  // Keep scrollLeft parked in the middle copy so both directions have runway.
+  const normalizeScroll = useCallback(() => {
+    const el = scrollerRef.current;
+    if (!el) return;
+    const set = el.scrollWidth / 3;
+    if (set <= 0) return;
+    if (el.scrollLeft >= set * 2) el.scrollLeft -= set;
+    else if (el.scrollLeft < set * 0.5) el.scrollLeft += set;
+  }, []);
+
+  const onPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.pointerType !== "mouse") return; // touch/pen use native scrolling
+    const el = scrollerRef.current;
+    if (!el) return;
+    draggingRef.current = true;
+    draggedRef.current = false;
+    dragStartXRef.current = e.clientX;
+    dragStartScrollRef.current = el.scrollLeft;
+    el.setPointerCapture?.(e.pointerId);
+  }, []);
+
+  const onPointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (!draggingRef.current) return;
+    const el = scrollerRef.current;
+    if (!el) return;
+    const dx = e.clientX - dragStartXRef.current;
+    if (Math.abs(dx) > 4) draggedRef.current = true;
+    el.scrollLeft = dragStartScrollRef.current - dx;
+  }, []);
+
+  const endDrag = useCallback(() => {
+    draggingRef.current = false;
+    // Let the click that follows pointerup see draggedRef, then clear it.
+    window.setTimeout(() => {
+      draggedRef.current = false;
+    }, 0);
+  }, []);
+
+  useEffect(() => {
+    const el = scrollerRef.current;
+    if (!el) return;
+    if (
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    ) {
+      return; // manual drag/scroll still works, just no auto-advance
+    }
+    const speed = 1.3; // px per frame — faster drift than the old CSS marquee
+    let raf = 0;
+    const step = () => {
+      const set = el.scrollWidth / 3;
+      if (set > 0) {
+        if (!initedRef.current) {
+          el.scrollLeft = set; // start in the middle copy
+          initedRef.current = true;
+        } else if (!hoverRef.current && !draggingRef.current && !pauseRef.current) {
+          el.scrollLeft += speed;
+          if (el.scrollLeft >= set * 2) el.scrollLeft -= set;
+        }
+      }
+      raf = window.requestAnimationFrame(step);
+    };
+    raf = window.requestAnimationFrame(step);
+    return () => window.cancelAnimationFrame(raf);
+  }, [ordered.length]);
+
   useEffect(() => {
     if (!activeId) return;
     const onKey = (e: KeyboardEvent) => {
@@ -190,36 +277,50 @@ export function TestimonialsCarousel({ testimonials }: { testimonials: LanderTes
         </div>
       </div>
 
-      {/* Auto-sliding marquee: the track translates right-to-left very slowly and
-          loops seamlessly (two identical copies, shifted -50%). Hover pauses it,
-          reduced-motion stops it, and every card stays clickable to open the full
-          quote. Edge fade masks keep cards from popping in at the borders. */}
+      {/* Auto-sliding + draggable rail. It drifts on its own and the visitor can
+          grab, swipe, or trackpad-scroll it left and right; three copies plus
+          recenter-to-middle make it loop seamlessly both ways. Auto-scroll pauses
+          on hover/drag/scroll and stops under reduced-motion. A drag never opens
+          the modal (draggedRef guards the click). */}
       <div
-        className="testimonials-marquee relative overflow-hidden py-6"
+        ref={scrollerRef}
+        onPointerEnter={() => {
+          hoverRef.current = true;
+        }}
+        onPointerLeave={() => {
+          hoverRef.current = false;
+          endDrag();
+        }}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={endDrag}
+        onScroll={normalizeScroll}
+        onWheel={pauseBriefly}
+        onTouchStart={pauseBriefly}
+        onTouchMove={pauseBriefly}
+        className="testimonials-scroller relative flex cursor-grab overflow-x-auto overscroll-x-contain px-4 py-6 active:cursor-grabbing"
         style={{
           maskImage:
-            "linear-gradient(to right, transparent, black 6%, black 94%, transparent)",
+            "linear-gradient(to right, transparent, black 5%, black 95%, transparent)",
           WebkitMaskImage:
-            "linear-gradient(to right, transparent, black 6%, black 94%, transparent)",
+            "linear-gradient(to right, transparent, black 5%, black 95%, transparent)",
+          touchAction: "pan-x",
         }}
+        role="region"
+        aria-label="Testimonials"
       >
-        <div className="testimonials-marquee-track flex w-max px-4">
-          {ordered.map((t) => (
+        {[0, 1, 2].map((copy) =>
+          ordered.map((t) => (
             <TestimonialCard
-              key={t.id}
+              key={copy === 0 ? t.id : `${t.id}-copy${copy}`}
               testimonial={t}
-              onOpen={() => setActiveId(t.id)}
+              onOpen={() => {
+                if (!draggedRef.current) setActiveId(t.id);
+              }}
+              ariaHidden={copy !== 0}
             />
-          ))}
-          {ordered.map((t) => (
-            <TestimonialCard
-              key={`${t.id}-dup`}
-              testimonial={t}
-              onOpen={() => setActiveId(t.id)}
-              ariaHidden
-            />
-          ))}
-        </div>
+          )),
+        )}
       </div>
 
       {activeTestimonial && (
