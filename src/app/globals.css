@@ -838,6 +838,16 @@ button:disabled {
   }
 }
 
+/* makeacompany.ai — testimonials draggable rail: hide the scrollbar but keep it
+   scrollable/draggable. Auto-scroll + manual drag is driven in JS. */
+.testimonials-scroller {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.testimonials-scroller::-webkit-scrollbar {
+  display: none;
+}
+
 /* preview.makeacompany.ai — Slack mockup message reveal */
 @keyframes preview-msg-in {
   from {
