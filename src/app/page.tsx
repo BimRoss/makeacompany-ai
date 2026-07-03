@@ -1,14 +1,16 @@
 import type { Metadata } from "next";
 
-import { IncubatorLanding } from "@/components/landing/incubator-landing";
+import { PreviewLanding } from "@/components/landing/preview-landing";
 
-// Live data (agent showcase, testimonials) on each request.
+// Live data (testimonials) on each request.
 export const dynamic = "force-dynamic";
 
-// The builders' incubator is the public homepage (promoted 2026-07-01). Indexed
-// and canonical at the apex. The OG/Twitter card comes from the route-level
-// opengraph-image.tsx / twitter-image.tsx (the incubator card). The prior $99
-// self-serve lander lives on at /classic.
+// The minimal boardy-style lander is the public homepage (promoted 2026-07-03,
+// John's call). Indexed and canonical at the apex. The full builders' incubator
+// site is preserved at /fullmac (noindex) and still at /incubator; the prior
+// $99 self-serve lander remains at /classic. Rollback = restore IncubatorLanding
+// here. The OG/Twitter card is still the incubator card (opengraph-image.tsx);
+// swap on request.
 const homeTitle = "makeacompany.ai — the builders' incubator";
 const homeDescription =
   "Multiply yourself. Your best work, in a fraction of the time and cost. The builders' incubator, for founders and operators chasing maximum leverage.";
@@ -41,5 +43,5 @@ export const metadata: Metadata = {
 };
 
 export default function HomePage() {
-  return <IncubatorLanding />;
+  return <PreviewLanding />;
 }
