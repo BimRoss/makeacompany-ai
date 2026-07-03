@@ -13,7 +13,24 @@ import { useState } from "react";
 // Publishable logo.dev key (John's, 2026-07-03). It rides in the image URL in
 // the browser by design, so it is safe to keep in the client bundle.
 const LOGODEV_TOKEN = "pk_W-hvspybR8OzNFwPDlYRSg";
-const COMPANIES: { name: string; domain: string }[] = [
+
+// Per-company logo source. Default is logo.dev by `domain`. Overrides:
+//  - `logo`: a bundled asset in /public for brands logo.dev gets wrong or has
+//    no real mark for (Equinox — logo.dev returns another company's "f/m").
+//  - `logoDomain`: pull from logo.dev under a different domain that has the
+//    correct mark (BCBS — bcbs.com is a grey placeholder, the Association
+//    domain has the real one).
+//  - `noLogo`: logo.dev has nothing usable and we have no clean asset yet, so
+//    show the name on its own rather than a wrong/blank mark (Tempo).
+type Company = {
+  name: string;
+  domain: string;
+  logo?: string;
+  logoDomain?: string;
+  noLogo?: boolean;
+};
+
+const COMPANIES: Company[] = [
   { name: "WeWork", domain: "wework.com" },
   { name: "Meta", domain: "meta.com" },
   { name: "Cloudflare", domain: "cloudflare.com" },
@@ -25,10 +42,10 @@ const COMPANIES: { name: string; domain: string }[] = [
   { name: "OnCore Golf", domain: "oncoregolf.com" },
   { name: "Arup", domain: "arup.com" },
   { name: "Voyansi", domain: "voyansi.com" },
-  { name: "Equinox", domain: "equinox.com" },
+  { name: "Equinox", domain: "equinox.com", logo: "/preview-logos/equinox.png" },
   { name: "ClassDojo", domain: "classdojo.com" },
-  { name: "BCBS", domain: "bcbs.com" },
-  { name: "Tempo", domain: "tempo.fit" },
+  { name: "BCBS", domain: "bcbs.com", logoDomain: "bluecrossblueshield.com" },
+  { name: "Tempo", domain: "tempo.fit", noLogo: true },
   { name: "Swimply", domain: "swimply.com" },
   { name: "Meritain Health", domain: "meritain.com" },
   { name: "WebMD", domain: "webmd.com" },
@@ -42,12 +59,16 @@ const COMPANIES: { name: string; domain: string }[] = [
   { name: "US Dept of Health & Human Services", domain: "hhs.gov" },
 ];
 
-function Logo({ name, domain }: { name: string; domain: string }) {
+function Logo({ company }: { company: Company }) {
   const [failed, setFailed] = useState(false);
+  const src =
+    company.logo ??
+    `https://img.logo.dev/${company.logoDomain ?? company.domain}?token=${LOGODEV_TOKEN}&size=200&format=png&retina=true`;
+  const showLogo = !company.noLogo && !failed;
 
   return (
     <span className="flex items-center gap-2.5 whitespace-nowrap">
-      {!failed ? (
+      {showLogo ? (
         <span className="flex h-10 w-12 shrink-0 items-center justify-center rounded-lg bg-white px-1.5 ring-1 ring-black/5">
           {/* Plain <img> so we can hotlink logo.dev without configuring
               next/image remote patterns. The tile is a FIXED size so the image
@@ -55,7 +76,7 @@ function Logo({ name, domain }: { name: string; domain: string }) {
               and the name stays. */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={`https://img.logo.dev/${domain}?token=${LOGODEV_TOKEN}&size=200&format=png&retina=true`}
+            src={src}
             alt=""
             aria-hidden
             loading="lazy"
@@ -65,7 +86,7 @@ function Logo({ name, domain }: { name: string; domain: string }) {
         </span>
       ) : null}
       <span className="text-sm font-semibold tracking-tight text-foreground/80 sm:text-base">
-        {name}
+        {company.name}
       </span>
     </span>
   );
@@ -94,7 +115,7 @@ export function PreviewNetwork() {
               className="flex h-12 shrink-0 items-center"
               aria-hidden={i >= COMPANIES.length}
             >
-              <Logo name={company.name} domain={company.domain} />
+              <Logo company={company} />
             </li>
           ))}
         </ul>
