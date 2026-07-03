@@ -1,75 +1,129 @@
 import Image from "next/image";
+import type { ReactNode } from "react";
 
-// boardy's hero has an iPhone iMessage mockup on the right. Our analogue is a
-// Slack-style chat with a MaC agent, which is literally the product: agents
-// doing work from inside Slack. Incoming (agent) bubbles left, your bubbles
-// right in the blue accent, a live typing indicator for movement.
-type Message = { from: "you" | "agent"; text: string };
+// Slack-style hero mockup (matches John's reference: a real makeacompany Slack
+// thread). Channel header, avatar rows with sender + APP tag + timestamp, a
+// GitHub PR unfurl, and a shipped-release line. This IS the product: an
+// operator asks in Slack, the agent opens a PR, ships it, and reports back.
 
-const THREAD: Message[] = [
-  { from: "you", text: "Draft the launch post and schedule it for 9am." },
-  { from: "agent", text: "Done. Draft's in the thread, scheduled for 9am PT." },
-  { from: "you", text: "Pull our top 5 leads from this week too." },
-];
-
-function TypingDot({ delay }: { delay: string }) {
+function Avatar({ variant }: { variant: "ross" | "grant" }) {
+  if (variant === "ross") {
+    return (
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-black">
+        <Image
+          src="/logo-navbar-white.png"
+          alt=""
+          width={20}
+          height={20}
+          className="h-5 w-5 object-contain"
+        />
+      </span>
+    );
+  }
   return (
-    <span
-      className="h-1.5 w-1.5 animate-bounce rounded-full bg-neutral-400"
-      style={{ animationDelay: delay }}
-    />
+    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#3B82F6] text-sm font-semibold text-white">
+      G
+    </span>
+  );
+}
+
+function Row({
+  variant,
+  name,
+  app,
+  time,
+  children,
+}: {
+  variant: "ross" | "grant";
+  name: string;
+  app?: boolean;
+  time: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="flex gap-2.5">
+      <Avatar variant={variant} />
+      <div className="min-w-0 flex-1">
+        <p className="flex items-center gap-1.5 leading-none">
+          <span className="text-sm font-bold text-neutral-900">{name}</span>
+          {app ? (
+            <span className="rounded bg-neutral-200 px-1 py-px text-[10px] font-semibold uppercase tracking-wide text-neutral-500">
+              App
+            </span>
+          ) : null}
+          <span className="text-xs text-neutral-400">{time}</span>
+        </p>
+        <div className="mt-1 text-sm leading-snug text-neutral-800">
+          {children}
+        </div>
+      </div>
+    </div>
   );
 }
 
 export function PreviewChatMockup() {
   return (
-    <div className="relative mx-auto w-full max-w-sm">
-      <div className="overflow-hidden rounded-3xl border border-black/10 bg-white shadow-2xl">
-        <div className="flex items-center gap-3 border-b border-black/5 px-5 py-4">
-          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-black">
-            <Image
-              src="/logo-navbar-white.png"
-              alt=""
-              width={22}
-              height={22}
-              className="h-5 w-5 object-contain"
-            />
-          </span>
-          <div className="leading-tight">
-            <p className="text-sm font-semibold text-black">Ross</p>
-            <p className="text-xs text-neutral-500">Agent · makeacompany</p>
-          </div>
-          <span className="ml-auto h-2.5 w-2.5 rounded-full bg-[#3B82F6]" />
+    <div className="relative mx-auto w-full max-w-md">
+      <div className="overflow-hidden rounded-2xl border border-black/10 bg-white shadow-2xl">
+        <div className="flex items-center justify-between border-b border-black/5 px-4 py-3">
+          <p className="text-sm font-bold text-neutral-900"># ross-grant</p>
+          <p className="text-xs text-neutral-400">makeacompany Slack</p>
         </div>
 
-        <div className="flex flex-col gap-3 px-5 py-5">
-          {THREAD.map((message, i) => (
-            <div
-              key={i}
-              className={
-                message.from === "you" ? "flex justify-end" : "flex justify-start"
-              }
-            >
-              <p
-                className={
-                  "max-w-[80%] rounded-2xl px-3.5 py-2 text-sm leading-snug " +
-                  (message.from === "you"
-                    ? "rounded-br-sm bg-[#3B82F6] text-white"
-                    : "rounded-bl-sm bg-neutral-100 text-neutral-800")
-                }
-              >
-                {message.text}
-              </p>
-            </div>
-          ))}
+        <div className="flex flex-col gap-4 px-4 py-4">
+          <Row variant="grant" name="Grant" time="9:47 AM">
+            Ross, can we ship the activation funnel today? Tomorrow&apos;s sales
+            briefing needs the install → OAuth → first-message → persona chart.
+          </Row>
 
-          <div className="flex justify-start">
-            <span className="flex items-center gap-1 rounded-2xl rounded-bl-sm bg-neutral-100 px-3.5 py-3">
-              <TypingDot delay="0ms" />
-              <TypingDot delay="150ms" />
-              <TypingDot delay="300ms" />
-            </span>
-          </div>
+          <Row variant="ross" name="Ross" app time="9:48 AM">
+            On it. Opening the PR now.
+          </Row>
+
+          <Row variant="ross" name="Ross" app time="9:49 AM">
+            <div className="rounded-lg border border-neutral-200 p-3">
+              <div className="flex items-center justify-between gap-2">
+                <span className="truncate text-xs font-medium text-neutral-500">
+                  BimRoss/makeacompany-ai
+                </span>
+                <span className="shrink-0 text-xs font-semibold text-[#3B82F6]">
+                  Pull request #512
+                </span>
+              </div>
+              <p className="mt-1 text-sm font-semibold text-neutral-900">
+                feat(admin): daily activation funnel
+              </p>
+              <p className="mt-0.5 text-xs text-neutral-500">
+                install → OAuth → first message → persona, in one chart
+              </p>
+              <div className="mt-2 flex items-center gap-3 text-xs text-neutral-500">
+                <span className="font-semibold text-green-600">+382</span>
+                <span className="font-semibold text-red-500">−47</span>
+                <span>14 files</span>
+              </div>
+            </div>
+            <div className="mt-1.5 flex gap-1.5">
+              <span className="rounded-full border border-neutral-200 px-1.5 py-0.5 text-xs text-neutral-600">
+                👍 2
+              </span>
+              <span className="rounded-full border border-neutral-200 px-1.5 py-0.5 text-xs text-neutral-600">
+                ⚡ 1
+              </span>
+            </div>
+          </Row>
+
+          <Row variant="ross" name="Ross" app time="10:18 AM">
+            <p className="flex items-start gap-1.5">
+              <span className="text-green-600">✅</span>
+              <span>
+                <span className="font-semibold">makeacompany-ai v0.315.0</span> is
+                live. Activation funnel (#512) shipped.
+              </span>
+            </p>
+            <p className="mt-1.5 text-xs font-medium text-[#3B82F6]">
+              2 replies · View thread
+            </p>
+          </Row>
         </div>
       </div>
     </div>

@@ -797,7 +797,7 @@ button:disabled {
 }
 
 .preview-marquee-track {
-  animation: preview-marquee 45s linear infinite;
+  animation: preview-marquee 90s linear infinite;
   will-change: transform;
   backface-visibility: hidden;
 }
