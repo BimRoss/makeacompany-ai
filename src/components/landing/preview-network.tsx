@@ -1,38 +1,72 @@
+"use client";
+
+import { useState } from "react";
+
 // The network strip (boardy's "I've made intros to people at" analogue). John's
 // company voice: people MaC has worked with come from these companies and are
-// now building or bettering their own. Rendered as plain wordmarks (no logo
-// assets, no marquee) to stay inside the brand contract: black/white, one
-// accent, minimal motion. List is John's, kept verbatim.
-const COMPANIES = [
-  "WeWork",
-  "Meta",
-  "Cloudflare",
-  "Deutsche Bank",
-  "Apple",
-  "Google",
-  "PGA of America",
-  "Autograph",
-  "OnCore Golf",
-  "Arup",
-  "Voyansi",
-  "Equinox",
-  "ClassDojo",
-  "BCBS",
-  "Tempo",
-  "Swimply",
-  "Meritain Health",
-  "WebMD",
-  "Hewlett Packard",
-  "HSBC",
-  "SHoP Architects",
-  "Bloomberg",
-  "M&T Bank",
-  "Citi",
-  "CFA Institute",
-  "US Dept of Health & Human Services",
+// now building or bettering their own. Auto-scrolling marquee for movement.
+// Each entry is a chip: the company's mark (favicon by domain via Google's
+// service, grayscale to hold the black/white brand) next to its wordmark, so
+// every entry stays legible even if a mark fails to load. List + domains are
+// John's. Clearbit's logo API is dead, hence the favicon source.
+const COMPANIES: { name: string; domain: string }[] = [
+  { name: "WeWork", domain: "wework.com" },
+  { name: "Meta", domain: "meta.com" },
+  { name: "Cloudflare", domain: "cloudflare.com" },
+  { name: "Deutsche Bank", domain: "db.com" },
+  { name: "Apple", domain: "apple.com" },
+  { name: "Google", domain: "google.com" },
+  { name: "PGA of America", domain: "pga.com" },
+  { name: "Autograph", domain: "autograph.io" },
+  { name: "OnCore Golf", domain: "oncoregolf.com" },
+  { name: "Arup", domain: "arup.com" },
+  { name: "Voyansi", domain: "voyansi.com" },
+  { name: "Equinox", domain: "equinox.com" },
+  { name: "ClassDojo", domain: "classdojo.com" },
+  { name: "BCBS", domain: "bcbs.com" },
+  { name: "Tempo", domain: "tempo.fit" },
+  { name: "Swimply", domain: "swimply.com" },
+  { name: "Meritain Health", domain: "meritain.com" },
+  { name: "WebMD", domain: "webmd.com" },
+  { name: "Hewlett Packard", domain: "hp.com" },
+  { name: "HSBC", domain: "hsbc.com" },
+  { name: "SHoP Architects", domain: "shoparc.com" },
+  { name: "Bloomberg", domain: "bloomberg.com" },
+  { name: "M&T Bank", domain: "mtb.com" },
+  { name: "Citi", domain: "citi.com" },
+  { name: "CFA Institute", domain: "cfainstitute.org" },
+  { name: "US Dept of Health & Human Services", domain: "hhs.gov" },
 ];
 
+function Logo({ name, domain }: { name: string; domain: string }) {
+  const [failed, setFailed] = useState(false);
+
+  return (
+    <span className="flex items-center gap-2.5 whitespace-nowrap opacity-70 transition hover:opacity-100">
+      {!failed ? (
+        // Plain <img> so we can hotlink the favicon service without configuring
+        // next/image remote patterns; onError just drops the mark, wordmark stays.
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={`https://www.google.com/s2/favicons?domain=${domain}&sz=128`}
+          alt=""
+          aria-hidden
+          loading="lazy"
+          onError={() => setFailed(true)}
+          className="h-6 w-6 shrink-0 rounded object-contain grayscale"
+        />
+      ) : null}
+      <span className="text-base font-semibold tracking-tight text-foreground/80 sm:text-lg">
+        {name}
+      </span>
+    </span>
+  );
+}
+
 export function PreviewNetwork() {
+  // Duplicate the list so the -50% translate loops seamlessly.
+  const track = [...COMPANIES, ...COMPANIES];
+
   return (
     <section className="border-y border-border bg-muted/20 py-14 sm:py-20">
       <div className="mx-auto w-full max-w-4xl px-6 text-center">
@@ -42,22 +76,25 @@ export function PreviewNetwork() {
         <h2 className="mx-auto max-w-2xl text-balance text-2xl font-bold tracking-tight sm:text-3xl">
           MaC has helped people from these companies build or better their own.
         </h2>
+      </div>
 
-        <ul className="mx-auto mt-10 flex max-w-3xl flex-wrap items-center justify-center gap-x-8 gap-y-4">
-          {COMPANIES.map((company) => (
+      <div className="preview-marquee relative mt-10 w-full overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_6%,black_94%,transparent)]">
+        <ul className="preview-marquee-track flex w-max items-center gap-12">
+          {track.map((company, i) => (
             <li
-              key={company}
-              className="text-base font-semibold tracking-tight text-foreground/70 sm:text-lg"
+              key={`${company.domain}-${i}`}
+              className="flex shrink-0 items-center"
+              aria-hidden={i >= COMPANIES.length}
             >
-              {company}
+              <Logo name={company.name} domain={company.domain} />
             </li>
           ))}
         </ul>
-
-        <p className="mx-auto mt-10 max-w-md text-balance text-base font-medium text-foreground sm:text-lg">
-          Now they&apos;re multiplying with MaC.
-        </p>
       </div>
+
+      <p className="mx-auto mt-10 max-w-md text-balance px-6 text-base font-medium text-foreground sm:text-lg">
+        Now they&apos;re multiplying with MaC.
+      </p>
     </section>
   );
 }
