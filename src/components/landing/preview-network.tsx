@@ -103,7 +103,8 @@ export function PreviewNetwork() {
           The network
         </p>
         <h2 className="mx-auto max-w-2xl text-balance text-2xl font-bold tracking-tight sm:text-3xl">
-          MaC has helped people from these companies build or better their own.
+          The people building with MaC work, or once worked, at these
+          companies.
         </h2>
       </div>
 
@@ -122,7 +123,7 @@ export function PreviewNetwork() {
       </div>
 
       <p className="mx-auto mt-10 max-w-md text-balance px-6 text-center text-base font-medium text-foreground sm:text-lg">
-        Now they&apos;re multiplying with MaC.
+        Now they&apos;re building their own, multiplying with MaC.
       </p>
     </section>
   );
