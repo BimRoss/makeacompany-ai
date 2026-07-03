@@ -11,7 +11,7 @@ import { PreviewNetwork } from "@/components/landing/preview-network";
  */
 export function PreviewLanding() {
   return (
-    <main className="flex min-h-screen flex-col bg-background">
+    <main className="flex min-h-screen flex-col bg-[#f5f4ef] text-foreground dark:bg-black">
       <Header />
       <PreviewHero />
       <PreviewNetwork />

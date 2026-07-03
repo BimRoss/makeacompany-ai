@@ -785,3 +785,27 @@ button:disabled {
     opacity: 0;
   }
 }
+
+/* preview.makeacompany.ai — auto-scrolling logo marquee (network strip) */
+@keyframes preview-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.preview-marquee-track {
+  animation: preview-marquee 45s linear infinite;
+}
+
+.preview-marquee:hover .preview-marquee-track {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .preview-marquee-track {
+    animation: none;
+  }
+}
