@@ -117,6 +117,19 @@ const THREAD: Message[] = [
   },
 ];
 
+function TypingRow({ who }: { who: Sender }) {
+  return (
+    <div className="flex items-center gap-2.5">
+      <Avatar who={who} />
+      <span className="flex items-center gap-1 rounded-2xl bg-neutral-100 px-3 py-2.5">
+        <TypingDot delay="0ms" />
+        <TypingDot delay="150ms" />
+        <TypingDot delay="300ms" />
+      </span>
+    </div>
+  );
+}
+
 function Row({ message }: { message: Message }) {
   return (
     <div className="preview-msg-in flex gap-2.5">
@@ -170,18 +183,28 @@ export function PreviewChatMockup() {
           <p className="text-xs text-neutral-400">makeacompany Slack</p>
         </div>
 
-        <div className="flex min-h-[360px] flex-col gap-4 px-4 py-4">
-          {THREAD.slice(0, step).map((message, i) => (
-            <Row key={i} message={message} />
-          ))}
+        {/* Fixed panel height: an invisible full-thread skeleton (all messages
+            + one typing row) reserves the height, and the animated copy is
+            overlaid on top with position:absolute so it can never resize the
+            panel or shift the page as messages reveal. Height stays constant at
+            every breakpoint because the skeleton, not a hardcoded px value,
+            sets it. */}
+        <div className="relative">
+          <div
+            className="invisible flex flex-col gap-4 px-4 py-4"
+            aria-hidden="true"
+          >
+            {THREAD.map((message, i) => (
+              <Row key={i} message={message} />
+            ))}
+            <TypingRow who="grant" />
+          </div>
 
-          <div className="flex items-center gap-2.5">
-            <Avatar who={typingWho} />
-            <span className="flex items-center gap-1 rounded-2xl bg-neutral-100 px-3 py-2.5">
-              <TypingDot delay="0ms" />
-              <TypingDot delay="150ms" />
-              <TypingDot delay="300ms" />
-            </span>
+          <div className="absolute inset-0 flex flex-col gap-4 px-4 py-4">
+            {THREAD.slice(0, step).map((message, i) => (
+              <Row key={i} message={message} />
+            ))}
+            {step < total ? <TypingRow who={typingWho} /> : null}
           </div>
         </div>
       </div>
