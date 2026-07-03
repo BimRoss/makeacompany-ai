@@ -73,6 +73,17 @@ export function middleware(request: NextRequest) {
     }
   }
 
+  // preview.makeacompany.ai → serve the minimal design-preview lander at "/".
+  // noindex header keeps it out of search; the /preview page also sets robots
+  // noindex in its metadata as a second layer.
+  if (host.startsWith("preview.")) {
+    if (pathname === "/" || pathname === "") {
+      const res = NextResponse.rewrite(new URL("/preview", request.url));
+      res.headers.set("X-Robots-Tag", "noindex, nofollow");
+      return res;
+    }
+  }
+
   const session = request.cookies.get(adminSessionCookieName)?.value?.trim();
   const hasSession = Boolean(session);
 
