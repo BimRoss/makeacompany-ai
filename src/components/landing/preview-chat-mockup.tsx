@@ -3,27 +3,32 @@ import type { ReactNode } from "react";
 
 // Slack-style hero mockup (matches John's reference). A relatable, non-technical
 // exchange: an operator asks for real business work in plain language, the agent
-// does it end to end and reports back. Channel header, avatar rows with sender +
-// APP tag + timestamp, an outcome card, and a thread reply.
+// does it end to end and reports back. Channel header, avatar rows with real
+// Ross + Grant photos, sender + APP tag + timestamp, an outcome card, a thread
+// reply, and a live typing indicator at the bottom so it reads as active.
 
 function Avatar({ variant }: { variant: "ross" | "grant" }) {
-  if (variant === "ross") {
-    return (
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-black">
-        <Image
-          src="/logo-navbar-white.png"
-          alt=""
-          width={20}
-          height={20}
-          className="h-5 w-5 object-contain"
-        />
-      </span>
-    );
-  }
+  const src = variant === "ross" ? "/headshots/ross.webp" : "/founders/grant.jpg";
+  const alt = variant === "ross" ? "Ross" : "Grant";
   return (
-    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#3B82F6] text-sm font-semibold text-white">
-      G
+    <span className="h-9 w-9 shrink-0 overflow-hidden rounded-lg bg-neutral-100">
+      <Image
+        src={src}
+        alt={alt}
+        width={36}
+        height={36}
+        className="h-9 w-9 object-cover"
+      />
     </span>
+  );
+}
+
+function TypingDot({ delay }: { delay: string }) {
+  return (
+    <span
+      className="h-1.5 w-1.5 animate-bounce rounded-full bg-neutral-400"
+      style={{ animationDelay: delay }}
+    />
   );
 }
 
@@ -110,6 +115,15 @@ export function PreviewChatMockup() {
               3 replies · View thread
             </p>
           </Row>
+
+          <div className="flex items-center gap-2.5">
+            <Avatar variant="grant" />
+            <span className="flex items-center gap-1 rounded-2xl bg-neutral-100 px-3 py-2.5">
+              <TypingDot delay="0ms" />
+              <TypingDot delay="150ms" />
+              <TypingDot delay="300ms" />
+            </span>
+          </div>
         </div>
       </div>
     </div>
