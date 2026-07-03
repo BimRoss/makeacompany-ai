@@ -2,6 +2,9 @@ import type { Metadata } from "next";
 
 import { PreviewLanding } from "@/components/landing/preview-landing";
 
+// Live testimonial data on each request, same as the public lander.
+export const dynamic = "force-dynamic";
+
 // Minimal design preview, served at preview.makeacompany.ai (host rewrite in
 // middleware) and at /preview directly. Kept noindex so it never competes with
 // the canonical apex `/`. The `preview.` host also gets an X-Robots-Tag
