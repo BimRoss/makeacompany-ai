@@ -20,9 +20,9 @@ const WHITE_CUBES: { x: number; y: number; delay: string }[] = [
 
 export function IncubatorHeroGraphic() {
   return (
-    <div className="mx-auto mt-8 w-full max-w-md sm:mt-10">
+    <div className="mx-auto mt-4 w-full max-w-md sm:mt-6">
       <svg
-        viewBox="0 0 180 128"
+        viewBox="0 22 180 84"
         role="img"
         aria-label="One glowing cube multiplied into six, one operator multiplied into the output of a team"
         className="mac-hero-svg h-auto w-full text-foreground"
