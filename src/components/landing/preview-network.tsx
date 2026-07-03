@@ -45,7 +45,7 @@ const COMPANIES: Company[] = [
   { name: "Equinox", domain: "equinox.com", logo: "/preview-logos/equinox.png" },
   { name: "ClassDojo", domain: "classdojo.com" },
   { name: "BCBS", domain: "bcbs.com", logoDomain: "bluecrossblueshield.com" },
-  { name: "Tempo", domain: "tempo.fit", noLogo: true },
+  { name: "Tempo", domain: "tempo.fit", logo: "/preview-logos/tempo.png" },
   { name: "Swimply", domain: "swimply.com" },
   { name: "Meritain Health", domain: "meritain.com" },
   { name: "WebMD", domain: "webmd.com" },
