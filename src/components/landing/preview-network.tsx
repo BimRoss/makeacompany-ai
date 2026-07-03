@@ -73,7 +73,7 @@ export function PreviewNetwork() {
   const track = [...COMPANIES, ...COMPANIES];
 
   return (
-    <section className="border-y border-border bg-muted/20 py-14 sm:py-20">
+    <section className="border-y border-border/60 py-14 sm:py-20">
       <div className="mx-auto w-full max-w-4xl px-6 text-center">
         <p className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
           The network
