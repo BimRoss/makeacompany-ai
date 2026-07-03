@@ -18,7 +18,7 @@ export function IncubatorHero() {
   return (
     <section
       id="start"
-      className="relative flex w-full flex-col items-center justify-start px-4 pb-8 pt-12 sm:px-6 sm:pb-12 sm:pt-16 lg:pb-16 lg:pt-20"
+      className="relative flex w-full flex-col items-center justify-start px-4 pb-4 pt-12 sm:px-6 sm:pb-6 sm:pt-16 lg:pb-8 lg:pt-20"
     >
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute left-1/2 top-0 h-[500px] w-[800px] -translate-x-1/2 rounded-full bg-primary/5 blur-3xl" />
