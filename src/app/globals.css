@@ -798,6 +798,8 @@ button:disabled {
 
 .preview-marquee-track {
   animation: preview-marquee 45s linear infinite;
+  will-change: transform;
+  backface-visibility: hidden;
 }
 
 .preview-marquee:hover .preview-marquee-track {
