@@ -811,3 +811,19 @@ button:disabled {
     animation: none;
   }
 }
+
+/* preview.makeacompany.ai — Slack mockup message reveal */
+@keyframes preview-msg-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.preview-msg-in {
+  animation: preview-msg-in 0.35s ease-out both;
+}
