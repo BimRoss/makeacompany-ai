@@ -5,10 +5,14 @@ import { useState } from "react";
 // The network strip (boardy's "I've made intros to people at" analogue). John's
 // company voice: people MaC has worked with come from these companies and are
 // now building or bettering their own. Auto-scrolling marquee for movement.
-// Each entry is a chip: the company's mark (favicon by domain via Google's
-// service, grayscale to hold the black/white brand) next to its wordmark, so
-// every entry stays legible even if a mark fails to load. List + domains are
-// John's. Clearbit's logo API is dead, hence the favicon source.
+// Each entry is a chip: the company's real logo (logo.dev, by domain) on a
+// white tile so it stays legible in both themes, next to the company name so
+// niche icon-marks are still identifiable. If a logo fails to load the name
+// stays. List + domains are John's.
+
+// Publishable logo.dev key (John's, 2026-07-03). It rides in the image URL in
+// the browser by design, so it is safe to keep in the client bundle.
+const LOGODEV_TOKEN = "pk_W-hvspybR8OzNFwPDlYRSg";
 const COMPANIES: { name: string; domain: string }[] = [
   { name: "WeWork", domain: "wework.com" },
   { name: "Meta", domain: "meta.com" },
@@ -42,19 +46,20 @@ function Logo({ name, domain }: { name: string; domain: string }) {
   const [failed, setFailed] = useState(false);
 
   return (
-    <span className="flex items-center gap-2.5 whitespace-nowrap opacity-70 transition hover:opacity-100">
+    <span className="flex items-center gap-3 whitespace-nowrap">
       {!failed ? (
-        // Plain <img> so we can hotlink the favicon service without configuring
-        // next/image remote patterns; onError just drops the mark, wordmark stays.
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={`https://www.google.com/s2/favicons?domain=${domain}&sz=128`}
-          alt=""
-          aria-hidden
-          loading="lazy"
-          onError={() => setFailed(true)}
-          className="h-6 w-6 shrink-0 rounded object-contain grayscale"
-        />
+        <span className="flex h-11 shrink-0 items-center justify-center rounded-lg bg-white px-2.5 ring-1 ring-black/5">
+          {/* Plain <img> so we can hotlink logo.dev without configuring
+              next/image remote patterns; onError drops the mark, name stays. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={`https://img.logo.dev/${domain}?token=${LOGODEV_TOKEN}&size=200&format=png&retina=true`}
+            alt={name}
+            loading="lazy"
+            onError={() => setFailed(true)}
+            className="h-7 w-auto max-w-[120px] object-contain"
+          />
+        </span>
       ) : null}
       <span className="text-base font-semibold tracking-tight text-foreground/80 sm:text-lg">
         {name}
