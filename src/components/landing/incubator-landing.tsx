@@ -5,6 +5,7 @@ import { IncubatorCommunity } from "@/components/landing/incubator-community";
 import { HarnessVsAgent } from "@/components/landing/harness-vs-agent";
 import { Header } from "@/components/landing/header";
 import { IncubatorCta } from "@/components/landing/incubator-cta";
+import { IncubatorEcosystem } from "@/components/landing/incubator-ecosystem";
 import { IncubatorFaq } from "@/components/landing/incubator-faq";
 import { IncubatorFounders } from "@/components/landing/incubator-founders";
 import { IncubatorHarnessMoat } from "@/components/landing/incubator-harness-moat";
@@ -84,6 +85,7 @@ export async function IncubatorLanding() {
           caption="A rented core, on a foundation we own."
         />
         <IncubatorHarnessMoat />
+        <IncubatorEcosystem />
         <BuiltFromInside />
         <IncubatorProcess />
         <div id="agents">
