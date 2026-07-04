@@ -7,6 +7,7 @@ import { IncubatorCommunity } from "@/components/landing/incubator-community";
 import { IncubatorCta } from "@/components/landing/incubator-cta";
 import { IncubatorFaq } from "@/components/landing/incubator-faq";
 import { IncubatorFounders } from "@/components/landing/incubator-founders";
+import { IncubatorImageBand } from "@/components/landing/incubator-image-band";
 import { IncubatorLeverage } from "@/components/landing/incubator-leverage";
 import { IncubatorPortfolio } from "@/components/landing/incubator-portfolio";
 import { IncubatorProblem } from "@/components/landing/incubator-problem";
@@ -47,11 +48,27 @@ export default function MorePage() {
         <Header />
         <IncubatorAgentsFor />
         <IncubatorProblem />
+        {/* Section graphics restored here (they live on the full lander but were
+            dropped when /more was slimmed). Each anchors its matching section. */}
+        <IncubatorImageBand
+          src="/incubator/leverage.jpg"
+          alt="One operator directing a vast network of work that fans out and multiplies"
+          caption="One operator. The output of a team."
+        />
         <IncubatorLeverage />
         <IncubatorWho />
         <IncubatorWhyFounders />
         <IncubatorCommunity />
+        <IncubatorImageBand
+          src="/incubator/harness-foundation.jpg"
+          alt="Stacked translucent layers forming a foundation with a single glowing blue core on top"
+          caption="A foundation we own, not a tool we rent."
+        />
         <IncubatorPortfolio products={portfolio} />
+        <IncubatorImageBand
+          src="/incubator/harness-engine.jpg"
+          alt="A car rendered in white outline with a glowing blue chip at its core and wiring through the chassis"
+        />
         <IncubatorProcess />
         <IncubatorTeam />
         <IncubatorFounders />
