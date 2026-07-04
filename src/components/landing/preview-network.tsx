@@ -1,14 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 // The network strip (boardy's "I've made intros to people at" analogue). John's
 // company voice: people MaC has worked with come from these companies and are
-// now building or bettering their own. Auto-scrolling marquee of logo + name
-// chips, real logos from logo.dev. The logo sits on a FIXED-size white tile so
-// the image loading in can never resize its cell — that's what keeps the row
-// from reflowing/overlapping while it scrolls. Name always shows; if a logo
-// fails to load the chip is just the name.
+// now building or bettering their own. A drag/swipe carousel of logo + name
+// chips, real logos from logo.dev, ordered alphabetically. Touch devices use
+// native horizontal scrolling; mouse users can grab and drag the row. The logo
+// sits on a FIXED-size white tile so the image loading in can never resize its
+// cell — that's what keeps the row from reflowing/overlapping. Name always
+// shows; if a logo fails to load the chip is just the name.
 
 // Publishable logo.dev key (John's, 2026-07-03). It rides in the image URL in
 // the browser by design, so it is safe to keep in the client bundle.
@@ -93,27 +94,64 @@ function Logo({ company }: { company: Company }) {
 }
 
 export function PreviewNetwork() {
-  // Duplicate the list so the -50% translate loops seamlessly.
-  const track = [...COMPANIES, ...COMPANIES];
+  const scroller = useRef<HTMLUListElement>(null);
+  // Mouse drag-to-scroll state. Touch/pen fall through to native scrolling.
+  const drag = useRef({ down: false, startX: 0, startScroll: 0, moved: false });
+
+  // Alphabetical, case- and locale-aware. Sorting at render keeps the list
+  // self-maintaining — new companies land in the right slot automatically.
+  const companies = [...COMPANIES].sort((a, b) =>
+    a.name.localeCompare(b.name, "en", { sensitivity: "base" }),
+  );
+
+  function onPointerDown(e: React.PointerEvent<HTMLUListElement>) {
+    if (e.pointerType !== "mouse") return;
+    const el = scroller.current;
+    if (!el) return;
+    drag.current = {
+      down: true,
+      startX: e.clientX,
+      startScroll: el.scrollLeft,
+      moved: false,
+    };
+  }
+
+  function onPointerMove(e: React.PointerEvent<HTMLUListElement>) {
+    const el = scroller.current;
+    if (!el || !drag.current.down) return;
+    const dx = e.clientX - drag.current.startX;
+    if (Math.abs(dx) > 3) drag.current.moved = true;
+    el.scrollLeft = drag.current.startScroll - dx;
+  }
+
+  function endDrag() {
+    drag.current.down = false;
+  }
 
   return (
     <section className="py-16 sm:py-24">
       <div className="mx-auto w-full max-w-4xl px-6 text-center">
         <p className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-          The network
+          Our network of users
         </p>
         <h2 className="mx-auto max-w-2xl text-balance text-2xl font-bold tracking-tight sm:text-3xl">
           Current and alumni of these companies are building with MaC, today:
         </h2>
       </div>
 
-      <div className="preview-marquee relative mt-10 w-full overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_6%,black_94%,transparent)]">
-        <ul className="preview-marquee-track flex w-max items-center gap-8">
-          {track.map((company, i) => (
+      <div className="relative mt-10 w-full [mask-image:linear-gradient(to_right,transparent,black_6%,black_94%,transparent)]">
+        <ul
+          ref={scroller}
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={endDrag}
+          onPointerLeave={endDrag}
+          className="preview-scroller flex w-full cursor-grab select-none items-center gap-8 overflow-x-auto px-6 pb-2 active:cursor-grabbing"
+        >
+          {companies.map((company) => (
             <li
-              key={`${company.domain}-${i}`}
+              key={company.domain}
               className="flex h-12 shrink-0 items-center"
-              aria-hidden={i >= COMPANIES.length}
             >
               <Logo company={company} />
             </li>
