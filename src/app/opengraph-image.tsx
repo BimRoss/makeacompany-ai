@@ -1,4 +1,9 @@
+import { readFileSync } from "fs";
+import { join } from "path";
+
 import { ImageResponse } from "next/og";
+
+export const runtime = "nodejs";
 
 export const alt =
   "makeacompany.ai — Multiply yourself. Your best work, in a fraction of the time and cost.";
@@ -7,6 +12,12 @@ export const size = {
   height: 630,
 };
 export const contentType = "image/png";
+
+// The real MaC cube mark (white on the black tile, exactly like the site hero),
+// inlined as a data URI so next/og can render it without a network fetch.
+const LOGO_DATA_URI = `data:image/png;base64,${readFileSync(
+  join(process.cwd(), "public", "logo-navbar-white.png"),
+).toString("base64")}`;
 
 // Boardy-clean unfurl card: mirrors the site hero. Warm background, a small
 // black logo mark, one headline, one subline, one black pill. No kicker, no
@@ -44,8 +55,13 @@ export default async function OpenGraphImage() {
               height: "60px",
               borderRadius: "16px",
               background: "#0a0a0a",
+              alignItems: "center",
+              justifyContent: "center",
             }}
-          />
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={LOGO_DATA_URI} width={36} height={36} alt="" />
+          </div>
           <div
             style={{
               display: "flex",
