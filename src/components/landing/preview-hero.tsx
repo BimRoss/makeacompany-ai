@@ -21,11 +21,11 @@ export function PreviewHero() {
         <div className="max-w-xl">
           <span className="mb-6 flex h-12 w-12 items-center justify-center rounded-2xl bg-black">
             <Image
-              src="/logo-navbar-white.png"
-              alt=""
-              width={28}
-              height={28}
-              className="h-7 w-7 object-contain"
+              src="/logo-mark-founder.png"
+              alt="makeacompany"
+              width={38}
+              height={38}
+              className="h-9 w-9 object-contain"
             />
           </span>
 
