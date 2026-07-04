@@ -788,7 +788,6 @@ button:disabled {
 
 /* preview.makeacompany.ai — draggable/swipeable logo carousel (network strip) */
 .preview-scroller {
-  scroll-snap-type: x proximity;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none; /* Firefox */
   -ms-overflow-style: none; /* legacy Edge/IE */
@@ -797,10 +796,6 @@ button:disabled {
 
 .preview-scroller::-webkit-scrollbar {
   display: none; /* WebKit — hide the scrollbar, keep scrollability */
-}
-
-.preview-scroller > li {
-  scroll-snap-align: start;
 }
 
 /* makeacompany.ai — testimonials auto-slide (right to left, very slow) */
