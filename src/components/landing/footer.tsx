@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
@@ -13,7 +14,23 @@ export function Footer({ extraNav }: FooterProps) {
     <footer className="mt-auto border-t border-border bg-muted/30 py-6 sm:py-8 md:py-10">
       <div className="mx-auto flex max-w-6xl flex-col items-center gap-6 px-6">
         <div className="flex w-full flex-col items-center justify-between gap-4 sm:flex-row">
-          <div className="flex flex-col items-center gap-1 sm:items-start">
+          <div className="flex flex-col items-center gap-2 sm:items-start">
+            {/* Founder mark. Black-cube cut in light mode, white-cube cut in
+                dark, both with the blue center — same theme-swap as the header. */}
+            <Image
+              src="/mac-mark-footer-light.png"
+              alt="Make a Company"
+              width={35}
+              height={40}
+              className="h-7 w-auto object-contain dark:hidden"
+            />
+            <Image
+              src="/mac-mark-footer-dark.png"
+              alt="Make a Company"
+              width={35}
+              height={40}
+              className="hidden h-7 w-auto object-contain dark:block"
+            />
             <p className="text-xs text-muted-foreground">
               &copy; {year} makeacompany.ai. All rights reserved.
             </p>
