@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { Footer } from "@/components/landing/footer";
+import { HarnessVsAgent } from "@/components/landing/harness-vs-agent";
 import { Header } from "@/components/landing/header";
 import { IncubatorAgentsFor } from "@/components/landing/incubator-agents-for";
 import { IncubatorCommunity } from "@/components/landing/incubator-community";
@@ -65,10 +66,13 @@ export default function MorePage() {
           caption="A foundation we own, not a tool we rent."
         />
         <IncubatorPortfolio products={portfolio} />
+        {/* Car+chip image leads into the engine/harness explainer, same pairing
+            as the full lander — the image needs this section for context. */}
         <IncubatorImageBand
           src="/incubator/harness-engine.jpg"
           alt="A car rendered in white outline with a glowing blue chip at its core and wiring through the chassis"
         />
+        <HarnessVsAgent />
         <IncubatorProcess />
         <IncubatorTeam />
         <IncubatorFounders />
