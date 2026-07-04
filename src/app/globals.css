@@ -786,30 +786,21 @@ button:disabled {
   }
 }
 
-/* preview.makeacompany.ai — auto-scrolling logo marquee (network strip) */
-@keyframes preview-marquee {
-  from {
-    transform: translateX(0);
-  }
-  to {
-    transform: translateX(-50%);
-  }
+/* preview.makeacompany.ai — draggable/swipeable logo carousel (network strip) */
+.preview-scroller {
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* legacy Edge/IE */
+  overscroll-behavior-x: contain;
 }
 
-.preview-marquee-track {
-  animation: preview-marquee 90s linear infinite;
-  will-change: transform;
-  backface-visibility: hidden;
+.preview-scroller::-webkit-scrollbar {
+  display: none; /* WebKit — hide the scrollbar, keep scrollability */
 }
 
-.preview-marquee:hover .preview-marquee-track {
-  animation-play-state: paused;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .preview-marquee-track {
-    animation: none;
-  }
+.preview-scroller > li {
+  scroll-snap-align: start;
 }
 
 /* makeacompany.ai — testimonials auto-slide (right to left, very slow) */
