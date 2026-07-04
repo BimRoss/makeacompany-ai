@@ -13,10 +13,11 @@ export const size = {
 };
 export const contentType = "image/png";
 
-// The real MaC cube mark (white on the black tile, exactly like the site hero),
-// inlined as a data URI so next/og can render it without a network fetch.
+// The MaC founder mark: six white cubes with the blue founder cube in the
+// center, inlined as a data URI so next/og can render it without a network
+// fetch. Sits on the black tile exactly like the site hero.
 const LOGO_DATA_URI = `data:image/png;base64,${readFileSync(
-  join(process.cwd(), "public", "logo-navbar-white.png"),
+  join(process.cwd(), "public", "logo-mark-founder.png"),
 ).toString("base64")}`;
 
 // Boardy-clean unfurl card: mirrors the site hero. Warm background, a small
@@ -51,22 +52,22 @@ export default async function OpenGraphImage() {
           <div
             style={{
               display: "flex",
-              width: "60px",
-              height: "60px",
-              borderRadius: "16px",
+              width: "112px",
+              height: "112px",
+              borderRadius: "26px",
               background: "#0a0a0a",
               alignItems: "center",
               justifyContent: "center",
             }}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={LOGO_DATA_URI} width={36} height={36} alt="" />
+            <img src={LOGO_DATA_URI} width={90} height={90} alt="" />
           </div>
           <div
             style={{
               display: "flex",
-              marginLeft: "20px",
-              fontSize: 30,
+              marginLeft: "24px",
+              fontSize: 34,
               fontWeight: 700,
               letterSpacing: "-0.02em",
             }}
