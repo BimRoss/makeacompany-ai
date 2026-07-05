@@ -27,10 +27,15 @@ const PORTFOLIO_SLUGS = [
 // Nav tray for the minimal homepage: items open the fuller sections on /more
 // (which the homepage otherwise keeps off). The page body below stays exactly
 // as-is; the tray is the only addition, surfaced via the header hamburger.
-const EXPLORE_NAV = MORE_SECTIONS.map((s) => ({
-  href: `/more#${s.id}`,
-  label: s.label,
-}));
+// Drop the Portfolio jump-link from the homepage tray — the homepage now has
+// its own "companies we build alongside" strip, so it's redundant here. The
+// /more page keeps its Portfolio section and nav (John, 2026-07-05).
+const EXPLORE_NAV = MORE_SECTIONS.filter((s) => s.id !== "portfolio").map(
+  (s) => ({
+    href: `/more#${s.id}`,
+    label: s.label,
+  }),
+);
 
 /**
  * Minimal, boardy-style preview lander served at `preview.makeacompany.ai`
