@@ -1,5 +1,6 @@
 import { Footer } from "@/components/landing/footer";
 import { Header } from "@/components/landing/header";
+import { IncubatorPortfolio } from "@/components/landing/incubator-portfolio";
 import { PreviewCta } from "@/components/landing/preview-cta";
 import { PreviewHero } from "@/components/landing/preview-hero";
 import { PreviewNetwork } from "@/components/landing/preview-network";
@@ -7,8 +8,20 @@ import { PreviewProduct } from "@/components/landing/preview-product";
 import { PreviewValue } from "@/components/landing/preview-value";
 import { SideNav, SideNavProvider } from "@/components/landing/side-nav";
 import { TestimonialsCarousel } from "@/components/landing/testimonials-carousel";
+import { getFeaturedProducts } from "@/lib/featured-products";
 import { fetchLanderTestimonials } from "@/lib/lander-testimonials";
 import { MORE_SECTIONS } from "@/lib/more-sections";
+
+// The "companies/concepts we're building alongside" strip on the homepage
+// (John, 2026-07-05). Reuses the incubator portfolio cards + copy so the two
+// surfaces stay in sync. Excludes the MaC platform card itself — this is the
+// things-we-build-with-it list. Order: flagship first, then the newer builds.
+const PORTFOLIO_SLUGS = [
+  "brandlete",
+  "nexus-ats",
+  "worldcup",
+  "dating-venue",
+] as const;
 
 // Nav tray for the minimal homepage: items open the fuller sections on /more
 // (which the homepage otherwise keeps off). The page body below stays exactly
@@ -27,6 +40,10 @@ const EXPLORE_NAV = MORE_SECTIONS.map((s) => ({
  */
 export async function PreviewLanding() {
   const testimonials = await fetchLanderTestimonials();
+  const catalog = getFeaturedProducts();
+  const portfolio = PORTFOLIO_SLUGS.map((slug) =>
+    catalog.find((p) => p.slug === slug),
+  ).filter((p): p is NonNullable<typeof p> => Boolean(p));
 
   return (
     <SideNavProvider>
@@ -37,6 +54,7 @@ export async function PreviewLanding() {
         <PreviewNetwork />
         <PreviewProduct />
         <PreviewValue />
+        <IncubatorPortfolio products={portfolio} />
         <TestimonialsCarousel testimonials={testimonials} />
         <PreviewCta />
         <Footer />
