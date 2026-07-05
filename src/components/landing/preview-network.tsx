@@ -182,7 +182,7 @@ export function PreviewNetwork() {
   }, []);
 
   return (
-    <section className="py-16 sm:py-24">
+    <section className="py-10 sm:py-24">
       <div className="mx-auto w-full max-w-4xl px-6 text-center">
         <p className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
           Our network of users

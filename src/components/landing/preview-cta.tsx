@@ -8,7 +8,7 @@ const CONTACT_HREF = `mailto:john@makeacompany.ai?subject=${encodeURIComponent(
 // instead of trailing off after the logo strip.
 export function PreviewCta() {
   return (
-    <section className="py-16 sm:py-24">
+    <section className="py-10 sm:py-24">
       <div className="mx-auto w-full max-w-2xl px-6 text-center">
         <h2 className="text-balance text-3xl font-bold tracking-tight sm:text-4xl">
           Ready to multiply?
