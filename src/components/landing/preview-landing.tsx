@@ -12,16 +12,11 @@ import { getFeaturedProducts } from "@/lib/featured-products";
 import { fetchLanderTestimonials } from "@/lib/lander-testimonials";
 import { MORE_SECTIONS } from "@/lib/more-sections";
 
-// The "companies/concepts we're building alongside" strip on the homepage
-// (John, 2026-07-05). Reuses the incubator portfolio cards + copy so the two
-// surfaces stay in sync. Excludes the MaC platform card itself — this is the
-// things-we-build-with-it list. Order: flagship first, then the newer builds.
-const PORTFOLIO_SLUGS = [
-  "brandlete",
-  "nexus-ats",
-  "worldcup",
-  "dating-venue",
-] as const;
+// The "companies we build alongside" strip on the homepage (John, 2026-07-05).
+// Reuses the incubator portfolio cards + copy so the two surfaces stay in sync.
+// Just the two mains — Brandlete (flagship) and Nexus. Newer/lighter builds
+// (World Cup, Dating Venue) intentionally left off this homepage strip.
+const PORTFOLIO_SLUGS = ["brandlete", "nexus-ats"] as const;
 
 // Nav tray for the minimal homepage: items open the fuller sections on /more
 // (which the homepage otherwise keeps off). The page body below stays exactly

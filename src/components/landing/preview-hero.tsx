@@ -29,6 +29,10 @@ export function PreviewHero() {
             />
           </span>
 
+          <p className="mb-4 text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground sm:text-sm">
+            Build and multiply. Anytime, anywhere.
+          </p>
+
           <h1 className="text-balance text-4xl font-bold leading-[1.05] tracking-tight text-foreground sm:text-5xl lg:text-6xl">
             Multiply yourself. Your best work, in a fraction of the time and
             cost.
