@@ -23,7 +23,7 @@ const ITEMS: { icon: typeof GitBranch; title: string; body: string }[] = [
 
 export function PreviewValue() {
   return (
-    <section className="py-16 sm:py-24">
+    <section className="py-10 sm:py-24">
       <div className="mx-auto w-full max-w-5xl px-6">
         <h2 className="mx-auto max-w-2xl text-balance text-center text-2xl font-bold tracking-tight sm:text-3xl">
           Not one agent. A whole team of them.

@@ -4,7 +4,7 @@
 // icon grid, so it stays boardy-clean.
 export function PreviewProduct() {
   return (
-    <section className="py-16 sm:py-24">
+    <section className="py-10 sm:py-24">
       <div className="mx-auto w-full max-w-2xl px-6 text-center">
         <p className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
           What it is
