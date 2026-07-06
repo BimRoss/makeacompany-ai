@@ -10,14 +10,12 @@ import { IncubatorFaq } from "@/components/landing/incubator-faq";
 import { IncubatorFounders } from "@/components/landing/incubator-founders";
 import { IncubatorImageBand } from "@/components/landing/incubator-image-band";
 import { IncubatorLeverage } from "@/components/landing/incubator-leverage";
-import { IncubatorPortfolio } from "@/components/landing/incubator-portfolio";
 import { IncubatorProblem } from "@/components/landing/incubator-problem";
 import { IncubatorProcess } from "@/components/landing/incubator-process";
 import { IncubatorTeam } from "@/components/landing/incubator-team";
 import { IncubatorWho } from "@/components/landing/incubator-who";
 import { IncubatorWhyFounders } from "@/components/landing/incubator-why-founders";
 import { SideNav, SideNavProvider } from "@/components/landing/side-nav";
-import { getFeaturedProducts } from "@/lib/featured-products";
 import { MORE_SECTIONS } from "@/lib/more-sections";
 
 // The "explore" companion to the minimal homepage: the fuller MaC story pulled
@@ -32,16 +30,15 @@ export const metadata: Metadata = {
   alternates: { canonical: "/more" },
 };
 
-const PORTFOLIO_SLUGS = ["brandlete", "nexus-ats"] as const;
-
-const NAV = MORE_SECTIONS.map((s) => ({ href: `#${s.id}`, label: s.label }));
+// Portfolio is intentionally omitted from /more (nav entry + section): the
+// homepage "companies we build alongside" strip already covers it, so it was
+// redundant here (John, 2026-07-05).
+const NAV = MORE_SECTIONS.filter((s) => s.id !== "portfolio").map((s) => ({
+  href: `#${s.id}`,
+  label: s.label,
+}));
 
 export default function MorePage() {
-  const catalog = getFeaturedProducts();
-  const portfolio = PORTFOLIO_SLUGS.map((slug) =>
-    catalog.find((p) => p.slug === slug),
-  ).filter((p): p is NonNullable<typeof p> => Boolean(p));
-
   return (
     <SideNavProvider>
       <main className="flex min-h-screen flex-col bg-background">
@@ -65,7 +62,6 @@ export default function MorePage() {
           alt="Stacked translucent layers forming a foundation with a single glowing blue core on top"
           caption="A foundation we own, not a tool we rent."
         />
-        <IncubatorPortfolio products={portfolio} />
         {/* Car+chip image leads into the engine/harness explainer, same pairing
             as the full lander — the image needs this section for context. */}
         <IncubatorImageBand
