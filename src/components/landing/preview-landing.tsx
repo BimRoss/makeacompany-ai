@@ -14,15 +14,10 @@ import { MORE_SECTIONS } from "@/lib/more-sections";
 
 // The "companies we build alongside" strip on the homepage (John, 2026-07-05).
 // Reuses the incubator portfolio cards + copy so the two surfaces stay in sync.
-// All four builds show: Brandlete (flagship) and Nexus lead, then World Cup and
-// Dating Venue. Excludes the MaC platform card itself — this is the
-// things-we-build-with-it list.
-const PORTFOLIO_SLUGS = [
-  "brandlete",
-  "nexus-ats",
-  "worldcup",
-  "dating-venue",
-] as const;
+// Two mains show: Brandlete (flagship) and Nexus. World Cup and Dating Venue
+// were removed at John's explicit request (2026-07-06). Excludes the MaC
+// platform card itself — this is the things-we-build-with-it list.
+const PORTFOLIO_SLUGS = ["brandlete", "nexus-ats"] as const;
 
 // Nav tray for the minimal homepage: items open the fuller sections on /more
 // (which the homepage otherwise keeps off). The page body below stays exactly
