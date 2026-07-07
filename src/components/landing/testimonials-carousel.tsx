@@ -272,7 +272,7 @@ export function TestimonialsCarousel({ testimonials }: { testimonials: LanderTes
             Early members are already seeing results
           </h2>
           <p className="text-lg text-muted-foreground">
-            Here&apos;s what beta testers are saying about makeacompany.ai
+            Here&apos;s what real users are saying about makeacompany.ai
           </p>
         </div>
       </div>
