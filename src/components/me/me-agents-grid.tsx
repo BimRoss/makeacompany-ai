@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Plus } from "lucide-react";
 
 import { MeCancelSubscriptionButton } from "@/components/me/me-cancel-subscription-button";
+import { MeClaudeKeySlot } from "@/components/me/me-claude-key-slot";
 import { MeDetailOverlay } from "@/components/me/me-detail-overlay";
 import { MePersonalAgentCreationForm } from "@/components/me/me-personal-agent-creation-form";
 import { MePersonalAgentStatusPanel } from "@/components/me/me-personal-agent-status-panel";
@@ -326,6 +327,10 @@ function AccountCard({ account }: { account: AccountInfo }) {
                 Subscribe — $99/mo
               </a>
             ) : null}
+          </div>
+
+          <div className="mt-3 border-t border-foreground/10 pt-3 dark:border-white/10">
+            <MeClaudeKeySlot />
           </div>
         </div>
       </div>

@@ -271,16 +271,16 @@ func (s *Store) UpsertUserProfilesFromStripeWaitlistPurchasers(ctx context.Conte
 
 // UserProfileRow is one combined profile for admin UI and integrations.
 type UserProfileRow struct {
-	Email                               string `json:"email"`
-	StripeCustomerID                    string `json:"stripeCustomerId"`
-	StripeSubscriptionID                string `json:"stripeSubscriptionId"`
-	StripeSubscriptionStatus            string `json:"stripeSubscriptionStatus"`
-	StripePriceID                       string `json:"stripePriceId"`
-	StripeSessionID                     string `json:"stripeSessionId"`
-	StripeProductID                     string `json:"stripeProductId"`
-	Tier                                string `json:"tier"`
-	SlackUserID                         string `json:"slackUserId"`
-	WaitlistPaymentStatus               string `json:"waitlistPaymentStatus"`
+	Email                    string `json:"email"`
+	StripeCustomerID         string `json:"stripeCustomerId"`
+	StripeSubscriptionID     string `json:"stripeSubscriptionId"`
+	StripeSubscriptionStatus string `json:"stripeSubscriptionStatus"`
+	StripePriceID            string `json:"stripePriceId"`
+	StripeSessionID          string `json:"stripeSessionId"`
+	StripeProductID          string `json:"stripeProductId"`
+	Tier                     string `json:"tier"`
+	SlackUserID              string `json:"slackUserId"`
+	WaitlistPaymentStatus    string `json:"waitlistPaymentStatus"`
 	// SignupAt is the RFC3339 stamp of the user's first profile-creation write
 	// (waitlist purchase, free-trial invite, or free-lifetime mark). Written
 	// once via HSetNX so later upserts cannot move it forward. Anchor for TTFV
@@ -321,6 +321,12 @@ type UserProfileRow struct {
 	// (free text summary, e.g. "named Sarah at sarah@x.com, sent invite"). Empty means no
 	// reply yet or no response was salvaged. Surfaced by the daily sales briefing.
 	Day7CheckinResponse string `json:"day7CheckinResponse,omitempty"`
+
+	// Claude BYOK (#773): last4 + updatedAt are safe display metadata for /me.
+	// The ciphertext itself is deliberately NOT carried on the row — read it via
+	// Store.UserClaudeKeyCiphertext so it can never leak into a JSON response.
+	ClaudeAPIKeyLast4     string `json:"claudeApiKeyLast4,omitempty"`
+	ClaudeAPIKeyUpdatedAt string `json:"claudeApiKeyUpdatedAt,omitempty"`
 }
 
 func parseUnixSecondsString(v string) int64 {
@@ -374,6 +380,8 @@ func userProfileRowFromHash(email string, vals map[string]string) UserProfileRow
 		WinbackDMEnqueuedAt:                 strings.TrimSpace(vals["winback_dm_enqueued_at"]),
 		Day7CheckinEnqueuedAt:               strings.TrimSpace(vals["day7_checkin_enqueued_at"]),
 		Day7CheckinResponse:                 strings.TrimSpace(vals["day7_checkin_response"]),
+		ClaudeAPIKeyLast4:                   strings.TrimSpace(vals["claude_api_key_last4"]),
+		ClaudeAPIKeyUpdatedAt:               strings.TrimSpace(vals["claude_api_key_updated_at"]),
 	}
 }
 
