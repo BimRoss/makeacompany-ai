@@ -389,6 +389,9 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 	s.mux.HandleFunc("POST /v1/integrations/shopify/disconnect", s.handleShopifyDisconnect)
 	s.mux.HandleFunc("POST /v1/integrations/shopify/webhook", s.handleShopifyWebhook)
 	s.mux.HandleFunc("GET /v1/internal/shopify-token", s.handleInternalShopifyToken)
+	// BYOK (#773): harness fetches a user's decrypted Claude key to inject as
+	// their per-spawn inference credential.
+	s.mux.HandleFunc("GET /v1/internal/user-claude-key", s.handleInternalUserClaudeKey)
 	s.mux.HandleFunc("/v1/portal/auth/magic/start", s.handlePortalAuthMagicStart)
 	s.mux.HandleFunc("/v1/portal/auth/magic/finish", s.handlePortalAuthMagicFinish)
 	return s, nil

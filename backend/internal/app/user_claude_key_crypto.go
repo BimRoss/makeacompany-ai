@@ -110,3 +110,14 @@ func validClaudeKeyShape(key string) bool {
 	key = strings.TrimSpace(key)
 	return strings.HasPrefix(key, "sk-ant-") && len(key) >= 20 && len(key) <= 512
 }
+
+// claudeKeyKind classifies a key so the harness knows which credential env var
+// to set on the spawn: "api" for sk-ant-api… (ANTHROPIC_API_KEY, metered
+// pay-as-you-go), "oauth" for a Claude Code / subscription token
+// (CLAUDE_CODE_OAUTH_TOKEN, flat).
+func claudeKeyKind(key string) string {
+	if strings.HasPrefix(strings.TrimSpace(key), "sk-ant-api") {
+		return "api"
+	}
+	return "oauth"
+}
