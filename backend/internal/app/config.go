@@ -36,9 +36,9 @@ type Config struct {
 	// Must be a strict subset of AdminSignInAllowlist (since /marketing reuses the
 	// /admin Google sign-in cookie). When unset, defaults at LoadConfig time to
 	// the two emails called out in the ticket: grant@bimross.com + johnosberg@gmail.com.
-	MarketingAllowlist []string
-	StripeSecretKey      string
-	StripeWebhookSecret  string
+	MarketingAllowlist  []string
+	StripeSecretKey     string
+	StripeWebhookSecret string
 	// StripePriceBasePlan is the Stripe Dashboard "Base Plan" price_* used for homepage checkout (test or live).
 	// Env: STRIPE_PRICE_ID_BASE_PLAN; legacy STRIPE_PRICE_ID_WAITLIST is still read if BASE_PLAN is unset.
 	StripePriceBasePlan string
@@ -142,6 +142,11 @@ type Config struct {
 	// sweeper — gauges register but stay zeroed, /admin panel hides via
 	// hideWhenEmpty. See #621.
 	GitHubToken string
+	// UserKeyEncryptionKey is the 32-byte master key (base64 or hex) that wraps
+	// user-provided Claude keys at rest (BYOK, #773). Sourced from a mounted
+	// secret in prod. Empty disables key storage — the /me save endpoint fails
+	// closed rather than persist an unencrypted key.
+	UserKeyEncryptionKey string
 }
 
 // stripePriceIDBasePlan returns STRIPE_PRICE_ID_BASE_PLAN, else legacy STRIPE_PRICE_ID_WAITLIST.
@@ -204,6 +209,7 @@ func LoadConfig() Config {
 		MakeacompanySlackTeamID:             strings.TrimSpace(os.Getenv("MAKEACOMPANY_SLACK_TEAM_ID")),
 		GeminiAPIKey:                        strings.TrimSpace(os.Getenv("GEMINI_API_KEY")),
 		GitHubToken:                         strings.TrimSpace(os.Getenv("GITHUB_TOKEN")),
+		UserKeyEncryptionKey:                strings.TrimSpace(os.Getenv("USER_KEY_ENCRYPTION_KEY")),
 	}
 }
 

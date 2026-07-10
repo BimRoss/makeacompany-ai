@@ -346,6 +346,10 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 	s.mux.HandleFunc("GET /v1/me/personal-agents/google/status", s.handlePersonalAgentGoogleStatus)
 	s.mux.HandleFunc("POST /v1/me/personal-agents/google/connect/finish", s.handlePersonalAgentGoogleConnectFinish)
 	s.mux.HandleFunc("POST /v1/me/personal-agents/google/disconnect", s.handlePersonalAgentGoogleDisconnect)
+	// BYOK Claude key (#773): store/read/remove the signed-in user's own key.
+	s.mux.HandleFunc("GET /v1/me/claude-key", s.handleMyClaudeKeyStatus)
+	s.mux.HandleFunc("POST /v1/me/claude-key", s.handleSetMyClaudeKey)
+	s.mux.HandleFunc("DELETE /v1/me/claude-key", s.handleDeleteMyClaudeKey)
 	s.mux.HandleFunc("POST /v1/internal/personal-agents/rollout-all", s.handlePersonalAgentRolloutAll)
 	s.mux.HandleFunc("POST /v1/internal/personal-agents/backfill-manifest", s.handlePersonalAgentBackfillManifest)
 	s.mux.HandleFunc("GET /v1/personal-agents/{id}/install-complete", s.handlePersonalAgentInstallComplete)
@@ -488,7 +492,6 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, s.health.Build(r.Context()))
 }
-
 
 func (s *Server) handleCheckout(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
