@@ -195,13 +195,10 @@ export function PricingTiers() {
             const baseCard = tier.emphasized
               ? "relative flex flex-col rounded-2xl border-2 border-foreground bg-card p-6 shadow-lg"
               : "relative flex flex-col rounded-2xl border border-border bg-card p-6 shadow-sm";
-            const mobileOrder = tier.emphasized
-              ? "order-first sm:order-none"
-              : "order-last sm:order-none";
             // Dimmed cards now keep their CTA interactive — only the rest of the
             // card body is visually dimmed. We split the dimming so the form/link
             // stays clickable.
-            const cardClass = `${baseCard} ${mobileOrder}`;
+            const cardClass = baseCard;
             const bodyDimClass = tier.dimmed ? "opacity-60" : "";
             const ctaClass = tier.emphasized
               ? "inline-flex w-full items-center justify-center rounded-lg bg-foreground px-4 py-2.5 text-sm font-semibold text-background hover:bg-foreground/90 disabled:cursor-not-allowed disabled:opacity-60"
