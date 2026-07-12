@@ -259,10 +259,6 @@ export function PricingTiers() {
             );
           })}
         </ul>
-
-        <p className="mx-auto mt-8 max-w-2xl text-pretty text-center text-sm text-muted-foreground">
-          Every tier: 14-day free trial, no card. All tiers BYOK; Managed Keys add-on available.
-        </p>
       </div>
     </section>
   );
