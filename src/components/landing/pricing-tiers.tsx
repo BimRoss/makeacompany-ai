@@ -41,8 +41,8 @@ const TIERS: Tier[] = [
       "Remembers your company",
       "BYOK · 14-day free trial",
     ],
-    cta: { kind: "waitlist", label: "Start free", tier: "solo" },
-    secondaryCta: { label: "Talk to us", href: CONTACT_HREF },
+    cta: { kind: "waitlist", label: "Start Free", tier: "solo" },
+    secondaryCta: { label: "Talk with Us", href: CONTACT_HREF },
   },
   {
     name: "Founder",
@@ -59,8 +59,8 @@ const TIERS: Tier[] = [
       "Priority runtime",
       "BYOK · 14-day free trial",
     ],
-    cta: { kind: "waitlist", label: "Start free", tier: "founder" },
-    secondaryCta: { label: "Talk to us", href: CONTACT_HREF },
+    cta: { kind: "waitlist", label: "Start Free", tier: "founder" },
+    secondaryCta: { label: "Talk with Us", href: CONTACT_HREF },
     emphasized: true,
   },
   {
@@ -78,7 +78,7 @@ const TIERS: Tier[] = [
       "Shared memory + integrations",
       "Team onboarding support",
     ],
-    cta: { kind: "waitlist", label: "Talk to us", tier: "studio" },
+    cta: { kind: "waitlist", label: "Talk with Us", tier: "studio" },
   },
   {
     name: "Embedded",
@@ -95,7 +95,7 @@ const TIERS: Tier[] = [
       "White-glove onboarding",
       "Roadmap input · SLA",
     ],
-    cta: { kind: "waitlist", label: "Talk to us", tier: "embedded" },
+    cta: { kind: "waitlist", label: "Talk with Us", tier: "embedded" },
   },
 ];
 
