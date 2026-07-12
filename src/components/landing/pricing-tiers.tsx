@@ -3,6 +3,10 @@
 import { Check } from "lucide-react";
 import { useState } from "react";
 
+const CONTACT_HREF = `mailto:john@makeacompany.ai?subject=${encodeURIComponent(
+  "MakeaCompany — let's talk"
+)}`;
+
 type CtaKind =
   | { kind: "link"; href: string }
   | { kind: "waitlist"; tier: string };
@@ -17,6 +21,7 @@ type Tier = {
   pitch: string;
   features: string[];
   cta: { label: string } & CtaKind;
+  secondaryCta?: { label: string; href: string };
   emphasized?: boolean;
   dimmed?: boolean;
 };
@@ -37,6 +42,7 @@ const TIERS: Tier[] = [
       "BYOK · 14-day free trial",
     ],
     cta: { kind: "waitlist", label: "Start free", tier: "solo" },
+    secondaryCta: { label: "Talk to us", href: CONTACT_HREF },
   },
   {
     name: "Founder",
@@ -54,6 +60,7 @@ const TIERS: Tier[] = [
       "BYOK · 14-day free trial",
     ],
     cta: { kind: "waitlist", label: "Start free", tier: "founder" },
+    secondaryCta: { label: "Talk to us", href: CONTACT_HREF },
     emphasized: true,
   },
   {
@@ -71,7 +78,7 @@ const TIERS: Tier[] = [
       "Shared memory + integrations",
       "Team onboarding support",
     ],
-    cta: { kind: "waitlist", label: "Start free", tier: "studio" },
+    cta: { kind: "waitlist", label: "Talk to us", tier: "studio" },
   },
   {
     name: "Embedded",
@@ -239,6 +246,14 @@ export function PricingTiers() {
                   ) : (
                     <WaitlistForm tier={tier.cta.tier} ctaLabel={tier.cta.label} ctaClass={ctaClass} />
                   )}
+                  {tier.secondaryCta ? (
+                    <a
+                      href={tier.secondaryCta.href}
+                      className="mt-2 inline-flex w-full items-center justify-center text-sm font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                    >
+                      {tier.secondaryCta.label}
+                    </a>
+                  ) : null}
                 </div>
               </li>
             );
