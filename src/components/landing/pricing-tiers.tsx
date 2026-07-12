@@ -80,7 +80,7 @@ const TIERS: Tier[] = [
     name: "Embedded",
     price: "Custom",
     cadence: "",
-    annual: "from $24,000/yr",
+    annual: "from $2,000/mo",
     status: "By application",
     statusTone: "soon",
     pitch: "We build alongside you.",
