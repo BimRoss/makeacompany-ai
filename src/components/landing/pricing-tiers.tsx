@@ -14,6 +14,7 @@ type Tier = {
   name: string;
   price: string;
   cadence: string;
+  annual?: string;
   status: string;
   statusTone: "live" | "soon" | "future";
   pitch: string;
@@ -25,52 +26,56 @@ type Tier = {
 
 const TIERS: Tier[] = [
   {
-    name: "Personal Agent",
-    price: "$499",
+    name: "Founder",
+    price: "$149",
     cadence: "/mo",
-    status: "In development",
-    statusTone: "soon",
-    pitch: "Your own agent that takes action on your behalf, not just the channel's.",
-    features: [
-      "Everything in Starter",
-      "A personal agent bound to you, with its own Google identity and tools",
-      "Acts on your email, calendar, docs, and Slack when you ask",
-      "Currently gated to creator-only while we validate in the wild",
-    ],
-    cta: { kind: "waitlist", label: "Get on the early access list", tier: "personal-agent" },
-    dimmed: true,
-  },
-  {
-    name: "Starter",
-    price: "$99",
-    cadence: "/mo",
+    annual: "or $1,490/yr",
     status: "Available now",
     statusTone: "live",
-    pitch: "Joanne and Ross in your Slack, paid month-to-month.",
+    pitch: "The full agent team in Slack, running your company.",
     features: [
-      "Joanne (Chief of Staff) and Ross (Software Developer) in your channel",
-      "Remembers your company, comes with your tools, ships code on its own",
-      "10 days free, no card to start",
-      "Cancel anytime",
+      "Full agent team in Slack",
+      "Ships code, deploys, and sites",
+      "Remembers your company",
+      "Priority runtime",
+      "BYOK · 14-day free trial",
     ],
     cta: { kind: "link", href: SLACK_INVITE_URL, label: "Start free" },
     emphasized: true,
   },
   {
-    name: "Enterprise",
-    price: "Flexible",
-    cadence: "",
-    status: "August 2026",
-    statusTone: "future",
-    pitch: "Isolated infrastructure for accounts that need it.",
+    name: "Studio",
+    price: "$499",
+    cadence: "/mo",
+    annual: "or $4,990/yr",
+    status: "Available now",
+    statusTone: "live",
+    pitch: "Bring your whole team into the room.",
     features: [
-      "Everything in Personal Agent",
-      "Dedicated servers, your own slice of the harness",
-      "Data residency and compliance posture",
-      "Direct line to the team building it",
+      "Everything in Founder, plus…",
+      "Seats for your whole team",
+      "Priority builds & concurrency",
+      "Shared memory + integrations",
+      "Team onboarding support",
     ],
-    cta: { kind: "waitlist", label: "Talk to us", tier: "enterprise" },
-    dimmed: true,
+    cta: { kind: "link", href: SLACK_INVITE_URL, label: "Start free" },
+  },
+  {
+    name: "Embedded",
+    price: "Custom",
+    cadence: "",
+    annual: "from $24,000/yr",
+    status: "By application",
+    statusTone: "soon",
+    pitch: "We build alongside you.",
+    features: [
+      "Everything in Studio, plus…",
+      "We build alongside you",
+      "Custom agents & workflows",
+      "White-glove onboarding",
+      "Roadmap input · SLA",
+    ],
+    cta: { kind: "waitlist", label: "Talk to us", tier: "embedded" },
   },
 ];
 
@@ -162,10 +167,10 @@ export function PricingTiers() {
             Pricing
           </p>
           <h2 className="text-balance text-3xl font-bold tracking-tight sm:text-4xl">
-            Pick the tier that fits your account.
+            Priced like leverage.
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-pretty text-lg text-muted-foreground">
-            One product, three depths. Start in the room, grow into a personal agent, land on isolated infra when you need it.
+            From $49/mo · 14-day free trial · BYOK. Start solo, bring your team, or have us build alongside you.
           </p>
         </div>
 
@@ -192,10 +197,15 @@ export function PricingTiers() {
                     <h3 className="text-lg font-semibold tracking-tight">{tier.name}</h3>
                     <StatusPill tone={tier.statusTone}>{tier.status}</StatusPill>
                   </div>
-                  <div className="mb-3 flex items-baseline gap-1">
+                  <div className="mb-1 flex items-baseline gap-1">
                     <span className="text-4xl font-bold tracking-tight">{tier.price}</span>
                     <span className="text-sm text-muted-foreground">{tier.cadence}</span>
                   </div>
+                  {tier.annual ? (
+                    <p className="mb-3 text-xs text-muted-foreground">{tier.annual}</p>
+                  ) : (
+                    <div className="mb-3" />
+                  )}
                   <p className="mb-5 text-pretty text-sm text-muted-foreground">{tier.pitch}</p>
                   <ul className="mb-6 space-y-2">
                     {tier.features.map((f) => (
@@ -226,7 +236,7 @@ export function PricingTiers() {
         </ul>
 
         <p className="mx-auto mt-8 max-w-2xl text-pretty text-center text-sm text-muted-foreground">
-          First 100 seats are free for life. After that, the Starter trial is 10 days, no card required.
+          Solo starts at $49/mo — 14-day free trial, no card. All tiers BYOK; Managed Keys add-on available.
         </p>
       </div>
     </section>
