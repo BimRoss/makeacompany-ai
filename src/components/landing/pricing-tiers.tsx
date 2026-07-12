@@ -26,6 +26,22 @@ type Tier = {
 
 const TIERS: Tier[] = [
   {
+    name: "Solo",
+    price: "$49",
+    cadence: "/mo",
+    annual: "or $490/yr",
+    status: "Available now",
+    statusTone: "live",
+    pitch: "One agent teammate to get you moving.",
+    features: [
+      "One agent in your Slack",
+      "Ships code, deploys, and sites",
+      "Remembers your company",
+      "BYOK · 14-day free trial",
+    ],
+    cta: { kind: "link", href: SLACK_INVITE_URL, label: "Start free" },
+  },
+  {
     name: "Founder",
     price: "$149",
     cadence: "/mo",
@@ -161,7 +177,7 @@ function WaitlistForm({ tier, ctaLabel, ctaClass }: { tier: string; ctaLabel: st
 export function PricingTiers() {
   return (
     <section className="border-y border-border bg-muted/20 py-10 sm:py-14" id="pricing">
-      <div className="mx-auto w-full max-w-5xl px-6">
+      <div className="mx-auto w-full max-w-6xl px-6">
         <div className="mb-12 text-center">
           <p className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
             Pricing
@@ -174,7 +190,7 @@ export function PricingTiers() {
           </p>
         </div>
 
-        <ul className="grid gap-4 sm:grid-cols-3">
+        <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {TIERS.map((tier) => {
             const baseCard = tier.emphasized
               ? "relative flex flex-col rounded-2xl border-2 border-foreground bg-card p-6 shadow-lg"
@@ -236,7 +252,7 @@ export function PricingTiers() {
         </ul>
 
         <p className="mx-auto mt-8 max-w-2xl text-pretty text-center text-sm text-muted-foreground">
-          Solo starts at $49/mo — 14-day free trial, no card. All tiers BYOK; Managed Keys add-on available.
+          Every tier: 14-day free trial, no card. All tiers BYOK; Managed Keys add-on available.
         </p>
       </div>
     </section>
