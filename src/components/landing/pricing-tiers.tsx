@@ -36,7 +36,7 @@ const TIERS: Tier[] = [
       "Remembers your company",
       "BYOK · 14-day free trial",
     ],
-    cta: { kind: "waitlist", label: "Talk to us", tier: "solo" },
+    cta: { kind: "waitlist", label: "Start free", tier: "solo" },
   },
   {
     name: "Founder",
@@ -53,7 +53,7 @@ const TIERS: Tier[] = [
       "Priority runtime",
       "BYOK · 14-day free trial",
     ],
-    cta: { kind: "waitlist", label: "Talk to us", tier: "founder" },
+    cta: { kind: "waitlist", label: "Start free", tier: "founder" },
     emphasized: true,
   },
   {
@@ -71,7 +71,7 @@ const TIERS: Tier[] = [
       "Shared memory + integrations",
       "Team onboarding support",
     ],
-    cta: { kind: "waitlist", label: "Talk to us", tier: "studio" },
+    cta: { kind: "waitlist", label: "Start free", tier: "studio" },
   },
   {
     name: "Embedded",
