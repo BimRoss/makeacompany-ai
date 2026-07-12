@@ -3,9 +3,6 @@
 import { Check } from "lucide-react";
 import { useState } from "react";
 
-const SLACK_INVITE_URL =
-  "https://join.slack.com/t/makeacompany/shared_invite/zt-3w432kf90-5B7IwfX2DNGfxLB1VGp6zA";
-
 type CtaKind =
   | { kind: "link"; href: string }
   | { kind: "waitlist"; tier: string };
@@ -39,7 +36,7 @@ const TIERS: Tier[] = [
       "Remembers your company",
       "BYOK · 14-day free trial",
     ],
-    cta: { kind: "link", href: SLACK_INVITE_URL, label: "Start free" },
+    cta: { kind: "waitlist", label: "Talk to us", tier: "solo" },
   },
   {
     name: "Founder",
@@ -56,7 +53,7 @@ const TIERS: Tier[] = [
       "Priority runtime",
       "BYOK · 14-day free trial",
     ],
-    cta: { kind: "link", href: SLACK_INVITE_URL, label: "Start free" },
+    cta: { kind: "waitlist", label: "Talk to us", tier: "founder" },
     emphasized: true,
   },
   {
@@ -74,7 +71,7 @@ const TIERS: Tier[] = [
       "Shared memory + integrations",
       "Team onboarding support",
     ],
-    cta: { kind: "link", href: SLACK_INVITE_URL, label: "Start free" },
+    cta: { kind: "waitlist", label: "Talk to us", tier: "studio" },
   },
   {
     name: "Embedded",

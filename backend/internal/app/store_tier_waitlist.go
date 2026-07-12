@@ -19,6 +19,10 @@ const tierWaitlistKeyMatch = keyPrefix + ":tier_waitlist:*"
 
 // Allowed tier slugs. Adding a new tier? Add it here and on the form.
 var tierWaitlistAllowedTiers = map[string]bool{
+	"solo":           true,
+	"founder":        true,
+	"studio":         true,
+	"embedded":       true,
 	"personal-agent": true,
 	"enterprise":     true,
 }
