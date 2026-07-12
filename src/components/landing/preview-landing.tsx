@@ -7,6 +7,7 @@ import { PreviewNetwork } from "@/components/landing/preview-network";
 import { PreviewProduct } from "@/components/landing/preview-product";
 import { PreviewValue } from "@/components/landing/preview-value";
 import { PricingTiers } from "@/components/landing/pricing-tiers";
+import { PricingTiers } from "@/components/landing/pricing-tiers";
 import { SideNav, SideNavProvider } from "@/components/landing/side-nav";
 import { TestimonialsCarousel } from "@/components/landing/testimonials-carousel";
 import { getFeaturedProducts } from "@/lib/featured-products";
