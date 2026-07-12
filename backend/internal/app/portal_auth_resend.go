@@ -66,19 +66,30 @@ func sendEmailViaResendTemplate(apiKey, from, to, subject, templateID string, va
 
 // sendEmailViaResend sends one transactional email with inline HTML/text (no template).
 func sendEmailViaResend(apiKey, from, to, subject, textBody, htmlBody string) error {
+	return sendEmailViaResendReplyTo(apiKey, from, to, subject, textBody, htmlBody, "")
+}
+
+// sendEmailViaResendReplyTo is sendEmailViaResend with a Reply-To header. Use it
+// when the visible "from" (a branded sender) differs from the address that
+// should catch replies (e.g. a marketing welcome that should route back to John).
+func sendEmailViaResendReplyTo(apiKey, from, to, subject, textBody, htmlBody, replyTo string) error {
 	apiKey = strings.TrimSpace(apiKey)
 	from = strings.TrimSpace(from)
 	to = strings.TrimSpace(to)
 	if apiKey == "" || from == "" || to == "" {
 		return fmt.Errorf("missing resend parameters")
 	}
-	return postResendEmail(apiKey, map[string]any{
+	body := map[string]any{
 		"from":    from,
 		"to":      []string{to},
 		"subject": subject,
 		"text":    textBody,
 		"html":    htmlBody,
-	})
+	}
+	if rt := strings.TrimSpace(replyTo); rt != "" {
+		body["reply_to"] = rt
+	}
+	return postResendEmail(apiKey, body)
 }
 
 func postResendEmail(apiKey string, body map[string]any) error {
