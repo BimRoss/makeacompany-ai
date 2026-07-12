@@ -3,12 +3,6 @@ import { ArrowRight } from "lucide-react";
 
 import { PreviewChatMockup } from "@/components/landing/preview-chat-mockup";
 
-const CONTACT_EMAIL = "john@makeacompany.ai";
-const CONTACT_BCC = "grant@makeacompany.ai";
-const CONTACT_HREF = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(
-  "Multiply with MaC",
-)}&bcc=${CONTACT_BCC}`;
-
 /**
  * boardy-style two-column hero: avatar + left-aligned headline + one pill CTA
  * on the left, a Slack chat mockup (our product) on the right. Mirrors
@@ -45,7 +39,7 @@ export function PreviewHero() {
 
           <div className="mt-8 flex">
             <a
-              href={CONTACT_HREF}
+              href="#pricing"
               className="group inline-flex h-12 items-center justify-center gap-2 rounded-full bg-primary px-7 text-base font-semibold text-primary-foreground transition-transform hover:-translate-y-0.5 sm:h-14 sm:px-9 sm:text-lg"
             >
               Multiply with MaC
@@ -55,10 +49,6 @@ export function PreviewHero() {
               />
             </a>
           </div>
-
-          <p className="mt-4 text-xs text-muted-foreground sm:text-sm">
-            By introduction. Our team reviews every request.
-          </p>
         </div>
 
         <div className="lg:pl-4">
