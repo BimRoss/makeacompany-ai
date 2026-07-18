@@ -9,15 +9,11 @@ import { AlertsStrip } from "./alerts-strip";
 import { CloudflarePanels, useCloudflareSummary } from "./cloudflare-panels";
 import { Ga4CountriesPanel, Ga4DevicesPanel, Ga4SourcesPanel, Ga4TopPagesPanel } from "./ga4-panels";
 import { ObservabilityDataProvider, useObservabilityData } from "./data-provider";
-import { GoldenPath } from "./golden-path";
 import { KpiScorecard } from "./kpi-scorecard";
 import { MessagesByUserBarChart } from "./messages-by-user-panel";
 import { MetricPanel } from "./metric-panel";
-import { OAuthPoolPanel } from "@/components/admin/oauth-pool-panel";
 import {
-  CLUSTER_PANELS,
   cohortFrom,
-  LIFECYCLE_PANELS,
   TTFV_COHORTS,
   type TtfvCohort,
   ttfvLatencyPanel,
@@ -75,8 +71,6 @@ function AnomalyBadge({ component }: { component: string }) {
     </span>
   );
 }
-
-const PANEL_GRID = "grid gap-3 grid-cols-[repeat(auto-fit,minmax(320px,1fr))]";
 
 function TtfvCohortToggle({
   value,
@@ -146,8 +140,7 @@ function ActivationSection({
 
 function ObservabilityBody() {
   useAlertCountInTitle();
-  const { loading, lastUpdatedAt, adminDashboardUrl, clusterDashboardUrl } =
-    useObservabilityData();
+  const { loading, lastUpdatedAt, adminDashboardUrl } = useObservabilityData();
   const { from } = useTimeRange();
   const [ttfvCohort, setTtfvCohort] = useState<TtfvCohort>("last30d");
   const cloudflare = useCloudflareSummary();
@@ -167,7 +160,6 @@ function ObservabilityBody() {
   const showCloudflare = !cloudflare.errored && (cloudflare.loading || cloudflareHasData);
 
   const adminDeep = adminDashboardUrl ? appendRange(adminDashboardUrl, from) : null;
-  const clusterDeep = clusterDashboardUrl ? appendRange(clusterDashboardUrl, from) : null;
 
   return (
     <div className="space-y-4">
@@ -180,8 +172,6 @@ function ObservabilityBody() {
       <KpiScorecard />
 
       <MessagesByUserBarChart />
-
-      <OAuthPoolPanel />
 
       <ObservabilitySection
         id="web-tier"
@@ -220,29 +210,7 @@ function ObservabilityBody() {
         </div>
       </ObservabilitySection>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <div className="lg:col-span-2">
-          <ObservabilitySection
-            id="lifecycle"
-            title="Lifecycle cohorts"
-            description="Free-for-life, trialing, active, and expired user counts over time. Sweeper updates every 5 minutes."
-            endSlot={<TimeRangeChip />}
-          >
-            {LIFECYCLE_PANELS.map((def) => (
-              <MetricPanel key={def.id} def={def} from={from} prominent />
-            ))}
-          </ObservabilitySection>
-        </div>
-        <div className="lg:col-span-1">
-          <ActivationSection cohort={ttfvCohort} onChangeCohort={setTtfvCohort} />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
-        <div className="lg:col-span-12">
-          <GoldenPath />
-        </div>
-      </div>
+      <ActivationSection cohort={ttfvCohort} onChangeCohort={setTtfvCohort} />
 
       <ObservabilitySection
         id="audience"
@@ -283,25 +251,6 @@ function ObservabilityBody() {
           <CloudflarePanels />
         </ObservabilitySection>
       ) : null}
-
-      <ObservabilitySection
-        id="cluster"
-        title="Cluster"
-        description="Kubernetes pod and container health from kube-state-metrics."
-        endSlot={
-          <div className="flex items-center gap-2">
-            <AnomalyBadge component="cluster" />
-            <TimeRangeChip />
-            <DashboardLink href={clusterDeep} label="Open in Grafana" />
-          </div>
-        }
-      >
-        <div className={PANEL_GRID}>
-          {CLUSTER_PANELS.map((def) => (
-            <MetricPanel key={def.id} def={def} from={from} />
-          ))}
-        </div>
-      </ObservabilitySection>
     </div>
   );
 }

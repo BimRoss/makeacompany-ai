@@ -1,11 +1,8 @@
 import type { ChartSeries, ChartTone } from "./charts/time-series-chart";
 import type { RangeSeries } from "./charts/use-range-query";
 import {
-  formatBytes,
   formatCompact,
-  formatCores,
   formatDurationDays,
-  formatMs,
   formatPercent,
   formatPerMin,
 } from "./charts/format";
@@ -44,12 +41,6 @@ function single(query: string, label: string, tone: ChartTone) {
   ];
 }
 
-/** One line per query — used when each percentile/threshold is its own query. */
-function perQuery(defs: Array<{ query: string; label: string; tone: ChartTone }>) {
-  return (raw: RangeSeries[]): ChartSeries[] =>
-    defs.map((d) => ({ key: d.query, label: d.label, tone: d.tone, points: pointsFor(raw, d.query) }));
-}
-
 /** Split a single query's results by a metric label (e.g. status_class, result). */
 function splitByLabel(
   query: string,
@@ -70,8 +61,6 @@ function splitByLabel(
 }
 
 const REQ = "makeacompany_http_requests_total";
-const DUR = "makeacompany_http_request_duration_seconds_bucket";
-const LIFECYCLE = "makeacompany_lifecycle_users";
 const TTFV_PR_QUANTILE = "makeacompany_ttfv_pr_quantile_seconds";
 
 const statusTone = (cls: string): ChartTone =>
@@ -93,22 +82,6 @@ export const WEB_PANELS: PanelDef[] = [
     format: formatPerMin,
     area: true,
     span: 2,
-  },
-  {
-    id: "latency-percentiles",
-    title: "Request latency",
-    subtitle: "p50 / p95 / p99",
-    queries: [
-      `histogram_quantile(0.50, sum by (le) (rate(${DUR}[5m])))`,
-      `histogram_quantile(0.95, sum by (le) (rate(${DUR}[5m])))`,
-      `histogram_quantile(0.99, sum by (le) (rate(${DUR}[5m])))`,
-    ],
-    toSeries: perQuery([
-      { query: `histogram_quantile(0.50, sum by (le) (rate(${DUR}[5m])))`, label: "p50", tone: "muted" },
-      { query: `histogram_quantile(0.95, sum by (le) (rate(${DUR}[5m])))`, label: "p95", tone: "accent" },
-      { query: `histogram_quantile(0.99, sum by (le) (rate(${DUR}[5m])))`, label: "p99", tone: "ink" },
-    ]),
-    format: formatMs,
   },
   {
     id: "error-rate",
@@ -134,51 +107,6 @@ export const WEB_PANELS: PanelDef[] = [
     queries: [`go_goroutines{job="makeacompany-backend"}`],
     toSeries: single(`go_goroutines{job="makeacompany-backend"}`, "goroutines", "ink"),
     format: formatCompact,
-  },
-  {
-    id: "backend-memory",
-    title: "Backend memory",
-    subtitle: "Resident set size (RSS)",
-    queries: [`process_resident_memory_bytes{job="makeacompany-backend"}`],
-    toSeries: single(
-      `process_resident_memory_bytes{job="makeacompany-backend"}`,
-      "RSS",
-      "accent",
-    ),
-    format: formatBytes,
-    area: true,
-  },
-];
-
-const lifecycleTone = (status: string): ChartTone => {
-  switch (status) {
-    case "trialing":
-      return "accent";
-    case "active":
-      return "pos";
-    case "expired":
-      return "neg";
-    case "free_lifetime":
-      return "ink";
-    default:
-      return "muted";
-  }
-};
-
-const lifecycleLabel = (status: string): string =>
-  status === "free_lifetime" ? "free for life" : status;
-
-export const LIFECYCLE_PANELS: PanelDef[] = [
-  {
-    id: "lifecycle-users",
-    title: "Lifecycle cohorts",
-    subtitle: "User count by effective status, sampled every 5m",
-    queries: [`${LIFECYCLE}`],
-    toSeries: splitByLabel(`${LIFECYCLE}`, "status", lifecycleTone, lifecycleLabel),
-    format: formatCompact,
-    area: true,
-    zeroBaseline: true,
-    span: 2,
   },
 ];
 
@@ -228,88 +156,3 @@ export function ttfvLatencyPanel(cohort: TtfvCohort): PanelDef {
     hideWhenEmpty: true,
   };
 }
-
-const TOP_N_NAMESPACE_TONES: ChartTone[] = ["ink", "pos", "neg", "muted", "muted"];
-
-const POD_TOTAL_QUERY = `sum(kube_pod_status_phase{phase="Running"} == 1)`;
-const POD_BY_NAMESPACE_QUERY = `count by (namespace) (kube_pod_status_phase{phase="Running"} == 1)`;
-
-function podsRunningSeries(raw: RangeSeries[]): ChartSeries[] {
-  const total = raw.find((s) => s.query === POD_TOTAL_QUERY);
-  const perNs = raw.filter((s) => s.query === POD_BY_NAMESPACE_QUERY && s.labels.namespace);
-
-  const ranked = [...perNs]
-    .map((s) => {
-      const last = s.points.at(-1)?.[1] ?? 0;
-      const peak = s.points.reduce((m, [, v]) => (v > m ? v : m), 0);
-      return { s, score: last || peak };
-    })
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 5);
-
-  const top: ChartSeries[] = ranked.map(({ s }, i) => ({
-    key: `ns-${s.labels.namespace}`,
-    label: s.labels.namespace,
-    tone: TOP_N_NAMESPACE_TONES[i] ?? "muted",
-    points: s.points,
-  }));
-
-  const totalSeries: ChartSeries | null = total
-    ? { key: "pods-total", label: "total", tone: "accent", points: total.points }
-    : null;
-
-  return totalSeries ? [totalSeries, ...top] : top;
-}
-
-const CPU_TOP_PODS_QUERY = `topk(5, sum by (pod) (rate(container_cpu_usage_seconds_total{namespace="makeacompany-ai",container!="",container!="POD"}[5m])))`;
-const MEM_TOP_PODS_QUERY = `topk(5, sum by (pod) (container_memory_working_set_bytes{namespace="makeacompany-ai",container!="",container!="POD"}))`;
-
-function topPodsSeries(query: string) {
-  return (raw: RangeSeries[]): ChartSeries[] => {
-    return raw
-      .filter((s) => s.query === query && s.labels.pod)
-      .map((s) => {
-        const last = s.points.at(-1)?.[1] ?? 0;
-        const peak = s.points.reduce((m, [, v]) => (v > m ? v : m), 0);
-        return { s, score: last || peak };
-      })
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 5)
-      .map(({ s }, i) => ({
-        key: `pod-${s.labels.pod}`,
-        label: s.labels.pod,
-        tone: TOP_N_NAMESPACE_TONES[i] ?? "muted",
-        points: s.points,
-      }));
-  };
-}
-
-export const CLUSTER_PANELS: PanelDef[] = [
-  {
-    id: "pods-running",
-    title: "Pods running",
-    subtitle: "Cluster total, top 5 namespaces",
-    queries: [POD_TOTAL_QUERY, POD_BY_NAMESPACE_QUERY],
-    toSeries: podsRunningSeries,
-    format: formatCompact,
-    span: 2,
-  },
-  {
-    id: "cpu-top-pods",
-    title: "CPU by pod",
-    subtitle: "Top 5 in makeacompany-ai (cores)",
-    queries: [CPU_TOP_PODS_QUERY],
-    toSeries: topPodsSeries(CPU_TOP_PODS_QUERY),
-    format: formatCores,
-    hideWhenEmpty: true,
-  },
-  {
-    id: "memory-top-pods",
-    title: "Memory by pod",
-    subtitle: "Top 5 in makeacompany-ai (working set)",
-    queries: [MEM_TOP_PODS_QUERY],
-    toSeries: topPodsSeries(MEM_TOP_PODS_QUERY),
-    format: formatBytes,
-    hideWhenEmpty: true,
-  },
-];
