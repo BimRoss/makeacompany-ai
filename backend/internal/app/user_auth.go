@@ -75,20 +75,11 @@ func (s *Server) handleUserAuthMe(w http.ResponseWriter, r *http.Request) {
 	}
 	subscribeURL := appendClientReferenceID(s.trialExpiryCheckoutURL(), slackUserID)
 
-	// Slack workspace profile: avatar + display/real name. Best-effort —
-	// missing snapshot or unknown email just leaves the fields empty so /me
-	// falls back to the email-derived display name.
+	// The Slack workspace-users snapshot that used to supply the avatar +
+	// display name was retired, so these fields stay empty and /me falls back
+	// to the email-derived display name.
 	slackProfileImageURL := ""
 	slackDisplayName := ""
-	if wu, ok, err := s.store.LookupSlackWorkspaceUserByEmail(r.Context(), session.Email); err == nil && ok {
-		slackProfileImageURL = strings.TrimSpace(wu.ProfileImageURL)
-		slackDisplayName = strings.TrimSpace(wu.RealName)
-		if slackDisplayName == "" {
-			slackDisplayName = strings.TrimSpace(wu.DisplayName)
-		}
-	} else if err != nil {
-		s.log.Printf("user auth me slack profile lookup: %v", err)
-	}
 
 	writeJSON(w, http.StatusOK, map[string]any{
 		"authenticated":        true,

@@ -52,7 +52,9 @@ type snapshotFreshnessProbe struct {
 // to Slack/Stripe or the snapshot cadence.
 func (s *Server) StartSyntheticProbe() {
 	probes := []snapshotFreshnessProbe{
-		{flow: "slack_snapshot", read: s.store.GetSlackUsersSnapshotBytes},
+		// slack_snapshot flow retired: the Slack-users snapshot feature (and its
+		// scraper CronJob) were removed after the Slack workspace reset left the
+		// bot token dead. stripe_snapshot is now the sole golden-path flow.
 		{flow: "stripe_snapshot", read: s.store.GetStripeWaitlistSnapshotBytes},
 	}
 	go func() {

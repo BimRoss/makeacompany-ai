@@ -43,28 +43,7 @@ var (
 		},
 		[]string{"method", "route"},
 	)
-	slackRefreshRunsTotal = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "makeacompany_slack_refresh_runs_total",
-			Help: "Total Slack snapshot refresh runs by snapshot and result.",
-		},
-		[]string{"snapshot", "result"},
-	)
-	slackRefreshUpstreamHTTPStatusTotal = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "makeacompany_slack_refresh_upstream_http_status_total",
-			Help: "Upstream HTTP statuses seen during Slack snapshot refreshes.",
-		},
-		[]string{"snapshot", "status_code"},
-	)
-	slackUpstreamHTTPStatusTotal = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "makeacompany_slack_upstream_http_status_total",
-			Help: "Upstream HTTP statuses seen on Slack API calls, by source endpoint. Covers all Slack callers, not just snapshot refreshes.",
-		},
-		[]string{"source", "status_code"},
-	)
-	// cronjobDurationSeconds covers any internal cronjob handler (slack/stripe snapshot refreshes today,
+	// cronjobDurationSeconds covers any internal cronjob handler (the stripe snapshot refresh today,
 	// future jobs by adding new "job" label values). The histogram's _count series doubles as a per-result
 	// run counter — query rate(..._count{result="error"}) instead of adding a parallel counter.
 	cronjobDurationSeconds = prometheus.NewHistogramVec(
@@ -105,9 +84,6 @@ func init() {
 	prometheus.MustRegister(
 		httpRequestsTotal,
 		httpRequestDuration,
-		slackRefreshRunsTotal,
-		slackRefreshUpstreamHTTPStatusTotal,
-		slackUpstreamHTTPStatusTotal,
 		cronjobDurationSeconds,
 		trialExpiryReaperScannedTotal,
 		trialExpiryReaperEnqueuedTotal,
@@ -279,7 +255,6 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 	s.mux.HandleFunc("/v1/billing/free-trial-invite", s.handleBillingFreeTrialInvite)
 	s.mux.HandleFunc("/v1/billing/webhook", s.handleWebhook)
 	s.mux.HandleFunc("/v1/billing/waitlist-stats", s.handleWaitlistStats)
-	s.mux.HandleFunc("/v1/lander/slack-seats", s.handleLanderSlackSeats)
 	s.mux.HandleFunc("/v1/lander/testimonials", s.handleLanderTestimonials)
 	s.mux.HandleFunc("/v1/lander/messages-sent", s.handleLanderMessagesSent)
 	s.mux.HandleFunc("/v1/lander/personal-agents", s.handleLanderPersonalAgents)
@@ -294,12 +269,7 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 	s.mux.HandleFunc("/v1/admin/marketing/campaigns", s.handleAdminMarketingCampaigns)
 	s.mux.HandleFunc("/v1/admin/waitlist", s.handleAdminWaitlist)
 	s.mux.HandleFunc("/v1/admin/stripe-waitlist-purchasers", s.handleAdminStripeWaitlistPurchasers)
-	s.mux.HandleFunc("/v1/admin/slack-workspace-users", s.handleAdminSlackWorkspaceUsers)
 	s.mux.HandleFunc("/v1/admin/personal-agents", s.handleAdminPersonalAgents)
-	s.mux.HandleFunc("/v1/admin/slack-bot-author-profiles", s.handleAdminSlackBotAuthorProfiles)
-	s.mux.HandleFunc("/v1/admin/slack-activity-daily", s.handleAdminSlackActivityDaily)
-	s.mux.HandleFunc("/v1/admin/channels", s.handleAdminChannels)
-	s.mux.HandleFunc("/v1/admin/channel-members", s.handleAdminChannelMembers)
 	s.mux.HandleFunc("/v1/admin/user-profiles", s.handleAdminUserProfiles)
 	s.mux.HandleFunc("/v1/admin/user-profile/free-lifetime", s.handleAdminUserFreeLifetime)
 	s.mux.HandleFunc("/v1/admin/ga4-summary", s.handleAdminGA4Summary)
@@ -313,8 +283,6 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 	s.mux.HandleFunc("GET /v1/admin/user-engagement/{slackUserId}", s.handleAdminUserEngagement)
 	s.mux.HandleFunc("POST /v1/internal/ingest-user-engagement", s.handleInternalIngestUserEngagement)
 	s.mux.HandleFunc("/v1/internal/refresh-stripe-waitlist-snapshot", s.handleInternalRefreshStripeWaitlistSnapshot)
-	s.mux.HandleFunc("/v1/internal/refresh-slack-users-snapshot", s.handleInternalRefreshSlackUsersSnapshot)
-	s.mux.HandleFunc("/v1/internal/refresh-slack-activity-daily", s.handleInternalRefreshSlackActivityDaily)
 	s.mux.HandleFunc("GET /v1/internal/deploy-gate", s.handleInternalDeployGateCheck)
 	s.mux.HandleFunc("POST /v1/internal/deploy-gate/consume", s.handleInternalDeployGateConsume)
 	s.mux.HandleFunc("GET /v1/internal/user-status", s.handleInternalUserStatus)

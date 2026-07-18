@@ -21,8 +21,6 @@ set -euo pipefail
 #   STRIPE_PRICE_ID_BASE_PLAN (preferred; legacy STRIPE_PRICE_ID_WAITLIST accepted from ENV_FILE and mirrored into the cluster secret for older pods)
 #   STRIPE_PUBLISHABLE_KEY and/or NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY (optional; both written when either is set)
 #   BACKEND_INTERNAL_SERVICE_TOKEN (required in production; Go /v1/internal/* maintenance endpoints only)
-#   ORCHESTRATOR_SLACK_BOT_TOKEN (historical env name; the workspace Slack bot token used by /admin Slack users + channels)
-#     legacy SLACK_BOT_TOKEN still accepted from ENV_FILE and mirrored into the cluster secret for older pods
 #   Portal login (optional; preserved from cluster when not in .env.prod — same Secret is envFrom on frontend + backend):
 #   GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET, PORTAL_GOOGLE_OAUTH_STATE_SECRET (optional),
 #   RESEND_API_KEY, PORTAL_AUTH_EMAIL_FROM,
@@ -176,27 +174,6 @@ if [[ -z "${BACKEND_INTERNAL_SERVICE_TOKEN_EFFECTIVE}" ]]; then
 fi
 if [[ -n "${BACKEND_INTERNAL_SERVICE_TOKEN_EFFECTIVE}" ]]; then
   secret_args+=(--from-literal=BACKEND_INTERNAL_SERVICE_TOKEN="${BACKEND_INTERNAL_SERVICE_TOKEN_EFFECTIVE}")
-fi
-
-
-# Workspace Slack bot token (ORCHESTRATOR_SLACK_BOT_TOKEN is the historical env name — slack-orchestrator service is gone).
-# Resolution order: ORCHESTRATOR_SLACK_BOT_TOKEN from ENV_FILE → legacy SLACK_BOT_TOKEN from ENV_FILE →
-# existing cluster ORCHESTRATOR_SLACK_BOT_TOKEN → existing cluster SLACK_BOT_TOKEN → legacy SLACK_WORKSPACE_USERS_BOT_TOKEN.
-# Writes BOTH keys to the secret so older pods reading SLACK_BOT_TOKEN keep working until rotated out.
-SLACK_BOT_TOKEN_EFFECTIVE="${ORCHESTRATOR_SLACK_BOT_TOKEN:-${SLACK_BOT_TOKEN:-}}"
-if [[ -z "${SLACK_BOT_TOKEN_EFFECTIVE}" ]]; then
-  SLACK_BOT_TOKEN_EFFECTIVE="$(read_existing_secret_key ORCHESTRATOR_SLACK_BOT_TOKEN)"
-fi
-if [[ -z "${SLACK_BOT_TOKEN_EFFECTIVE}" ]]; then
-  SLACK_BOT_TOKEN_EFFECTIVE="$(read_existing_secret_key SLACK_BOT_TOKEN)"
-fi
-if [[ -z "${SLACK_BOT_TOKEN_EFFECTIVE}" ]]; then
-  SLACK_BOT_TOKEN_EFFECTIVE="$(read_existing_secret_key SLACK_WORKSPACE_USERS_BOT_TOKEN)"
-fi
-if [[ -n "${SLACK_BOT_TOKEN_EFFECTIVE}" ]]; then
-  secret_args+=(--from-literal=ORCHESTRATOR_SLACK_BOT_TOKEN="${SLACK_BOT_TOKEN_EFFECTIVE}")
-  # Legacy alias: keep so rolling pods that still expect SLACK_BOT_TOKEN see the same value until rotated away.
-  secret_args+=(--from-literal=SLACK_BOT_TOKEN="${SLACK_BOT_TOKEN_EFFECTIVE}")
 fi
 
 

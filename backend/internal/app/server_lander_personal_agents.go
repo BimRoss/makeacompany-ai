@@ -44,13 +44,9 @@ func (s *Server) computeLanderPersonalAgents(ctx context.Context) (landerPersona
 	if err != nil {
 		return landerPersonalAgentsPayload{}, err
 	}
-	// One cached snapshot resolves every agent bot's profile image without a
-	// per-agent Slack round trip. An empty map (missing snapshot) just means
-	// each circle falls back to initials on the frontend.
-	byID, err := s.store.SlackWorkspaceUsersByID(ctx)
-	if err != nil {
-		return landerPersonalAgentsPayload{}, err
-	}
+	// The Slack workspace-users snapshot that used to resolve each agent bot's
+	// profile image was retired, so every circle falls back to initials on the
+	// frontend (imageUrl left empty).
 	// Only installed agents with a display name are live, named teammates.
 	live := make([]PersonalAgentRecord, 0, len(recs))
 	for _, rec := range recs {
@@ -72,13 +68,8 @@ func (s *Server) computeLanderPersonalAgents(ctx context.Context) (landerPersona
 	}
 	agents := make([]landerPersonalAgent, 0, len(live))
 	for _, rec := range live {
-		img := ""
-		if wu, ok := byID[strings.TrimSpace(rec.BotUserID)]; ok {
-			img = strings.TrimSpace(wu.ProfileImageURL)
-		}
 		agents = append(agents, landerPersonalAgent{
-			Name:     strings.TrimSpace(rec.DisplayName),
-			ImageURL: img,
+			Name: strings.TrimSpace(rec.DisplayName),
 		})
 	}
 	return landerPersonalAgentsPayload{Total: total, Agents: agents}, nil

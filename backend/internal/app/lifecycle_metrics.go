@@ -2,7 +2,6 @@ package app
 
 import (
 	"context"
-	"errors"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -51,18 +50,10 @@ func (s *Server) sweepLifecycleOnce(ctx context.Context) {
 		s.log.Printf("lifecycle sweeper: %v", err)
 		return
 	}
-	// Slack-deactivated members (deleted=true) and bots/agents (is_bot=true) keep their
-	// Redis profile — slack_user_id and free_lifetime stay set even after they leave the
-	// workspace — so EffectiveStatus would still count them as free-for-life. Drop them here
-	// so the cohort graph tracks the same active humans the admin Slack Users table shows with
-	// deleted hidden. Snapshot-missing is non-fatal: exclude nothing rather than blank the graph.
-	excluded, err := s.store.DeletedOrBotSlackUserIDs(ctx)
-	if err != nil {
-		if !errors.Is(err, ErrSlackUsersSnapshotMissing) {
-			s.log.Printf("lifecycle sweeper: deleted/bot slack ids: %v", err)
-		}
-		excluded = nil
-	}
+	// The Slack workspace-users snapshot that previously let us drop
+	// deactivated members (deleted=true) and bots/agents (is_bot=true) from the
+	// cohort counts was retired, so those rows are no longer excluded — the
+	// cohort graph now counts every profile by its EffectiveStatus.
 	counts := map[LifecycleStatus]int{
 		LifecycleFreeLifetime: 0,
 		LifecycleTrialing:     0,
@@ -71,11 +62,6 @@ func (s *Server) sweepLifecycleOnce(ctx context.Context) {
 	}
 	now := time.Now().UTC()
 	for _, row := range rows {
-		if row.SlackUserID != "" {
-			if _, drop := excluded[row.SlackUserID]; drop {
-				continue
-			}
-		}
 		st := EffectiveStatus(row, now, s.cfg.StripeProductBasePlan)
 		if st == LifecycleExcluded {
 			// Not a MaC member (e.g. a foreign-product Stripe orphan). Don't count it in any cohort.
