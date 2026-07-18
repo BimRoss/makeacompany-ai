@@ -18,7 +18,6 @@ import { PersonalAgentsRow } from "@/components/landing/personal-agents-row";
 import { getFeaturedProducts } from "@/lib/featured-products";
 import { fetchLanderMessagesSent } from "@/lib/lander-messages-sent";
 import { fetchLanderPersonalAgents } from "@/lib/lander-personal-agents";
-import { fetchLanderSlackSeats } from "@/lib/lander-slack-seats";
 import { fetchLanderTestimonials } from "@/lib/lander-testimonials";
 import { DEFAULT_PERSONA, parsePersonaParam } from "@/lib/personas";
 import { siteDescription, siteTitle } from "@/lib/site";
@@ -44,13 +43,12 @@ export default async function ClassicHomePage({
 }) {
   const params = (await searchParams) ?? {};
   const urlPersona = parsePersonaParam(params.p);
-  const [initialSeats, testimonials, initialMessagesSent, initialPersonalAgents] = await Promise.all([
-    fetchLanderSlackSeats(),
+  const [testimonials, initialMessagesSent, initialPersonalAgents] = await Promise.all([
     fetchLanderTestimonials(),
     fetchLanderMessagesSent(),
     fetchLanderPersonalAgents(),
   ]);
-  const faqJsonLd = faqStructuredData(initialSeats);
+  const faqJsonLd = faqStructuredData();
 
   return (
     <SideNavProvider>
@@ -81,7 +79,7 @@ export default async function ClassicHomePage({
           <TestimonialsCarousel testimonials={testimonials} />
           <CtaSection />
         </PersonaProvider>
-        <SeoFaqSection seats={initialSeats} viewAllHref="/faq" askCardsPosition="bottom" />
+        <SeoFaqSection viewAllHref="/faq" askCardsPosition="bottom" />
         <Footer />
       </main>
     </SideNavProvider>
