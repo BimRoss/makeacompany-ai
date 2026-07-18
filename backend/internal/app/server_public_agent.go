@@ -109,19 +109,9 @@ func (s *Server) handlePublicAgentProfile(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// One snapshot read resolves the bot avatar and the owner's display name.
-	// A missing snapshot just means no avatar and a generic "built by" — the
-	// page still renders, same fallback posture as the lander row.
-	avatarURL, builtBy := "", ""
-	if byID, err := s.store.SlackWorkspaceUsersByID(r.Context()); err == nil {
-		if wu, ok := byID[strings.TrimSpace(rec.BotUserID)]; ok {
-			avatarURL = strings.TrimSpace(wu.ProfileImageURL)
-		}
-		if owner, ok := byID[strings.TrimSpace(rec.OwnerSlackUserID)]; ok {
-			builtBy = firstNonEmpty(owner.DisplayName, owner.RealName, owner.Username)
-		}
-	}
-
-	profile := buildPublicAgentProfile(rec, avatarURL, builtBy, checkoutInviteURL)
+	// The Slack workspace-users snapshot that used to resolve the bot avatar and
+	// the owner's display name was retired, so the page renders with no avatar and
+	// a generic "built by" — same fallback posture as the lander row.
+	profile := buildPublicAgentProfile(rec, "", "", checkoutInviteURL)
 	writeJSON(w, http.StatusOK, profile)
 }

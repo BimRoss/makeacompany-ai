@@ -30,7 +30,7 @@ func newProbeTestServer(t *testing.T) (*Server, *Store) {
 func TestProbeSnapshotFreshness(t *testing.T) {
 	s, store := newProbeTestServer(t)
 	ctx := context.Background()
-	probe := snapshotFreshnessProbe{flow: "slack_snapshot", read: store.GetSlackUsersSnapshotBytes}
+	probe := snapshotFreshnessProbe{flow: "stripe_snapshot", read: store.GetStripeWaitlistSnapshotBytes}
 
 	// Missing snapshot: every step fails.
 	if readOK, parseOK, freshOK := s.probeSnapshotFreshness(probe); readOK || parseOK || freshOK {
@@ -50,7 +50,7 @@ func TestProbeSnapshotFreshness(t *testing.T) {
 	}
 
 	// Unparseable fetchedAt: read passes, parse fails.
-	if err := store.SaveSlackUsersSnapshot(ctx, []byte(`{"fetchedAt":"not-a-timestamp","users":[]}`)); err != nil {
+	if err := store.SaveStripeWaitlistSnapshot(ctx, []byte(`{"fetchedAt":"not-a-timestamp","purchasers":[]}`)); err != nil {
 		t.Fatal(err)
 	}
 	if readOK, parseOK, freshOK := s.probeSnapshotFreshness(probe); !readOK || parseOK || freshOK {
@@ -60,8 +60,8 @@ func TestProbeSnapshotFreshness(t *testing.T) {
 
 func writeSnapshot(t *testing.T, ctx context.Context, store *Store, at time.Time) {
 	t.Helper()
-	blob := []byte(fmt.Sprintf(`{"fetchedAt":%q,"users":[]}`, at.Format(time.RFC3339)))
-	if err := store.SaveSlackUsersSnapshot(ctx, blob); err != nil {
+	blob := []byte(fmt.Sprintf(`{"fetchedAt":%q,"purchasers":[]}`, at.Format(time.RFC3339)))
+	if err := store.SaveStripeWaitlistSnapshot(ctx, blob); err != nil {
 		t.Fatal(err)
 	}
 }

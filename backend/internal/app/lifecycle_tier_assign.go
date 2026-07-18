@@ -49,8 +49,7 @@ func (s *Server) isOperatorAllowlisted(email string) bool {
 //   - count of existing free_lifetime profiles < FreeLifetimeSeatCap → free_lifetime
 //   - else → trialing, trial_expires_at = now + FreeTrialDuration
 //
-// Called from SyncSlackUserIndexFromWorkspaceUsers (canonical "we noticed you in the Slack
-// workspace" point) and handleBillingFreeTrialInvite (lander email-capture path).
+// Called from handleBillingFreeTrialInvite (lander email-capture path).
 func (s *Server) AssignInitialLifecycleTier(ctx context.Context, email string) (LifecycleAssignment, error) {
 	if s == nil || s.store == nil {
 		return LifecycleAssignmentUnchanged, fmt.Errorf("nil server/store")
@@ -91,35 +90,4 @@ func (s *Server) AssignInitialLifecycleTier(ctx context.Context, email string) (
 		return LifecycleAssignmentUnchanged, fmt.Errorf("mark trialing: %w", err)
 	}
 	return LifecycleAssignmentTrialing, nil
-}
-
-// assignLifecycleTiersForWorkspaceUsers runs AssignInitialLifecycleTier for every non-bot,
-// non-deleted Slack member with a visible email. Called from the snapshot-warm path so a fresh
-// Slack join lands as free_lifetime or trialing within one sync tick. Errors per-user are logged
-// and skipped — one bad row should not block the rest of the sweep.
-func (s *Server) assignLifecycleTiersForWorkspaceUsers(ctx context.Context, users []SlackWorkspaceUser) (freeLifetime, trialing int) {
-	if s == nil {
-		return 0, 0
-	}
-	for _, u := range users {
-		if u.IsBot || u.IsDeleted {
-			continue
-		}
-		em := normalizeProfileEmail(u.Email)
-		if em == "" || !strings.Contains(em, "@") {
-			continue
-		}
-		result, err := s.AssignInitialLifecycleTier(ctx, em)
-		if err != nil {
-			s.log.Printf("assign lifecycle tier %s: %v", em, err)
-			continue
-		}
-		switch result {
-		case LifecycleAssignmentFreeLifetime:
-			freeLifetime++
-		case LifecycleAssignmentTrialing:
-			trialing++
-		}
-	}
-	return freeLifetime, trialing
 }

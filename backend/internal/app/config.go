@@ -51,10 +51,6 @@ type Config struct {
 	// StripePriceWaitlistDeposit is an optional second price_* (one-time waitlist / deposit) whose completed
 	// Checkouts are merged into the same admin Stripe table as Base Plan. Env: STRIPE_PRICE_ID_WAITLIST_DEPOSIT.
 	StripePriceWaitlistDeposit string
-	// SlackBotToken is the workspace Slack bot token used for users.list, users.conversations, and conversations.members.
-	// Primary env: ORCHESTRATOR_SLACK_BOT_TOKEN (historical name; matches the token Joanne/Ross use).
-	// Legacy fallback: SLACK_BOT_TOKEN (kept until rancher-admin runtime secret is rotated).
-	SlackBotToken string
 	// GoogleOAuthClientID is the Google OAuth Web client id (used as id_token audience for /v1/portal/auth/google/finish).
 	GoogleOAuthClientID string
 	// ResendAPIKey enables portal magic-link email (optional).
@@ -165,15 +161,6 @@ func stripePriceIDBasePlan() string {
 	return strings.TrimSpace(os.Getenv("STRIPE_PRICE_ID_WAITLIST"))
 }
 
-// orchestratorSlackBotToken returns ORCHESTRATOR_SLACK_BOT_TOKEN, else legacy SLACK_BOT_TOKEN.
-// The env name is historical (slack-orchestrator service is gone); the token itself is Joanne/Ross's.
-func orchestratorSlackBotToken() string {
-	if v := strings.TrimSpace(os.Getenv("ORCHESTRATOR_SLACK_BOT_TOKEN")); v != "" {
-		return v
-	}
-	return strings.TrimSpace(os.Getenv("SLACK_BOT_TOKEN"))
-}
-
 func LoadConfig() Config {
 	return Config{
 		Port:                                envInt("PORT", 8080),
@@ -191,7 +178,6 @@ func LoadConfig() Config {
 		StripePriceBasePlan:                 stripePriceIDBasePlan(),
 		StripeProductBasePlan:               strings.TrimSpace(os.Getenv("STRIPE_PRODUCT_ID_BASE_PLAN")),
 		StripePriceWaitlistDeposit:          strings.TrimSpace(os.Getenv("STRIPE_PRICE_ID_WAITLIST_DEPOSIT")),
-		SlackBotToken:                       orchestratorSlackBotToken(),
 		GoogleOAuthClientID:                 strings.TrimSpace(os.Getenv("GOOGLE_OAUTH_CLIENT_ID")),
 		ResendAPIKey:                        strings.TrimSpace(os.Getenv("RESEND_API_KEY")),
 		PortalAuthEmailFrom:                 strings.TrimSpace(os.Getenv("PORTAL_AUTH_EMAIL_FROM")),

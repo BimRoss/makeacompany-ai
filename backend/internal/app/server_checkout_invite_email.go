@@ -55,11 +55,10 @@ func (s *Server) sendCheckoutWelcomeInviteEmail(ctx context.Context, sessionID, 
 }
 
 // sendWelcomeInviteEmail sends Joanne's welcome invite via Resend without session-level dedupe.
-func (s *Server) sendWelcomeInviteEmail(ctx context.Context, email string) error {
-	first := strings.TrimSpace(s.store.LookupSlackFirstNameByEmail(ctx, email))
-	if first == "" {
-		first = fallbackFirstNameFromEmail(email)
-	}
+func (s *Server) sendWelcomeInviteEmail(_ context.Context, email string) error {
+	// First name is derived from the email local-part; the Slack-users snapshot that
+	// previously supplied a real first name was retired.
+	first := fallbackFirstNameFromEmail(email)
 	to := strings.TrimSpace(email)
 	if tid := strings.TrimSpace(s.cfg.ResendCheckoutWelcomeTemplateID); tid != "" {
 		// Empty subject: use template subject from Resend. Slack invite URL is passed as the same link key as magic-link templates (default login_url).
