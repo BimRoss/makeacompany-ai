@@ -6,7 +6,8 @@ import {
   ROSS_PERSONA,
 } from "@/components/landing/ask-teammate-card";
 import { FaqAccordionItem } from "@/components/landing/faq-accordion-item";
-import type { LanderSlackSeats } from "@/lib/lander-slack-seats";
+
+type LanderSlackSeats = { claimed: number | null; cap: number };
 
 const DEFAULT_CAP = 100;
 

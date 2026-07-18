@@ -18,7 +18,6 @@ import { ValueStack } from "@/components/landing/value-stack";
 import { breadcrumbStructuredData } from "@/lib/breadcrumbs";
 import { getFeaturedProducts } from "@/lib/featured-products";
 import { fetchLanderMessagesSent } from "@/lib/lander-messages-sent";
-import { fetchLanderSlackSeats } from "@/lib/lander-slack-seats";
 import { fetchLanderTestimonials } from "@/lib/lander-testimonials";
 import {
   PERSONA_BY_SLUG,
@@ -84,8 +83,7 @@ export default async function PersonaLandingPage({
     { name: "Home", path: "/" },
     { name: `For ${PERSONA_LABELS[persona]}`, path: `/for/${slug}` },
   ]);
-  const [initialSeats, testimonials, initialMessagesSent] = await Promise.all([
-    fetchLanderSlackSeats(),
+  const [testimonials, initialMessagesSent] = await Promise.all([
     fetchLanderTestimonials(),
     fetchLanderMessagesSent(),
   ]);

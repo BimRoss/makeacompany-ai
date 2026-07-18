@@ -3,7 +3,6 @@ import { Footer } from "@/components/landing/footer";
 import { Header } from "@/components/landing/header";
 import { faqStructuredData, SeoFaqSection } from "@/components/landing/seo-faq";
 import { breadcrumbStructuredData } from "@/lib/breadcrumbs";
-import { fetchLanderSlackSeats } from "@/lib/lander-slack-seats";
 import { siteUrl } from "@/lib/site";
 
 export const dynamic = "force-dynamic";
@@ -32,8 +31,7 @@ export const metadata: Metadata = {
 };
 
 export default async function FaqPage() {
-  const initialSeats = await fetchLanderSlackSeats();
-  const faqJsonLd = faqStructuredData(initialSeats);
+  const faqJsonLd = faqStructuredData();
   const breadcrumbJsonLd = breadcrumbStructuredData([
     { name: "Home", path: "/" },
     { name: "FAQ", path: "/faq" },
@@ -58,7 +56,7 @@ export default async function FaqPage() {
           Everything we get asked most often about running AI employees in your Slack workspace.
         </p>
       </section>
-      <SeoFaqSection seats={initialSeats} hideHeading />
+      <SeoFaqSection hideHeading />
       <Footer />
     </main>
   );
