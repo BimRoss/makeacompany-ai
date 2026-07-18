@@ -11,6 +11,11 @@ type AgentStatus = {
   ready: number;
   reason?: string;
   updatedAt: string;
+  // Google Workspace connect state (admin re-auth flow). googleEmail is set
+  // only for agents that support the browser connect; googleConnected reflects
+  // whether the gws-mcp-oauth Secret currently holds usable credentials.
+  googleEmail?: string;
+  googleConnected?: boolean;
 };
 
 type StatusResponse = {
@@ -185,6 +190,37 @@ function ConfirmDialog({
   );
 }
 
+// AgentGoogleConnect renders the per-agent Google Workspace connection state
+// and a Connect/Reconnect button that hands off to the admin-gated OAuth start
+// route. Only rendered for agents whose status carries a googleEmail (i.e. the
+// agent supports the browser connect). A full page navigation is intentional —
+// the start route does the discovery/DCR redirect to the gateway.
+function AgentGoogleConnect({ agent }: { agent: AgentStatus }) {
+  const connected = !!agent.googleConnected;
+  return (
+    <div className="mt-2 flex items-center justify-between gap-2 border-t border-border pt-2">
+      <div className="flex items-center gap-2 min-w-0">
+        <span
+          aria-hidden
+          className={`inline-block h-2 w-2 shrink-0 rounded-full ${connected ? "bg-emerald-500" : "bg-zinc-400"}`}
+        />
+        <span className="truncate text-xs text-muted-foreground">
+          {connected ? `Google connected as ${agent.googleEmail}` : "Google not connected"}
+        </span>
+      </div>
+      <button
+        type="button"
+        onClick={() => {
+          window.location.href = `/api/admin/agents/google/start?agent=${encodeURIComponent(agent.name)}`;
+        }}
+        className="inline-flex h-7 shrink-0 items-center rounded-md border border-border bg-background px-2.5 text-xs font-medium text-foreground hover:bg-muted"
+      >
+        {connected ? "Reconnect Google" : "Connect Google"}
+      </button>
+    </div>
+  );
+}
+
 export function AdminAgentKillSwitch() {
   const { agents, error, busy, confirmingAgent, setConfirmTarget, handleClick, doToggle } =
     useKillSwitchState();
@@ -249,6 +285,7 @@ export function AdminAgentKillSwitch() {
                   />
                 </button>
               </div>
+              {a.googleEmail ? <AgentGoogleConnect agent={a} /> : null}
             </div>
           );
         })}

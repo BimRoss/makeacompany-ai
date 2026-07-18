@@ -1,6 +1,7 @@
 package app
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 	"strings"
@@ -102,5 +103,97 @@ func (s *Server) handleAdminAgentToggle(w http.ResponseWriter, r *http.Request) 
 	// dedicated table; for v1 a grep over pod logs is the read path.
 	s.log.Printf("audit: admin agent toggle name=%s actor=%s new_replicas=%d new_state=%s",
 		name, session.Email, st.Replicas, st.State)
+	writeJSONNoStore(w, http.StatusOK, map[string]any{"agent": st})
+}
+
+// adminAgentGoogleConnectRequest is the body the callback route POSTs after it
+// exchanges the auth code for a refresh token at the admin gateway.
+type adminAgentGoogleConnectRequest struct {
+	ClientID     string `json:"clientId"`
+	ClientSecret string `json:"clientSecret"`
+	RefreshToken string `json:"refreshToken"`
+}
+
+// handleAdminAgentGoogleConnectFinish receives the DCR client + refresh token
+// captured by the admin Google consent dance and re-writes the named system
+// agent's gws-mcp-oauth Secret, then rolls the pod so the token sidecar
+// remounts them. Admin-gated exactly like handleAdminAgentToggle.
+//
+//	POST /v1/admin/agents/{name}/google/connect/finish
+//	body: {"clientId":"...","clientSecret":"...","refreshToken":"..."}
+//	-> 200 {"agent": {...AgentStatus}}
+//	-> 404 unknown agent / agent has no Google connect
+//	-> 503 disabled (out-of-cluster)
+func (s *Server) handleAdminAgentGoogleConnectFinish(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	tok := tokenFromAuthHeader(r)
+	session, err := s.validateAdminSession(r.Context(), tok)
+	if err != nil {
+		if !s.adminAuthEnabled() {
+			http.Error(w, "admin auth disabled", http.StatusServiceUnavailable)
+			return
+		}
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+	name := strings.TrimSpace(r.PathValue("name"))
+	target, known := agentTargets[name]
+	if !known {
+		writeJSONNoStore(w, http.StatusNotFound, map[string]any{
+			"error": "unknown agent: " + name,
+			"known": AgentTargetNames(),
+		})
+		return
+	}
+	if target.GoogleSecret == "" {
+		writeJSONNoStore(w, http.StatusNotFound, map[string]any{
+			"error": "agent has no Google connect: " + name,
+		})
+		return
+	}
+	if s.agentToggle == nil || s.agentToggle.Disabled() {
+		writeJSONNoStore(w, http.StatusServiceUnavailable, map[string]any{
+			"error": "agent toggle disabled (no in-cluster config)",
+		})
+		return
+	}
+
+	var req adminAgentGoogleConnectRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid json", http.StatusBadRequest)
+		return
+	}
+	clientID := strings.TrimSpace(req.ClientID)
+	clientSecret := strings.TrimSpace(req.ClientSecret)
+	refreshToken := strings.TrimSpace(req.RefreshToken)
+	// Same minimum-length sanity check as the PA flow: gateway DCR client_id
+	// ~40 chars, client_secret ~60, refresh_token ~640.
+	if len(clientID) < 16 || len(clientSecret) < 16 || len(refreshToken) < 64 {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+
+	if err := s.agentToggle.WriteAgentGoogleCredentials(r.Context(), name, clientID, clientSecret, refreshToken); err != nil {
+		if errors.Is(err, ErrUnknownAgent) {
+			writeJSONNoStore(w, http.StatusNotFound, map[string]any{"error": err.Error()})
+			return
+		}
+		s.log.Printf("admin agent google connect %q by %q: %v", name, session.Email, err)
+		writeJSONNoStore(w, http.StatusBadGateway, map[string]any{"error": err.Error()})
+		return
+	}
+	// Audit line — same pipeline as the toggle action.
+	s.log.Printf("audit: admin agent google connect name=%s actor=%s email=%s",
+		name, session.Email, target.GoogleEmail)
+
+	st, err := s.agentToggle.Status(r.Context(), name)
+	if err != nil {
+		s.log.Printf("admin agent google connect %q status refresh: %v", name, err)
+		writeJSONNoStore(w, http.StatusBadGateway, map[string]any{"error": err.Error()})
+		return
+	}
 	writeJSONNoStore(w, http.StatusOK, map[string]any{"agent": st})
 }

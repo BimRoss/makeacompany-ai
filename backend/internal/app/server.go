@@ -306,6 +306,7 @@ func NewServer(cfg Config, logger *log.Logger, store *Store) (*Server, error) {
 	s.mux.HandleFunc("/v1/admin/gsc-summary", s.handleAdminGSCSummary)
 	s.mux.HandleFunc("GET /v1/admin/agents/status", s.handleAdminAgentsStatus)
 	s.mux.HandleFunc("POST /v1/admin/agents/{name}/toggle", s.handleAdminAgentToggle)
+	s.mux.HandleFunc("POST /v1/admin/agents/{name}/google/connect/finish", s.handleAdminAgentGoogleConnectFinish)
 	// User-engagement counters for the /admin expandable row (issue #498).
 	s.mux.HandleFunc("GET /v1/admin/user-engagement/top", s.handleAdminUserEngagementTop)
 	s.mux.HandleFunc("GET /v1/admin/user-engagement/total", s.handleAdminUserEngagementTotal)
