@@ -10,37 +10,16 @@ import {
   type ReactNode,
 } from "react";
 
-import { isBrowserLoopbackHost } from "@/lib/admin/browser-loopback";
 import { kickToLoginForUnauthorizedApi } from "@/lib/client-auth-unauthorized-redirect";
 
-export type GrafanaEmbed = {
-  key: string;
-  panelId: string;
-  title: string;
-  dashboardUrl: string | null;
-  defaultFrom?: string;
-};
-
 type HealthPayload = {
-  adminGrafanaEmbeds?: GrafanaEmbed[];
-  cronjobGrafanaEmbeds?: GrafanaEmbed[];
-  clusterGrafanaEmbeds?: GrafanaEmbed[];
   grafanaDashboardUrl?: string | null;
-  cronjobGrafanaDashboardUrl?: string | null;
-  clusterGrafanaDashboardUrl?: string | null;
 };
 
 type ObservabilityDataContextValue = {
-  loopback: boolean | null;
-  fetched: boolean;
   loading: boolean;
   lastUpdatedAt: string | null;
-  adminEmbeds: GrafanaEmbed[];
-  cronjobEmbeds: GrafanaEmbed[];
-  clusterEmbeds: GrafanaEmbed[];
   adminDashboardUrl: string | null;
-  cronjobDashboardUrl: string | null;
-  clusterDashboardUrl: string | null;
 };
 
 const ObservabilityDataContext = createContext<ObservabilityDataContextValue | null>(null);
@@ -48,21 +27,13 @@ const ObservabilityDataContext = createContext<ObservabilityDataContextValue | n
 const POLL_INTERVAL_MS = 30_000;
 
 export function ObservabilityDataProvider({ children }: { children: ReactNode }) {
-  const [loopback, setLoopback] = useState<boolean | null>(null);
-  const [fetched, setFetched] = useState(false);
   const [loading, setLoading] = useState(true);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
-  const [adminEmbeds, setAdminEmbeds] = useState<GrafanaEmbed[]>([]);
-  const [cronjobEmbeds, setCronjobEmbeds] = useState<GrafanaEmbed[]>([]);
-  const [clusterEmbeds, setClusterEmbeds] = useState<GrafanaEmbed[]>([]);
   const [adminDashboardUrl, setAdminDashboardUrl] = useState<string | null>(null);
-  const [cronjobDashboardUrl, setCronjobDashboardUrl] = useState<string | null>(null);
-  const [clusterDashboardUrl, setClusterDashboardUrl] = useState<string | null>(null);
   const cancelledRef = useRef(false);
 
   useEffect(() => {
     cancelledRef.current = false;
-    setLoopback(isBrowserLoopbackHost());
 
     const load = async () => {
       setLoading(true);
@@ -73,22 +44,12 @@ export function ObservabilityDataProvider({ children }: { children: ReactNode })
         }
         const payload = (await response.json()) as HealthPayload;
         if (cancelledRef.current) return;
-        setAdminEmbeds(Array.isArray(payload.adminGrafanaEmbeds) ? payload.adminGrafanaEmbeds : []);
-        setCronjobEmbeds(
-          Array.isArray(payload.cronjobGrafanaEmbeds) ? payload.cronjobGrafanaEmbeds : []
-        );
-        setClusterEmbeds(
-          Array.isArray(payload.clusterGrafanaEmbeds) ? payload.clusterGrafanaEmbeds : []
-        );
         setAdminDashboardUrl(payload.grafanaDashboardUrl ?? null);
-        setCronjobDashboardUrl(payload.cronjobGrafanaDashboardUrl ?? null);
-        setClusterDashboardUrl(payload.clusterGrafanaDashboardUrl ?? null);
         setLastUpdatedAt(new Date().toISOString());
       } catch {
         // leave previous state; pulse will stay green on last good fetch
       } finally {
         if (!cancelledRef.current) {
-          setFetched(true);
           setLoading(false);
         }
       }
@@ -104,29 +65,11 @@ export function ObservabilityDataProvider({ children }: { children: ReactNode })
 
   const value = useMemo<ObservabilityDataContextValue>(
     () => ({
-      loopback,
-      fetched,
       loading,
       lastUpdatedAt,
-      adminEmbeds,
-      cronjobEmbeds,
-      clusterEmbeds,
       adminDashboardUrl,
-      cronjobDashboardUrl,
-      clusterDashboardUrl,
     }),
-    [
-      loopback,
-      fetched,
-      loading,
-      lastUpdatedAt,
-      adminEmbeds,
-      cronjobEmbeds,
-      clusterEmbeds,
-      adminDashboardUrl,
-      cronjobDashboardUrl,
-      clusterDashboardUrl,
-    ]
+    [loading, lastUpdatedAt, adminDashboardUrl]
   );
 
   return (
