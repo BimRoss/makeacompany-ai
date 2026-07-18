@@ -28,7 +28,6 @@ const POOL = {
   successRatio: 'sum(rate(makeacompany_http_requests_total{status_class="2xx"}[5m])) / clamp_min(sum(rate(makeacompany_http_requests_total[5m])), 0.0001)',
   p95: "histogram_quantile(0.95, sum by (le) (rate(makeacompany_http_request_duration_seconds_bucket[5m])))",
   errorsPerMin: 'sum(rate(makeacompany_http_requests_total{status_class="5xx"}[5m])) * 60',
-  cronStaleness: 'max(time() - kube_cronjob_status_last_schedule_time{namespace="makeacompany-ai"})',
 } as const;
 
 function colorFor(thresholds: Threshold[], value: number, higherIsBetter: boolean): "green" | "amber" | "red" {
@@ -397,21 +396,6 @@ export function KpiScorecard() {
           { value: 0, color: "green" },
           { value: 1, color: "amber" },
           { value: 5, color: "red" },
-        ],
-      },
-      {
-        id: "cron",
-        label: "Oldest cron schedule",
-        query: POOL.cronStaleness,
-        format: (v) => {
-          if (v < 60) return `${v.toFixed(0)}s`;
-          if (v < 3600) return `${(v / 60).toFixed(0)}m`;
-          return `${(v / 3600).toFixed(1)}h`;
-        },
-        thresholds: [
-          { value: 0, color: "green" },
-          { value: 3600, color: "amber" },
-          { value: 5400, color: "red" },
         ],
       },
     ],
