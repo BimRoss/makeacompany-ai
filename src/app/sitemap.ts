@@ -1,17 +1,43 @@
 import type { MetadataRoute } from "next";
+import { resolveBackendBaseURL } from "@/lib/resolve-backend-base-url";
 import { PERSONA_SLUGS } from "@/lib/personas";
 import { siteUrl } from "@/lib/site";
+
+// Revalidate every hour so newly-public agents appear without a full redeploy.
+export const revalidate = 3600;
 
 // Pinned at module load (build time). Avoids the per-request `new Date()` pattern
 // that made every route look "just updated" in Search Console on every recrawl.
 const BUILD_TIME = new Date();
 
-export default function sitemap(): MetadataRoute.Sitemap {
+type SitemapAgent = { id: string; createdAt?: string };
+
+async function fetchPublicAgentIds(): Promise<SitemapAgent[]> {
+  try {
+    const url = `${resolveBackendBaseURL().replace(/\/$/, "")}/v1/personal-agents/sitemap`;
+    const res = await fetch(url, { cache: "no-store", signal: AbortSignal.timeout(3000) });
+    if (!res.ok) return [];
+    const body = (await res.json()) as { agents?: SitemapAgent[] };
+    return Array.isArray(body.agents) ? body.agents : [];
+  } catch {
+    return [];
+  }
+}
+
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const personaRoutes: MetadataRoute.Sitemap = Object.values(PERSONA_SLUGS).map((slug) => ({
     url: `${siteUrl}/for/${slug}`,
     lastModified: BUILD_TIME,
-    changeFrequency: "weekly",
+    changeFrequency: "weekly" as const,
     priority: 0.8,
+  }));
+
+  const publicAgents = await fetchPublicAgentIds();
+  const agentRoutes: MetadataRoute.Sitemap = publicAgents.map((a) => ({
+    url: `${siteUrl}/a/${a.id}`,
+    lastModified: a.createdAt ? new Date(a.createdAt) : BUILD_TIME,
+    changeFrequency: "monthly" as const,
+    priority: 0.5,
   }));
 
   return [
@@ -46,6 +72,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "monthly",
       priority: 0.7,
     },
+    ...agentRoutes,
   ];
 }
 // llms.txt and llms-full.txt are intentionally NOT in the sitemap. They exist

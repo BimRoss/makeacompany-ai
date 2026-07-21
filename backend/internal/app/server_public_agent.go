@@ -4,9 +4,93 @@ import (
 	"errors"
 	"net/http"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/redis/go-redis/v9"
 )
+
+// publicAgentSitemapEntry is the minimal shape returned by the sitemap index
+// endpoint — only what Next.js sitemap.ts needs to build the URL and set
+// lastModified. No owner data, no content.
+type publicAgentSitemapEntry struct {
+	ID        string `json:"id"`
+	CreatedAt string `json:"createdAt,omitempty"`
+}
+
+type publicAgentSitemapPayload struct {
+	Agents []publicAgentSitemapEntry `json:"agents"`
+}
+
+type publicAgentSitemapCache struct {
+	mu      sync.Mutex
+	at      time.Time
+	payload publicAgentSitemapPayload
+	ok      bool
+}
+
+const publicAgentSitemapCacheTTL = 5 * time.Minute
+
+var publicAgentSitemapMemo publicAgentSitemapCache
+
+// handlePublicAgentSitemap serves a lightweight list of all installed, publicly-
+// visible agent IDs for consumption by the frontend sitemap.ts. Only agents
+// with visibility=public are included — unlisted agents are reachable by direct
+// link but must not appear in the sitemap or be indexed. Cached for
+// publicAgentSitemapCacheTTL to keep the Redis SCAN from firing on every
+// Googlebot crawl.
+func (s *Server) handlePublicAgentSitemap(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	publicAgentSitemapMemo.mu.Lock()
+	fresh := publicAgentSitemapMemo.ok && time.Since(publicAgentSitemapMemo.at) < publicAgentSitemapCacheTTL
+	cached := publicAgentSitemapMemo.payload
+	publicAgentSitemapMemo.mu.Unlock()
+	if fresh {
+		writeJSON(w, http.StatusOK, cached)
+		return
+	}
+
+	recs, err := s.store.ListPersonalAgents(r.Context())
+	if err != nil {
+		s.log.Printf("public-agent sitemap: %v", err)
+		publicAgentSitemapMemo.mu.Lock()
+		stale := publicAgentSitemapMemo.ok
+		last := publicAgentSitemapMemo.payload
+		publicAgentSitemapMemo.mu.Unlock()
+		if stale {
+			writeJSON(w, http.StatusOK, last)
+			return
+		}
+		writeJSON(w, http.StatusOK, publicAgentSitemapPayload{Agents: []publicAgentSitemapEntry{}})
+		return
+	}
+
+	entries := make([]publicAgentSitemapEntry, 0, len(recs))
+	for _, rec := range recs {
+		if rec.Status != PersonalAgentStatusInstalled {
+			continue
+		}
+		if effectivePersonalAgentVisibility(rec.Visibility) != PersonalAgentVisibilityPublic {
+			continue
+		}
+		entries = append(entries, publicAgentSitemapEntry{
+			ID:        rec.ID,
+			CreatedAt: strings.TrimSpace(rec.CreatedAt),
+		})
+	}
+
+	payload := publicAgentSitemapPayload{Agents: entries}
+	publicAgentSitemapMemo.mu.Lock()
+	publicAgentSitemapMemo.payload = payload
+	publicAgentSitemapMemo.at = time.Now()
+	publicAgentSitemapMemo.ok = true
+	publicAgentSitemapMemo.mu.Unlock()
+	writeJSON(w, http.StatusOK, payload)
+}
 
 // PublicAgentProfile is the deliberately-narrow public face of a personal
 // agent, served unauthenticated at GET /v1/personal-agents/{id}/public (#657).
