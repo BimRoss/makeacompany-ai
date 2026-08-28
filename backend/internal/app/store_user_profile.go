@@ -303,6 +303,16 @@ type UserProfileRow struct {
 	// Store.UserClaudeKeyCiphertext so it can never leak into a JSON response.
 	ClaudeAPIKeyLast4     string `json:"claudeApiKeyLast4,omitempty"`
 	ClaudeAPIKeyUpdatedAt string `json:"claudeApiKeyUpdatedAt,omitempty"`
+
+	// Credit metering (#797). CreditsBalance is the remaining spendable balance;
+	// CreditsUnlimited is the admin comp flag. Granted/Consumed totals are audit
+	// counters. Zero-value fields mean the profile has not been seeded yet.
+	CreditsBalance       int64  `json:"creditsBalance"`
+	CreditsGrantedTotal  int64  `json:"creditsGrantedTotal,omitempty"`
+	CreditsConsumedTotal int64  `json:"creditsConsumedTotal,omitempty"`
+	CreditsUnlimited     bool   `json:"creditsUnlimited,omitempty"`
+	CreditsLastGrantAt   string `json:"creditsLastGrantAt,omitempty"`
+	SlackTeamID          string `json:"slackTeamId,omitempty"`
 }
 
 func parseUnixSecondsString(v string) int64 {
@@ -358,6 +368,12 @@ func userProfileRowFromHash(email string, vals map[string]string) UserProfileRow
 		Day7CheckinResponse:                 strings.TrimSpace(vals["day7_checkin_response"]),
 		ClaudeAPIKeyLast4:                   strings.TrimSpace(vals["claude_api_key_last4"]),
 		ClaudeAPIKeyUpdatedAt:               strings.TrimSpace(vals["claude_api_key_updated_at"]),
+		CreditsBalance:                      parseInt64String(vals["credits_balance"]),
+		CreditsGrantedTotal:                 parseInt64String(vals["credits_granted_total"]),
+		CreditsConsumedTotal:                parseInt64String(vals["credits_consumed_total"]),
+		CreditsUnlimited:                    strings.EqualFold(strings.TrimSpace(vals["credits_unlimited"]), "true"),
+		CreditsLastGrantAt:                  strings.TrimSpace(vals["credits_last_grant_at"]),
+		SlackTeamID:                         strings.TrimSpace(vals["slack_team_id"]),
 	}
 }
 

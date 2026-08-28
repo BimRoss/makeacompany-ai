@@ -85,6 +85,14 @@ type Config struct {
 	// FreeTierGateEnabled activates the deploy gate: free users are blocked from shipping until they subscribe.
 	// Env: STRIPE_FREE_TIER_GATE_ENABLED=true. Defaults off so the code can ship to prod before the gate is turned on.
 	FreeTierGateEnabled bool
+	// CreditGateEnabled activates the credit meter/paywall (#797). When off, the /v1/internal/credits check
+	// endpoint always reports allowed and never blocks, so the code can ship to prod before the harness wires
+	// enforcement. Env: CREDIT_GATE_ENABLED=true. Consume still records usage when called, gate on or off.
+	CreditGateEnabled bool
+	// CreditInitialGrant is the number of credits seeded to a profile on first sight (#797). Env:
+	// CREDIT_INITIAL_GRANT, default 100. Changing it affects only profiles seeded after the change —
+	// already-seeded balances are never re-seeded.
+	CreditInitialGrant int
 	// WorkspaceTenantConfig is a JSON map: channelId -> { namespace, deployment, slots: { email: slotN } }.
 	// Powers /v1/portal/workspace/connect/finish (BimRoss/google-workspace-mcp#15). Empty disables the
 	// endpoint with 503. v1 is static (hand-roll claude-code-ross-customer-grant per rancher-admin#465);
@@ -190,6 +198,8 @@ func LoadConfig() Config {
 		GA4PropertyID:                       strings.TrimSpace(os.Getenv("GA4_PROPERTY_ID")),
 		GSCSiteURL:                          envString("GSC_SITE_URL", "sc-domain:makeacompany.ai"),
 		FreeTierGateEnabled:                 envBool("STRIPE_FREE_TIER_GATE_ENABLED", false),
+		CreditGateEnabled:                   envBool("CREDIT_GATE_ENABLED", false),
+		CreditInitialGrant:                  envInt("CREDIT_INITIAL_GRANT", 100),
 		WorkspaceTenantConfig:               strings.TrimSpace(os.Getenv("WORKSPACE_TENANT_CONFIG")),
 		TrialExpiryCheckoutURL:              strings.TrimSpace(os.Getenv("TRIAL_EXPIRY_CHECKOUT_URL")),
 		ShopifyPartnerClientID:              strings.TrimSpace(os.Getenv("SHOPIFY_PARTNER_CLIENT_ID")),
