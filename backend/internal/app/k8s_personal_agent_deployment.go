@@ -406,7 +406,7 @@ const (
 	// personalAgentHostNode pins every personal-agent pod to one specific
 	// worker. Local hostPath data only resolves on the same disk; until we
 	// move to RWX storage, all per-agent pods share this node.
-	personalAgentHostNode = "makeacompany"
+	personalAgentHostNode = "website"
 	// personalAgentHostPathBase is where per-agent workspace data lives on
 	// the host. Each agent's subPath under here is the resource name.
 	personalAgentHostPathBase = "/var/lib/personal-agents"
