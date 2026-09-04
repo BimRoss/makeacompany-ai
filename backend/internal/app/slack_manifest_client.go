@@ -111,6 +111,15 @@ type ManifestCreateResponse struct {
 	AppID              string `json:"app_id"`
 	Credentials        ManifestCreateCredentials `json:"credentials"`
 	OAuthAuthorizeURL  string `json:"oauth_authorize_url"`
+	// Errors carries Slack's per-field validation detail on an invalid_manifest
+	// rejection (same shape apps.manifest.update returns). Without this the
+	// caller only sees the bare "invalid_manifest" code and can't tell which
+	// field failed which constraint.
+	Errors []struct {
+		Code    string `json:"code,omitempty"`
+		Message string `json:"message,omitempty"`
+		Pointer string `json:"pointer,omitempty"`
+	} `json:"errors,omitempty"`
 }
 
 type ManifestCreateCredentials struct {
@@ -133,6 +142,13 @@ func (c *SlackManifestClient) CreateManifest(ctx context.Context, manifest json.
 		return nil, err
 	}
 	if !resp.OK {
+		if len(resp.Errors) > 0 {
+			detail := make([]string, 0, len(resp.Errors))
+			for _, e := range resp.Errors {
+				detail = append(detail, fmt.Sprintf("%s@%s: %s", e.Code, e.Pointer, e.Message))
+			}
+			return nil, fmt.Errorf("apps.manifest.create rejected: %s (%s)", resp.Error, strings.Join(detail, "; "))
+		}
 		return nil, fmt.Errorf("apps.manifest.create rejected: %s", resp.Error)
 	}
 	if strings.TrimSpace(resp.AppID) == "" {

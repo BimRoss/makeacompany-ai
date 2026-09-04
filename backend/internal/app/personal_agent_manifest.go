@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/url"
 	"strings"
+	"unicode/utf8"
 )
 
 //go:embed templates/personal-agent-manifest.json
@@ -61,8 +62,14 @@ func RenderPersonalAgentManifest(sub PersonalAgentManifestSubstitutions) (json.R
 	//   1. Use the user-supplied long_description if it's >= 175 chars.
 	//   2. Else compose from short_description + a platform suffix that
 	//      explains what makes this app what it is. Padded out to >= 175.
+	//
+	// Count runes, not bytes. Slack's min_length constraint is in characters;
+	// Go's len() is bytes. The platform suffix carries an em-dash (U+2014, 3
+	// bytes / 1 char), so a byte-count guard reads the composed string as 2
+	// longer than Slack does and stops padding at 173 chars — Slack then
+	// rejects with got=173. RuneCountInString makes our count match Slack's.
 	longDesc := strings.TrimSpace(sub.LongDescription)
-	if len(longDesc) < slackManifestLongDescMinChars {
+	if utf8.RuneCountInString(longDesc) < slackManifestLongDescMinChars {
 		shortDesc := strings.TrimSpace(sub.Description)
 		// Compose: <user long desc OR short desc>. <platform suffix>.
 		base := longDesc
@@ -72,7 +79,7 @@ func RenderPersonalAgentManifest(sub PersonalAgentManifestSubstitutions) (json.R
 		composed := base + ". " + personalAgentPlatformSuffix
 		// If still short (very rare — short desc + suffix should be >= 175
 		// given the suffix is ~140 chars), repeat the suffix.
-		for len(composed) < slackManifestLongDescMinChars {
+		for utf8.RuneCountInString(composed) < slackManifestLongDescMinChars {
 			composed += " " + personalAgentPlatformSuffix
 		}
 		longDesc = composed

@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"unicode/utf8"
 )
 
 func TestRenderPersonalAgentManifest_Success(t *testing.T) {
@@ -38,8 +39,8 @@ func TestRenderPersonalAgentManifest_Success(t *testing.T) {
 	if !strings.HasPrefix(longDesc, "Grant's personal agent.") {
 		t.Errorf("long_description should start with the description fallback, got %q", longDesc)
 	}
-	if len(longDesc) < slackManifestLongDescMinChars {
-		t.Errorf("long_description = %d chars, want >= %d", len(longDesc), slackManifestLongDescMinChars)
+	if utf8.RuneCountInString(longDesc) < slackManifestLongDescMinChars {
+		t.Errorf("long_description = %d chars, want >= %d", utf8.RuneCountInString(longDesc), slackManifestLongDescMinChars)
 	}
 	settings := parsed["settings"].(map[string]any)
 	if settings["socket_mode_enabled"].(bool) {
@@ -140,6 +141,14 @@ func TestRenderPersonalAgentManifest_LongDescriptionMeetsSlackMin(t *testing.T) 
 			LongDescription:  "A lot more information about this agent lol",
 			EventsRequestURL: "https://e", InstallRedirectURL: "https://i",
 		}},
+		// Regression: a description that composes to exactly 173 runes / 175
+		// bytes. The platform suffix's em-dash (3 bytes, 1 rune) made the old
+		// byte-count guard read 175 and stop padding, so Slack rejected with
+		// got=173 < 175. Must be caught in rune space now.
+		{"em-dash byte/rune boundary", PersonalAgentManifestSubstitutions{
+			DisplayName: "Grantito", Description: "Grant's Personal Agent",
+			EventsRequestURL: "https://e", InstallRedirectURL: "https://i",
+		}},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -150,9 +159,10 @@ func TestRenderPersonalAgentManifest_LongDescriptionMeetsSlackMin(t *testing.T) 
 			var parsed map[string]any
 			_ = json.Unmarshal(out, &parsed)
 			got := parsed["display_information"].(map[string]any)["long_description"].(string)
-			if len(got) < slackManifestLongDescMinChars {
-				t.Errorf("long_description = %d chars, want >= %d. value: %q",
-					len(got), slackManifestLongDescMinChars, got)
+			// Assert in runes — that's the unit Slack's min_length counts.
+			if utf8.RuneCountInString(got) < slackManifestLongDescMinChars {
+				t.Errorf("long_description = %d runes, want >= %d. value: %q",
+					utf8.RuneCountInString(got), slackManifestLongDescMinChars, got)
 			}
 		})
 	}
