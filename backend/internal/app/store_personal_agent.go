@@ -103,6 +103,20 @@ type PersonalAgentRecord struct {
 	// records may have this empty; the icon-current endpoint lazy-fills via
 	// auth.test on the per-agent bot token if missing.
 	BotUserID        string `json:"botUserId,omitempty"`
+	// InstalledTeamID + InstalledOwnerUserID are captured from oauth.v2.access
+	// (team.id + authed_user.id) at install-complete. Unlike OwnerSlackUserID
+	// (set at create from the MakeaCompany-workspace snapshot), these describe
+	// the workspace the agent was actually installed into and the installing
+	// user's id *in that workspace* — the authoritative pair the runtime owner
+	// gate must key on so an agent installed in a foreign workspace answers its
+	// real owner there (#802). Empty until the first successful install.
+	InstalledTeamID      string `json:"installedTeamId,omitempty"`
+	InstalledOwnerUserID string `json:"installedOwnerUserId,omitempty"`
+	// AppDistributionPublic records whether an operator has flipped this agent's
+	// Slack app to Public Distribution (a manual dashboard action — Slack exposes
+	// no API for it). Gates the "install into another workspace" affordance in
+	// /me and is surfaced in the admin console. Default false.
+	AppDistributionPublic bool `json:"appDistributionPublic,omitempty"`
 	// YouTubeSources is the list of harvested-from-YouTube intelligence
 	// blocks the user has ingested onto this agent's persona. Each entry
 	// renders into the runtime PERSONAL_AGENT_SYSTEM_PROMPT (see
@@ -483,6 +497,36 @@ func (s *Store) SetPersonalAgentBotUserID(ctx context.Context, agentID, botUserI
 	})
 }
 
+// SetPersonalAgentInstallIdentity records the workspace + owner id captured
+// from oauth.v2.access at install-complete (team.id + authed_user.id). This is
+// the authoritative owner pair the runtime gate keys on, distinct from the
+// create-time OwnerSlackUserID (#802). No-op on empty values so a partial
+// oauth response never clobbers a prior good install.
+func (s *Store) SetPersonalAgentInstallIdentity(ctx context.Context, agentID, teamID, ownerUserID string) error {
+	fields := map[string]any{"updated_at": time.Now().UTC().Format(time.RFC3339)}
+	if strings.TrimSpace(teamID) != "" {
+		fields["installed_team_id"] = teamID
+	}
+	if strings.TrimSpace(ownerUserID) != "" {
+		fields["installed_owner_user_id"] = ownerUserID
+	}
+	if len(fields) == 1 {
+		return nil
+	}
+	return s.updatePersonalAgentFields(ctx, agentID, fields)
+}
+
+// SetPersonalAgentDistributionPublic flips the operator-controlled flag that
+// records whether this agent's Slack app has had Public Distribution activated
+// in the Slack dashboard (a manual step — no API). Drives the /me external-
+// install affordance and the admin console.
+func (s *Store) SetPersonalAgentDistributionPublic(ctx context.Context, agentID string, public bool) error {
+	return s.updatePersonalAgentFields(ctx, agentID, map[string]any{
+		"app_distribution_public": boolToHash(public),
+		"updated_at":              time.Now().UTC().Format(time.RFC3339),
+	})
+}
+
 // UpdatePersonalAgentStatus flips status to an arbitrary value (e.g. "failed").
 func (s *Store) UpdatePersonalAgentStatus(ctx context.Context, agentID, status string) error {
 	return s.updatePersonalAgentFields(ctx, agentID, map[string]any{
@@ -524,6 +568,9 @@ func recordToHash(r PersonalAgentRecord) map[string]any {
 		"service_name":        r.ServiceName,
 		"service_port":        r.ServicePort,
 		"bot_user_id":         r.BotUserID,
+		"installed_team_id":       r.InstalledTeamID,
+		"installed_owner_user_id": r.InstalledOwnerUserID,
+		"app_distribution_public": boolToHash(r.AppDistributionPublic),
 		"youtube_sources":     marshalYouTubeSources(r.YouTubeSources),
 		"knowledge_token":     r.KnowledgeToken,
 		"status":              r.Status,
@@ -596,6 +643,9 @@ func hashToRecord(vals map[string]string) PersonalAgentRecord {
 		ServiceName:       vals["service_name"],
 		ServicePort:       port,
 		BotUserID:         vals["bot_user_id"],
+		InstalledTeamID:      vals["installed_team_id"],
+		InstalledOwnerUserID: vals["installed_owner_user_id"],
+		AppDistributionPublic: hashToBool(vals["app_distribution_public"]),
 		YouTubeSources:    unmarshalYouTubeSources(vals["youtube_sources"]),
 		KnowledgeToken:    vals["knowledge_token"],
 		Status:            vals["status"],

@@ -502,14 +502,26 @@ func (s *Server) handlePersonalAgentInstallComplete(w http.ResponseWriter, r *ht
 			s.log.Printf("set personal agent bot_user_id: %v", err)
 		}
 	}
+	// Record the authoritative install identity (workspace + owner id in that
+	// workspace) captured from oauth.v2.access. This is what a follow-up PR will
+	// feed to the runtime owner gate so an agent installed in a foreign
+	// workspace answers its real owner there (#802). Best-effort: a failure here
+	// doesn't fail an otherwise-successful install.
+	if oauthOut.TeamID != "" || oauthOut.AuthedUserID != "" {
+		if err := s.store.SetPersonalAgentInstallIdentity(r.Context(), agentID, oauthOut.TeamID, oauthOut.AuthedUserID); err != nil {
+			s.log.Printf("set personal agent install identity: %v", err)
+		}
+	}
 	http.Redirect(w, r, "/me?personal_agent_install=ok", http.StatusFound)
 }
 
 // personalAgentOAuthResult is the subset of oauth.v2.access we keep on hand
 // after install-complete.
 type personalAgentOAuthResult struct {
-	BotToken  string
-	BotUserID string
+	BotToken     string
+	BotUserID    string
+	TeamID       string // oauth.v2.access team.id — the workspace installed into
+	AuthedUserID string // oauth.v2.access authed_user.id — the installing user
 }
 
 // exchangePersonalAgentOAuthCode trades the install auth code for a bot
@@ -544,6 +556,12 @@ func (s *Server) exchangePersonalAgentOAuthCode(ctx context.Context, rec Persona
 		Error       string `json:"error"`
 		AccessToken string `json:"access_token"` // xoxb- bot token (when bot scopes are granted)
 		BotUserID   string `json:"bot_user_id"`
+		Team        struct {
+			ID string `json:"id"`
+		} `json:"team"`
+		AuthedUser struct {
+			ID string `json:"id"`
+		} `json:"authed_user"`
 	}
 	if err := json.Unmarshal(body, &parsed); err != nil {
 		return "", err
@@ -551,12 +569,16 @@ func (s *Server) exchangePersonalAgentOAuthCode(ctx context.Context, rec Persona
 	if !parsed.OK || strings.TrimSpace(parsed.AccessToken) == "" {
 		return "", fmt.Errorf("oauth.v2.access error: %s", parsed.Error)
 	}
-	// Stash bot_user_id on a per-context value the install handler reads back.
-	// Threading it via the return signature would touch every caller; an
-	// out-of-band ctx-bound holder keeps the change tight.
+	// Stash bot_user_id + install identity on a per-context value the install
+	// handler reads back. team.id + authed_user.id are the authoritative
+	// (workspace, owner) pair for the runtime gate (#802). Threading them via
+	// the return signature would touch every caller; an out-of-band ctx-bound
+	// holder keeps the change tight.
 	if h, ok := ctx.Value(personalAgentOAuthResultKey).(*personalAgentOAuthResult); ok {
 		h.BotToken = parsed.AccessToken
 		h.BotUserID = strings.TrimSpace(parsed.BotUserID)
+		h.TeamID = strings.TrimSpace(parsed.Team.ID)
+		h.AuthedUserID = strings.TrimSpace(parsed.AuthedUser.ID)
 	}
 	return parsed.AccessToken, nil
 }

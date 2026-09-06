@@ -55,6 +55,78 @@ func TestPersonalAgent_CreateAndGet(t *testing.T) {
 	}
 }
 
+// TestPersonalAgent_InstallIdentityAndDistribution covers the #802 foundation:
+// the install-captured (team_id, owner_user_id) pair and the operator-flipped
+// distribution flag round-trip through recordToHash/hashToRecord, the setters
+// persist and no-op correctly, and a missing record surfaces redis.Nil.
+func TestPersonalAgent_InstallIdentityAndDistribution(t *testing.T) {
+	st, cleanup := newPersonalAgentTestStore(t)
+	defer cleanup()
+	ctx := context.Background()
+
+	rec := PersonalAgentRecord{
+		ID:               "agent-802",
+		OwnerEmail:       "outsider@example.com",
+		OwnerSlackUserID: "U_HOME", // create-time, our-workspace id
+		DisplayName:      "Scout",
+		SlackAppID:       "A0SCOUT",
+	}
+	if err := st.CreatePersonalAgent(ctx, rec); err != nil {
+		t.Fatalf("CreatePersonalAgent: %v", err)
+	}
+
+	// Fresh record: install identity empty, distribution not public.
+	got, err := st.GetPersonalAgent(ctx, "agent-802")
+	if err != nil {
+		t.Fatalf("GetPersonalAgent: %v", err)
+	}
+	if got.InstalledTeamID != "" || got.InstalledOwnerUserID != "" {
+		t.Errorf("expected empty install identity, got team=%q owner=%q", got.InstalledTeamID, got.InstalledOwnerUserID)
+	}
+	if got.AppDistributionPublic {
+		t.Errorf("expected AppDistributionPublic=false on fresh record")
+	}
+
+	// Capture the install identity (foreign workspace + owner id there).
+	if err := st.SetPersonalAgentInstallIdentity(ctx, "agent-802", "T_FOREIGN", "U_FOREIGN"); err != nil {
+		t.Fatalf("SetPersonalAgentInstallIdentity: %v", err)
+	}
+	// Flip distribution public (the manual dashboard action, recorded our side).
+	if err := st.SetPersonalAgentDistributionPublic(ctx, "agent-802", true); err != nil {
+		t.Fatalf("SetPersonalAgentDistributionPublic: %v", err)
+	}
+
+	got, err = st.GetPersonalAgent(ctx, "agent-802")
+	if err != nil {
+		t.Fatalf("GetPersonalAgent after updates: %v", err)
+	}
+	if got.InstalledTeamID != "T_FOREIGN" || got.InstalledOwnerUserID != "U_FOREIGN" {
+		t.Errorf("install identity = (%q,%q), want (T_FOREIGN,U_FOREIGN)", got.InstalledTeamID, got.InstalledOwnerUserID)
+	}
+	if !got.AppDistributionPublic {
+		t.Errorf("AppDistributionPublic = false, want true")
+	}
+	// The create-time owner id must be untouched — the two are distinct keys.
+	if got.OwnerSlackUserID != "U_HOME" {
+		t.Errorf("OwnerSlackUserID mutated to %q, want U_HOME", got.OwnerSlackUserID)
+	}
+
+	// Empty values are a protective no-op: a partial oauth response must not
+	// clobber a prior good install identity.
+	if err := st.SetPersonalAgentInstallIdentity(ctx, "agent-802", "", ""); err != nil {
+		t.Fatalf("SetPersonalAgentInstallIdentity no-op: %v", err)
+	}
+	got, _ = st.GetPersonalAgent(ctx, "agent-802")
+	if got.InstalledTeamID != "T_FOREIGN" || got.InstalledOwnerUserID != "U_FOREIGN" {
+		t.Errorf("no-op clobbered install identity: (%q,%q)", got.InstalledTeamID, got.InstalledOwnerUserID)
+	}
+
+	// Missing record surfaces redis.Nil through the setter.
+	if err := st.SetPersonalAgentDistributionPublic(ctx, "does-not-exist", true); !errors.Is(err, redis.Nil) {
+		t.Errorf("SetPersonalAgentDistributionPublic on missing record = %v, want redis.Nil", err)
+	}
+}
+
 // TestPersonalAgent_SetOAuthAuthorizeURL covers the #653 persistence path: a
 // fresh install/reinstall URL (carrying the manifest's current scopes) replaces
 // the create-time frozen one, an empty value is a protective no-op, and a missing
